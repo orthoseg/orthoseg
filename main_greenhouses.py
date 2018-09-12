@@ -24,7 +24,7 @@ project_dir = "X:\\PerPersoon\\PIEROG\\Taken\\2018\\2018-08-12_AutoSegmentation\
 #Âmodel_to_use = "unet_greenhouse_loss_0.15832"
 #model_to_use = "unet_vgg16_greenhouse_0.13600"
 #model_to_use = "unet_vgg16_greenhouse_0.11282"
-model_to_use = "unet_vgg16_greenhouse2_0.13341"
+model_to_use = "unet_vgg16_greenhouse03_09_0.05235"
 model_to_use_filepath = os.path.join(project_dir, f"{model_to_use}.hdf5")
 
 # The subdirs where the images and masks can be found by convention for training and validation
@@ -41,7 +41,7 @@ WMS_SERVER_URL = 'http://geoservices.informatievlaanderen.be/raadpleegdiensten/o
 
 # Train and evaluate settings
 model_train_filepath = os.path.join(project_dir, 'unet_vgg16_greenhouse_best.hdf5')
-#model_train_filepath = None
+model_train_filepath = None
 model_train_preload_filepath = model_train_filepath
 batch_size = 4
 train_dir = os.path.join(project_dir, "train")
@@ -100,19 +100,34 @@ def main():
                       train_augmented_dir=train_augmented_dir)
 
     # Predict for training dataset
-    '''
     segment.predict(model_to_use_filepath=model_to_use_filepath,
                     input_image_dir=os.path.join(train_dir, image_subdir),
                     output_predict_dir=os.path.join(train_dir, prediction_eval_subdir),
-                    input_mask_dir=os.path.join(train_dir, mask_subdir))
+                    input_ext=['.tif'],
+                    input_mask_dir=os.path.join(train_dir, mask_subdir),
+                    prefix_with_jaccard=True)
+    segment.predict(model_to_use_filepath=model_to_use_filepath,
+                    input_image_dir=os.path.join(train_dir, image_subdir),
+                    output_predict_dir=os.path.join(train_dir, prediction_eval_subdir),
+                    input_ext=['.jpg'],
+                    input_mask_dir=os.path.join(train_dir, mask_subdir),
+                    prefix_with_jaccard=True)
 
     # Predict for validation dataset
     segment.predict(model_to_use_filepath=model_to_use_filepath,
                     input_image_dir=os.path.join(validation_dir, image_subdir),
                     output_predict_dir=os.path.join(validation_dir, prediction_eval_subdir),
-                    input_mask_dir=os.path.join(validation_dir, mask_subdir))
-    '''
+                    input_ext=['.jpg'],
+                    input_mask_dir=os.path.join(validation_dir, mask_subdir),
+                    prefix_with_jaccard=True)
+    segment.predict(model_to_use_filepath=model_to_use_filepath,
+                    input_image_dir=os.path.join(validation_dir, image_subdir),
+                    output_predict_dir=os.path.join(validation_dir, prediction_eval_subdir),
+                    input_ext=['.tif'],
+                    input_mask_dir=os.path.join(validation_dir, mask_subdir),
+                    prefix_with_jaccard=True)
 
+    '''
     # Predict for entire dataset
     if to_predict_input_dir:
         segment.predict(model_to_use_filepath=model_to_use_filepath,
@@ -120,6 +135,6 @@ def main():
                         output_predict_dir=os.path.join(to_predict_input_dir, prediction_eval_subdir),
                         input_ext=['.jpg', '.tif'],
                         input_mask_dir=None)
-
+    '''
 if __name__ == '__main__':
     main()
