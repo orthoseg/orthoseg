@@ -25,8 +25,8 @@ def main():
     logger = log_helper.main_log_init(log_dir, __name__)
     logger.info("Start loading images")
 
-    image_dir = "\\\\dg3.be\\alp\\Datagis\\Ortho_AGIV_2018_ofw"
-    #image_dir = "X:\\GIS\\GIS DATA\\_Tmp\\Ortho_2018_autosegment_cache\\1024x1024"
+    #image_dir = "\\\\dg3.be\\alp\\Datagis\\Ortho_AGIV_2018_ofw"
+    image_dir = "X:\\GIS\\GIS DATA\\_Tmp\\Ortho_2018_autosegment_cache\\1024x1024"
 
     WMS_SERVER_URL = 'http://geoservices.informatievlaanderen.be/raadpleegdiensten/ofw/wms?'
     wms_server_layers = ['ofw']
@@ -49,8 +49,8 @@ def main():
             image_gen_roi_filepath=roi_filepath,
             image_srs_pixel_x_size=0.25,
             image_srs_pixel_y_size=0.25,
-            image_pixel_width=2000,
-            image_pixel_height=2000,
+            image_pixel_width=1024,
+            image_pixel_height=1024,
             format=ows_helper.FORMAT_JPEG,
             random_sleep=2.0)
 

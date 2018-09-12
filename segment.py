@@ -9,7 +9,6 @@ import logging
 import os
 import glob
 import shutil
-import math
 
 import numpy as np
 import keras as kr
@@ -111,16 +110,11 @@ def predict(model_to_use_filepath: str,
             output_predict_dir: str,
             input_ext: str = '.tif',
             input_mask_dir: str = None,
-            prefix_with_jaccard: bool = False,
             force: bool = False):
 
     # Check if the input parameters are correct...
     if not model_to_use_filepath or not os.path.exists(model_to_use_filepath):
         message = f"Error: input model in is mandatory, model_to_use_filepath: <{model_to_use_filepath}>!"
-        logger.critical(message)
-        raise Exception(message)
-    if prefix_with_jaccard and not input_mask_dir:
-        message = f"Error: prefix_with_jaccard is only possible if mask dir is specified!"
         logger.critical(message)
         raise Exception(message)
 
@@ -135,21 +129,19 @@ def predict(model_to_use_filepath: str,
     logger.info(f"Found {len(image_filepaths)} {input_ext} images to predict on in {input_image_dir}")
     force = False
     model = None
-    image_width = None
-    image_height = None
     for index, image_filepath in enumerate(sorted(image_filepaths)):
 
         # Prepare the filepath for the output
         tmp_filepath = image_filepath.replace(input_image_dir,
                                               output_predict_dir)
-        image_pred_dir, image_pred_filename = os.path.split(tmp_filepath)
+        image_pred_dir = os.path.split(tmp_filepath)[0]
         if not os.path.exists(image_pred_dir):
             os.mkdir(image_pred_dir)
-        image_pred_filename_noext, image_pred_ext = os.path.splitext(image_pred_filename)
-        image_pred_files = glob.glob(f"{image_pred_dir}{os.sep}*{image_pred_filename_noext}_pred{image_pred_ext}")
+        image_pred_filepath_noext, image_pred_ext = os.path.splitext(tmp_filepath)
+        image_pred_filepath = f"{image_pred_filepath_noext}_pred{image_pred_ext}"
 
         # If force is false and file exists... skip
-        if force is False and len(image_pred_files) > 0:
+        if force is False and os.path.exists(image_pred_filepath):
             logger.info(f"Predict for image already exists and force is False, so skip: {image_filepath}")
             continue
         else:
@@ -159,18 +151,8 @@ def predict(model_to_use_filepath: str,
         with rio.open(image_filepath) as image_ds:
             image_profile = image_ds.profile
             logger.debug(f"image_profile: {image_profile}")
-            
-            # If it is the first image, init variables
-            if not image_width:
-                image_width = image_profile['width']
-                image_height = image_profile['height']
-            else:
-                # If not the first image, and image size is different, skip image!
-                if(image_width != image_profile['width'] 
-                   or image_height != image_profile['height']):
-                    logger.warn(f"Different image size in one run is not supported, skip {image_filepath}")
-                    continue
-                
+            image_width = image_profile['width']
+            image_height = image_profile['height']
             image_channels = image_profile['count']
             image_transform = image_ds.transform
 
@@ -178,6 +160,10 @@ def predict(model_to_use_filepath: str,
             image_arr = image_ds.read()
             # Change from (channels, width, height) tot (width, height, channels)
             image_arr = rio_plot.reshape_as_image(image_arr)
+
+#        image = kr.preprocessing.image.load_img(image_filepath)
+#        image_arr = kr.preprocessing.image.img_to_array(image)
+#        image_arr = image_arr.reshape((image_width, image_height, image_channels))
 
         # Make sure the pixels values are between 0 and 1
         image_arr = image_arr / 255
@@ -190,30 +176,33 @@ def predict(model_to_use_filepath: str,
         if not model:
             logger.info(f"Load model with weights from {model_to_use_filepath}")
 
-#            model = kr.models.load_model(model_to_use_filepath)
-#            model = m.get_unet(input_width=image_profile['width'], input_height=image_profile['height'],
-#                               n_channels=image_profile['count'], n_classes=1)
+            #    model = kr.models.load_model(model_to_use_filepath)
+ #           model = m.get_unet(input_width=image_profile['width'], input_height=image_profile['height'],
+ #                              n_channels=image_profile['count'], n_classes=1)
             model = m.get_unet(input_width=image_width, input_height=image_height,
                                n_channels=image_channels, n_classes=1)
             model.load_weights(model_to_use_filepath)
 
         # Predict!
-        logger.debug("Start prediction")
+        logger.info("Start prediction")
         image_pred_orig = model.predict(image_arr, batch_size=1)
         logger.debug("After prediction")
 
         # Only take the first image, as there is only one...
-        image_pred_orig = image_pred_orig[0]
+        image_pred = image_pred_orig[0]
 
         # Check the number of channels of the output prediction
-        n_channels = image_pred_orig.shape[2]
+        n_channels = image_pred.shape[2]
         if n_channels > 1:
             raise Exception(f"Not implemented: processing prediction output with multiple channels: {n_channels}")
+
+        logger.debug("Save original prediction")
+        kr.preprocessing.image.save_img(image_pred_filepath, image_pred)
 
         # Cleanup
         # Make the array 2 dimensial for the next algorithm. Is no problem if there
         # is only one channel
-        image_pred = image_pred_orig.reshape((image_width, image_height))
+        image_pred = image_pred.reshape((image_width, image_height))
 
         # Cleanup the image so it becomes a clean 2 color one instead of grayscale
         logger.debug("Clean prediction")
@@ -222,45 +211,8 @@ def predict(model_to_use_filepath: str,
         # Convert the output image to uint [0-255] instead of float [0,1]
         image_pred = (image_pred * 255).astype(np.uint8)
 
-        jaccard_str = ''
-        if prefix_with_jaccard:
-            # Read mask file and get all needed info from it...
-            mask_filepath = image_filepath.replace(input_image_dir, 
-                                                   input_mask_dir)
-
-            def jaccard_similarity(im1, im2):            
-                if im1.shape != im2.shape:
-                    message = f"Shape mismatch: input have different shape: im1: {im1.shape}, im2: {im2.shape}"
-                    logger.critical(message)
-                    raise ValueError(message)
-
-                intersection = np.logical_and(im1, im2)
-                union = np.logical_or(im1, im2)
-                
-                sum_union = float(union.sum())
-                if sum_union == 0.0:
-                    # If 0 positive pixels in union: perfect prediction, so 1
-                    return 1
-                else:
-                    sum_intersect = intersection.sum()           
-                    return sum_intersect/sum_union
- 
-            with rio.open(mask_filepath) as mask_ds:               
-                # Read pixels
-                mask_arr = mask_ds.read(1)
-            
-            jaccard = jaccard_similarity(mask_arr, image_pred)
-            jaccard_str = f"{jaccard:0.3f}"
-            
-        image_pred_filepath = f"{image_pred_dir}{os.sep}{jaccard_str}_{image_pred_filename_noext}_pred{image_pred_ext}"
-
-        logger.debug("Save original prediction")
-        # TODO: probably better that rasterio is used here as well so geotiff 
-        # will be used as well!
-        kr.preprocessing.image.save_img(image_pred_filepath, image_pred_orig)
-        
         # Write the output to file
-        logger.debug("Save cleaned prediction")
+        logger.debug("Write cleaned prediction")
         # TODO: should always be done using input image, but in my test data
         # doesn't contain geo yet
         if input_mask_dir:
@@ -268,7 +220,6 @@ def predict(model_to_use_filepath: str,
                                                   input_mask_dir)
         else:
             tmp_filepath = image_filepath
-            
         # First read the properties of the input image to copy them for the output
         with rio.open(tmp_filepath) as image_ds:
             image_profile = image_ds.profile
@@ -278,7 +229,7 @@ def predict(model_to_use_filepath: str,
         # dtype to uint8 and specify LZW compression.
         image_profile.update(dtype=rio.uint8, count=1, compress='lzw')
 
-        image_pred_cleaned_filepath = f"{image_pred_dir}{os.sep}{jaccard_str}_{image_pred_filename_noext}_pred_cleaned{image_pred_ext}"
+        image_pred_cleaned_filepath = f"{image_pred_filepath_noext}_pred_cleaned{image_pred_ext}"
         with rio.open(image_pred_cleaned_filepath, 'w', **image_profile) as dst:
             dst.write(image_pred.astype(rio.uint8), 1)
 
@@ -289,11 +240,11 @@ def predict(model_to_use_filepath: str,
                                      transform=image_transform)
 
         # Write WKT's of original + simplified shapes
-        poly_wkt_filepath = f"{image_pred_dir}{os.sep}{jaccard_str}_{image_pred_filename_noext}_pred_cleaned.wkt"
-        poly_wkt_simpl_filepath = f"{image_pred_dir}{os.sep}{jaccard_str}_{image_pred_filename_noext}_pred_cleaned_simpl.wkt"
+        poly_wkt_filepath = f"{image_pred_filepath_noext}_pred_cleaned.wkt"
+        poly_wkt_simpl_filepath = f"{image_pred_filepath_noext}_pred_cleaned_simpl.wkt"
 
-#        if os.path.exists(poly_wkt_filepath):
-#            os.remove(poly_wkt_filepath)
+    #    if os.path.exists(poly_wkt_filepath):
+    #        os.remove(poly_wkt_filepath)
         logger.debug('Before writing orig geom wkt file')
 
         geoms_simpl = []
@@ -305,7 +256,7 @@ def predict(model_to_use_filepath: str,
 
                 # simplify and rasterize for easy comparison with original masks
                 # preserve_topology is slower bu makes sure no polygons are removed
-                geom_simpl = geom_sh.simplify(1.5, preserve_topology=True)
+                geom_simpl = geom_sh.simplify(2, preserve_topology=True)
                 if not geom_simpl.is_empty:
                     geoms_simpl.append(geom_simpl)
 
@@ -317,13 +268,12 @@ def predict(model_to_use_filepath: str,
 
         # Write simplified wkt result to raster for debugging. Use the same
         # file profile as created before for writing the raw prediction result
-        # TODO: doesn't support multiple classes
         logger.debug('Before writing simpl rasterized file')
 
-        image_pred_simpl_filepath = f"{image_pred_dir}{os.sep}{jaccard_str}_{image_pred_filename_noext}_pred_cleaned_simpl{image_pred_ext}"
+        image_pred_simpl_filepath = f"{image_pred_filepath_noext}_pred_cleaned_simpl2{image_pred_ext}"
         with rio.open(image_pred_simpl_filepath, 'w', **image_profile) as dst:
             # this is where we create a generator of geom, value pairs to use in rasterizing
-#            shapes = ((geom,value) for geom, value in zip(counties.geometry, counties.LSAD_NUM))
+    #        shapes = ((geom,value) for geom, value in zip(counties.geometry, counties.LSAD_NUM))
             logger.debug('Before rasterize')
             if geoms_simpl:
                 out_arr = dst.read(1)
@@ -331,6 +281,7 @@ def predict(model_to_use_filepath: str,
                                                 default_value=255, out=out_arr,
                                                 transform=image_transform)
                 logger.debug(burned)
+        #        dst.write_band(1, burned)
                 dst.write(burned, 1)
 
         # Copy the mask if an input_mask_dir is specified
@@ -338,12 +289,17 @@ def predict(model_to_use_filepath: str,
             # Prepare the file paths
             mask_filepath = image_filepath.replace(input_image_dir,
                                                    input_mask_dir)
-            mask_copy_dest_filepath = f"{output_predict_dir}{os.sep}{jaccard_str}_{image_pred_filename_noext}_mask{image_pred_ext}"
+            mask_copy_dest_filepath = mask_filepath.replace(input_mask_dir,
+                                                            output_predict_dir)
+            filepath_noext, filepath_ext = os.path.splitext(mask_copy_dest_filepath)
+            mask_copy_dest_filepath = f"{filepath_noext}_mask{filepath_ext}"
+
             # Copy if the file doesn't exist yet
             if not os.path.exists(mask_copy_dest_filepath):
                 shutil.copyfile(mask_filepath, mask_copy_dest_filepath)
 
         # Copy the input image if it doesn't exist yet in output path
-        image_copy_dest_filepath = f"{output_predict_dir}{os.sep}{jaccard_str}_{image_pred_filename_noext}{image_pred_ext}"       
+        image_copy_dest_filepath = image_filepath.replace(input_image_dir,
+                                                          output_predict_dir)
         if not os.path.exists(image_copy_dest_filepath):
             shutil.copyfile(image_filepath, image_copy_dest_filepath)

@@ -21,16 +21,15 @@ import skimage.morphology       # Needs to be imported explicitly as it is a sub
 from scipy import ndimage
 #import pydensecrf.densecrf as dcrf
 
-def region_segmentation(predicted_mask,
-                        thresshold_ok: float = 0.6):
+def region_segmentation(predicted_mask):
     
     # ???
     elevation_map = skimage.filters.sobel(predicted_mask)
     
     # First apply some basic thressholds...
     markers = np.zeros_like(predicted_mask)
-    markers[predicted_mask < thresshold_ok] = 1
-    markers[predicted_mask >= thresshold_ok] = 2
+    markers[predicted_mask < 0.3] = 1
+    markers[predicted_mask >= 0.3] = 2
 
     # Clean    
     segmentation = skimage.morphology.watershed(elevation_map, markers)   
@@ -40,9 +39,9 @@ def region_segmentation(predicted_mask,
     
     return segmentation
 
-def thresshold(mask, thresshold_ok: float = 0.6):
-    mask[mask >= thresshold_ok] = 1
-    mask[mask < thresshold_ok] = 0
+def thresshold(mask):
+    mask[mask >= 0.4] = 255
+    mask[mask < 0.4] = 0
     
     return mask
 
