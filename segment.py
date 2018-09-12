@@ -35,12 +35,13 @@ logger = logging.getLogger(__name__)
 # The real work
 #-------------------------------------------------------------
 
-def train(train_dir: str,
-          validation_dir: str,
+def train(traindata_dir: str,
+          validationdata_dir: str,
           image_subdir: str,
           mask_subdir: str,
-          model_train_filepath: str,
-          model_train_preload_filepath: str = None,
+          model_dir: str,
+          model_basename: str,
+          model_preload_filepath: str = None,
           batch_size: int = 32,
           train_augmented_dir: str = None):
 
@@ -56,12 +57,12 @@ def train(train_dir: str,
                                rescale=1./255,
                                width_shift_range=0.05,
                                height_shift_range=0.05,
-                               shear_range=0.05,
+                               shear_range=0.0,
                                zoom_range=0.05,
                                horizontal_flip=True,
                                vertical_flip=True)
 
-    train_gen = data.create_train_generator(input_data_dir=train_dir,
+    train_gen = data.create_train_generator(input_data_dir=traindata_dir,
                             image_subdir=image_subdir, mask_subdir=mask_subdir,
                             aug_dict=data_gen_train_args, batch_size=batch_size,
                             target_size=(image_width, image_height),
@@ -69,7 +70,7 @@ def train(train_dir: str,
                             save_to_dir=train_augmented_dir)
 
     data_gen_validation_args = dict(rescale=1./255)
-    validation_gen = data.create_train_generator(input_data_dir=validation_dir,
+    validation_gen = data.create_train_generator(input_data_dir=validationdata_dir,
                             image_subdir=image_subdir, mask_subdir=mask_subdir,
                             aug_dict=data_gen_validation_args, batch_size=batch_size,
                             target_size=(image_width, image_height),
@@ -78,32 +79,44 @@ def train(train_dir: str,
 
     # Create a unet model
     model = m.get_unet(input_width=image_width, input_height=image_height, n_channels=3,
-                       n_classes=1, init_with_vgg16=True, loss_mode='bcedice')
-    if model_train_preload_filepath:
-        if not os.path.exists(model_train_preload_filepath):
-            message = f"Error: preload model file doesn't exist: {model_train_preload_filepath}"
+                       n_classes=1, init_with_vgg16=True,
+                       loss_mode='binary_crossentropy')
+#                       loss_mode='bcedice')
+    if model_preload_filepath:
+        if not os.path.exists(model_preload_filepath):
+            message = f"Error: preload model file doesn't exist: {model_preload_filepath}"
             logger.critical(message)
             raise Exception(message)
-        model.load_weights(model_train_preload_filepath)
+        model.load_weights(model_preload_filepath)
 
     # Define some callbacks for the training
-    model_checkpoint = kr.callbacks.ModelCheckpoint(model_train_filepath, monitor='loss',
+    # TODO: nakijken of val_loss of loss gemonitored moet worden
+    model_best_filepath = f"{model_dir}{os.sep}{model_basename}_best.hdf5"
+    model_checkpoint_best = kr.callbacks.ModelCheckpoint(model_best_filepath, monitor='loss',
+                                                         verbose=1, save_best_only=True)
+#    model_detailed_filepath = f"{model_dir}{os.sep}{model_basename}" + "_{epoch:02d}_{val_loss:.5f}.hdf5"
+    model_detailed_filepath = f"{model_dir}{os.sep}{model_basename}" + "_{epoch:02d}_{loss:.5f}.hdf5"
+    model_checkpoint = kr.callbacks.ModelCheckpoint(model_detailed_filepath, monitor='loss',
                                                     verbose=1, save_best_only=True)
     early_stopping = kr.callbacks.EarlyStopping(monitor='val_loss',
                                                 patience=10, verbose=0, mode='auto')
     reduce_lr = kr.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2,
                                                patience=5, min_lr=0.001)
-    tensorboard = kr.callbacks.TensorBoard(log_dir='./tensorboard_logs')
+    tensorboard_log_dir = f"{model_dir}{os.sep}{model_basename}" + "_tensorboard_log"
+    tensorboard_logger = kr.callbacks.TensorBoard(log_dir=tensorboard_log_dir)
+    csv_log_filepath = f"{model_dir}{os.sep}{model_basename}" + '_log.csv'
+    csv_logger = kr.callbacks.CSVLogger(csv_log_filepath, append=True, separator=';')
 
     # Start training
-    train_dataset_size = len(glob.glob(f"{train_dir}{os.sep}{image_subdir}{os.sep}*.*"))
+    train_dataset_size = len(glob.glob(f"{traindata_dir}{os.sep}{image_subdir}{os.sep}*.*"))
     train_steps_per_epoch = int(train_dataset_size/batch_size)
-    validation_dataset_size = len(glob.glob(f"{validation_dir}{os.sep}{image_subdir}{os.sep}*.*"))
+    validation_dataset_size = len(glob.glob(f"{validationdata_dir}{os.sep}{image_subdir}{os.sep}*.*"))
     validation_steps_per_epoch = int(validation_dataset_size/batch_size)
     model.fit_generator(train_gen, steps_per_epoch=train_steps_per_epoch, epochs=50,
                         validation_data=validation_gen,
                         validation_steps=validation_steps_per_epoch,       # Number of items in validation/batch_size
-                        callbacks=[model_checkpoint, early_stopping, reduce_lr, tensorboard])
+                        callbacks=[model_checkpoint, model_checkpoint_best , early_stopping,
+                                   reduce_lr, tensorboard_logger, csv_logger])
 
 def predict(model_to_use_filepath: str,
             input_image_dir: str,

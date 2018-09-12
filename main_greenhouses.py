@@ -40,9 +40,10 @@ input_vector_labels_filepath = os.path.join(input_vector_dir, "Prc_SER_SGM.shp")
 WMS_SERVER_URL = 'http://geoservices.informatievlaanderen.be/raadpleegdiensten/ofw/wms?'
 
 # Train and evaluate settings
-model_train_filepath = os.path.join(project_dir, 'unet_vgg16_greenhouse_best.hdf5')
+model_train_dir = project_dir
+model_train_basename = 'unet_vgg16_greenhouse03'
 #model_train_filepath = None
-model_train_preload_filepath = model_train_filepath
+model_train_preload_filepath = os.path.join(project_dir, model_train_basename + '_best.hdf5')
 batch_size = 4
 train_dir = os.path.join(project_dir, "train")
 train_augmented_dir = None #os.path.join(project_dir, "train_augmented")
@@ -74,7 +75,7 @@ def main():
         if dir and not os.path.exists(dir):
             os.mkdir(dir)
 
-    if model_train_filepath:
+    if model_train_dir:
         # If the training data doesn't exist yet, create it
         train_image_dir = os.path.join(train_dir, image_subdir)
         if not os.path.exists(train_image_dir):
@@ -90,12 +91,13 @@ def main():
 
         logger.info('Start training')
 
-        segment.train(train_dir=train_dir,
-                      validation_dir=validation_dir,
+        segment.train(traindata_dir=train_dir,
+                      validationdata_dir=validation_dir,
                       image_subdir=image_subdir,
                       mask_subdir=mask_subdir,
-                      model_train_filepath=model_train_filepath,
-                      model_train_preload_filepath=model_train_preload_filepath,
+                      model_dir=model_train_dir,
+                      model_basename=model_train_basename,
+                      model_preload_filepath=model_train_preload_filepath,
                       batch_size=batch_size,
                       train_augmented_dir=train_augmented_dir)
 
@@ -104,12 +106,14 @@ def main():
     segment.predict(model_to_use_filepath=model_to_use_filepath,
                     input_image_dir=os.path.join(train_dir, image_subdir),
                     output_predict_dir=os.path.join(train_dir, prediction_eval_subdir),
+                    input_ext=['.jpg', '.tif'],
                     input_mask_dir=os.path.join(train_dir, mask_subdir))
 
     # Predict for validation dataset
     segment.predict(model_to_use_filepath=model_to_use_filepath,
                     input_image_dir=os.path.join(validation_dir, image_subdir),
                     output_predict_dir=os.path.join(validation_dir, prediction_eval_subdir),
+                    input_ext=['.jpg', '.tif'],
                     input_mask_dir=os.path.join(validation_dir, mask_subdir))
     '''
 
