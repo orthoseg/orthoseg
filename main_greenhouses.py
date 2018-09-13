@@ -20,16 +20,6 @@ print('Start greenhouse script')
 #os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 project_dir = "X:\\PerPersoon\\PIEROG\\Taken\\2018\\2018-08-12_AutoSegmentation\\greenhouses"
 
-# Model settings
-#Âmodel_to_use = "unet_greenhouse_loss_0.15832"
-#model_to_use = "unet_vgg16_greenhouse_0.13600"
-#model_to_use = "unet_vgg16_greenhouse_0.11282"
-model_to_use = "unet_vgg16_greenhouse03_09_0.05235"
-model_to_use_filepath = os.path.join(project_dir, f"{model_to_use}.hdf5")
-
-# The subdirs where the images and masks can be found by convention for training and validation
-prediction_eval_subdir = f"prediction_{model_to_use}_eval"
-
 # Vector data
 input_image_dir = os.path.join(project_dir, 'input_image')
 input_mask_dir = os.path.join(project_dir, 'input_mask')
@@ -40,19 +30,40 @@ input_vector_labels_filepath = os.path.join(input_vector_dir, "Prc_SER_SGM.shp")
 WMS_SERVER_URL = 'http://geoservices.informatievlaanderen.be/raadpleegdiensten/ofw/wms?'
 
 # Train and evaluate settings
-model_train_filepath = os.path.join(project_dir, 'unet_vgg16_greenhouse_best.hdf5')
-model_train_filepath = None
-model_train_preload_filepath = model_train_filepath
+model_train_dir = project_dir
+#model_train_dir = None
+model_train_basename = 'unet_vgg16_greenhouse03'
+model_train_best_name = model_train_basename + '_best'
+#model_train_filepath = None
+model_train_preload_filepath = os.path.join(project_dir, "unet_vgg16_greenhouse03_09_0.05235.hdf5")
+
 batch_size = 4
+nb_epoch = 5
 train_dir = os.path.join(project_dir, "train")
 train_augmented_dir = None #os.path.join(project_dir, "train_augmented")
+
+# The subdirs where the images and masks can be found by convention for training and validation
 image_subdir = "images_labeled"
 mask_subdir = "masks"
 
-# Validation settings
+# Prediction settings
+# Model settings
+# If we are training a model, use the best model for prediction...
+if model_train_dir:
+    model_to_use = model_train_best_name
+    model_to_use_filepath = os.path.join(project_dir, model_train_best_name + ".hdf5")
+else:
+    #model_to_use = "unet_greenhouse_loss_0.15832"
+    #model_to_use = "unet_vgg16_greenhouse_0.13600"
+    #model_to_use = "unet_vgg16_greenhouse_0.11282"
+    model_to_use = "unet_vgg16_greenhouse03_09_0.05235"
+    model_to_use_filepath = os.path.join(project_dir, f"{model_to_use}.hdf5")
+prediction_eval_subdir = f"prediction_{model_to_use}_eval"
+
+# Validation dir
 validation_dir = os.path.join(project_dir, "validation")
 
-# All images settings
+# Real prediction dir
 to_predict_input_dir = None #os.path.join(project_dir, "input_images")
 #to_predict_input_dir = '\\\\dg3.be\\alp\\Datagis\\Ortho_AGIV_2018_ofw'
 to_predict_input_dir = "X:\\GIS\\GIS DATA\_Tmp\\Ortho_2018_autosegment_cache\\1024x1024"
@@ -74,7 +85,7 @@ def main():
         if dir and not os.path.exists(dir):
             os.mkdir(dir)
 
-    if model_train_filepath:
+    if model_train_dir:
         # If the training data doesn't exist yet, create it
         train_image_dir = os.path.join(train_dir, image_subdir)
         if not os.path.exists(train_image_dir):
@@ -89,14 +100,16 @@ def main():
                     force=True)
 
         logger.info('Start training')
-
-        segment.train(train_dir=train_dir,
-                      validation_dir=validation_dir,
+        # TODO: enable validation dir again
+        segment.train(traindata_dir=train_dir,
+                      validationdata_dir=None, #validation_dir,
                       image_subdir=image_subdir,
                       mask_subdir=mask_subdir,
-                      model_train_filepath=model_train_filepath,
-                      model_train_preload_filepath=model_train_preload_filepath,
+                      model_dir=model_train_dir,
+                      model_basename=model_train_basename,
+                      model_preload_filepath=model_train_preload_filepath,
                       batch_size=batch_size,
+                      nb_epoch=nb_epoch,
                       train_augmented_dir=train_augmented_dir)
 
     # Predict for training dataset
@@ -126,7 +139,6 @@ def main():
                     input_ext=['.tif'],
                     input_mask_dir=os.path.join(validation_dir, mask_subdir),
                     prefix_with_jaccard=True)
-
     '''
     # Predict for entire dataset
     if to_predict_input_dir:

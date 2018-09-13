@@ -36,13 +36,15 @@ logger = logging.getLogger(__name__)
 # The real work
 #-------------------------------------------------------------
 
-def train(train_dir: str,
-          validation_dir: str,
+def train(traindata_dir: str,
+          validationdata_dir: str,
           image_subdir: str,
           mask_subdir: str,
-          model_train_filepath: str,
-          model_train_preload_filepath: str = None,
+          model_dir: str,
+          model_basename: str,
+          model_preload_filepath: str = None,
           batch_size: int = 32,
+          nb_epoch: int = 50,
           train_augmented_dir: str = None):
 
     image_width = 512
@@ -57,54 +59,86 @@ def train(train_dir: str,
                                rescale=1./255,
                                width_shift_range=0.05,
                                height_shift_range=0.05,
-                               shear_range=0.05,
+                               shear_range=0.0,
                                zoom_range=0.05,
                                horizontal_flip=True,
                                vertical_flip=True)
 
-    train_gen = data.create_train_generator(input_data_dir=train_dir,
+    train_gen = data.create_train_generator(input_data_dir=traindata_dir,
                             image_subdir=image_subdir, mask_subdir=mask_subdir,
                             aug_dict=data_gen_train_args, batch_size=batch_size,
                             target_size=(image_width, image_height),
                             class_mode=None,
                             save_to_dir=train_augmented_dir)
 
-    data_gen_validation_args = dict(rescale=1./255)
-    validation_gen = data.create_train_generator(input_data_dir=validation_dir,
-                            image_subdir=image_subdir, mask_subdir=mask_subdir,
-                            aug_dict=data_gen_validation_args, batch_size=batch_size,
-                            target_size=(image_width, image_height),
-                            class_mode=None,
-                            save_to_dir=None)
+    if validationdata_dir:
+        data_gen_validation_args = dict(rescale=1./255)
+        validation_gen = data.create_train_generator(input_data_dir=validationdata_dir,
+                                image_subdir=image_subdir, mask_subdir=mask_subdir,
+                                aug_dict=data_gen_validation_args, batch_size=batch_size,
+                                target_size=(image_width, image_height),
+                                class_mode=None,
+                                save_to_dir=None)
+    else:
+        validation_gen = None
 
     # Create a unet model
-    model = m.get_unet(input_width=image_width, input_height=image_height, n_channels=3,
-                       n_classes=1, init_with_vgg16=True, loss_mode='bcedice')
-    if model_train_preload_filepath:
-        if not os.path.exists(model_train_preload_filepath):
-            message = f"Error: preload model file doesn't exist: {model_train_preload_filepath}"
+    model = None
+    if not model_preload_filepath:
+        model = m.get_unet(input_width=image_width, input_height=image_height,
+                           n_channels=3, n_classes=1)
+                           #init_with_vgg16=True,
+    #                       loss_mode='binary_crossentropy'
+    #                       loss_mode='bcedice')
+    else:
+        if not os.path.exists(model_preload_filepath):
+            message = f"Error: preload model file doesn't exist: {model_preload_filepath}"
             logger.critical(message)
             raise Exception(message)
-        model.load_weights(model_train_preload_filepath)
+
+        model = m.get_unet(input_width=image_width, input_height=image_height,
+                           n_channels=3, n_classes=1,
+                           pretrained_weights_filepath=model_preload_filepath,
+                           loss_mode='binary_crossentropy')
+
+#        model = kr.models.load_model(model_preload_filepath)
+#        model = m.load_unet_model(model_preload_filepath)
+#        model = m.get_unet(input_width=image_width, input_height=image_height,
+#                           n_channels=3, n_classes=1)
+#                          init_with_vgg16=True, loss_mode='binary_crossentropy)
+
+#        logger.info(f"Load weights from {model_preload_filepath}")
+#        model.load_weights(model_preload_filepath)
 
     # Define some callbacks for the training
-    model_checkpoint = kr.callbacks.ModelCheckpoint(model_train_filepath, monitor='loss',
+    # TODO: nakijken of val_loss of loss gemonitored moet worden
+    model_best_filepath = f"{model_dir}{os.sep}{model_basename}_best.hdf5"
+    model_checkpoint_best = kr.callbacks.ModelCheckpoint(model_best_filepath, monitor='loss',
+                                                         verbose=1, save_best_only=True)
+#    model_detailed_filepath = f"{model_dir}{os.sep}{model_basename}" + "_{epoch:02d}_{val_loss:.5f}.hdf5"
+    model_detailed_filepath = f"{model_dir}{os.sep}{model_basename}" + "_{epoch:02d}_{loss:.5f}.hdf5"
+    model_checkpoint = kr.callbacks.ModelCheckpoint(model_detailed_filepath, monitor='loss',
                                                     verbose=1, save_best_only=True)
-    early_stopping = kr.callbacks.EarlyStopping(monitor='val_loss',
-                                                patience=10, verbose=0, mode='auto')
-    reduce_lr = kr.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2,
-                                               patience=5, min_lr=0.001)
-    tensorboard = kr.callbacks.TensorBoard(log_dir='./tensorboard_logs')
+#    early_stopping = kr.callbacks.EarlyStopping(monitor='val_loss',
+#                                                patience=10, verbose=0, mode='auto')
+#    reduce_lr = kr.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2,
+#                                               patience=5, min_lr=0.001)
+    tensorboard_log_dir = f"{model_dir}{os.sep}{model_basename}" + "_tensorboard_log"
+    tensorboard_logger = kr.callbacks.TensorBoard(log_dir=tensorboard_log_dir)
+    csv_log_filepath = f"{model_dir}{os.sep}{model_basename}" + '_log.csv'
+    csv_logger = kr.callbacks.CSVLogger(csv_log_filepath, append=True, separator=';')
 
     # Start training
-    train_dataset_size = len(glob.glob(f"{train_dir}{os.sep}{image_subdir}{os.sep}*.*"))
+    train_dataset_size = len(glob.glob(f"{traindata_dir}{os.sep}{image_subdir}{os.sep}*.*"))
     train_steps_per_epoch = int(train_dataset_size/batch_size)
-    validation_dataset_size = len(glob.glob(f"{validation_dir}{os.sep}{image_subdir}{os.sep}*.*"))
+    validation_dataset_size = len(glob.glob(f"{validationdata_dir}{os.sep}{image_subdir}{os.sep}*.*"))
     validation_steps_per_epoch = int(validation_dataset_size/batch_size)
-    model.fit_generator(train_gen, steps_per_epoch=train_steps_per_epoch, epochs=50,
+    model.fit_generator(train_gen, steps_per_epoch=train_steps_per_epoch, epochs=nb_epoch,
                         validation_data=validation_gen,
                         validation_steps=validation_steps_per_epoch,       # Number of items in validation/batch_size
-                        callbacks=[model_checkpoint, early_stopping, reduce_lr, tensorboard])
+                        callbacks=[model_checkpoint, model_checkpoint_best,
+#                                   early_stopping, reduce_lr,
+                                   tensorboard_logger, csv_logger])
 
 def predict(model_to_use_filepath: str,
             input_image_dir: str,
@@ -123,6 +157,8 @@ def predict(model_to_use_filepath: str,
         message = f"Error: prefix_with_jaccard is only possible if mask dir is specified!"
         logger.critical(message)
         raise Exception(message)
+
+    logger.info(f"Predict for input_image_dir: {input_image_dir}, input_ext: {input_ext}")
 
     # Create the output dir's if they don't exist yet...
     for dir in [output_predict_dir]:
@@ -159,18 +195,18 @@ def predict(model_to_use_filepath: str,
         with rio.open(image_filepath) as image_ds:
             image_profile = image_ds.profile
             logger.debug(f"image_profile: {image_profile}")
-            
+
             # If it is the first image, init variables
             if not image_width:
                 image_width = image_profile['width']
                 image_height = image_profile['height']
             else:
                 # If not the first image, and image size is different, skip image!
-                if(image_width != image_profile['width'] 
+                if(image_width != image_profile['width']
                    or image_height != image_profile['height']):
                     logger.warn(f"Different image size in one run is not supported, skip {image_filepath}")
                     continue
-                
+
             image_channels = image_profile['count']
             image_transform = image_ds.transform
 
@@ -225,10 +261,10 @@ def predict(model_to_use_filepath: str,
         jaccard_str = ''
         if prefix_with_jaccard:
             # Read mask file and get all needed info from it...
-            mask_filepath = image_filepath.replace(input_image_dir, 
+            mask_filepath = image_filepath.replace(input_image_dir,
                                                    input_mask_dir)
 
-            def jaccard_similarity(im1, im2):            
+            def jaccard_similarity(im1, im2):
                 if im1.shape != im2.shape:
                     message = f"Shape mismatch: input have different shape: im1: {im1.shape}, im2: {im2.shape}"
                     logger.critical(message)
@@ -236,29 +272,29 @@ def predict(model_to_use_filepath: str,
 
                 intersection = np.logical_and(im1, im2)
                 union = np.logical_or(im1, im2)
-                
+
                 sum_union = float(union.sum())
                 if sum_union == 0.0:
                     # If 0 positive pixels in union: perfect prediction, so 1
                     return 1
                 else:
-                    sum_intersect = intersection.sum()           
+                    sum_intersect = intersection.sum()
                     return sum_intersect/sum_union
- 
-            with rio.open(mask_filepath) as mask_ds:               
+
+            with rio.open(mask_filepath) as mask_ds:
                 # Read pixels
                 mask_arr = mask_ds.read(1)
-            
+
             jaccard = jaccard_similarity(mask_arr, image_pred)
             jaccard_str = f"{jaccard:0.3f}"
-            
+
         image_pred_filepath = f"{image_pred_dir}{os.sep}{jaccard_str}_{image_pred_filename_noext}_pred{image_pred_ext}"
 
         logger.debug("Save original prediction")
-        # TODO: probably better that rasterio is used here as well so geotiff 
+        # TODO: probably better that rasterio is used here as well so geotiff
         # will be used as well!
         kr.preprocessing.image.save_img(image_pred_filepath, image_pred_orig)
-        
+
         # Write the output to file
         logger.debug("Save cleaned prediction")
         # TODO: should always be done using input image, but in my test data
@@ -268,7 +304,7 @@ def predict(model_to_use_filepath: str,
                                                   input_mask_dir)
         else:
             tmp_filepath = image_filepath
-            
+
         # First read the properties of the input image to copy them for the output
         with rio.open(tmp_filepath) as image_ds:
             image_profile = image_ds.profile
@@ -344,6 +380,6 @@ def predict(model_to_use_filepath: str,
                 shutil.copyfile(mask_filepath, mask_copy_dest_filepath)
 
         # Copy the input image if it doesn't exist yet in output path
-        image_copy_dest_filepath = f"{output_predict_dir}{os.sep}{jaccard_str}_{image_pred_filename_noext}{image_pred_ext}"       
+        image_copy_dest_filepath = f"{output_predict_dir}{os.sep}{jaccard_str}_{image_pred_filename_noext}{image_pred_ext}"
         if not os.path.exists(image_copy_dest_filepath):
             shutil.copyfile(image_filepath, image_copy_dest_filepath)
