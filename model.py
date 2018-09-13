@@ -78,7 +78,12 @@ def get_unet(input_width=256, input_height=256, n_channels=3,
     else:
         raise Exception(f"Unknown loss function: {loss_mode}")
 
+    '''
     model.compile(optimizer=kr.optimizers.Adam(lr=1e-4), loss=loss_func,
+                  metrics=[jaccard_coef, jacard_coef_flat,
+                           jaccard_coef_int, dice_coef, 'accuracy'])
+    '''
+    model.compile(optimizer=kr.optimizers.Adam(lr=1e-5), loss=loss_func,
                   metrics=[jaccard_coef, jacard_coef_flat,
                            jaccard_coef_int, dice_coef, 'accuracy'])
 
@@ -98,8 +103,34 @@ def get_unet(input_width=256, input_height=256, n_channels=3,
     #model.summary()
 
     if(pretrained_weights_filepath):
-    	model.load_weights(pretrained_weights_filepath)
 
+        model = kr.models.load_model(
+                pretrained_weights_filepath,
+                custom_objects={'jaccard_coef': jaccard_coef,
+                                'jacard_coef_flat': jacard_coef_flat,
+                                'jaccard_coef_int': jaccard_coef_int,
+                                'dice_coef': dice_coef})
+        '''
+        model = get_unet(input_width=input_width, input_height=input_height,
+                                 n_channels=n_channels, n_classes=n_classes, loss_mode=loss_mode,
+                                 init_with_vgg16=False, pretrained_weights_filepath=None)
+
+        model_preload = get_unet(input_width=input_width, input_height=input_height,
+                                 n_channels=n_channels, n_classes=n_classes, loss_mode=loss_mode,
+                                 init_with_vgg16=False, pretrained_weights_filepath=None)
+        logger.info(f"Preload weights from {pretrained_weights_filepath}")
+        model_preload.load_weights(pretrained_weights_filepath)
+        for layer_preloaded, layer_built in zip(model_preload.layers, model.layers):
+            layer_built.set_weights(layer_preloaded.get_weights())
+        '''
+    return model
+
+def load_unet_model(filepath: str):
+    model = kr.models.load_model(
+            filepath, custom_objects={'jaccard_coef': jaccard_coef,
+                                      'jacard_coef_flat': jacard_coef_flat,
+                                      'jaccard_coef_int': jaccard_coef_int,
+                                      'dice_coef': dice_coef})
     return model
 
 #------------------------------------------
