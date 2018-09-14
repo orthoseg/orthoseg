@@ -60,6 +60,7 @@ def get_images_for_grid(wms_server_url: str,
                         transparent: str = False,
                         wms_server_layers_styles: [str] = ['default'],
                         random_sleep: float = 0.0,
+                        max_nb_images: int = None,
                         force: bool = False):
 
     srs_width = math.fabs(image_pixel_width*image_srs_pixel_x_size)   # tile width in units of crs => 500 m
@@ -125,6 +126,7 @@ def get_images_for_grid(wms_server_url: str,
 
     # Loop through all columns and get the images...
     counter = 0
+    counter_downloaded = 0
     for col in range(0, cols):
         image_xmin = col * srs_width + image_gen_bounds[0]
         image_xmax = (col + 1) * srs_width + image_gen_bounds[0]
@@ -159,7 +161,7 @@ def get_images_for_grid(wms_server_url: str,
                     continue
 
             # Now really get the image
-            getmap_to_file(wms=wms,
+            res = getmap_to_file(wms=wms,
                     layers=wms_server_layers,
                     output_dir=output_dir,
                     srs=srs,
@@ -171,6 +173,12 @@ def get_images_for_grid(wms_server_url: str,
                     layers_styles=wms_server_layers_styles,
                     random_sleep=random_sleep,
                     force=force)
+            if(res is not None):
+                counter_downloaded += 1
+                if(max_nb_images 
+                   and counter_downloaded >= max_nb_images):
+                    logger.info(f"Max nb of downloads reached: {max_nb_images}")
+                    return
 
 def getmap_to_file(wms: WebMapService,
                    layers: [str],
@@ -219,7 +227,7 @@ def getmap_to_file(wms: WebMapService,
     # If force is false and file exists already, stop...
     if force == False and os.path.exists(output_filepath):
         logger.info(f"File already exists, skip: {output_filepath}")
-        return output_filepath
+        return None #output_filepath
 
     # Retry 10 times...
     nb_retries = 0
