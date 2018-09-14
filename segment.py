@@ -86,10 +86,8 @@ def train(traindata_dir: str,
     model = None
     if not model_preload_filepath:
         model = m.get_unet(input_width=image_width, input_height=image_height,
-                           n_channels=3, n_classes=1)
-                           #init_with_vgg16=True,
-    #                       loss_mode='binary_crossentropy'
-    #                       loss_mode='bcedice')
+                           n_channels=3, n_classes=1, init_with_vgg16=True,
+                           loss_mode='binary_crossentropy')
     else:
         if not os.path.exists(model_preload_filepath):
             message = f"Error: preload model file doesn't exist: {model_preload_filepath}"
