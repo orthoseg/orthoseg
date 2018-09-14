@@ -30,21 +30,21 @@ input_vector_labels_filepath = os.path.join(input_vector_dir, "Prc_SER_SGM.shp")
 WMS_SERVER_URL = 'http://geoservices.informatievlaanderen.be/raadpleegdiensten/ofw/wms?'
 
 # Train and evaluate settings
-model_train_dir = project_dir
-#model_train_dir = None
-model_train_basename = 'unet_vgg16_greenhouse03'
-model_train_best_name = model_train_basename + '_best'
-#model_train_filepath = None
-model_train_preload_filepath = os.path.join(project_dir, "unet_vgg16_greenhouse03_09_0.05235.hdf5")
-
-batch_size = 4
-nb_epoch = 5
-train_dir = os.path.join(project_dir, "train")
-train_augmented_dir = None #os.path.join(project_dir, "train_augmented")
 
 # The subdirs where the images and masks can be found by convention for training and validation
-image_subdir = "images_labeled"
-mask_subdir = "masks"
+image_subdir = "image"
+mask_subdir = "mask"
+
+model_train_dir = project_dir
+#model_train_dir = None
+model_train_basename = 'unet_vgg16_greenhouse_v2'
+model_train_best_name = model_train_basename + '_best'
+model_train_preload_filepath = os.path.join(project_dir, "unet_vgg16_greenhouse03_01_0.05179.hdf5")
+model_train_preload_filepath = None
+batch_size = 4
+nb_epoch = 50
+train_dir = os.path.join(project_dir, "train")
+train_augmented_dir = None #os.path.join(project_dir, "train_augmented")
 
 # Prediction settings
 # Model settings
@@ -56,7 +56,8 @@ else:
     #model_to_use = "unet_greenhouse_loss_0.15832"
     #model_to_use = "unet_vgg16_greenhouse_0.13600"
     #model_to_use = "unet_vgg16_greenhouse_0.11282"
-    model_to_use = "unet_vgg16_greenhouse03_09_0.05235"
+    model_to_use = "unet_vgg16_greenhouse03_02_0.00245"
+#    model_to_use = model_train_best_name
     model_to_use_filepath = os.path.join(project_dir, f"{model_to_use}.hdf5")
 prediction_eval_subdir = f"prediction_{model_to_use}_eval"
 
@@ -102,7 +103,7 @@ def main():
         logger.info('Start training')
         # TODO: enable validation dir again
         segment.train(traindata_dir=train_dir,
-                      validationdata_dir=None, #validation_dir,
+                      validationdata_dir=validation_dir,
                       image_subdir=image_subdir,
                       mask_subdir=mask_subdir,
                       model_dir=model_train_dir,
