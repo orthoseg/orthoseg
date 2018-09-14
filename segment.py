@@ -115,8 +115,8 @@ def train(traindata_dir: str,
     model_best_filepath = f"{model_dir}{os.sep}{model_basename}_best.hdf5"
     model_checkpoint_best = kr.callbacks.ModelCheckpoint(model_best_filepath, monitor='loss',
                                                          verbose=1, save_best_only=True)
-#    model_detailed_filepath = f"{model_dir}{os.sep}{model_basename}" + "_{epoch:02d}_{val_loss:.5f}.hdf5"
-    model_detailed_filepath = f"{model_dir}{os.sep}{model_basename}" + "_{epoch:02d}_{loss:.5f}.hdf5"
+    model_detailed_filepath = f"{model_dir}{os.sep}{model_basename}" + "_{epoch:03d}_{val_loss:.5f}.hdf5"
+#    model_detailed_filepath = f"{model_dir}{os.sep}{model_basename}" + "_{epoch:02d}_{loss:.5f}.hdf5"
     model_checkpoint = kr.callbacks.ModelCheckpoint(model_detailed_filepath, monitor='loss',
                                                     verbose=1, save_best_only=True)
 #    early_stopping = kr.callbacks.EarlyStopping(monitor='val_loss',
