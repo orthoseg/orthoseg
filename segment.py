@@ -374,12 +374,12 @@ def predict(model_to_use_filepath: str,
             # Prepare the file paths
             mask_filepath = image_filepath.replace(input_image_dir,
                                                    input_mask_dir)
-            mask_copy_dest_filepath = f"{output_predict_dir}{os.sep}{jaccard_str}_{image_pred_filename_noext}_mask{image_pred_ext}"
+            mask_copy_dest_filepath = f"{image_pred_dir}{os.sep}{jaccard_str}_{image_pred_filename_noext}_mask{image_pred_ext}"
             # Copy if the file doesn't exist yet
             if not os.path.exists(mask_copy_dest_filepath):
                 shutil.copyfile(mask_filepath, mask_copy_dest_filepath)
 
         # Copy the input image if it doesn't exist yet in output path
-        image_copy_dest_filepath = f"{output_predict_dir}{os.sep}{jaccard_str}_{image_pred_filename_noext}{image_pred_ext}"
+        image_copy_dest_filepath = f"{image_pred_dir}{os.sep}{jaccard_str}_{image_pred_filename_noext}{image_pred_ext}"
         if not os.path.exists(image_copy_dest_filepath):
             shutil.copyfile(image_filepath, image_copy_dest_filepath)

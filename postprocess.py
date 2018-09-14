@@ -22,7 +22,7 @@ from scipy import ndimage
 #import pydensecrf.densecrf as dcrf
 
 def region_segmentation(predicted_mask,
-                        thresshold_ok: float = 0.6):
+                        thresshold_ok: float = 0.5):
     
     # ???
     elevation_map = skimage.filters.sobel(predicted_mask)
