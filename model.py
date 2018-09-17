@@ -32,14 +32,14 @@ def get_unet(input_width=256, input_height=256, n_channels=3,
     conv1 = kr.layers.Conv2D(64, 3, activation='relu', padding='same', kernel_initializer='he_normal', name="block1_conv1")(inputs)
     conv1 = kr.layers.Conv2D(64, 3, activation='relu', padding='same', kernel_initializer='he_normal', name="block1_conv2")(conv1)
     pool1 = kr.layers.MaxPooling2D(pool_size=(2, 2))(conv1)
-    conv2 = kr.layers.Conv2D(128, 3, activation='relu', padding='same', kernel_initializer='he_normal')(pool1)
-    conv2 = kr.layers.Conv2D(128, 3, activation='relu', padding='same', kernel_initializer='he_normal')(conv2)
+    conv2 = kr.layers.Conv2D(128, 3, activation='relu', padding='same', kernel_initializer='he_normal', name="block2_conv1")(pool1)
+    conv2 = kr.layers.Conv2D(128, 3, activation='relu', padding='same', kernel_initializer='he_normal', name="block2_conv2")(conv2)
     pool2 = kr.layers.MaxPooling2D(pool_size=(2, 2))(conv2)
-    conv3 = kr.layers.Conv2D(256, 3, activation='relu', padding='same', kernel_initializer='he_normal')(pool2)
-    conv3 = kr.layers.Conv2D(256, 3, activation='relu', padding='same', kernel_initializer='he_normal')(conv3)
+    conv3 = kr.layers.Conv2D(256, 3, activation='relu', padding='same', kernel_initializer='he_normal', name="block3_conv1")(pool2)
+    conv3 = kr.layers.Conv2D(256, 3, activation='relu', padding='same', kernel_initializer='he_normal', name="block3_conv2")(conv3)
     pool3 = kr.layers.MaxPooling2D(pool_size=(2, 2))(conv3)
-    conv4 = kr.layers.Conv2D(512, 3, activation='relu', padding='same', kernel_initializer='he_normal')(pool3)
-    conv4 = kr.layers.Conv2D(512, 3, activation='relu', padding='same', kernel_initializer='he_normal')(conv4)
+    conv4 = kr.layers.Conv2D(512, 3, activation='relu', padding='same', kernel_initializer='he_normal', name="block4_conv1")(pool3)
+    conv4 = kr.layers.Conv2D(512, 3, activation='relu', padding='same', kernel_initializer='he_normal', name="block4_conv2")(conv4)
     drop4 = kr.layers.Dropout(0.5)(conv4)
     pool4 = kr.layers.MaxPooling2D(pool_size=(2, 2))(drop4)
 
@@ -78,11 +78,7 @@ def get_unet(input_width=256, input_height=256, n_channels=3,
     else:
         raise Exception(f"Unknown loss function: {loss_mode}")
 
-    '''
-    model.compile(optimizer=kr.optimizers.Adam(lr=1e-4), loss=loss_func,
-                  metrics=[jaccard_coef, jacard_coef_flat,
-                           jaccard_coef_int, dice_coef, 'accuracy'])
-    '''
+    # Default learning rate for Adam: lr=1e-3
     model.compile(optimizer=kr.optimizers.Adam(lr=1e-5), loss=loss_func,
                   metrics=[jaccard_coef, jacard_coef_flat,
                            jaccard_coef_int, dice_coef, 'accuracy'])
@@ -93,12 +89,38 @@ def get_unet(input_width=256, input_height=256, n_channels=3,
         #         won't be pre-loaded
         vgg = kr.applications.vgg16.VGG16(include_top=False, input_shape=(input_width, input_height, 3), weights='imagenet')
 
+        '''
         # Create empty array with the dimensions of the first convolution layer
         conv1_weights = np.zeros((3, 3, n_channels, 64), dtype="float32")
-
         conv1_weights[:, :, :3, :] = vgg.get_layer("block1_conv1").get_weights()[0][:, :, :, :]
         bias = vgg.get_layer("block1_conv1").get_weights()[1]
         model.get_layer('block1_conv1').set_weights((conv1_weights, bias))
+        '''
+
+        #logger.info(f"VGG16 summary:")
+        #vgg.summary()
+
+        # Copy the weigths first to a new array to have flexibility in nb
+        # channels of unet compared to the vgg16
+        block1_conv1_weights = np.zeros((3, 3, n_channels, 64), dtype="float32")
+        block1_conv1_weights[:, :, :3, :] = vgg.get_layer("block1_conv1").get_weights()[0][:, :, :, :]
+        bias = vgg.get_layer("block1_conv1").get_weights()[1]
+        model.get_layer('block1_conv1').set_weights((block1_conv1_weights, bias))
+
+        block1_conv2_weights = np.zeros((3, 3, 64, 64), dtype="float32")
+        block1_conv2_weights[:, :, :, :] = vgg.get_layer("block1_conv2").get_weights()[0][:, :, :, :]
+        bias = vgg.get_layer("block1_conv2").get_weights()[1]
+        model.get_layer('block1_conv2').set_weights((block1_conv2_weights, bias))
+
+        block2_conv1_weights = np.zeros((3, 3, 64, 128), dtype="float32")
+        block2_conv1_weights[:, :, :, :] = vgg.get_layer("block2_conv1").get_weights()[0][:, :, :, :]
+        bias = vgg.get_layer("block2_conv1").get_weights()[1]
+        model.get_layer('block2_conv1').set_weights((block2_conv1_weights, bias))
+
+        block2_conv2_weights = np.zeros((3, 3, 128, 128), dtype="float32")
+        block2_conv2_weights[:, :, :, :] = vgg.get_layer("block2_conv2").get_weights()[0][:, :, :, :]
+        bias = vgg.get_layer("block2_conv2").get_weights()[1]
+        model.get_layer('block2_conv2').set_weights((block2_conv2_weights, bias))
 
     #model.summary()
 
