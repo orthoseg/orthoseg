@@ -119,13 +119,13 @@ def main():
                     output_predict_dir=os.path.join(train_dir, prediction_eval_subdir),
                     input_ext=['.tif'],
                     input_mask_dir=os.path.join(train_dir, mask_subdir),
-                    prefix_with_jaccard=True)
+                    prefix_with_similarity=True)
     segment.predict(model_to_use_filepath=model_to_use_filepath,
                     input_image_dir=os.path.join(train_dir, image_subdir),
                     output_predict_dir=os.path.join(train_dir, prediction_eval_subdir),
                     input_ext=['.jpg'],
                     input_mask_dir=os.path.join(train_dir, mask_subdir),
-                    prefix_with_jaccard=True)
+                    prefix_with_similarity=True)
 
     # Predict for validation dataset
     segment.predict(model_to_use_filepath=model_to_use_filepath,
@@ -133,14 +133,14 @@ def main():
                     output_predict_dir=os.path.join(validation_dir, prediction_eval_subdir),
                     input_ext=['.jpg'],
                     input_mask_dir=os.path.join(validation_dir, mask_subdir),
-                    prefix_with_jaccard=True)
+                    prefix_with_similarity=True)
     segment.predict(model_to_use_filepath=model_to_use_filepath,
                     input_image_dir=os.path.join(validation_dir, image_subdir),
                     output_predict_dir=os.path.join(validation_dir, prediction_eval_subdir),
                     input_ext=['.tif'],
                     input_mask_dir=os.path.join(validation_dir, mask_subdir),
-                    prefix_with_jaccard=True)
-    '''
+                    prefix_with_similarity=True)
+    
     # Predict for entire dataset
     if to_predict_input_dir:
         segment.predict(model_to_use_filepath=model_to_use_filepath,
@@ -148,6 +148,6 @@ def main():
                         output_predict_dir=os.path.join(to_predict_input_dir, prediction_eval_subdir),
                         input_ext=['.jpg', '.tif'],
                         input_mask_dir=None)
-    '''
+    
 if __name__ == '__main__':
     main()
