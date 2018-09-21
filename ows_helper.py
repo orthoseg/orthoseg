@@ -53,12 +53,13 @@ def get_images_for_grid(wms_server_url: str,
                         grid_ymin: float = 0.0,
                         image_srs_pixel_x_size: int = 0.25,
                         image_srs_pixel_y_size: int = 0.25,
-                        image_pixel_width: int = 1000,
-                        image_pixel_height: int = 1000,
+                        image_pixel_width: int = 1024,
+                        image_pixel_height: int = 1024,
                         format: str = FORMAT_GEOTIFF,
                         tiff_compress: str = 'lzw',
                         transparent: str = False,
                         wms_server_layers_styles: [str] = ['default'],
+                        pixels_overlap: int = 0,
                         random_sleep: float = 0.0,
                         max_nb_images: int = None,
                         force: bool = False):
@@ -66,7 +67,7 @@ def get_images_for_grid(wms_server_url: str,
     srs_width = math.fabs(image_pixel_width*image_srs_pixel_x_size)   # tile width in units of crs => 500 m
     srs_height = math.fabs(image_pixel_height*image_srs_pixel_y_size) # tile height in units of crs => 500 m
 
-    # Read the
+    # Read the region of interest file if provided
     roi_rows = None
     if image_gen_roi_filepath:
         # Open vector layer
@@ -131,6 +132,11 @@ def get_images_for_grid(wms_server_url: str,
         image_xmin = col * srs_width + image_gen_bounds[0]
         image_xmax = (col + 1) * srs_width + image_gen_bounds[0]
 
+        # If overlapping images are wanted... increase image bbox
+        if pixels_overlap:
+            image_xmin = image_xmin-(pixels_overlap*image_srs_pixel_x_size)
+            image_xmax = image_xmax+(pixels_overlap*image_srs_pixel_x_size)
+            
         # Put all the images of this column in a dir
         if is_srs_projected:
             output_dir = os.path.join(output_image_dir, f"{image_xmin:06.0f}")
@@ -160,13 +166,19 @@ def get_images_for_grid(wms_server_url: str,
                     logger.info("    -> image doesn't overlap with roi, so skip")
                     continue
 
+            # If overlapping images are wanted... increase image bbox
+            if pixels_overlap:
+                image_ymin = image_ymin-(pixels_overlap*image_srs_pixel_y_size)
+                image_ymax = image_ymax+(pixels_overlap*image_srs_pixel_y_size)
+                
             # Now really get the image
             res = getmap_to_file(wms=wms,
                     layers=wms_server_layers,
                     output_dir=output_dir,
                     srs=srs,
                     bbox=(image_xmin, image_ymin, image_xmax, image_ymax),
-                    size=(image_pixel_width, image_pixel_height),
+                    size=(image_pixel_width+2*pixels_overlap, 
+                          image_pixel_height+2*pixels_overlap),
                     format=format,
                     transparent=transparent,
                     tiff_compress=tiff_compress,
