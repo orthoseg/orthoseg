@@ -83,7 +83,29 @@ def train(traindata_dir: str,
     else:
         validation_gen = None
 
-    # Create a unet model
+    # Define some callbacks for the training
+    model_detailed_filepath = f"{model_dir}{os.sep}{model_basename}" + "_{epoch:03d}_{val_loss:.5f}_{loss:.5f}.hdf5"
+    model_checkpoint = kr.callbacks.ModelCheckpoint(model_detailed_filepath, monitor='val_loss',
+                                                    verbose=1, save_best_only=True)
+    model_detailed2_filepath = f"{model_dir}{os.sep}{model_basename}" + "_{epoch:03d}_{val_loss:.5f}_{loss:.5f}2.hdf5"
+    model_checkpoint2 = kr.callbacks.ModelCheckpoint(model_detailed2_filepath, monitor='loss',
+                                                    verbose=1, save_best_only=True)
+    reduce_lr = kr.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2,
+                                               patience=5, min_lr=0.000001)
+    tensorboard_log_dir = f"{model_dir}{os.sep}{model_basename}" + "_tensorboard_log"
+    tensorboard_logger = kr.callbacks.TensorBoard(log_dir=tensorboard_log_dir)
+    csv_log_filepath = f"{model_dir}{os.sep}{model_basename}" + '_log.csv'
+    csv_logger = kr.callbacks.CSVLogger(csv_log_filepath, append=True, separator=';')
+
+    # Get the max epoch number from the log file if it exists...
+    max_epoch = 0
+    if model_preload_filepath and os.path.exists(csv_log_filepath):
+        logger.info(f"train_log csv: {csv_log_filepath}")
+        train_log_csv = pd.read_csv(csv_log_filepath, sep=';')
+        logger.info(f"train_log csv contents:\n{train_log_csv}")
+        max_epoch = train_log_csv['epoch'].max()
+
+    # Create a model
     model = None
     if not model_preload_filepath:
         model = m.get_unet(input_width=image_width, input_height=image_height,
@@ -114,27 +136,6 @@ def train(traindata_dir: str,
 #        logger.info(f"Load weights from {model_preload_filepath}")
 #        model.load_weights(model_preload_filepath)
 
-    # Define some callbacks for the training
-    model_detailed_filepath = f"{model_dir}{os.sep}{model_basename}" + "_{epoch:03d}_{val_loss:.5f}_{loss:.5f}.hdf5"
-    model_checkpoint = kr.callbacks.ModelCheckpoint(model_detailed_filepath, monitor='val_loss',
-                                                    verbose=1, save_best_only=True)
-    model_detailed2_filepath = f"{model_dir}{os.sep}{model_basename}" + "_{epoch:03d}_{val_loss:.5f}_{loss:.5f}2.hdf5"
-    model_checkpoint2 = kr.callbacks.ModelCheckpoint(model_detailed2_filepath, monitor='loss',
-                                                    verbose=1, save_best_only=True)
-    reduce_lr = kr.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2,
-                                               patience=5, min_lr=0.000001)
-    tensorboard_log_dir = f"{model_dir}{os.sep}{model_basename}" + "_tensorboard_log"
-    tensorboard_logger = kr.callbacks.TensorBoard(log_dir=tensorboard_log_dir)
-    csv_log_filepath = f"{model_dir}{os.sep}{model_basename}" + '_log.csv'
-    csv_logger = kr.callbacks.CSVLogger(csv_log_filepath, append=True, separator=';')
-
-    # Get the max epoch number from the log file if it exists...
-    max_epoch = 0
-    if os.path.exists(csv_log_filepath):
-        train_log_csv = pd.read_csv(csv_log_filepath, sep=';')
-        logger.info(f"train_log svc ({csv_log_filepath})\n{train_log_csv}")
-        max_epoch = train_log_csv['epoch'].max()
-
     # Start training
     train_dataset_size = len(glob.glob(f"{traindata_dir}{os.sep}{image_subdir}{os.sep}*.*"))
     train_steps_per_epoch = int(train_dataset_size/batch_size)
@@ -157,8 +158,8 @@ def predict(model_to_use_filepath: str,
             prefix_with_similarity: bool = False,
             force: bool = False):
 
-    # TODO: the real predict code is now mixed with 
-    
+    # TODO: the real predict code is now mixed with
+
     # Check if the input parameters are correct...
     if not model_to_use_filepath or not os.path.exists(model_to_use_filepath):
         message = f"Error: input model in is mandatory, model_to_use_filepath: <{model_to_use_filepath}>!"
@@ -301,12 +302,12 @@ def predict(model_to_use_filepath: str,
             else:
                 # Percentage black pixels
                 similarity = 1 - (image_pred_uint8.sum()/255)/image_pred_uint8.size
-                
+
                 # If there are few white pixels, don't save it,
                 # because we are in evaluetion mode anyway...
                 #if similarity >= 0.95:
                     #continue
-                
+
             similarity_prefix_str = f"{similarity:0.3f}_"
 
         # First read the properties of the input image to copy them for the output
@@ -345,7 +346,7 @@ def predict(model_to_use_filepath: str,
         shapes = rio_features.shapes(image_pred_uint8.astype(rio.uint8),
                                      mask=image_pred_uint8.astype(rio.uint8),
                                      transform=image_transform)
-        
+
         # Convert shapes to shapely geoms + simplify
         geoms = []
         geoms_simpl = []
@@ -362,12 +363,12 @@ def predict(model_to_use_filepath: str,
 
         '''
         # Write the original geoms to wkt file
-        logger.debug('Before writing orig geom wkt file')        
+        logger.debug('Before writing orig geom wkt file')
         poly_wkt_filepath = f"{image_pred_dir}{os.sep}{similarity_prefix_str}{image_pred_filename_noext}_pred_cleaned.wkt"
         with open(poly_wkt_filepath, 'w') as dst:
             for geom in geoms:
                 dst.write(f"{geom}\n")
-        
+
         # Write the simplified geoms to wkt file
         logger.debug('Before writing simpl geom wkt file')
         poly_wkt_simpl_filepath = f"{image_pred_dir}{os.sep}{similarity_prefix_str}{image_pred_filename_noext}_pred_cleaned_simpl.wkt"
@@ -375,7 +376,7 @@ def predict(model_to_use_filepath: str,
             for geom_simpl in geoms_simpl:
                 dst_simpl.write(f"{geom_simpl}\n")
         '''
-        
+
         # Write simplified wkt result to raster for debugging. Use the same
         # file profile as created before for writing the raw prediction result
         # TODO: doesn't support multiple classes
