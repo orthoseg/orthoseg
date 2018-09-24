@@ -36,13 +36,20 @@ image_subdir = "image"
 mask_subdir = "mask"
 
 model_train_dir = project_dir
-#model_train_dir = None
-model_train_basename = 'unet_vgg16_greenhouse_v2'
+model_train_dir = None
+model_train_basename = 'unet_vgg16_greenhouse_v2'  # From scratch on 14/09/2018, no vgg16, lr: 1e-5 -> result 1 epoch: loss: 0.69
+model_train_basename = 'unet_vgg16_greenhouse_v3'  # From scratch on 14/09/2018, vgg16 4 layers, lr: 1e-5 -> result 1 epoch: val_loss: 0.317, jaccard_it: 0.2975, val_jacard_int: 0.6678
+model_train_basename = 'unet_vgg16_greenhouse_v4'  # From scratch on 14/09/2018, vgg16 4 layers, lr: 1e-3 -> result 1 epoch: val_loss: 0.70
+model_train_basename = 'unet_vgg16_greenhouse_v5'  # From scratch on 14/09/2018, vgg16 4 layers, lr: 1e-4 -> result 1 epoch: val_loss: 0.69
+model_train_basename = 'unet_vgg16_greenhouse_v1'  # From scratch on ??/??/2018, vgg16 1 layer, lr: 1e-4
 model_train_best_name = model_train_basename + '_best'
-model_train_preload_filepath = os.path.join(project_dir, "unet_vgg16_greenhouse03_01_0.05179.hdf5")
-model_train_preload_filepath = None
+#model_train_preload_filepath = os.path.join(project_dir, "unet_vgg16_greenhouse_v1_042_0.02450_0.02486.hdf5")
+model_train_preload_filepath = os.path.join(project_dir, "unet_vgg16_greenhouse_v1_050_0.02577_0.01999.hdf5")
+
+#model_train_preload_filepath = None
+#model_train_preload_filepath = os.path.join(project_dir, model_train_best_name + ".hdf5")
 batch_size = 4
-nb_epoch = 50
+nb_epoch = 100
 train_dir = os.path.join(project_dir, "train")
 train_augmented_dir = None #os.path.join(project_dir, "train_augmented")
 
@@ -53,10 +60,7 @@ if model_train_dir:
     model_to_use = model_train_best_name
     model_to_use_filepath = os.path.join(project_dir, model_train_best_name + ".hdf5")
 else:
-    #model_to_use = "unet_greenhouse_loss_0.15832"
-    #model_to_use = "unet_vgg16_greenhouse_0.13600"
-    #model_to_use = "unet_vgg16_greenhouse_0.11282"
-    model_to_use = "unet_vgg16_greenhouse03_02_0.00245"
+    model_to_use = "unet_vgg16_greenhouse_v1_050_0.02577_0.01999"
 #    model_to_use = model_train_best_name
     model_to_use_filepath = os.path.join(project_dir, f"{model_to_use}.hdf5")
 prediction_eval_subdir = f"prediction_{model_to_use}_eval"
@@ -112,21 +116,20 @@ def main():
                       batch_size=batch_size,
                       nb_epoch=nb_epoch,
                       train_augmented_dir=train_augmented_dir)
-
+    '''
     # Predict for training dataset
-    segment.predict(model_to_use_filepath=model_to_use_filepath,
-                    input_image_dir=os.path.join(train_dir, image_subdir),
-                    output_predict_dir=os.path.join(train_dir, prediction_eval_subdir),
-                    input_ext=['.tif'],
-                    input_mask_dir=os.path.join(train_dir, mask_subdir),
-                    prefix_with_jaccard=True)
     segment.predict(model_to_use_filepath=model_to_use_filepath,
                     input_image_dir=os.path.join(train_dir, image_subdir),
                     output_predict_dir=os.path.join(train_dir, prediction_eval_subdir),
                     input_ext=['.jpg'],
                     input_mask_dir=os.path.join(train_dir, mask_subdir),
                     prefix_with_jaccard=True)
-
+    segment.predict(model_to_use_filepath=model_to_use_filepath,
+                    input_image_dir=os.path.join(train_dir, image_subdir),
+                    output_predict_dir=os.path.join(train_dir, prediction_eval_subdir),
+                    input_ext=['.tif'],
+                    input_mask_dir=os.path.join(train_dir, mask_subdir),
+                    prefix_with_jaccard=True)
     # Predict for validation dataset
     segment.predict(model_to_use_filepath=model_to_use_filepath,
                     input_image_dir=os.path.join(validation_dir, image_subdir),
@@ -135,12 +138,33 @@ def main():
                     input_mask_dir=os.path.join(validation_dir, mask_subdir),
                     prefix_with_jaccard=True)
     segment.predict(model_to_use_filepath=model_to_use_filepath,
-                    input_image_dir=os.path.join(validation_dir, image_subdir),
+                                                                input_image_dir=os.path.join(validation_dir, image_subdir),
                     output_predict_dir=os.path.join(validation_dir, prediction_eval_subdir),
                     input_ext=['.tif'],
                     input_mask_dir=os.path.join(validation_dir, mask_subdir),
                     prefix_with_jaccard=True)
     '''
+    # Predict for extra test dataset
+    test_dir = os.path.join(project_dir, "test_all")
+#    if not os.path.exists(test_dir):
+        # If the training data doesn't exist yet, create it
+    logger.info('Prepare training data')
+    prep.prepare_training_data(
+            input_vector_label_filepath=input_vector_labels_filepath,
+            wms_server_url=WMS_SERVER_URL,
+            wms_server_layer='ofw',
+            output_image_dir=os.path.join(test_dir, image_subdir),
+            output_mask_dir=os.path.join(test_dir, mask_subdir),
+            max_samples=None,
+            force=True)
+    '''
+    segment.predict(model_to_use_filepath=model_to_use_filepath,
+                    input_image_dir=os.path.join(test_dir, image_subdir),
+                    output_predict_dir=os.path.join(test_dir, prediction_eval_subdir),
+                    input_ext=['.tif'],
+                    input_mask_dir=os.path.join(test_dir, mask_subdir),
+                    prefix_with_jaccard=True)
+
     # Predict for entire dataset
     if to_predict_input_dir:
         segment.predict(model_to_use_filepath=model_to_use_filepath,
