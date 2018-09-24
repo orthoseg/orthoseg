@@ -1,4 +1,5 @@
 *.pyc
 Old/
 .spyproject/
-tensorboard_logs
+tensorboard_logs/
+tmp/
