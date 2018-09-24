@@ -95,10 +95,15 @@ def train(traindata_dir: str,
             logger.critical(message)
             raise Exception(message)
 
+        model = m.load_unet_model(filepath=model_preload_filepath,
+                                  learning_rate=0.00001)
+
+        '''
         model = m.get_unet(input_width=image_width, input_height=image_height,
                            n_channels=3, n_classes=1,
                            pretrained_weights_filepath=model_preload_filepath,
                            loss_mode='binary_crossentropy')
+        '''
 
 #        model = kr.models.load_model(model_preload_filepath)
 #        model = m.load_unet_model(model_preload_filepath)
@@ -110,18 +115,14 @@ def train(traindata_dir: str,
 #        model.load_weights(model_preload_filepath)
 
     # Define some callbacks for the training
-    # TODO: nakijken of val_loss of loss gemonitored moet worden
-    model_best_filepath = f"{model_dir}{os.sep}{model_basename}_best.hdf5"
-    model_checkpoint_last = kr.callbacks.ModelCheckpoint(model_best_filepath, monitor='val_loss',
-                                                         verbose=1, save_best_only=True)
     model_detailed_filepath = f"{model_dir}{os.sep}{model_basename}" + "_{epoch:03d}_{val_loss:.5f}_{loss:.5f}.hdf5"
-#    model_detailed_filepath = f"{model_dir}{os.sep}{model_basename}" + "_{epoch:02d}_{loss:.5f}.hdf5"
     model_checkpoint = kr.callbacks.ModelCheckpoint(model_detailed_filepath, monitor='val_loss',
                                                     verbose=1, save_best_only=True)
-#    early_stopping = kr.callbacks.EarlyStopping(monitor='val_loss',
-#                                                patience=10, verbose=0, mode='auto')
+    model_detailed2_filepath = f"{model_dir}{os.sep}{model_basename}" + "_{epoch:03d}_{val_loss:.5f}_{loss:.5f}2.hdf5"
+    model_checkpoint2 = kr.callbacks.ModelCheckpoint(model_detailed2_filepath, monitor='loss',
+                                                    verbose=1, save_best_only=True)
     reduce_lr = kr.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2,
-                                               patience=5, min_lr=0.00001)
+                                               patience=5, min_lr=0.000001)
     tensorboard_log_dir = f"{model_dir}{os.sep}{model_basename}" + "_tensorboard_log"
     tensorboard_logger = kr.callbacks.TensorBoard(log_dir=tensorboard_log_dir)
     csv_log_filepath = f"{model_dir}{os.sep}{model_basename}" + '_log.csv'
@@ -142,7 +143,8 @@ def train(traindata_dir: str,
     model.fit_generator(train_gen, steps_per_epoch=train_steps_per_epoch, epochs=nb_epoch,
                         validation_data=validation_gen,
                         validation_steps=validation_steps_per_epoch,       # Number of items in validation/batch_size
-                        callbacks=[model_checkpoint, model_checkpoint_last, reduce_lr,
+                        callbacks=[model_checkpoint, model_checkpoint2,
+                                   reduce_lr,
 #                                   early_stopping,
                                    tensorboard_logger, csv_logger],
                         initial_epoch=max_epoch)
