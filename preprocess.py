@@ -41,8 +41,8 @@ def prepare_training_data(input_vector_label_filepath: str,
                  wms_server_layer_style: str = 'default',
                  image_srs_pixel_x_size: int = 0.25,
                  image_srs_pixel_y_size: int = 0.25,
-                 image_pixel_width: int = 1000,
-                 image_pixel_height: int = 1000,                                 
+                 image_pixel_width: int = 1024,
+                 image_pixel_height: int = 1024,
                  max_samples: int = 500,
                  burn_value: int = 255,
                  output_filelist_csv: str = '',
@@ -50,41 +50,49 @@ def prepare_training_data(input_vector_label_filepath: str,
                  force: bool = False):
     """
     This function prepares training data for the vector labels provided.
-    
+
     It will:
         * get orthophoto's from a WMS server
         * create the corresponding label mask for each orthophoto
     """
         # Create the output dir's if they don't exist yet...
-    for dir in [output_mask_dir]:
+    for dir in [output_mask_dir, output_image_dir]:
         if dir and not os.path.exists(dir):
-            os.mkdir(dir)
-    
+            os.makedirs(dir)
+
     # Open vector layer
     logger.info(f"Open vector file {input_vector_label_filepath}")
     input_vector_label_data = fiona.open(input_vector_label_filepath)
-    
+
     # Get the srs to use from the input vectors...
     image_srs = input_vector_label_data.crs['init']
-        
+
     # Convert to lists of shapely geometries
 #    input_labels = [(sh_geom.shape(input_label['geometry']), input_label['properties']['CODE_OBJ']) for input_label in input_vector_labels]
     input_labels = []
     for input_vector_label_row in input_vector_label_data:
         input_labels.append(sh_geom.shape(input_vector_label_row['geometry']))
-    
+
     # Now loop over label polygons to create the training/validation data
     wms = owslib.wms.WebMapService(wms_server_url, version='1.3.0')
     image_srs_width = math.fabs(image_pixel_width*image_srs_pixel_x_size)   # tile width in units of crs => 500 m
     image_srs_height = math.fabs(image_pixel_height*image_srs_pixel_y_size) # tile height in units of crs => 500 m
-    
-    # Get list of max_samples random samples, and get those images
-    random_labels = random.sample(input_labels, max_samples)
-    for label_poly in random_labels:
+
+    # If max_samples > 0, take input_labels random samples
+    if max_samples and max_samples > 0:
+        labels = random.sample(input_labels, max_samples)
+    else:
+        labels = input_labels
+
+    # Loop trough labels to get an image for each of them
+    nb_labels = len(labels)
+    logger.info(f"Get images for {nb_labels} labels")
+    nb_done = 0
+    for label_poly in labels:
 
         # TODO: now just the top-left part of the labeled polygon is taken
-        # as a start... ideally make sure we use it entirely for cases with 
-        # no abundance of data        
+        # as a start... ideally make sure we use it entirely for cases with
+        # no abundance of data
         # Make sure the image requested is of the correct size
         poly_bounds = label_poly.bounds
         image_xmin = poly_bounds[0]-(poly_bounds[0]%image_srs_pixel_x_size)-10
@@ -92,25 +100,28 @@ def prepare_training_data(input_vector_label_filepath: str,
         image_xmax = image_xmin + image_srs_width
         image_ymax = image_ymin + image_srs_height
         image_bounds = (image_xmin, image_ymin, image_xmax, image_ymax)
-           
+
         # Now really get the image
+        logger.info(f"Get image for coordinates {image_bounds}")
         image_filepath = ows_helper.getmap_to_file(wms=wms,
                        layers=[wms_server_layer],
                        output_dir=output_image_dir,
                        srs=image_srs,
                        bbox=image_bounds,
                        size=(image_pixel_width, image_pixel_height),
-                       format=ows_helper.FORMAT_GEOTIFF,
+                       format=ows_helper.FORMAT_TIFF,
                        transparent=False)
 
         # Create a mask corresponding with the image file
-        mask_filepath = image_filepath.replace(output_image_dir, output_mask_dir)
-        _create_mask(input_vector_label_list=input_labels,
-                     input_image_filepath=image_filepath,
-                     output_mask_filepath=mask_filepath,
-                     burn_value=burn_value,
-                     force=force)
-    
+        # image_filepath can be None if file existed already, so check if not None...
+        if image_filepath:
+            mask_filepath = image_filepath.replace(output_image_dir, output_mask_dir)
+            _create_mask(input_vector_label_list=input_labels,
+                         input_image_filepath=image_filepath,
+                         output_mask_filepath=mask_filepath,
+                         burn_value=burn_value,
+                         force=force)
+
 def create_masks(input_vector_label_filepath: str,
                  input_image_dir: str,
                  output_mask_dir: str,
@@ -120,11 +131,11 @@ def create_masks(input_vector_label_filepath: str,
                  output_keep_nested_dirs: bool = False,
                  force: bool = False):
     """
-    Create masks for the extents of the files in the input folder, based on 
+    Create masks for the extents of the files in the input folder, based on
     the vector data in the input vector file.
-    
+
     Args
-        
+
     """
 
     # Create output dirs
@@ -142,7 +153,7 @@ def create_masks(input_vector_label_filepath: str,
     input_labels = []
     for input_label in input_vector_labels:
         input_labels.append(sh_geom.shape(input_label['geometry']))
-        
+
     # iterate through images, convert to 8-bit, and create masks
     filelist = []
     search_string = f"{input_image_dir}{os.sep}**{os.sep}*.tif"
@@ -206,14 +217,14 @@ def _create_mask(input_vector_label_list,
                  burn_value: int = 255,
                  minimum_pct_labeled: float = 0.0,
                  force: bool = False) -> bool:
-    # TODO: only supports one class at the moment. 
+    # TODO: only supports one class at the moment.
 
     # If file exists already and force is False... stop.
     if(force is False
        and os.path.exists(output_mask_filepath)):
         logger.debug(f"Output file already exist, and force is False, return: {output_mask_filepath}")
         return
-    
+
     # Create a mask corresponding with the image file
     # First read the properties of the input image to copy them for the output
     logger.debug("Create mask and write to file")
@@ -221,13 +232,13 @@ def _create_mask(input_vector_label_list,
         image_profile = image_ds.profile
         image_transform_affine = image_ds.affine
 
-    # Use meta attributes of the source image, but set band count to 1, 
+    # Use meta attributes of the source image, but set band count to 1,
     # dtype to uint8 and specify LZW compression.
     image_profile.update(dtype=rio.uint8, count=1, compress='lzw', nodata=0)
 
     # this is where we create a generator of geom, value pairs to use in rasterizing
 #    shapes = ((geom,value) for geom, value in zip(counties.geometry, counties.LSAD_NUM))
-    burned = rio_features.rasterize(shapes=input_vector_label_list, fill=0, 
+    burned = rio_features.rasterize(shapes=input_vector_label_list, fill=0,
                 default_value=burn_value, transform=image_transform_affine,
                 out_shape=(image_profile['width'], image_profile['height']))
 
@@ -235,7 +246,7 @@ def _create_mask(input_vector_label_list,
     nb_pixels = np.size(burned, 0) * np.size(burned, 1)
     nb_pixels_data = nb_pixels - np.sum(burned == 0)  #np.count_nonnan(image == NoData_value)
     logger.debug(f"nb_pixels: {nb_pixels}, nb_pixels_data: {nb_pixels_data}, pct data: {nb_pixels_data / nb_pixels}")
-    
+
     if (nb_pixels_data / nb_pixels >= minimum_pct_labeled):
         # Write the labeled mask
         with rio.open(output_mask_filepath, 'w', **image_profile) as mask_ds:
@@ -247,7 +258,7 @@ def _create_mask(input_vector_label_list,
         return True
     else:
         return False
-    
+
 ###############################################################################
 if __name__ == "__main__":
     raise Exception("Not implemented!")
