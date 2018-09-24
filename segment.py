@@ -357,7 +357,7 @@ def predict(model_to_use_filepath: str,
 
             # simplify and rasterize for easy comparison with original masks
             # preserve_topology is slower bu makes sure no polygons are removed
-            geom_simpl = geom_sh.simplify(1.5, preserve_topology=True)
+            geom_simpl = geom_sh.simplify(1, preserve_topology=True)
             if not geom_simpl.is_empty:
                 geoms_simpl.append(geom_simpl)
 
