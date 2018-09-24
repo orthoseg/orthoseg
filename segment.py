@@ -154,16 +154,14 @@ def predict(model_to_use_filepath: str,
             output_predict_dir: str,
             input_ext: str = '.tif',
             input_mask_dir: str = None,
-            prefix_with_jaccard: bool = False,
+            prefix_with_similarity: bool = False,
             force: bool = False):
 
+    # TODO: the real predict code is now mixed with 
+    
     # Check if the input parameters are correct...
     if not model_to_use_filepath or not os.path.exists(model_to_use_filepath):
         message = f"Error: input model in is mandatory, model_to_use_filepath: <{model_to_use_filepath}>!"
-        logger.critical(message)
-        raise Exception(message)
-    if prefix_with_jaccard and not input_mask_dir:
-        message = f"Error: prefix_with_jaccard is only possible if mask dir is specified!"
         logger.critical(message)
         raise Exception(message)
 
@@ -258,20 +256,17 @@ def predict(model_to_use_filepath: str,
         # Cleanup
         # Make the array 2 dimensial for the next algorithm. Is no problem if there
         # is only one channel
-        image_pred = image_pred_orig.reshape((image_width, image_height))
+        image_pred_orig = image_pred_orig.reshape((image_width, image_height))
 
         # Cleanup the image so it becomes a clean 2 color one instead of grayscale
         logger.debug("Clean prediction")
-        image_pred = postp.region_segmentation(image_pred)
+        image_pred = postp.region_segmentation(image_pred_orig)
 
         # Convert the output image to uint [0-255] instead of float [0,1]
-        image_pred = (image_pred * 255).astype(np.uint8)
+        image_pred_uint8 = (image_pred * 255).astype(np.uint8)
 
-        jaccard_str = ''
-        if prefix_with_jaccard:
-            # Read mask file and get all needed info from it...
-            mask_filepath = image_filepath.replace(input_image_dir,
-                                                   input_mask_dir)
+        similarity_prefix_str = ''
+        if prefix_with_similarity:
 
             def jaccard_similarity(im1, im2):
                 if im1.shape != im2.shape:
@@ -290,22 +285,31 @@ def predict(model_to_use_filepath: str,
                     sum_intersect = intersection.sum()
                     return sum_intersect/sum_union
 
-            with rio.open(mask_filepath) as mask_ds:
-                # Read pixels
-                mask_arr = mask_ds.read(1)
+            # If there is a mask dir specified... use the groundtruth mask
+            if input_mask_dir:
+                # Read mask file and get all needed info from it...
+                mask_filepath = image_filepath.replace(input_image_dir,
+                                                       input_mask_dir)
 
-            jaccard = jaccard_similarity(mask_arr, image_pred)
-            jaccard_str = f"{jaccard:0.3f}"
+                with rio.open(mask_filepath) as mask_ds:
+                    # Read pixels
+                    mask_arr = mask_ds.read(1)
 
-        image_pred_filepath = f"{image_pred_dir}{os.sep}{jaccard_str}_{image_pred_filename_noext}_pred{image_pred_ext}"
+                #similarity = jaccard_similarity(mask_arr, image_pred)
+                # Use accuracy as similarity... is more practical than jaccard
+                similarity = np.equal(mask_arr, image_pred_uint8).sum()/image_pred_uint8.size
+            else:
+                # Percentage black pixels
+                similarity = 1 - (image_pred_uint8.sum()/255)/image_pred_uint8.size
+                
+                # If there are few white pixels, don't save it,
+                # because we are in evaluetion mode anyway...
+                #if similarity >= 0.95:
+                    #continue
+                
+            similarity_prefix_str = f"{similarity:0.3f}_"
 
-        logger.debug("Save original prediction")
-        # TODO: probably better that rasterio is used here as well so geotiff
-        # will be used as well!
-        kr.preprocessing.image.save_img(image_pred_filepath, image_pred_orig)
-
-        # Write the output to file
-        logger.debug("Save cleaned prediction")
+        # First read the properties of the input image to copy them for the output
         # TODO: should always be done using input image, but in my test data
         # doesn't contain geo yet
         if input_mask_dir:
@@ -313,59 +317,71 @@ def predict(model_to_use_filepath: str,
                                                   input_mask_dir)
         else:
             tmp_filepath = image_filepath
-
-        # First read the properties of the input image to copy them for the output
         with rio.open(tmp_filepath) as image_ds:
             image_profile = image_ds.profile
             image_transform = image_ds.transform
 
-        # Use meta attributes of the source image, but set band count to 1,
-        # dtype to uint8 and specify LZW compression.
+        # Now write original prediction to file
+        logger.debug("Save original prediction")
+        # Convert the output image to uint [0-255] instead of float [0,1]
+        image_pred_orig = (image_pred_orig * 255).astype(np.uint8)
+        # Use meta attributes of the source image, except...
+        # Rem: dtype float32 used to change as little as possible to original
         image_profile.update(dtype=rio.uint8, count=1, compress='lzw')
+        image_pred_orig_filepath = f"{image_pred_dir}{os.sep}{similarity_prefix_str}{image_pred_filename_noext}_pred{image_pred_ext}"
+        with rio.open(image_pred_orig_filepath, 'w', **image_profile) as dst:
+            dst.write(image_pred_orig.astype(rio.uint8), 1)
 
-        image_pred_cleaned_filepath = f"{image_pred_dir}{os.sep}{jaccard_str}_{image_pred_filename_noext}_pred_cleaned{image_pred_ext}"
+        # Write the output to file
+        logger.debug("Save cleaned prediction")
+        # Use meta attributes of the source image, except...
+        image_profile.update(dtype=rio.uint8, count=1, compress='lzw')
+        image_pred_cleaned_filepath = f"{image_pred_dir}{os.sep}{similarity_prefix_str}{image_pred_filename_noext}_pred_cleaned{image_pred_ext}"
         with rio.open(image_pred_cleaned_filepath, 'w', **image_profile) as dst:
-            dst.write(image_pred.astype(rio.uint8), 1)
+            dst.write(image_pred_uint8.astype(rio.uint8), 1)
 
         # Polygonize result
         # Returns a list of tupples with (geometry, value)
-        shapes = rio_features.shapes(image_pred.astype(rio.uint8),
-                                     mask=image_pred.astype(rio.uint8),
+        shapes = rio_features.shapes(image_pred_uint8.astype(rio.uint8),
+                                     mask=image_pred_uint8.astype(rio.uint8),
                                      transform=image_transform)
-
-        # Write WKT's of original + simplified shapes
-        poly_wkt_filepath = f"{image_pred_dir}{os.sep}{jaccard_str}_{image_pred_filename_noext}_pred_cleaned.wkt"
-        poly_wkt_simpl_filepath = f"{image_pred_dir}{os.sep}{jaccard_str}_{image_pred_filename_noext}_pred_cleaned_simpl.wkt"
-
-#        if os.path.exists(poly_wkt_filepath):
-#            os.remove(poly_wkt_filepath)
-        logger.debug('Before writing orig geom wkt file')
-
+        
+        # Convert shapes to shapely geoms + simplify
+        geoms = []
         geoms_simpl = []
+        for shape in list(shapes):
+            geom, value = shape
+            geom_sh = shapely.geometry.shape(geom)
+            geoms.append(geom_sh)
+
+            # simplify and rasterize for easy comparison with original masks
+            # preserve_topology is slower bu makes sure no polygons are removed
+            geom_simpl = geom_sh.simplify(1.5, preserve_topology=True)
+            if not geom_simpl.is_empty:
+                geoms_simpl.append(geom_simpl)
+
+        '''
+        # Write the original geoms to wkt file
+        logger.debug('Before writing orig geom wkt file')        
+        poly_wkt_filepath = f"{image_pred_dir}{os.sep}{similarity_prefix_str}{image_pred_filename_noext}_pred_cleaned.wkt"
         with open(poly_wkt_filepath, 'w') as dst:
-            for shape in list(shapes):
-                geom, value = shape
-                geom_sh = shapely.geometry.shape(geom)
-                dst.write(f"{geom_sh}\n")
-
-                # simplify and rasterize for easy comparison with original masks
-                # preserve_topology is slower bu makes sure no polygons are removed
-                geom_simpl = geom_sh.simplify(1.5, preserve_topology=True)
-                if not geom_simpl.is_empty:
-                    geoms_simpl.append(geom_simpl)
-
+            for geom in geoms:
+                dst.write(f"{geom}\n")
+        
+        # Write the simplified geoms to wkt file
         logger.debug('Before writing simpl geom wkt file')
-
+        poly_wkt_simpl_filepath = f"{image_pred_dir}{os.sep}{similarity_prefix_str}{image_pred_filename_noext}_pred_cleaned_simpl.wkt"
         with open(poly_wkt_simpl_filepath, 'w') as dst_simpl:
             for geom_simpl in geoms_simpl:
                 dst_simpl.write(f"{geom_simpl}\n")
-
+        '''
+        
         # Write simplified wkt result to raster for debugging. Use the same
         # file profile as created before for writing the raw prediction result
         # TODO: doesn't support multiple classes
         logger.debug('Before writing simpl rasterized file')
 
-        image_pred_simpl_filepath = f"{image_pred_dir}{os.sep}{jaccard_str}_{image_pred_filename_noext}_pred_cleaned_simpl{image_pred_ext}"
+        image_pred_simpl_filepath = f"{image_pred_dir}{os.sep}{similarity_prefix_str}{image_pred_filename_noext}_pred_cleaned_simpl{image_pred_ext}"
         with rio.open(image_pred_simpl_filepath, 'w', **image_profile) as dst:
             # this is where we create a generator of geom, value pairs to use in rasterizing
 #            shapes = ((geom,value) for geom, value in zip(counties.geometry, counties.LSAD_NUM))
@@ -383,12 +399,12 @@ def predict(model_to_use_filepath: str,
             # Prepare the file paths
             mask_filepath = image_filepath.replace(input_image_dir,
                                                    input_mask_dir)
-            mask_copy_dest_filepath = f"{image_pred_dir}{os.sep}{jaccard_str}_{image_pred_filename_noext}_mask{image_pred_ext}"
+            mask_copy_dest_filepath = f"{image_pred_dir}{os.sep}{similarity_prefix_str}{image_pred_filename_noext}_mask{image_pred_ext}"
             # Copy if the file doesn't exist yet
             if not os.path.exists(mask_copy_dest_filepath):
                 shutil.copyfile(mask_filepath, mask_copy_dest_filepath)
 
         # Copy the input image if it doesn't exist yet in output path
-        image_copy_dest_filepath = f"{image_pred_dir}{os.sep}{jaccard_str}_{image_pred_filename_noext}{image_pred_ext}"
+        image_copy_dest_filepath = f"{image_pred_dir}{os.sep}{similarity_prefix_str}{image_pred_filename_noext}{image_pred_ext}"
         if not os.path.exists(image_copy_dest_filepath):
             shutil.copyfile(image_filepath, image_copy_dest_filepath)

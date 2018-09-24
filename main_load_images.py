@@ -26,7 +26,7 @@ def main():
     logger.info("Start loading images")
 
     image_dir = "\\\\dg3.be\\alp\\Datagis\\Ortho_AGIV_2018_ofw"
-    image_dir = "X:\\GIS\\GIS DATA\\_Tmp\\Ortho_2018_autosegment_cache\\1024x1024"
+    image_dir = "X:\\GIS\\GIS DATA\\_Tmp\\Ortho_2018_autosegment_cache\\1024x1024_50pxOverlap"
 
     WMS_SERVER_URL = 'http://geoservices.informatievlaanderen.be/raadpleegdiensten/ofw/wms?'
     wms_server_layers = ['ofw']
@@ -52,6 +52,7 @@ def main():
             image_pixel_width=1024,
             image_pixel_height=1024,
             format=ows_helper.FORMAT_JPEG,
+            pixels_overlap=50,
             random_sleep=2.0,
             max_nb_images=20000)
 
