@@ -25,7 +25,8 @@ logger = logging.getLogger(__name__)
 #-------------------------------------------------------------
 
 def get_unet(input_width=256, input_height=256, n_channels=3,
-             n_classes=1, loss_mode='binary_crossentropy',
+             n_classes=1,
+             loss_mode='binary_crossentropy', learning_rate=0.0001,
              init_with_vgg16: bool = None, pretrained_weights_filepath: str = None):
 
     inputs = kr.layers.Input((input_width, input_height, n_channels))
@@ -78,8 +79,8 @@ def get_unet(input_width=256, input_height=256, n_channels=3,
     else:
         raise Exception(f"Unknown loss function: {loss_mode}")
 
-    # Default learning rate for Adam: lr=1e-3
-    model.compile(optimizer=kr.optimizers.Adam(lr=1e-5), loss=loss_func,
+    # Default learning rate for Adam: lr=1e-3, but doesn't seem to work well for unet
+    model.compile(optimizer=kr.optimizers.Adam(lr=learning_rate), loss=loss_func,
                   metrics=[jaccard_coef, jacard_coef_flat,
                            jaccard_coef_int, dice_coef, 'accuracy'])
 
@@ -125,7 +126,7 @@ def get_unet(input_width=256, input_height=256, n_channels=3,
     #model.summary()
 
     if(pretrained_weights_filepath):
-
+        logger.info(f"Load model from {pretrained_weights_filepath}")
         model = kr.models.load_model(
                 pretrained_weights_filepath,
                 custom_objects={'jaccard_coef': jaccard_coef,
@@ -147,12 +148,16 @@ def get_unet(input_width=256, input_height=256, n_channels=3,
         '''
     return model
 
-def load_unet_model(filepath: str):
-    model = kr.models.load_model(
-            filepath, custom_objects={'jaccard_coef': jaccard_coef,
-                                      'jacard_coef_flat': jacard_coef_flat,
-                                      'jaccard_coef_int': jaccard_coef_int,
-                                      'dice_coef': dice_coef})
+def load_unet_model(filepath: str,
+                    learning_rate: float = None):
+    logger.info(f"Load model from {filepath}")
+    model = kr.models.load_model(filepath,
+                                 custom_objects={'jaccard_coef': jaccard_coef,
+                                                 'jacard_coef_flat': jacard_coef_flat,
+                                                 'jaccard_coef_int': jaccard_coef_int,
+                                                 'dice_coef': dice_coef})
+    if learning_rate:
+        kr.backend.set_value(model.optimizer.lr, learning_rate)
     return model
 
 #------------------------------------------
@@ -212,9 +217,16 @@ def jacard_coef_flat(y_true, y_pred):
     intersection = kr.backend.sum(y_true_f * y_pred_f)
     return (intersection + SMOOTH_LOSS) / (kr.backend.sum(y_true_f) + kr.backend.sum(y_pred_f) - intersection + SMOOTH_LOSS)
 
-
 def dice_coef(y_true, y_pred, smooth=1.0):
     y_true_f = kr.backend.flatten(y_true)
     y_pred_f = kr.backend.flatten(y_pred)
     intersection = kr.backend.sum(y_true_f * y_pred_f)
     return (2. * intersection + smooth) / (kr.backend.sum(y_true_f) + kr.backend.sum(y_pred_f) + smooth)
+
+def pct_wrong(y_true, y_pred):
+    y_pred_pos = kr.backend.round(kr.backend.clip(y_pred, 0, 1))
+
+    intersection = kr.backend.sum(y_true * y_pred_pos, axis=[0, -1, -2])
+    sum_ = kr.backend.sum(y_true + y_pred_pos, axis=[0, -1, -2])
+    jac = (intersection + SMOOTH_LOSS) / (sum_ - intersection + SMOOTH_LOSS)
+    return kr.backend.mean(jac)
