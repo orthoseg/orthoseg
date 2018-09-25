@@ -29,8 +29,10 @@ input_vector_labels_filepath = os.path.join(input_vector_dir, "Prc_SER_SGM.shp")
 # WMS server we can use to get the image data
 WMS_SERVER_URL = 'http://geoservices.informatievlaanderen.be/raadpleegdiensten/ofw/wms?'
 
-# Train and evaluate settings
+# Current best model
+model_current_best = "unet_vgg16_greenhouse_v1_077_0.02528_0.02648"
 
+# Train and evaluate settings
 # The subdirs where the images and masks can be found by convention for training and validation
 image_subdir = "image"
 mask_subdir = "mask"
@@ -39,37 +41,28 @@ model_train_dir = project_dir
 #model_train_dir = None
 model_train_basename = 'unet_vgg16_greenhouse_v1'
 model_train_best_name = model_train_basename + '_best'
-model_train_preload_filepath = os.path.join(project_dir, "unet_vgg16_greenhouse_v1_069_0.02740_0.028812.hdf5")
+model_train_preload_filepath = os.path.join(project_dir, f"{model_current_best}.hdf5")
 #model_train_preload_filepath = None
 batch_size = 4
-nb_epoch = 100
+nb_epoch = 150
 train_dir = os.path.join(project_dir, "train")
 train_augmented_dir = None #os.path.join(project_dir, "train_augmented")
 
+# Seperate validation dataset for during training...
+validation_dir = os.path.join(project_dir, "validation")
+
 # Prediction settings
-# Model settings
-# If we are training a model, use the best model for prediction...
+# TODO: If we are training a model, use the best model found during training
+# for prediction...
 if model_train_dir:
+    # TODO: this doesn't work anymore!
     model_to_use = model_train_best_name
     model_to_use_filepath = os.path.join(project_dir, model_train_best_name + ".hdf5")
 else:
-    #model_to_use = "unet_greenhouse_loss_0.15832"
-    #model_to_use = "unet_vgg16_greenhouse_0.13600"
-    #model_to_use = "unet_vgg16_greenhouse_0.11282"
-    #model_to_use = "unet_vgg16_greenhouse_v4_019_0.58730"
-    #model_to_use = "unet_vgg16_greenhouse_v1_004_0.69023"
-#    model_to_use = "unet_vgg16_greenhouse03_01_0.05179"
-    #model_to_use = "unet_vgg16_greenhouse_v1_009_0.05235"
-    #model_to_use = "unet_vgg16_greenhouse_v1_026_0.03927_0.03259"
-    #model_to_use = "unet_vgg16_greenhouse_v1_040_0.03077_0.03341"
-    model_to_use = "unet_vgg16_greenhouse_v1_042_0.02450_0.02486"
-    model_to_use = "unet_vgg16_greenhouse_v1_069_0.02740_0.028812"
+    model_to_use = model_current_best
 #    model_to_use = model_train_best_name
     model_to_use_filepath = os.path.join(project_dir, f"{model_to_use}.hdf5")
 prediction_eval_subdir = f"prediction_{model_to_use}_eval"
-
-# Validation dir
-validation_dir = os.path.join(project_dir, "validation")
 
 # Real prediction dir
 to_predict_input_dir = "X:\\GIS\\GIS DATA\_Tmp\\Ortho_2018_autosegment_cache\\1024x1024"
