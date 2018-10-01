@@ -87,7 +87,7 @@ def train(traindata_dir: str,
     model_detailed_filepath = f"{model_dir}{os.sep}{model_basename}" + "_{epoch:03d}_{val_loss:.5f}_{loss:.5f}.hdf5"
     model_checkpoint = kr.callbacks.ModelCheckpoint(model_detailed_filepath, monitor='val_loss',
                                                     verbose=1, save_best_only=True)
-    model_detailed2_filepath = f"{model_dir}{os.sep}{model_basename}" + "_{epoch:03d}_{val_loss:.5f}_{loss:.5f}2.hdf5"
+    model_detailed2_filepath = f"{model_dir}{os.sep}{model_basename}" + "_{epoch:03d}_{val_loss:.5f}_{loss:.5f}_2.hdf5"
     model_checkpoint2 = kr.callbacks.ModelCheckpoint(model_detailed2_filepath, monitor='loss',
                                                     verbose=1, save_best_only=True)
     reduce_lr = kr.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2,
