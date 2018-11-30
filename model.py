@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 def get_unet(input_width=256, input_height=256, n_channels=3,
              n_classes=1,
              loss_mode='binary_crossentropy', learning_rate=0.0001,
-             init_with_vgg16: bool = None, pretrained_weights_filepath: str = None):
+             init_with_vgg16: bool = False, pretrained_weights_filepath: str = None):
 
     inputs = kr.layers.Input((input_width, input_height, n_channels))
     conv1 = kr.layers.Conv2D(64, 3, activation='relu', padding='same', kernel_initializer='he_normal', name="block1_conv1")(inputs)
@@ -126,14 +126,17 @@ def get_unet(input_width=256, input_height=256, n_channels=3,
     #model.summary()
 
     if(pretrained_weights_filepath):
+        '''
         logger.info(f"Load model from {pretrained_weights_filepath}")
+        
         model = kr.models.load_model(
                 pretrained_weights_filepath,
                 custom_objects={'jaccard_coef': jaccard_coef,
                                 'jacard_coef_flat': jacard_coef_flat,
                                 'jaccard_coef_int': jaccard_coef_int,
-                                'dice_coef': dice_coef})
-        '''
+                                'dice_coef': dice_coef,
+                                'dice_coef_loss_bce': dice_coef_loss_bce})
+        
         model = get_unet(input_width=input_width, input_height=input_height,
                                  n_channels=n_channels, n_classes=n_classes, loss_mode=loss_mode,
                                  init_with_vgg16=False, pretrained_weights_filepath=None)
@@ -143,9 +146,14 @@ def get_unet(input_width=256, input_height=256, n_channels=3,
                                  init_with_vgg16=False, pretrained_weights_filepath=None)
         logger.info(f"Preload weights from {pretrained_weights_filepath}")
         model_preload.load_weights(pretrained_weights_filepath)
+        
         for layer_preloaded, layer_built in zip(model_preload.layers, model.layers):
             layer_built.set_weights(layer_preloaded.get_weights())
         '''
+        
+        logger.info(f"Preload weights from {pretrained_weights_filepath}")
+        model.load_weights(pretrained_weights_filepath)
+        
     return model
 
 def load_unet_model(filepath: str,
@@ -155,9 +163,11 @@ def load_unet_model(filepath: str,
                                  custom_objects={'jaccard_coef': jaccard_coef,
                                                  'jacard_coef_flat': jacard_coef_flat,
                                                  'jaccard_coef_int': jaccard_coef_int,
-                                                 'dice_coef': dice_coef})
+                                                 'dice_coef': dice_coef,
+                                                 'dice_coef_loss_bce': dice_coef_loss_bce})
     if learning_rate:
         kr.backend.set_value(model.optimizer.lr, learning_rate)
+        
     return model
 
 #------------------------------------------
