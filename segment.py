@@ -20,7 +20,10 @@ import rasterio.plot as rio_plot
 import shapely
 import shapely.geometry
 
-import model as m
+#import unet_zhixuhao as m
+import model_deeplabv3plus as m
+#import unet_ternaus as m
+
 import data
 import postprocess as postp
 
@@ -85,48 +88,61 @@ def train(traindata_dir: str,
 
     # Define some callbacks for the training
     model_detailed_filepath = f"{model_dir}{os.sep}{model_basename}" + "_{epoch:03d}_{val_loss:.5f}_{loss:.5f}.hdf5"
+    #model_detailed_filepath = f"{model_dir}{os.sep}{model_basename}" + "_best_val_loss.hdf5"
     model_checkpoint = kr.callbacks.ModelCheckpoint(model_detailed_filepath, monitor='val_loss',
                                                     verbose=1, save_best_only=True)
     model_detailed2_filepath = f"{model_dir}{os.sep}{model_basename}" + "_{epoch:03d}_{val_loss:.5f}_{loss:.5f}_2.hdf5"
+    #model_detailed2_filepath = f"{model_dir}{os.sep}{model_basename}" + "_best_loss.hdf5"
     model_checkpoint2 = kr.callbacks.ModelCheckpoint(model_detailed2_filepath, monitor='loss',
                                                     verbose=1, save_best_only=True)
     reduce_lr = kr.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2,
-                                               patience=5, min_lr=0.000001)
+                                               patience=10, min_lr=1e-20)
     tensorboard_log_dir = f"{model_dir}{os.sep}{model_basename}" + "_tensorboard_log"
     tensorboard_logger = kr.callbacks.TensorBoard(log_dir=tensorboard_log_dir)
     csv_log_filepath = f"{model_dir}{os.sep}{model_basename}" + '_log.csv'
     csv_logger = kr.callbacks.CSVLogger(csv_log_filepath, append=True, separator=';')
 
     # Get the max epoch number from the log file if it exists...
-    max_epoch = 0
-    if model_preload_filepath and os.path.exists(csv_log_filepath):
-        logger.info(f"train_log csv: {csv_log_filepath}")
+    start_epoch = 0
+    start_learning_rate = 0.0001  # Best set to 0.0001 to start with, 
+                                  # afterwards can be brought down to 0.00001
+    if os.path.exists(csv_log_filepath):
+        logger.info(f"train_log csv exists: {csv_log_filepath}")
+        if not model_preload_filepath:
+            message = f"STOP: log file exists but preload model file not specified!!!"
+            logger.critical(message)
+            raise Exception(message)
+        
         train_log_csv = pd.read_csv(csv_log_filepath, sep=';')
-        logger.info(f"train_log csv contents:\n{train_log_csv}")
-        max_epoch = train_log_csv['epoch'].max()
+        logger.debug(f"train_log csv contents:\n{train_log_csv}")
+        start_epoch = train_log_csv['epoch'].max()
+        start_learning_rate = train_log_csv['lr'].min()
+    logger.info(f"start_epoch: {start_epoch}, start_learning_rate: {start_learning_rate}")
 
     # Create a model
     model = None
+    #loss_function = 'bcedice'
+    loss_function = 'binary_crossentropy'
     if not model_preload_filepath:
-        model = m.get_unet(input_width=image_width, input_height=image_height,
-                           n_channels=3, n_classes=1, init_with_vgg16=True,
-                           loss_mode='binary_crossentropy')
+        model = m.get_model(input_width=image_width, input_height=image_height,
+                            n_channels=3, n_classes=1, init_model_weights=True,
+                            loss_mode=loss_function)
     else:
         if not os.path.exists(model_preload_filepath):
             message = f"Error: preload model file doesn't exist: {model_preload_filepath}"
             logger.critical(message)
             raise Exception(message)
 
+        '''
         model = m.load_unet_model(filepath=model_preload_filepath,
-                                  learning_rate=0.00001)
+                                  learning_rate=start_learning_rate)
 
         '''
         model = m.get_unet(input_width=image_width, input_height=image_height,
                            n_channels=3, n_classes=1,
                            pretrained_weights_filepath=model_preload_filepath,
-                           loss_mode='binary_crossentropy')
-        '''
-
+                           loss_mode=loss_function)
+        
 #        model = kr.models.load_model(model_preload_filepath)
 #        model = m.load_unet_model(model_preload_filepath)
 #        model = m.get_unet(input_width=image_width, input_height=image_height,
@@ -148,7 +164,7 @@ def train(traindata_dir: str,
                                    reduce_lr,
 #                                   early_stopping,
                                    tensorboard_logger, csv_logger],
-                        initial_epoch=max_epoch)
+                        initial_epoch=start_epoch)
 
 def predict(model_to_use_filepath: str,
             input_image_dir: str,
