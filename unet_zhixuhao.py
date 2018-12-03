@@ -24,9 +24,10 @@ logger = logging.getLogger(__name__)
 # The real work
 #-------------------------------------------------------------
 
-def get_model(input_width=256, input_height=256, n_channels=3, n_classes=1,
-              loss_mode='binary_crossentropy', learning_rate=0.0001,
-              init_weigths: bool = False, pretrained_weights_filepath: str = None):
+def get_unet(input_width=256, input_height=256, n_channels=3,
+             n_classes=1,
+             loss_mode='binary_crossentropy', learning_rate=0.0001,
+             init_with_vgg16: bool = False, pretrained_weights_filepath: str = None):
 
     inputs = kr.layers.Input((input_width, input_height, n_channels))
     conv1 = kr.layers.Conv2D(64, 3, activation='relu', padding='same', kernel_initializer='he_normal', name="block1_conv1")(inputs)
@@ -83,7 +84,7 @@ def get_model(input_width=256, input_height=256, n_channels=3, n_classes=1,
                   metrics=[jaccard_coef, jacard_coef_flat,
                            jaccard_coef_int, dice_coef, 'accuracy'])
 
-    if init_weigths:
+    if(init_with_vgg16):
         # Load the VGG16 model with pretrained weights
         # Remark: this only has 3 channels. If the input images have more channels, those channels
         #         won't be pre-loaded
@@ -124,7 +125,7 @@ def get_model(input_width=256, input_height=256, n_channels=3, n_classes=1,
 
     #model.summary()
 
-    if pretrained_weights_filepath:
+    if(pretrained_weights_filepath):
         '''
         logger.info(f"Load model from {pretrained_weights_filepath}")
         
