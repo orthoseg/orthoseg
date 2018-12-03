@@ -29,9 +29,6 @@ input_vector_labels_filepath = os.path.join(input_vector_dir, "Prc_SER_SGM.shp")
 # WMS server we can use to get the image data
 WMS_SERVER_URL = 'http://geoservices.informatievlaanderen.be/raadpleegdiensten/ofw/wms?'
 
-# Current best model
-model_current_best = "unet_vgg16_greenhouse_v1_077_0.02528_0.02648"
-
 # Train and evaluate settings
 # The subdirs where the images and masks can be found by convention for training and validation
 image_subdir = "image"
@@ -39,12 +36,21 @@ mask_subdir = "mask"
 
 model_train_dir = project_dir
 #model_train_dir = None
-model_train_basename = 'unet_vgg16_greenhouse_v1'
+
+# Current best model
+#model_current_best = "greenhouse_unet_vgg16_v1_077_0.02528_0.02648"
+#model_current_best = "greenhouse_unet_vgg16_v5_832_0.15442_0.07930_2"
+model_current_best = "greenhouse_unet_vgg16_v2_103_0.04760_0.02614_2"
+model_current_best = "greenhouse_unet_ternaus_v1_312_0.55545_1.75393"
+
+#model_train_basename = 'greenhouse_unet_zhix_v6'
+model_train_basename = 'greenhouse_deeplab_v1'
 model_train_best_name = model_train_basename + '_best'
 model_train_preload_filepath = os.path.join(project_dir, f"{model_current_best}.hdf5")
-#model_train_preload_filepath = None
+model_train_preload_filepath = None
+
 batch_size = 4
-nb_epoch = 150
+nb_epoch = 1000
 train_dir = os.path.join(project_dir, "train")
 train_augmented_dir = None #os.path.join(project_dir, "train_augmented")
 
@@ -100,7 +106,6 @@ def main():
                     force=True)
 
         logger.info('Start training')
-        # TODO: enable validation dir again
         segment.train(traindata_dir=train_dir,
                       validationdata_dir=validation_dir,
                       image_subdir=image_subdir,
@@ -113,6 +118,14 @@ def main():
                       train_augmented_dir=train_augmented_dir)
 
     # Predict for training dataset
+    segment.predict(model_to_use_filepath=model_to_use_filepath,
+                    input_image_dir=os.path.join(train_dir, image_subdir),
+                    output_predict_dir=os.path.join(train_dir, prediction_eval_subdir),
+                    input_ext=['.tif'],
+                    input_mask_dir=os.path.join(train_dir, mask_subdir),
+                    prefix_with_similarity=True)
+    # There are 2 different sizes of tifs, 
+    # TODO: add support in predict for different image sizes...
     segment.predict(model_to_use_filepath=model_to_use_filepath,
                     input_image_dir=os.path.join(train_dir, image_subdir),
                     output_predict_dir=os.path.join(train_dir, prediction_eval_subdir),

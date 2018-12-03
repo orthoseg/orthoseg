@@ -63,10 +63,9 @@ def jaccard_coef_loss(y_true, y_pred):
     return -K.log(jaccard_coef(y_true, y_pred)) + binary_crossentropy(y_pred, y_true)
 
 
-def get_unet(input_width=256, input_height=256, n_channels=3,
-             n_classes=1,
-             loss_mode='binary_crossentropy', learning_rate=1e-4,
-             init_with_vgg16: bool = False, pretrained_weights_filepath: str = None):
+def get_model(input_width=256, input_height=256, n_channels=3, n_classes=1,
+              loss_mode='binary_crossentropy', learning_rate=1e-4,
+              init_model_weights: bool = False, pretrained_weights_filepath: str = None):
     
     inputs = kr.layers.Input((input_width, input_height, n_channels))
     conv1 = kr.layers.Conv2D(32, 3, activation='relu', padding='same', kernel_initializer='he_uniform')(inputs)
@@ -149,8 +148,15 @@ def get_unet(input_width=256, input_height=256, n_channels=3,
     conv10 = kr.layers.Conv2D(n_classes, 1, activation='sigmoid')(conv9)
 
     model = kr.models.Model(inputs=inputs, outputs=conv10)
+    
+    if loss_mode == "jaccard_coef_loss":
+        loss_func = jaccard_coef_loss
+    elif loss_mode == "binary_crossentropy":
+        loss_func = 'binary_crossentropy'
+    else:
+        raise Exception(f"Unknown loss function: {loss_mode}")
 
-    model.compile(optimizer=Nadam(lr=learning_rate), loss=jaccard_coef_loss, metrics=['binary_crossentropy', jaccard_coef_int])
+    model.compile(optimizer=Nadam(lr=learning_rate), loss=loss_func, metrics=['binary_crossentropy', jaccard_coef_int])
 
     return model
 
