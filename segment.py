@@ -126,7 +126,6 @@ def train(traindata_dir: str,
         # Get the model we want to use
         model = m.get_model(segmentation_model=segmentation_model, 
                             backbone_name=backbone_name,
-                            input_width=image_width, input_height=image_height,
                             n_channels=3, n_classes=1, init_model_weights=True)
         # Prepare the model for training
         # Default learning rate for Adam: lr=1e-3, but doesn't seem to work well for unet
@@ -147,7 +146,6 @@ def train(traindata_dir: str,
         '''
         model = m.get_model(segmentation_model=segmentation_model, 
                             backbone_name=backbone_name,
-                            input_width=image_width, input_height=image_height,
                             n_channels=3, n_classes=1,
                             pretrained_weights_filepath=model_preload_filepath,
                             loss_mode=loss_function)
@@ -275,7 +273,6 @@ def predict(segmentation_model: str,
 #                                n_channels=image_channels, n_classes=1)
             model = m.get_model(segmentation_model=segmentation_model, 
                                 backbone_name=backbone_name,
-                                input_width=image_width, input_height=image_height,
                                 n_channels=image_channels, n_classes=1)
             model.load_weights(model_to_use_filepath)
 

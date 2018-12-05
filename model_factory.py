@@ -17,70 +17,62 @@ preprocessing_fn = get_preprocessing('resnet34')
 x = preprocessing_fn(x)
 '''
 
-def get_model(segmentation_model: str = 'unet_ternaus',
-              backbone_name: str = None,
-              input_width=256,
-              input_height=256,
-              n_channels=3,
-              n_classes=1,
-              init_model_weights: bool = False):
+def get_model(segmentation_model: str = 'linknet',
+              backbone_name: str = 'inceptionresnetv2',
+              input_width: int = None,
+              input_height: int = None,
+              n_channels: int = 3,
+              n_classes: int = 1,
+              init_weights_with: str = 'imagenet'):
 
     if segmentation_model.lower() == 'deeplabv3plus':
         import model_deeplabv3plus as m
         return m.get_model(input_width=input_width, input_height=input_height,
                            n_channels=n_channels, n_classes=n_classes,
-                           init_model_weights=init_model_weights)
+                           init_model_weights=init_weights_with)
     elif segmentation_model.lower() == 'unet':
         # These two unet variants are implemented in a seperate module
         if backbone_name.lower() == 'standard':
             import model_unet_standard as m
+            if init_weights_with:
+                init_weights = True
             return m.get_model(input_width=input_width, input_height=input_height,
                                n_channels=n_channels, n_classes=n_classes,
-                               init_model_weights=init_model_weights)
+                               init_model_weights=init_weights)
         elif backbone_name.lower() == 'ternaus':
             import model_unet_ternaus as m
+            if init_weights_with:
+                init_weights = True
             return m.get_model(input_width=input_width, input_height=input_height,
                                n_channels=n_channels, n_classes=n_classes,
-                               init_model_weights=init_model_weights)
+                               init_model_weights=init_weights)
 
         # Some other unet variants is implemented using the segmentation_models library
         from segmentation_models import Unet
         #from segmentation_models.backbones import get_preprocessing
 
-        init_weights = None
-        if init_model_weights:
-            init_weights = 'imagenet'
-
         model = Unet(backbone_name=backbone_name,
                      input_shape=(input_width, input_height, n_channels),
                      classes=n_classes,
-                     encoder_weights=init_weights)
+                     encoder_weights=init_weights_with)
         return model
     elif segmentation_model.lower() == 'pspnet':
         from segmentation_models import PSPNet
         #from segmentation_models.backbones import get_preprocessing
 
-        init_weights = None
-        if init_model_weights:
-            init_weights = 'imagenet'
-
         model = PSPNet(backbone_name=backbone_name,
                        input_shape=(input_width, input_height, n_channels),
                        classes=n_classes,
-                       encoder_weights=init_weights)
+                       encoder_weights=init_weights_with)
         return model
     elif segmentation_model.lower() == 'linknet':
         from segmentation_models import Linknet
         #from segmentation_models.backbones import get_preprocessing
 
-        init_weights = None
-        if init_model_weights:
-            init_weights = 'imagenet'
-
         model = Linknet(backbone_name=backbone_name,
                         input_shape=(input_width, input_height, n_channels),
                         classes=n_classes,
-                        encoder_weights=init_weights)
+                        encoder_weights=init_weights_with)
         return model
     else:
         raise Exception(f"Unknown segmentation_model: {segmentation_model}")
