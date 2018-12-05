@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-Module that acts as a factory to create segmentation models with a common 
+Module that acts as a factory to create segmentation models with a common
 interface, regardless of the underlying implementation.
 
 Many models are supported by using the segmentation model zoo:
-https://github.com/qubvel/segmentation_models 
+https://github.com/qubvel/segmentation_models
 
 
 @author: Pieter Roggemans
@@ -19,40 +19,39 @@ x = preprocessing_fn(x)
 
 def get_model(segmentation_model: str = 'unet_ternaus',
               backbone_name: str = None,
-              input_width=256, 
-              input_height=256, 
-              n_channels=3, 
+              input_width=256,
+              input_height=256,
+              n_channels=3,
               n_classes=1,
-              init_model_weights: bool = False, 
-              pretrained_weights_filepath: str = None):
-    
-    if segmentation_model.lower() == 'unet_ternaus':
-        import model_unet_ternaus as m
-        return m.get_model(input_width=input_width, input_height=input_height,
-                           n_channels=n_channels, n_classes=n_classes,
-                           init_model_weights=init_model_weights, 
-                           pretrained_weights_filepath=pretrained_weights_filepath)
-    elif segmentation_model.lower() == 'unet_standard':
-        import model_unet_standard as m
-        return m.get_model(input_width=input_width, input_height=input_height,
-                           n_channels=n_channels, n_classes=n_classes,
-                           init_model_weights=init_model_weights, 
-                           pretrained_weights_filepath=pretrained_weights_filepath)
-    elif segmentation_model.lower() == 'deeplabv3plus':
+              init_model_weights: bool = False):
+
+    if segmentation_model.lower() == 'deeplabv3plus':
         import model_deeplabv3plus as m
         return m.get_model(input_width=input_width, input_height=input_height,
                            n_channels=n_channels, n_classes=n_classes,
-                           init_model_weights=init_model_weights, 
-                           pretrained_weights_filepath=pretrained_weights_filepath)
+                           init_model_weights=init_model_weights)
     elif segmentation_model.lower() == 'unet':
+        # These two unet variants are implemented in a seperate module
+        if backbone_name.lower() == 'standard':
+            import model_unet_standard as m
+            return m.get_model(input_width=input_width, input_height=input_height,
+                               n_channels=n_channels, n_classes=n_classes,
+                               init_model_weights=init_model_weights)
+        elif backbone_name.lower() == 'ternaus':
+            import model_unet_ternaus as m
+            return m.get_model(input_width=input_width, input_height=input_height,
+                               n_channels=n_channels, n_classes=n_classes,
+                               init_model_weights=init_model_weights)
+
+        # Some other unet variants is implemented using the segmentation_models library
         from segmentation_models import Unet
         #from segmentation_models.backbones import get_preprocessing
 
         init_weights = None
         if init_model_weights:
             init_weights = 'imagenet'
-            
-        model = Unet(backbone_name=backbone_name, 
+
+        model = Unet(backbone_name=backbone_name,
                      input_shape=(input_width, input_height, n_channels),
                      classes=n_classes,
                      encoder_weights=init_weights)
@@ -64,7 +63,7 @@ def get_model(segmentation_model: str = 'unet_ternaus',
         init_weights = None
         if init_model_weights:
             init_weights = 'imagenet'
-            
+
         model = PSPNet(backbone_name=backbone_name,
                        input_shape=(input_width, input_height, n_channels),
                        classes=n_classes,
@@ -77,7 +76,7 @@ def get_model(segmentation_model: str = 'unet_ternaus',
         init_weights = None
         if init_model_weights:
             init_weights = 'imagenet'
-            
+
         model = Linknet(backbone_name=backbone_name,
                         input_shape=(input_width, input_height, n_channels),
                         classes=n_classes,
@@ -85,12 +84,12 @@ def get_model(segmentation_model: str = 'unet_ternaus',
         return model
     else:
         raise Exception(f"Unknown segmentation_model: {segmentation_model}")
-    
+
 def compile_model(model,
                   optimizer,
                   loss_mode='binary_crossentropy',
                   metrics=None):
-    
+
     if loss_mode == "bcedice":
         loss_func = dice_coef_loss_bce
     elif loss_mode == "binary_crossentropy":
@@ -100,11 +99,20 @@ def compile_model(model,
 
     # TODO: implement option to specify metrics...
     model.compile(optimizer=optimizer, loss=loss_func,
-                  metrics=[jaccard_coef, jacard_coef_flat,
+                  metrics=[jaccard_coef, jaccard_coef_flat,
                            jaccard_coef_int, dice_coef, 'accuracy', 'binary_accuracy'])
-    
+
     return model
-    
+
+def load_model(model_to_use_filepath: str):
+    model = kr.models.load_model(model_to_use_filepath,
+                                 custom_objects={'jaccard_coef': jaccard_coef,
+                                                 'jaccard_coef_flat': jaccard_coef_flat,
+                                                 'jaccard_coef_int': jaccard_coef_int,
+                                                 'dice_coef': dice_coef})
+
+    return model
+
 #------------------------------------------
 # Loss functions
 #------------------------------------------
@@ -156,7 +164,7 @@ def jaccard_coef_int(y_true, y_pred):
     jac = (intersection + SMOOTH_LOSS) / (sum_ - intersection + SMOOTH_LOSS)
     return kr.backend.mean(jac)
 
-def jacard_coef_flat(y_true, y_pred):
+def jaccard_coef_flat(y_true, y_pred):
     y_true_f = kr.backend.flatten(y_true)
     y_pred_f = kr.backend.flatten(y_pred)
     intersection = kr.backend.sum(y_true_f * y_pred_f)
