@@ -54,7 +54,7 @@ def main():
             format=ows_helper.FORMAT_JPEG,
             pixels_overlap=50,
             random_sleep=2.0,
-            max_nb_images=20000)
+            max_nb_images_to_download=20000)
 
 if __name__ == '__main__':
     main()

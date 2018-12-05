@@ -61,7 +61,8 @@ def get_images_for_grid(wms_server_url: str,
                         wms_server_layers_styles: [str] = ['default'],
                         pixels_overlap: int = 0,
                         random_sleep: float = 0.0,
-                        max_nb_images: int = None,
+                        max_nb_images_to_download: int = None,
+                        column_start: int = 0,
                         force: bool = False):
 
     srs_width = math.fabs(image_pixel_width*image_srs_pixel_x_size)   # tile width in units of crs => 500 m
@@ -102,7 +103,7 @@ def get_images_for_grid(wms_server_url: str,
     elif((image_gen_bounds[1]-grid_ymin)%srs_height != 0):
         error_message += f"image_gen_bounds[1] (ymin) is not compatible with grid!\n"
     elif((image_gen_bounds[3]-grid_ymin)%srs_height != 0):
-        error_message += f"image_gen_bounds[3] (ymax)is not compatible with grid!\n"
+        error_message += f"image_gen_bounds[3] (ymax) is not compatible with grid!\n"
 
     # If there was an error, stop!
     if error_message:
@@ -128,7 +129,7 @@ def get_images_for_grid(wms_server_url: str,
     # Loop through all columns and get the images...
     counter = 0
     counter_downloaded = 0
-    for col in range(0, cols):
+    for col in range(column_start, cols):
         image_xmin = col * srs_width + image_gen_bounds[0]
         image_xmax = (col + 1) * srs_width + image_gen_bounds[0]
 
@@ -144,10 +145,16 @@ def get_images_for_grid(wms_server_url: str,
             output_dir = os.path.join(output_image_dir, f"{image_xmin:09.4f}")
         if not os.path.exists(output_dir):
             os.mkdir(output_dir)
+            
+        logger.info(f"Start processing column {col}")
 
         for row in range(0, rows):
             counter += 1
-            logger.info(f"Process image {counter} out of {cols*rows}: {counter/(cols*rows):.2f} %")
+            logger.debug(f"Process image {counter} out of {cols*rows}: {counter/(cols*rows):.2f} %")
+            
+            if (counter % 500) == 0:
+                logger.info(f"Nb processed: {counter} of {cols*rows} ({counter/(cols*rows):.2f}%), Nb downloaded: {counter_downloaded}")
+            
             image_ymin = row * srs_height + image_gen_bounds[1]
             image_ymax = (row + 1) * srs_height + image_gen_bounds[1]
 
@@ -163,7 +170,7 @@ def get_images_for_grid(wms_server_url: str,
                         intersects = True
                         break
                 if not intersects:
-                    logger.info("    -> image doesn't overlap with roi, so skip")
+                    logger.debug("    -> image doesn't overlap with roi, so skip")
                     continue
 
             # If overlapping images are wanted... increase image bbox
@@ -187,9 +194,9 @@ def get_images_for_grid(wms_server_url: str,
                     force=force)
             if(res is not None):
                 counter_downloaded += 1
-                if(max_nb_images 
-                   and counter_downloaded >= max_nb_images):
-                    logger.info(f"Max nb of downloads reached: {max_nb_images}")
+                if(max_nb_images_to_download 
+                   and counter_downloaded >= max_nb_images_to_download):
+                    logger.info(f"Max nb of downloads reached: {max_nb_images_to_download}")
                     return
 
 def getmap_to_file(wms: WebMapService,
@@ -238,13 +245,14 @@ def getmap_to_file(wms: WebMapService,
 
     # If force is false and file exists already, stop...
     if force == False and os.path.exists(output_filepath):
-        logger.info(f"File already exists, skip: {output_filepath}")
+        logger.debug(f"File already exists, skip: {output_filepath}")
         return None #output_filepath
 
     # Retry 10 times...
     nb_retries = 0
     while nb_retries <= 10:
         try:
+            logger.info(f"Call GetMap for image with bbox {bbox}")
             img = wms.getmap(layers=layers,
                              styles=layers_styles,
                              srs=srs,
