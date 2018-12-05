@@ -17,27 +17,29 @@ model_train_basename = 'unet_vgg16_greenhouse_v1'  # From scratch on ??/??/2018,
 NEW TESTS
 ----------------
 model_train_basename = 'greenhouse_unet_vgg16_v2'  
-    -> Start 26/11/2018, zhixuhao unet, init with vgg16 4 layers, lr: 1e-4, loss: binary_crossentropy
+    -> Start 26/11/2018, standard unet, init with vgg16 4 layers, lr: 1e-4, loss: binary_crossentropy
     -> Evolution:
         -> epoch 001: val_loss: 0.69220, loss: 0.83392
         -> epoch 030: val_loss: 0.66556, loss: 0.64396
         -> epoch 150: val_loss: 0.66556, loss: 0.64396
+        -> epoch loss: 0.02613742266019637, val_loss: 0.048993391868395686
+           jaccard_coef_int: 0.8956767515702682, val_jaccard_coef_int: 0.9304992785820594
 model_train_basename = 'greenhouse_unet_vgg16_v3'  
-    -> Start 27/11/2018, zhixuhao unet, init with vgg16 4 layers, lr: 1e-3, loss: binary_crossentropy
+    -> Start 27/11/2018, standard unet, init with vgg16 4 layers, lr: 1e-3, loss: binary_crossentropy
     -> VERY BAD!
     -> Evolution:
         -> epoch 001: val_loss: 4.86134, loss: 2.5085
         -> epoch 007: val_loss: 4.86134, loss: 2.4
         -> stopped improving!
 model_train_basename = 'greenhouse_unet_vgg16_v4'  
-    -> Start 27/11/2018, zhixuhao unet, init with vgg16 4 layers, lr: 1e-5, loss: binary_crossentropy
+    -> Start 27/11/2018, standard unet, init with vgg16 4 layers, lr: 1e-5, loss: binary_crossentropy
     -> VERY BAD
     -> Evolution:
         -> epoch 001: val_loss: 4.84866, loss: 2.50
         -> epoch 007: val_loss: 4.84866, loss: 2.465
         -> stopped improving!
 model_train_basename = 'greenhouse_unet_vgg16_v5'  
-    -> Start 26/11/2018, zhixuhao unet, init with vgg16 4 layers, lr: 1e-4, loss: bcedice
+    -> Start 26/11/2018, standard unet, init with vgg16 4 layers, lr: 1e-4, loss: bcedice
     -> BAD!
     -> Evolution: evolution stopped quite early...
 model_train_basename = 'greenhouse_unet_ternaus_v5'  
@@ -45,8 +47,27 @@ model_train_basename = 'greenhouse_unet_ternaus_v5'
     -> Not so good!
     -> Evolution: evolution stopped quite early...
 model_train_basename = 'greenhouse_unet_zhix_v2'  
-    -> Start 26/11/2018, zhixuhao unet, NO init, lr: 1e-4, binary_crossentropy
+    -> Start 26/11/2018, standard unet, NO init, lr: 1e-4, binary_crossentropy
     -> VERY BAD
     -> Evolution: evolution stopped quite early:
         -> at 1000 epochs: jaccard_coef_int: 0.1474, val_jaccard_coef_int: 0.1446, loss: 0.4838
-
+model_train_basename = 'greenhouse_unet_inceptionresnetv2_v2'  
+    -> Start 03/12/2018, unet met inceptionresnetv2 backbone, init, lr: 1e-4, binary_crossentropy
+    -> GOOD!
+    -> Evolution: evolution stopped quite early:
+        -> at 118 epochs: loss (binary_crossentropy): 0.01867, val_loss: 0.02477
+        -> No more progress afterwards...
+model_train_basename = 'greenhouse_unet_inceptionresnetv2_v2'  
+    -> Start 03/12/2018, PSPNet met inceptionresnetv2 backbone, init, lr: 1e-4, binary_crossentropy
+    -> 
+    -> Evolution: :
+        -> at 118 epochs: loss (binary_crossentropy): , val_loss: 
+        -> No more progress afterwards...
+model_train_basename = 'greenhouse_unet_inceptionresnetv2_v2'  
+    -> Start 03/12/2018, LinkNet met inceptionresnetv2 backbone, init, lr: 1e-4, binary_crossentropy
+    -> 
+    -> Evolution: :
+        -> at 627 epochs: loss (binary_crossentropy): , val_loss: 
+              jaccard_coef_int: 0.9281779432965216, val_jaccard_coef_int: 0.9562557966281207
+        -> No more progress afterwards...
+    
