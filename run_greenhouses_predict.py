@@ -9,7 +9,6 @@ import os
 
 import log_helper
 import segment
-import preprocess as prep
 
 #-------------------------------------------------------------
 # First define/init some general variables/constants
@@ -39,11 +38,8 @@ backbone_name = 'inceptionresnetv2'
 
 # Model to use for prediction
 #model_to_use = "greenhouse_unet_vgg16_v1_077_0.02528_0.02648"
-#model_to_use = "greenhouse_unet_vgg16_v5_832_0.15442_0.07930_2"
 model_to_use = "greenhouse_unet_vgg16_v2_103_0.04760_0.02614_2"
-model_to_use = "greenhouse_unet_inceptionresnetv2_v1_118_0.02477_0.01867_2"
-model_to_use = "greenhouse_linknet_inceptionresnetv2_v2_627_0.02546_0.01443_2"
-#model_to_use = 'greenhouse_unet_zhix_v6'
+model_to_use = "greenhouse_02_linknet_inceptionresnetv2_01_110_0.94266_0.95073"
 model_to_use_filepath = os.path.join(project_dir, f"{model_to_use}.hdf5")
 
 batch_size = 4
@@ -56,7 +52,7 @@ validation_dir = os.path.join(project_dir, "validation")
 prediction_eval_subdir = f"prediction_{model_to_use}_eval"
 
 # Real prediction dir
-to_predict_input_dir = "X:\GIS\GIS DATA\_Tmp\Ortho_2018_autosegment_cache\1024x1024_50pxOverlap"
+to_predict_input_dir = "X:\\GIS\\GIS DATA\\_Tmp\Ortho_2018_autosegment_cache\\1024x1024_50pxOverlap"
 #to_predict_input_dir = None
 
 # Log dir
@@ -86,7 +82,7 @@ def main():
                     input_ext=['.tif'],
                     input_mask_dir=os.path.join(train_dir, mask_subdir),
                     prefix_with_similarity=True)
-    # There are 2 different sizes of tifs, 
+    # There are 2 different sizes of tifs,
     # TODO: add support in predict for different image sizes...
     segment.predict(segmentation_model=segmentation_model,
                     backbone_name=backbone_name,
@@ -146,7 +142,7 @@ def main():
                     prefix_with_similarity=True)
 
     '''
-    
+
     # Predict for entire dataset
     if to_predict_input_dir:
         segment.predict(segmentation_model=segmentation_model,
