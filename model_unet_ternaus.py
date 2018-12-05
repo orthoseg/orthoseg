@@ -2,6 +2,8 @@
 """
 Unet code based on https://github.com/ternaus/kaggle_dstl_submission/tree/master/src
 
+TODO: review code and cleanup due to introduction of model factory
+
 @author: Pieter Roggemans
 """
 
@@ -156,6 +158,8 @@ def get_model(input_width=256, input_height=256, n_channels=3, n_classes=1,
     else:
         raise Exception(f"Unknown loss function: {loss_mode}")
 
+    # TODO: probably this needs to be removed because of the introduction of 
+    # the model factory
     model.compile(optimizer=Nadam(lr=learning_rate), loss=loss_func, metrics=['binary_crossentropy', jaccard_coef_int])
 
     return model

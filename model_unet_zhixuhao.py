@@ -4,8 +4,10 @@ Unet definition in Keras.
 
 Based on code from:
     * unet: https://github.com/zhixuhao/unet
-    * preload first layer with VGG16 weights:
+    * preload first layers with VGG16 weights:
       https://www.microsoft.com/developerblog/2018/07/05/satellite-images-segmentation-sustainable-farming/
+
+TODO: review code and cleanup due to introduction of model factory
 
 @author: Pieter Roggemans
 """
@@ -79,6 +81,8 @@ def get_model(input_width=256, input_height=256, n_channels=3, n_classes=1,
         raise Exception(f"Unknown loss function: {loss_mode}")
 
     # Default learning rate for Adam: lr=1e-3, but doesn't seem to work well for unet
+    # TODO: probably this needs to be removed because of the introduction of 
+    # the model factory
     model.compile(optimizer=kr.optimizers.Adam(lr=learning_rate), loss=loss_func,
                   metrics=[jaccard_coef, jacard_coef_flat,
                            jaccard_coef_int, dice_coef, 'accuracy'])

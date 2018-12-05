@@ -22,6 +22,9 @@ https://github.com/JonathanCMitchell/mobilenet_v2_keras
     (https://arxiv.org/abs/1610.02357)
 - [Inverted Residuals and Linear Bottlenecks: Mobile Networks for
     Classification, Detection and Segmentation](https://arxiv.org/abs/1801.04381)
+
+TODO: review code and cleanup due to introduction of model factory
+
 """
 
 from __future__ import absolute_import
