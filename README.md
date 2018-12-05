@@ -27,5 +27,6 @@ following steps:
       conda install fiona
       conda install scikit-image
       conda install owslib
+      pip install segmentation-models
       conda install spyder           # If you use spyder as development tool...
       ```
