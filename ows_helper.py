@@ -63,6 +63,7 @@ def get_images_for_grid(wms_server_url: str,
                         random_sleep: float = 0.0,
                         max_nb_images_to_download: int = None,
                         column_start: int = 0,
+                        nb_images_to_skip: int = None,
                         force: bool = False):
 
     srs_width = math.fabs(image_pixel_width*image_srs_pixel_x_size)   # tile width in units of crs => 500 m
@@ -130,6 +131,7 @@ def get_images_for_grid(wms_server_url: str,
     counter = 0
     counter_downloaded = 0
     for col in range(column_start, cols):
+        
         image_xmin = col * srs_width + image_gen_bounds[0]
         image_xmax = (col + 1) * srs_width + image_gen_bounds[0]
 
@@ -149,9 +151,18 @@ def get_images_for_grid(wms_server_url: str,
         logger.info(f"Start processing column {col}")
 
         for row in range(0, rows):
-            counter += 1
+            
+            counter += 1            
+            
+            # To be able to quickly get images spread over the roi...
+            if(nb_images_to_skip
+               and (counter%nb_images_to_skip) != 0):
+                #logger.debug(f"Skip this image, because {counter}%{nb_images_to_skip} is not 0")
+                continue
+            
             logger.debug(f"Process image {counter} out of {cols*rows}: {counter/(cols*rows):.2f} %")
             
+            # Progress
             if (counter % 500) == 0:
                 logger.info(f"Nb processed: {counter} of {cols*rows} ({counter/(cols*rows):.2f}%), Nb downloaded: {counter_downloaded}")
             
@@ -252,7 +263,7 @@ def getmap_to_file(wms: WebMapService,
     nb_retries = 0
     while nb_retries <= 10:
         try:
-            logger.info(f"Call GetMap for image with bbox {bbox}")
+            logger.info(f"Call GetMap for bbox {bbox}")
             img = wms.getmap(layers=layers,
                              styles=layers_styles,
                              srs=srs,
