@@ -63,11 +63,18 @@ model_train_basename = 'greenhouse_unet_inceptionresnetv2_v2'
     -> Evolution: :
         -> at 118 epochs: loss (binary_crossentropy): , val_loss: 
         -> No more progress afterwards...
-model_train_basename = 'greenhouse_unet_inceptionresnetv2_v2'  
+model_train_basename = 'greenhouse_LinkNet_inceptionresnetv2_v2'  
     -> Start 03/12/2018, LinkNet met inceptionresnetv2 backbone, init, lr: 1e-4, binary_crossentropy
     -> 
     -> Evolution: :
         -> at 627 epochs: loss (binary_crossentropy): , val_loss: 
               jaccard_coef_int: 0.9281779432965216, val_jaccard_coef_int: 0.9562557966281207
         -> No more progress afterwards...
-    
+model_train_basename = 'greenhouse_03_linknet_inceptionresnetv2_v1'  
+    -> greenhouse_03 = expanded training dataset with +- 15 images with containers, specific field textures, water,...
+    -> Start 06/12/2018, LinkNet met inceptionresnetv2 backbone, init, lr: 1e-4, binary_crossentropy
+    -> 
+    -> Evolution: greenhouse_03_linknet_inceptionresnetv2_01_037_0.93795_0.96904
+        -> at  epochs: loss (binary_crossentropy): , val_loss: 
+              jaccard_coef_int: , val_jaccard_coef_int: 
+ 
