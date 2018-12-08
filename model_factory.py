@@ -10,7 +10,19 @@ https://github.com/qubvel/segmentation_models
 @author: Pieter Roggemans
 """
 
+import logging
 import keras as kr
+
+#-------------------------------------------------------------
+# First define/init some general variables/constants
+#-------------------------------------------------------------
+# Get a logger...
+logger = logging.getLogger(__name__)
+#logger.setLevel(logging.INFO)
+
+#-------------------------------------------------------------
+# The real work
+#-------------------------------------------------------------
 
 '''
 preprocessing_fn = get_preprocessing('resnet34')
@@ -69,6 +81,9 @@ def get_model(segmentation_model: str = 'linknet',
         from segmentation_models import Linknet
         #from segmentation_models.backbones import get_preprocessing
 
+        # First check if input size is compatible with linknet 
+        check_image_size(segmentation_model, input_width, input_height)
+            
         model = Linknet(backbone_name=backbone_name,
                         input_shape=(input_width, input_height, n_channels),
                         classes=n_classes,
@@ -105,6 +120,18 @@ def load_model(model_to_use_filepath: str):
 
     return model
 
+def check_image_size(segmentation_model: str,
+                     input_width: int, 
+                     input_height: int):
+    if segmentation_model.lower() == 'linknet':
+        if((input_width and (input_width % 16) != 0) 
+           or (input_height and (input_height % 16) != 0)):
+            message = f"STOP: input_width ({input_width} and input_height ({input_height}) should be divisable by 16!"
+            logger.error(message)
+            raise Exception(message)
+    else:
+        logger.info("check_image_size is not implemented for this model!")
+        
 #------------------------------------------
 # Loss functions
 #------------------------------------------
