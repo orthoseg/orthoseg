@@ -40,7 +40,7 @@ def region_segmentation(predicted_mask,
     
     return segmentation
 
-def thresshold(mask, thresshold_ok: float = 0.6):
+def thresshold(mask, thresshold_ok: float = 0.5):
     mask[mask >= thresshold_ok] = 1
     mask[mask < thresshold_ok] = 0
     
