@@ -31,15 +31,22 @@ def main():
     if load_random_test_images:
         image_pixel_width = 512
         image_pixel_height = image_pixel_width
+        image_format = ows_helper.FORMAT_JPEG
         pixels_overlap = 0
+#        image_dir = f"X:\\PerPersoon\\PIEROG\\Taken\\2018\\2018-08-12_AutoSegmentation\\greenhouses\\test_random\\image{image_pixel_width}x{image_pixel_height}_{pixels_overlap}pxOverlap"
+        image_dir = f"X:\\PerPersoon\\PIEROG\\Taken\\2018\\2018-08-12_AutoSegmentation\\horsetrack\\test_for_validation\\image"
+
+        column_start = 1
         nb_images_to_skip = 50
-        image_dir = f"X:\\PerPersoon\\PIEROG\\Taken\\2018\\2018-08-12_AutoSegmentation\\greenhouses\\test_random\\image{image_pixel_width}x{image_pixel_height}_{pixels_overlap}pxOverlap"
     else:
         image_pixel_width = 1024
         image_pixel_height = image_pixel_width
+        image_format = ows_helper.FORMAT_JPEG
         pixels_overlap = 64
+        image_dir = f"X:\\GIS\\GIS DATA\\_SegmentCache\\Ortho_2018\\{image_pixel_width}x{image_pixel_height}_{pixels_overlap}pxOverlap"
+
+        column_start = 0
         nb_images_to_skip = 0
-        image_dir = f"X:\\GIS\\GIS DATA\\_Tmp\\Ortho_2018_autosegment_cache\\{image_pixel_width}x{image_pixel_height}_{pixels_overlap}pxOverlap"
 
     WMS_SERVER_URL = 'http://geoservices.informatievlaanderen.be/raadpleegdiensten/ofw/wms?'
     wms_server_layers = ['ofw']
@@ -54,6 +61,7 @@ def main():
     generate_window_ymax = 245000
     '''
 
+    # til column 612 is done...
     ows_helper.get_images_for_grid(
             wms_server_url=WMS_SERVER_URL,
             wms_server_layers=wms_server_layers,
@@ -64,11 +72,10 @@ def main():
             image_srs_pixel_y_size=0.25,
             image_pixel_width=image_pixel_width,
             image_pixel_height=image_pixel_height,
-            format=ows_helper.FORMAT_JPEG,
+            image_format=image_format,
             pixels_overlap=pixels_overlap,
-            random_sleep=2.0,
-            max_nb_images_to_download=50000,
-            column_start=0,
+            random_sleep=0.0,
+            column_start=column_start,
             nb_images_to_skip=nb_images_to_skip)
 
 if __name__ == '__main__':

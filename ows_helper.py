@@ -8,6 +8,7 @@ Helper module to support some tasks regarding using OWS services.
 import logging
 import os
 import time
+import datetime
 import random
 import math
 
@@ -55,13 +56,12 @@ def get_images_for_grid(wms_server_url: str,
                         image_srs_pixel_y_size: int = 0.25,
                         image_pixel_width: int = 1024,
                         image_pixel_height: int = 1024,
-                        format: str = FORMAT_GEOTIFF,
+                        image_format: str = FORMAT_GEOTIFF,
                         tiff_compress: str = 'lzw',
                         transparent: str = False,
                         wms_server_layers_styles: [str] = ['default'],
                         pixels_overlap: int = 0,
                         random_sleep: float = 0.0,
-                        max_nb_images_to_download: int = None,
                         column_start: int = 0,
                         nb_images_to_skip: int = None,
                         force: bool = False):
@@ -73,6 +73,9 @@ def get_images_for_grid(wms_server_url: str,
     roi_rows = None
     if image_gen_roi_filepath:
         # Open vector layer
+        # TODO: performance can be improved by intersecting with a 2x2 km grid
+        # so calculating intersections per cell afterwards is cheaper...
+        # eg: grid res_intersection = geopandas.overlay(df1, df2, how='intersection')
         logger.info(f"Open vector file {image_gen_roi_filepath}")
         roi_data = fiona.open(image_gen_roi_filepath)
 
@@ -128,8 +131,11 @@ def get_images_for_grid(wms_server_url: str,
     wms = WebMapService(wms_server_url, version='1.3.0')
 
     # Loop through all columns and get the images...
-    counter = 0
-    counter_downloaded = 0
+    nb_processed = 0
+    nb_downloaded = 0
+    nb_ignore_in_progress = 0
+    start_time = datetime.datetime.now()
+    last_progress_log_time = datetime.datetime.now()
     for col in range(column_start, cols):
         
         image_xmin = col * srs_width + image_gen_bounds[0]
@@ -152,24 +158,39 @@ def get_images_for_grid(wms_server_url: str,
 
         for row in range(0, rows):
             
-            counter += 1            
+            nb_processed += 1            
             
             # To be able to quickly get images spread over the roi...
             if(nb_images_to_skip
                and (counter%nb_images_to_skip) != 0):
                 #logger.debug(f"Skip this image, because {counter}%{nb_images_to_skip} is not 0")
                 continue
-            
-            logger.debug(f"Process image {counter} out of {cols*rows}: {counter/(cols*rows):.2f} %")
-            
-            # Progress
-            if (counter % 500) == 0:
-                logger.info(f"Nb processed: {counter} of {cols*rows} ({counter/(cols*rows):.2f}%), Nb downloaded: {counter_downloaded}")
-            
+
+            # Calculate y bounds            
             image_ymin = row * srs_height + image_gen_bounds[1]
             image_ymax = (row + 1) * srs_height + image_gen_bounds[1]
 
+            # If overlapping images are wanted... increase image bbox
+            if pixels_overlap:
+                image_ymin = image_ymin-(pixels_overlap*image_srs_pixel_y_size)
+                image_ymax = image_ymax+(pixels_overlap*image_srs_pixel_y_size)
+
+            # Create output filename
+            output_filename = create_filename(                    srs=srs,
+                    bbox=(image_xmin, image_ymin, image_xmax, image_ymax),
+                    size=(image_pixel_width+2*pixels_overlap, 
+                          image_pixel_height+2*pixels_overlap),
+                    image_format=image_format)
+            output_filepath = os.path.join(output_dir, output_filename)
+            if not force and os.path.exists(output_filepath):
+                nb_ignore_in_progress += 1
+                logger.debug("    -> image exists already, so skip")
+                continue
+            
             # If roi was provided, check first if the current image overlaps
+            # TODO: using an chopped up version of the ROI is probably faster
+            # TODO: possibly checking if the dest file exists already before 
+            # this is faster...
             if roi_rows:
                 image_shape = sh_geom.box(image_xmin, image_ymin, image_xmax, image_ymax)
                 intersects = False
@@ -181,13 +202,9 @@ def get_images_for_grid(wms_server_url: str,
                         intersects = True
                         break
                 if not intersects:
+                    nb_ignore_in_progress += 1
                     logger.debug("    -> image doesn't overlap with roi, so skip")
                     continue
-
-            # If overlapping images are wanted... increase image bbox
-            if pixels_overlap:
-                image_ymin = image_ymin-(pixels_overlap*image_srs_pixel_y_size)
-                image_ymax = image_ymax+(pixels_overlap*image_srs_pixel_y_size)
                 
             # Now really get the image
             res = getmap_to_file(wms=wms,
@@ -197,18 +214,29 @@ def get_images_for_grid(wms_server_url: str,
                     bbox=(image_xmin, image_ymin, image_xmax, image_ymax),
                     size=(image_pixel_width+2*pixels_overlap, 
                           image_pixel_height+2*pixels_overlap),
-                    format=format,
+                    image_format=image_format,
+                    output_filename=output_filename,
                     transparent=transparent,
                     tiff_compress=tiff_compress,
                     layers_styles=wms_server_layers_styles,
                     random_sleep=random_sleep,
                     force=force)
             if(res is not None):
-                counter_downloaded += 1
-                if(max_nb_images_to_download 
-                   and counter_downloaded >= max_nb_images_to_download):
-                    logger.info(f"Max nb of downloads reached: {max_nb_images_to_download}")
-                    return
+                nb_downloaded += 1
+
+            # Progress
+            logger.debug(f"Process image {nb_processed} out of {cols*rows}: {nb_processed/(cols*rows):.2f} %")
+
+            #logger.info(f"Nb processed: {nb_processed} of {cols*rows} ({nb_processed/(cols*rows):.2f}%), Nb downloaded: {counter_downloaded}")
+            # Log the progress and prediction speed once 10 seconds have passed
+            secs_since_last_log = (datetime.datetime.now()-last_progress_log_time).seconds
+            if secs_since_last_log > 10:
+                last_progress_log_time = datetime.datetime.now()
+                secs_passed_total = (datetime.datetime.now()-start_time).seconds
+                images_per_hour = ((nb_processed-nb_ignore_in_progress)/secs_passed_total) * 3600
+                hours_to_go = (int)((cols*rows-nb_processed)/images_per_hour)
+                min_to_go = (int)((((cols*rows-nb_processed)/images_per_hour)%1)*60)
+                print(f"{hours_to_go}:{min_to_go} left for {cols*rows-nb_processed} images at {images_per_hour:0.0f}/h")
 
 def getmap_to_file(wms: WebMapService,
                    layers: [str],
@@ -216,7 +244,7 @@ def getmap_to_file(wms: WebMapService,
                    srs: str,
                    bbox,
                    size,
-                   format: str = FORMAT_GEOTIFF,
+                   image_format: str = FORMAT_GEOTIFF,
                    output_filename: str = None,
                    transparent: bool = False,
                    tiff_compress: str = 'lzw',
@@ -232,16 +260,16 @@ def getmap_to_file(wms: WebMapService,
     # If there isn't a filename supplied, create one...
     if output_filename is None:
         # Choose image extension based on format
-        if format == FORMAT_GEOTIFF:
+        if image_format == FORMAT_GEOTIFF:
             image_ext = FORMAT_GEOTIFF_EXT
-        elif format == FORMAT_TIFF:
+        elif image_format == FORMAT_TIFF:
             image_ext = FORMAT_TIFF_EXT
-        elif format == FORMAT_JPEG:
+        elif image_format == FORMAT_JPEG:
             image_ext = FORMAT_JPEG_EXT
-        elif format == FORMAT_PNG:
+        elif image_format == FORMAT_PNG:
             image_ext = FORMAT_PNG_EXT
         else:
-            raise Exception("Notimplemented exception!")
+            raise Exception(f"image format {image_format} is not implemented!")
             image_ext = None
 
         # Use different file names for projected vs geographic SRS
@@ -261,31 +289,32 @@ def getmap_to_file(wms: WebMapService,
 
     # Retry 10 times...
     nb_retries = 0
-    while nb_retries <= 10:
+    while True:
         try:
-            logger.info(f"Call GetMap for bbox {bbox}")
+            logger.debug(f"Call GetMap for bbox {bbox}")
             img = wms.getmap(layers=layers,
                              styles=layers_styles,
                              srs=srs,
                              bbox=bbox,
                              size=size,
-                             format=format,
+                             format=image_format,
                              transparent=transparent)
+            
+            # If a random sleep was specified... apply it
             if random_sleep:
                 time.sleep(random.uniform(0, random_sleep))
+            
+            # Image was retrieved... so stop loop
             break
 
-        except OSError as ex:
-            if nb_retries >= 10:
-                raise
-
-            nb_retries += 1
-            if "[WinError 10048]" in str(ex):
-                logger.info(f"Exception while trying calculate_sentinel_timeseries, retry! (Full exception message {ex})")
+        except:
+            # Retry 10 times...
+            if nb_retries <= 10:
+                nb_retries += 1
                 time.sleep(10)
                 continue
             else:
-                logger.critical(f"Exception [WinError {ex.winerror}] unknown, so don't retry (Full exception message {ex})")
+                logger.error("Retried 10 times and didn't work")
                 raise
 
     # Write image to file...
@@ -295,7 +324,7 @@ def getmap_to_file(wms: WebMapService,
         image_file.write(img.read())
 
     # If geotiff is asked, check if the the coordinates are embedded...
-    if format == FORMAT_GEOTIFF:
+    if image_format == FORMAT_GEOTIFF:
         # Read output image to check if coördinates are there
         with rio.open(output_filepath) as image_ds:
             image_profile_orig = image_ds.profile
@@ -379,3 +408,30 @@ def getmap_to_file(wms: WebMapService,
             wld_file.write(f"\n{bbox[3]}")
 
     return output_filepath
+
+def create_filename(srs: str,
+                    bbox,
+                    size,
+                    image_format: str):
+    
+    # Choose image extension based on format
+    if image_format == FORMAT_GEOTIFF:
+        image_ext = FORMAT_GEOTIFF_EXT
+    elif image_format == FORMAT_TIFF:
+        image_ext = FORMAT_TIFF_EXT
+    elif image_format == FORMAT_JPEG:
+        image_ext = FORMAT_JPEG_EXT
+    elif image_format == FORMAT_PNG:
+        image_ext = FORMAT_PNG_EXT
+    else:
+        raise Exception(f"image format {image_format} is not implemented!")
+        image_ext = None
+
+    # Use different file names for projected vs geographic SRS
+    is_srs_projected = rio.crs.CRS.from_string(srs).is_projected
+    if is_srs_projected:
+        output_filename = f"{bbox[0]:06.0f}_{bbox[1]:06.0f}_{bbox[2]:06.0f}_{bbox[3]:06.0f}_{size[0]}_{size[1]}{image_ext}"
+    else:
+        output_filename = f"{bbox[0]:09.4f}_{bbox[1]:09.4f}_{bbox[2]:09.4f}_{bbox[3]:09.4f}_{size[0]}_{size[1]}{image_ext}"
+
+    return output_filename

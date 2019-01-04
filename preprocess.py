@@ -10,17 +10,21 @@ import shutil
 import glob
 import math
 import random
+import datetime
 
 import numpy as np
 #import pandas as pd
 
 import shapely.geometry as sh_geom
+#import shapely.ops as sh_ops
 import fiona
 import rasterio as rio
 import rasterio.features as rio_features
 import owslib
+import geopandas as gpd
 
 import ows_helper
+import log_helper
 
 #-------------------------------------------------------------
 # First define/init some general variables/constants
@@ -41,9 +45,9 @@ def prepare_training_data(input_vector_label_filepath: str,
                  wms_server_layer_style: str = 'default',
                  image_srs_pixel_x_size: int = 0.25,
                  image_srs_pixel_y_size: int = 0.25,
-                 image_pixel_width: int = 1024,
-                 image_pixel_height: int = 1024,
-                 max_samples: int = 500,
+                 image_pixel_width: int = 512,
+                 image_pixel_height: int = 512,
+                 max_samples: int = 5000,
                  burn_value: int = 255,
                  output_filelist_csv: str = '',
                  output_keep_nested_dirs: bool = False,
@@ -55,72 +59,95 @@ def prepare_training_data(input_vector_label_filepath: str,
         * get orthophoto's from a WMS server
         * create the corresponding label mask for each orthophoto
     """
-        # Create the output dir's if they don't exist yet...
+    # Create the output dir's if they don't exist yet...
     for dir in [output_mask_dir, output_image_dir]:
         if dir and not os.path.exists(dir):
             os.makedirs(dir)
 
     # Open vector layer
     logger.info(f"Open vector file {input_vector_label_filepath}")
-    input_vector_label_data = fiona.open(input_vector_label_filepath)
+    input_label_gdf = gpd.read_file(input_vector_label_filepath)
 
     # Get the srs to use from the input vectors...
-    image_srs = input_vector_label_data.crs['init']
-
-    # Convert to lists of shapely geometries
-#    input_labels = [(sh_geom.shape(input_label['geometry']), input_label['properties']['CODE_OBJ']) for input_label in input_vector_labels]
-    input_labels = []
-    for input_vector_label_row in input_vector_label_data:
-        input_labels.append(sh_geom.shape(input_vector_label_row['geometry']))
-
+    img_srs = input_label_gdf.crs['init']
+        
     # Now loop over label polygons to create the training/validation data
     wms = owslib.wms.WebMapService(wms_server_url, version='1.3.0')
     image_srs_width = math.fabs(image_pixel_width*image_srs_pixel_x_size)   # tile width in units of crs => 500 m
     image_srs_height = math.fabs(image_pixel_height*image_srs_pixel_y_size) # tile height in units of crs => 500 m
 
-    # If max_samples > 0, take input_labels random samples
-    if max_samples and max_samples > 0:
+    '''
+    # TODO: write something to create train, validation and test dataset 
+    # from base input file
+    # If max_samples > 0 and less than nb labels, take random max_samples
+    if(max_samples and max_samples > 0 
+        and max_samples < len(input_labels)):
         labels = random.sample(input_labels, max_samples)
     else:
         labels = input_labels
-
+    '''
+    
+    # Create list with only the input labels that are positive examples, as 
+    # are the only ones that will need to be burned in the mask
+    labels_positive_eg_gdf = input_label_gdf[input_label_gdf['is_positive_eg'] == 1]
+    
     # Loop trough labels to get an image for each of them
-    nb_labels = len(labels)
-    logger.info(f"Get images for {nb_labels} labels")
-    nb_done = 0
-    for label_poly in labels:
+    nb_todo = len(input_label_gdf)
+    nb_processed = 0
+    logger.info(f"Get images for {nb_todo} labels")   
+    created_images_gdf = gpd.GeoDataFrame()
+    created_images_gdf['geometry'] = None
+    start_time = datetime.datetime.now()
+    for i, label_geom in enumerate(input_label_gdf.geometry):
 
         # TODO: now just the top-left part of the labeled polygon is taken
         # as a start... ideally make sure we use it entirely for cases with
         # no abundance of data
         # Make sure the image requested is of the correct size
-        poly_bounds = label_poly.bounds
-        image_xmin = poly_bounds[0]-(poly_bounds[0]%image_srs_pixel_x_size)-10
-        image_ymin = poly_bounds[1]-(poly_bounds[1]%image_srs_pixel_y_size)-10
-        image_xmax = image_xmin + image_srs_width
-        image_ymax = image_ymin + image_srs_height
-        image_bounds = (image_xmin, image_ymin, image_xmax, image_ymax)
+        geom_bounds = label_geom.bounds
+        xmin = geom_bounds[0]-(geom_bounds[0]%image_srs_pixel_x_size)-10
+        ymin = geom_bounds[1]-(geom_bounds[1]%image_srs_pixel_y_size)-10
+        xmax = xmin + image_srs_width
+        ymax = ymin + image_srs_height
+        img_bbox = sh_geom.box(xmin, ymin, xmax, ymax)
+        
+        # Skip the bbox if it overlaps with any already created images. 
+        if created_images_gdf.intersects(img_bbox).any():
+            logger.debug(f"Bounds overlap with already created image, skip: {img_bbox}")
+            continue
+        else:
+            created_images_gdf = created_images_gdf.append({'geometry': img_bbox}, 
+                                                           ignore_index=True)
 
         # Now really get the image
-        logger.info(f"Get image for coordinates {image_bounds}")
+        logger.debug(f"Get image for coordinates {img_bbox.bounds}")
         image_filepath = ows_helper.getmap_to_file(wms=wms,
-                       layers=[wms_server_layer],
-                       output_dir=output_image_dir,
-                       srs=image_srs,
-                       bbox=image_bounds,
-                       size=(image_pixel_width, image_pixel_height),
-                       format=ows_helper.FORMAT_TIFF,
-                       transparent=False)
+                               layers=[wms_server_layer],
+                               output_dir=output_image_dir,
+                               srs=img_srs,
+                               bbox=img_bbox.bounds,
+                               size=(image_pixel_width, image_pixel_height),
+                               image_format=ows_helper.FORMAT_TIFF,
+                               transparent=False)
 
         # Create a mask corresponding with the image file
         # image_filepath can be None if file existed already, so check if not None...
         if image_filepath:
-            mask_filepath = image_filepath.replace(output_image_dir, output_mask_dir)
-            _create_mask(input_vector_label_list=input_labels,
+            mask_filepath = image_filepath.replace(output_image_dir, 
+                                                   output_mask_dir)
+            _create_mask(input_vector_label_list=labels_positive_eg_gdf.geometry,
                          input_image_filepath=image_filepath,
                          output_mask_filepath=mask_filepath,
                          burn_value=burn_value,
                          force=force)
+        
+        # Log the progress and prediction speed
+        time_passed = (datetime.datetime.now()-start_time).seconds
+        if time_passed > 0:
+            processed_per_hour = ((nb_processed)/time_passed) * 3600
+            hours_to_go = (int)((nb_todo - i)/processed_per_hour)
+            min_to_go = (int)((((nb_todo - i)/processed_per_hour)%1)*60)
+            print(f"{hours_to_go}:{min_to_go} left for {nb_todo-i} of {nb_todo} at {processed_per_hour:0.0f}/h")
 
 def create_masks(input_vector_label_filepath: str,
                  input_image_dir: str,
@@ -230,7 +257,7 @@ def _create_mask(input_vector_label_list,
     logger.debug("Create mask and write to file")
     with rio.open(input_image_filepath) as image_ds:
         image_profile = image_ds.profile
-        image_transform_affine = image_ds.affine
+        image_transform_affine = image_ds.transform
 
     # Use meta attributes of the source image, but set band count to 1,
     # dtype to uint8 and specify LZW compression.
@@ -261,4 +288,47 @@ def _create_mask(input_vector_label_list,
 
 ###############################################################################
 if __name__ == "__main__":
-    raise Exception("Not implemented!")
+    
+    # General initialisations for the segmentation project
+    segment_subject = "horsetracks"
+    base_dir = "X:\\PerPersoon\\PIEROG\\Taken\\2018\\2018-08-12_AutoSegmentation"
+    project_dir = os.path.join(base_dir, segment_subject)
+    
+    # Main initialisation of the logging
+    # Log dir
+    log_dir = os.path.join(project_dir, "log")
+    logger = log_helper.main_log_init(log_dir, __name__)
+    logger.info("Start loading images")
+    
+    # WMS server we can use to get the image data
+    WMS_SERVER_URL = 'http://geoservices.informatievlaanderen.be/raadpleegdiensten/ofw/wms?'
+    
+    # Input label data
+    input_labels_dir = os.path.join(project_dir, 'input_labels')
+    input_labels_filename = f"{segment_subject}_groundtruth.geojson"
+    input_labels_filename = "labels.geojson"
+    
+    input_labels_filepath = os.path.join(input_labels_dir,
+                                         input_labels_filename)
+    
+    # The subdirs where the images and masks can be found by convention for training and validation
+    image_subdir = "image"
+    mask_subdir = "mask"
+    train_dir = os.path.join(project_dir, "train2")
+    
+    # If the training data doesn't exist yet, create it
+    train_image_dir = os.path.join(train_dir, image_subdir)
+    force_create_train_data = True 
+    
+    if(force_create_train_data 
+       or not os.path.exists(train_image_dir)):
+        logger.info('Prepare train and validation data')
+        prepare_training_data(
+                input_vector_label_filepath=input_labels_filepath,
+                wms_server_url=WMS_SERVER_URL,
+                wms_server_layer='ofw',
+                output_image_dir=train_image_dir,
+                output_mask_dir=os.path.join(train_dir, mask_subdir),
+                force=force_create_train_data)
+    else:
+        logger.info("Train data exists already, stop...")
