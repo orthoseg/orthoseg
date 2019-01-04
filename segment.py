@@ -361,47 +361,10 @@ def predict(model,
                 hours_to_go = (int)((nb_files - i)/images_per_hour)
                 min_to_go = (int)((((nb_files - i)/images_per_hour)%1)*60)
                 print(f"{hours_to_go}:{min_to_go} left for {nb_files-i} images at {images_per_hour:0.0f}/h in ...{input_image_dir[-30:]}")
-            
-def tempcode_multiprocess():
-
-    '''
-    postprocess_future_list = []
-
-    with futures.ProcessPoolExecutor(batch_size) as procpool:
-
-        for i, image_filepath in enumerate(image_filepaths_sorted):
-
-            postprocess_future_list = []
-
-            # Write result to temp file
-            import tempfile
-            temp_dir = tempfile.gettempdir()
-            filename = os.path.basename(image_info['image_filepath'])
-            image_pred_filepath = os.path.join(temp_dir, filename + '.npy')
-            np.save(image_pred_filepath, curr_batch_image_pred_arr[j], 
-                    allow_pickle=False)
-
-            # Put parameters for the postprocessing function in a dict
-            kwargs = {'image_pred_filepath': image_pred_filepath,
-                      'image_filepath': image_info['image_filepath'],
-                      'output_dir': image_info['output_dir'],
-                      'input_mask_dir': input_mask_dir,
-                      'border_pixels_to_ignore': border_pixels_to_ignore,
-                      'evaluate_mode': evaluate_mode,
-                      'force': force}
-            postprocess_future_list.append(procpool.submit(postp.test_postprocess_prediction, 
-                                           **kwargs))
-
-        # Wait for all postprocessing threads to be finished
-        res = futures.wait(postprocess_future_list)
-        #logger.info(res)
-    '''
 
 # If the script is ran directly...
 if __name__ == '__main__':
-    # Get a logger...
-    logger = logging.getLogger(__name__)
-    #logger.setLevel(logging.DEBUG)
-
-    logger.error("Main is not implemented")
+    message = "Main is not implemented"
+    logger.error(message)
+    raise Exception(message)
     
