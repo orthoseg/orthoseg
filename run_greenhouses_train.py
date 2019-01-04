@@ -9,7 +9,7 @@ import os
 
 import log_helper
 import segment
-import preprocess as prep
+import prepare_traindata as prep
 
 #-------------------------------------------------------------
 # The real work

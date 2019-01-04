@@ -10,7 +10,7 @@ import os
 
 import log_helper
 import segment
-import preprocess as prep
+import prepare_traindata as prep
 
 #-------------------------------------------------------------
 # The real work
@@ -37,7 +37,7 @@ def main():
     encoder = 'inceptionresnetv2'
     decoder = 'linknet'
     model_architecture = f"{encoder}+{decoder}"
-    model_weights_to_use = None
+    model_train_weights_to_preload = "horsetracks_11_inceptionresnetv2+linknet_0.83009_0.91003_0.75015_50"
     
     # The batch size to use depends on the model architecture, the size of the 
     # training images and the available (GPU) memory
@@ -57,8 +57,8 @@ def main():
     logger.info(f"model_basename: {model_basename}")
         
     model_train_preload_filepath = None
-    if model_weights_to_use:
-        model_train_preload_filepath = os.path.join(project_dir, f"{model_weights_to_use}.hdf5")
+    if model_train_weights_to_preload:
+        model_train_preload_filepath = os.path.join(project_dir, f"{model_train_weights_to_preload}.hdf5")
 
     # Input label data
     input_labels_dir = os.path.join(project_dir, 'input_labels')
