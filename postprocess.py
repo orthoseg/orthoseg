@@ -1,38 +1,36 @@
 # -*- coding: utf-8 -*-
 """
-Created on Thu Aug 23 15:49:26 2018
+Module with functions for post-processing prediction masks towards polygons.
 
 @author: Pieter Roggemans
 """
-
-'''
-import sys
-path = "/home/dpakhom1/dense_crf_python/"
-sys.path.append(path)
-import pydensecrf.densecrf as dcrf
-from pydensecrf.utils import compute_unary, create_pairwise_bilateral, \
-    create_pairwise_gaussian, softmax_to_unary
-import skimage.io as io
-'''
 
 import logging
 import os
 import glob
 import shutil
-import concurrent.futures as futures
 
 import numpy as np
 import skimage
 import skimage.morphology       # Needs to be imported explicitly as it is a submodule
 from scipy import ndimage
-#import pydensecrf.densecrf as dcrf
 import rasterio as rio
 import rasterio.features as rio_features
 import rasterio.plot as rio_plot
 import shapely as sh
-import shapely.ops as sh_ops
 
-import vector_helper as vh
+import vector.vector_helper as vh
+
+#-------------------------------------------------------------
+# First define/init some general variables/constants
+#-------------------------------------------------------------
+# Get a logger...
+logger = logging.getLogger(__name__)
+#logger.setLevel(logging.DEBUG)
+
+#-------------------------------------------------------------
+# The real work
+#-------------------------------------------------------------
 
 def read_image(image_filepath: str):
     # Read input file and return data.
@@ -414,121 +412,21 @@ def postprocess_prediction(image_filepath: str,
         logger.error(f"Exception postprocessing prediction for {image_filepath}\n: file {image_pred_filepath}!!!")
         raise
         
-'''
-Dense crf didn't seem to work very good... so dropped it.
-
-Usage eg.:
-    #    image_pred = pp.dense_crf(image=image_arr, mask=image_pred)
-    #    image_pred = (image_pred * 255).astype(np.uint8)
-    #    image_pred = pp.thresshold(image_pred)
-    #    image_pred = np.delete(image_pred, obj=0, axis=2)
-    
-def dense_crf(image, mask):
-    height = mask.shape[0]
-    width = mask.shape[1]
-
-    mask = np.expand_dims(mask, 0)
-    mask = np.append(1 - mask, mask, axis=0)
-
-    d = dcrf.DenseCRF2D(width, height, 2)
-    U = -np.log(mask)
-    U = U.reshape((2, -1))
-    U = np.ascontiguousarray(U)
-    img = np.ascontiguousarray(image, dtype=np.uint8)
-
-    d.setUnaryEnergy(U)
-
-#    d.addPairwiseGaussian(sxy=20, compat=3)
-#    d.addPairwiseBilateral(sxy=30, srgb=20, rgbim=img, compat=10)
-    d.addPairwiseGaussian(sxy=3, compat=3)
-    d.addPairwiseBilateral(sxy=3, srgb=3, rgbim=img, compat=3)
-
-    Q = d.inference(2)
-    Q = np.argmax(np.array(Q), axis=0).reshape((height, width))
-
-    return np.array(Q)
-'''
-'''
-def postprocess():
-
-    image = train_image
-
-    softmax = final_probabilities.squeeze()
-
-    softmax = processed_probabilities.transpose((2, 0, 1))
-
-    # The input should be the negative of the logarithm of probability values
-    # Look up the definition of the softmax_to_unary for more information
-    unary = softmax_to_unary(processed_probabilities)
-
-    # The inputs should be C-continious -- we are using Cython wrapper
-    unary = np.ascontiguousarray(unary)
-
-    d = dcrf.DenseCRF(image.shape[0] * image.shape[1], 2)
-
-    d.setUnaryEnergy(unary)
-
-    # This potential penalizes small pieces of segmentation that are
-    # spatially isolated -- enforces more spatially consistent segmentations
-    feats = create_pairwise_gaussian(sdims=(10, 10), shape=image.shape[:2])
-
-    d.addPairwiseEnergy(feats, compat=3,
-                        kernel=dcrf.DIAG_KERNEL,
-                        normalization=dcrf.NORMALIZE_SYMMETRIC)
-
-    # This creates the color-dependent features --
-    # because the segmentation that we get from CNN are too coarse
-    # and we can use local color features to refine them
-    feats = create_pairwise_bilateral(sdims=(50, 50), schan=(20, 20, 20),
-                                       img=image, chdim=2)
-
-    d.addPairwiseEnergy(feats, compat=10,
-                         kernel=dcrf.DIAG_KERNEL,
-                         normalization=dcrf.NORMALIZE_SYMMETRIC)
-    Q = d.inference(5)
-
-    res = np.argmax(Q, axis=0).reshape((image.shape[0], image.shape[1]))
-
-    cmap = plt.get_cmap('bwr')
-
-    f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
-    ax1.imshow(res, vmax=1.5, vmin=-0.4, cmap=cmap)
-    ax1.set_title('Segmentation with CRF post-processing')
-    probability_graph = ax2.imshow(np.dstack((train_annotation,)*3)*100)
-    ax2.set_title('Ground-Truth Annotation')
-    plt.show()
-'''
-
-#
+#-------------------------------------------------------------
 # Helpers for working with Affine objects...                    
-#
+#-------------------------------------------------------------
+
 def get_pixelsize_x(transform):
     return transform[0]
     
 def get_pixelsize_y(transform):
     return -transform[4]
 
+#-------------------------------------------------------------
 # If the script is ran directly...
+#-------------------------------------------------------------
+    
 if __name__ == '__main__':
-    # Get a logger...
-    logger = logging.getLogger(__name__)
-    #logger.setLevel(logging.DEBUG)
-    postprocess_future_list = []
-    with futures.ProcessPoolExecutor(6) as procpool:
-
-        # a loop...
-        for i in range(0, 5):
-            # Put parameters for the postprocessing function in a dict
-            kwargs = {'image_pred_filepath': f'test_{i}',
-                      'image_filepath': 'test',
-                      'output_dir': 'test',
-                      'input_mask_dir': 'test',
-                      'border_pixels_to_ignore': 'test',
-                      'evaluate_mode': False,
-                      'force': False}
-            postprocess_future_list.append(procpool.submit(test_postprocess_prediction, 
-                                           **kwargs))
-        # Wait for all postprocessing threads to be finished
-        res = futures.wait(postprocess_future_list)
-        #logger.info(res)
-        
+    message = "Not implemented"
+    logger.error(message)
+    raise Exception(message)
