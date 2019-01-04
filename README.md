@@ -13,20 +13,15 @@ https://conda.io/docs/user-guide/install/index.html
 following steps:
 
       1. Create and activate a new conda environment
+      Remark: at time of writing, keras doesn't support 3.7 yet.
       ```
-      conda create --name auto_segmentation #python=3.6
-      conda activate auto_segmentation
+      conda create --name autoseg python=3.6
+      conda activate autoseg
       ```
       2. Install the dependencies for the scripts:
-      ```
-      conda install tensorflow
-      conda install keras
-      conda install pandas
-      conda install rasterio
-      conda install shapely
-      conda install fiona
-      conda install scikit-image
-      conda install owslib
-      pip install segmentation-models
-      conda install spyder           # If you use spyder as development tool...
+      I use the conda-forge channel because the packages there are generally 
+      better maintained.
+      ```     
+      conda install --channel conda-forge keras-gpu tensorflow-gpu rasterio geopandas scikit-image owslib spyder
+      pip install segmentation-models   # No conda package available
       ```
