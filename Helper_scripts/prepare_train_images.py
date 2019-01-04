@@ -11,6 +11,7 @@ Script to prepare the train images if they aren't in the correct format:
 import os
 import glob
 
+import numpy as np
 import rasterio as rio
 import rasterio.plot as rio_plot
 
@@ -43,14 +44,21 @@ def prepare_train_images(dir_src: str,
         with rio.open(image_filepath) as image_ds:
             image_profile = image_ds.profile
            
-            image_channels = image_profile['count']
+            if not to_black_white:
+                image_channels_output = image_profile['count']
+            else:
+                image_channels_output = 1
             image_transform = image_ds.transform
 
             # Read pixels
-            image_data = image_ds.read()
-            
-            # Change from (channels, width, height) tot (width, height, channels)
-            image_data = rio_plot.reshape_as_image(image_data)
+            if not to_black_white:
+                image_data = image_ds.read()
+                # Change from (channels, width, height) tot (width, height, channels)
+                image_data = rio_plot.reshape_as_image(image_data)
+            else:
+                image_data = image_ds.read(1)
+                # Add axis at the back to have shape (width, height, channels)
+                image_data = np.expand_dims(image_data, axis=2)
 
         input_width = image_data.shape[0]
         input_height = image_data.shape[1]
@@ -66,18 +74,19 @@ def prepare_train_images(dir_src: str,
 
             # TODO: the transfor and the file name should be changed as well
             # but it is not necessary for training... so
-            
+
+        # For mask images all pixels should be either black or white...
         if to_black_white:
             if image_profile['dtype'] == rio.uint8:
                 image_data[image_data >= 127] = 255
                 image_data[image_data < 127] = 0
             else:
                 raise Exception(f"Unsupported dtype to apply to_black_white on: {image_profile['dtype']}")
-    
+
         # Write to tiff file
         image_data = rio_plot.reshape_as_raster(image_data)
         with rio.open(dest_filepath, 'w', driver='GTiff', compress='lzw', 
-                      height=dest_height, width=dest_width, count=image_channels, 
+                      height=dest_height, width=dest_width, count=image_channels_output, 
                       dtype=image_profile['dtype'], 
                       crs=image_profile['crs'], 
                       transform=image_transform) as dst:
@@ -88,13 +97,13 @@ def prepare_train_images(dir_src: str,
 #********************   
 base_dir = "X:\\PerPersoon\\PIEROG\\Taken\\2018\\2018-08-12_AutoSegmentation\\greenhouses\\train"
 
-# Crop the files
-prepare_train_images(os.path.join(base_dir, 'image_source'),
-                     os.path.join(base_dir, 'image_cropped'),
-                     dest_width=512,
-                     dest_height=512)
+# Prepare the files
 prepare_train_images(os.path.join(base_dir, 'mask_source'),
-                     os.path.join(base_dir, 'mask_cropped'),
+                     os.path.join(base_dir, 'mask_prepared'),
                      dest_width=512,
                      dest_height=512,
                      to_black_white=True)
+prepare_train_images(os.path.join(base_dir, 'image_source'),
+                     os.path.join(base_dir, 'image_prepared'),
+                     dest_width=512,
+                     dest_height=512)
