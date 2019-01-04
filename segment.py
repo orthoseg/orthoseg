@@ -9,20 +9,21 @@ import logging
 import os
 import glob
 import datetime
-import concurrent.futures as futures
 
 import numpy as np
 import pandas as pd
 import keras as kr
 
-import model_factory as m
+import models.model_factory as m
+import models.keras_custom_callbacks as m_callbacks
 import postprocess as postp
-import data
 
 #-------------------------------------------------------------
 # First define/init some general variables/constants
 #-------------------------------------------------------------
-FORMAT_GEOTIFF = 'image/geotiff'
+# Get a logger...
+logger = logging.getLogger(__name__)
+#logger.setLevel(logging.DEBUG)
 
 #-------------------------------------------------------------
 # The real work
@@ -41,10 +42,6 @@ def train(traindata_dir: str,
           nb_epoch: int = 50,
           train_augmented_dir: str = None):
 
-    # Get a logger...
-    logger = logging.getLogger(__name__)
-    #logger.setLevel(logging.DEBUG)
-
     image_width = 512
     image_height = 512
 
@@ -62,7 +59,8 @@ def train(traindata_dir: str,
                                horizontal_flip=True,
                                vertical_flip=True)
 
-    train_gen = data.create_train_generator(input_data_dir=traindata_dir,
+    # Create the train generator
+    train_gen = create_train_generator(input_data_dir=traindata_dir,
                             image_subdir=image_subdir, mask_subdir=mask_subdir,
                             aug_dict=data_gen_train_args, batch_size=batch_size,
                             target_size=(image_width, image_height),
@@ -72,7 +70,7 @@ def train(traindata_dir: str,
     # If there is a validation data dir specified, create extra generator
     if validationdata_dir:
         data_gen_validation_args = dict(rescale=1./255)
-        validation_gen = data.create_train_generator(input_data_dir=validationdata_dir,
+        validation_gen = create_train_generator(input_data_dir=validationdata_dir,
                                 image_subdir=image_subdir, mask_subdir=mask_subdir,
                                 aug_dict=data_gen_validation_args, batch_size=batch_size,
                                 target_size=(image_width, image_height),
@@ -99,37 +97,23 @@ def train(traindata_dir: str,
     logger.info(f"start_epoch: {start_epoch}, start_learning_rate: {start_learning_rate}")
 
     # Define some callbacks for the training
-    reduce_lr = kr.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2,
+    # Reduce the learning rate if the loss doesn't improve anymore
+    reduce_lr = kr.callbacks.ReduceLROnPlateau(monitor='loss', factor=0.2,
                                                patience=20, min_lr=1e-20)
-    '''
-    early_stopping = kr.callbacks.EarlyStopping(monitor='jaccard_coef_int', 
-                                                patience=100,  
-                                                restore_best_weights=False)
-    '''
+
+    # Custom callback that saves the best models using both train and 
+    # validation metric
+    model_checkpoint_saver = m_callbacks.ModelCheckpointExt(model_save_dir, 
+                                 model_save_basename,
+                                 track_metric='jaccard_coef_int',
+                                 track_metric_validation='val_jaccard_coef_int')
+
+    # Callbacks for logging
     tensorboard_log_dir = f"{model_save_dir}{os.sep}{model_save_basename}" + "_tensorboard_log"
     tensorboard_logger = kr.callbacks.TensorBoard(log_dir=tensorboard_log_dir)
     csv_logger = kr.callbacks.CSVLogger(csv_log_filepath, append=True, separator=';')
 
-    # Save model in every epoch, bad models are cleaned up with seperate callback
-    '''
-    model_detailed_filepath = f"{model_save_dir}{os.sep}{model_save_basename}" + "_{jaccard_coef_int:.5f}_{jaccard_coef_int:.5f}_{val_jaccard_coef_int:.5f}_{epoch:03d}.hdf5"
-    model_checkpoint = kr.callbacks.ModelCheckpoint(model_detailed_filepath, 
-                                                    monitor='jaccard_coef_int',
-                                                    save_best_only=False,
-                                                    save_weights_only=True)
-    '''
-    # Custom callback to do an intelligent cleanup of the models that aren't 
-    # the best
-    model_checkpoint_saver = m.ModelCheckpointExt(model_save_dir, 
-                                                  model_save_basename,
-                                                  'jaccard_coef_int',
-                                                  'val_jaccard_coef_int')
-    
-    # Create a model
-    model = None
-    #loss_function = 'bcedice'
-    #loss_function = 'binary_crossentropy'
-    # TODO: this code still needs cleanup!!!
+    # Create a model from scratch if no preload model is provided
     if not model_preload_filepath:
         # Get the model we want to use
         model = m.get_model(encoder=model_encoder,
@@ -137,11 +121,19 @@ def train(traindata_dir: str,
                             n_channels=3, n_classes=1)
         # Prepare the model for training
         # Default learning rate for Adam: lr=1e-3, but doesn't seem to work well for unet
-        #model.compile('Adam', 'binary_crossentropy', ['binary_accuracy'])
         model = m.compile_model(model=model,
                                 optimizer=kr.optimizers.Adam(lr=start_learning_rate), 
                                 loss_mode='binary_crossentropy')
+        
+        # Save the model architecture to json if it doesn't exist yet
+        json_string = model.to_json()
+        model_architecture_filename = f"{model_encoder}+{model_decoder}"
+        model_architecture_filepath = f"{model_save_dir}{os.sep}{model_architecture_filename}.json"
+        if not os.path.exists(model_architecture_filepath):
+            with open(model_architecture_filepath, 'w') as dst:
+                dst.write(json_string)
     else:
+        # If a preload model is provided, load that if it exists...
         if not os.path.exists(model_preload_filepath):
             message = f"Error: preload model file doesn't exist: {model_preload_filepath}"
             logger.critical(message)
@@ -150,22 +142,33 @@ def train(traindata_dir: str,
         '''
         model = m.load_unet_model(filepath=model_preload_filepath,
                                   learning_rate=start_learning_rate)
-
+        '''
         '''
         model = m.get_model(encoder=model_encoder,
                             decoder=model_decoder, 
                             n_channels=3, n_classes=1)
+        '''
+        
+        # First load the model from json file
+        model_json_dir = os.path.split(model_preload_filepath)[0]
+        model_architecture = f"{model_encoder}+{model_decoder}"
+        model_json_filepath = f"{model_json_dir}{os.sep}{model_architecture}.json"
+        logger.info(f"Load model from {model_json_filepath}")
+        with open(model_json_filepath, 'r') as src:
+            model_json = src.read()
+        model = kr.models.model_from_json(model_json)
+        
+        # Load the weights
+        logger.info(f"Load weights from {model_preload_filepath}")
+        model.load_weights(model_preload_filepath)
+        logger.info("Model weights loaded")
+    
         # Prepare the model for training
+        logger.info("Prepare model for training")
         model = m.compile_model(model=model,
                                 optimizer=kr.optimizers.Adam(lr=start_learning_rate), 
-                                loss_mode='binary_crossentropy', 
-                                metrics=['binary_accuracy'])
-        
-    # Save the model architecture to json
-    json_string = model.to_json()
-    model_architecture_filename = f"{model_encoder}_{model_decoder}"
-    with open(f"{model_save_dir}{os.sep}{model_architecture_filename}.json", 'w') as dst:
-        dst.write(f"{json_string}")
+                                loss_mode='binary_crossentropy')
+        logger.info("Model compiled and ready to train")
     
     # Start training
     train_dataset_size = len(glob.glob(f"{traindata_dir}{os.sep}{image_subdir}{os.sep}*.*"))
@@ -181,6 +184,44 @@ def train(traindata_dir: str,
                                    tensorboard_logger, csv_logger],
                         initial_epoch=start_epoch)
 
+def create_train_generator(input_data_dir, image_subdir, mask_subdir,
+                           aug_dict, batch_size=32,
+                           image_color_mode="rgb", mask_color_mode="grayscale",
+                           save_to_dir=None, image_save_prefix="image", mask_save_prefix="mask",
+                           flag_multi_class=False, num_class=2,
+                           target_size=(256,256), seed=1, class_mode=None):
+    '''
+    Can generate image and mask at the same time
+
+    Remarks: * use the same seed for image_datagen and mask_datagen to ensure the
+               transformation for image and mask is the same
+             * if you want to visualize the results of generator, set save_to_dir = "your path"
+    '''
+    image_datagen = kr.preprocessing.image.ImageDataGenerator(**aug_dict)
+    mask_datagen = kr.preprocessing.image.ImageDataGenerator(**aug_dict)
+    image_generator = image_datagen.flow_from_directory(
+        directory=input_data_dir,
+        classes=[image_subdir],
+        class_mode=class_mode,
+        color_mode=image_color_mode,
+        target_size=target_size,
+        batch_size=batch_size,
+        save_to_dir=save_to_dir,
+        save_prefix=image_save_prefix,
+        seed=seed)
+    mask_generator = mask_datagen.flow_from_directory(
+        directory=input_data_dir,
+        classes=[mask_subdir],
+        class_mode=class_mode,
+        color_mode=mask_color_mode,
+        target_size=target_size,
+        batch_size=batch_size,
+        save_to_dir=save_to_dir,
+        save_prefix=mask_save_prefix,
+        seed=seed)
+    train_generator = zip(image_generator, mask_generator)
+    return train_generator
+
 def predict(model,
             input_image_dir: str,
             output_base_dir: str,
@@ -189,12 +230,6 @@ def predict(model,
             batch_size: int = 16,
             evaluate_mode: bool = False,
             force: bool = False):
-
-    # Get a logger...
-    logger = logging.getLogger(__name__)
-    #logger.setLevel(logging.DEBUG)
-
-    # TODO: the real predict code is now mixed with
 
     logger.info(f"Predict for input_image_dir: {input_image_dir}")
 
@@ -277,7 +312,7 @@ def predict(model,
             # Remark: reading them in parallel doesn't work because the image 
             # data is too large to give back as return value in future.result()
             # TODO: try using predict_generator for paralellisation
-            logger.debug(f"Start Reading input {nb_images_in_batch} images")
+            logger.debug(f"Start reading input {nb_images_in_batch} images")
             
             for j, image_info in enumerate(curr_batch_image_info_arr):
                 image_data = postp.read_image(image_filepath=image_info['image_filepath'])
