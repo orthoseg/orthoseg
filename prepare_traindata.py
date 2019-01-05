@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 # The real work
 #-------------------------------------------------------------
 
-def prepare_training_data(input_vector_label_filepath: str,
+def prepare_traindatasets(input_vector_label_filepath: str,
                  wms_server_url: str,
                  wms_server_layer: str,
                  output_image_dir: str,
@@ -323,7 +323,7 @@ if __name__ == "__main__":
     if(force_create_train_data 
        or not os.path.exists(train_image_dir)):
         logger.info('Prepare train and validation data')
-        prepare_training_data(
+        prepare_traindatasets(
                 input_vector_label_filepath=input_labels_filepath,
                 wms_server_url=WMS_SERVER_URL,
                 wms_server_layer='ofw',

@@ -9,7 +9,7 @@ import os
 
 import log_helper
 import segment
-import prepare_traindata as prep
+import prepare_traindatasets as prep
 
 #-------------------------------------------------------------
 # The real work
@@ -89,7 +89,7 @@ def main():
     if(force_create_train_data 
        or not os.path.exists(train_image_dir)):
         logger.info('Prepare train and validation data')
-        prep.prepare_training_data(
+        prep.prepare_traindatsets(
                 input_vector_label_filepath=input_labels_filepath,
                 wms_server_url=WMS_SERVER_URL,
                 wms_server_layer='ofw',
