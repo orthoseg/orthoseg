@@ -14,7 +14,7 @@ import shapely.ops as sh_ops
 import geopandas as gpd
 
 import log_helper
-import simplify_visval as simpl_vis
+import vector.simplify_visval as simpl_vis
 
 #-------------------------------------------------------------
 # First define/init some general variables/constants

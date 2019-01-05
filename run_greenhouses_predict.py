@@ -11,8 +11,7 @@ import keras as kr
 
 import log_helper
 import segment
-import preprocess as prep
-import vector_helper as vh
+import vector.vector_helper as vh
 
 #-------------------------------------------------------------
 # The real work
