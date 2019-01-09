@@ -19,7 +19,6 @@ import shapely.geometry as sh_geom
 import geopandas as gpd
 
 import log_helper
-import vector_helper as vh
 
 def vectorize_masks(input_image_dir: str,
                     train_dataset_type: str = 'train'):
@@ -30,7 +29,7 @@ def vectorize_masks(input_image_dir: str,
     for input_ext_cur in input_ext:
         image_filepaths.extend(glob.glob(f"{input_image_dir}{os.sep}**{os.sep}*{input_ext_cur}", recursive=True))
     nb_files = len(image_filepaths)
-    logger.info(f"Found {nb_files} {input_ext} images to predict on in {input_image_dir}")
+    logger.info(f"Found {nb_files} {input_ext} masks to vectorize in {input_image_dir}")
 
     label_records = []
     for mask_filepath in image_filepaths:
@@ -113,13 +112,17 @@ def vectorize_masks(input_image_dir: str,
 if __name__ == '__main__':
 
     # Main project dir
-    project_dir = "X:\\PerPersoon\\PIEROG\\Taken\\2018\\2018-08-12_AutoSegmentation\\horsetracks"
-
+    #subject = "horsetracks"
+    subject = "greenhouses"
+    base_dir = "X:\\PerPersoon\\PIEROG\\Taken\\2018\\2018-08-12_AutoSegmentation"
+    project_dir = os.path.join(base_dir, subject)
+    
     # Main initialisation of the logging
     log_dir = os.path.join(project_dir, "log")
     logger = log_helper.main_log_init(log_dir, __name__)
     
     train_dir = os.path.join(project_dir, "train")
     mask_dir = os.path.join(train_dir, "mask")
+    mask_dir = os.path.join(train_dir, "mask_prepared")
     
     vectorize_masks(mask_dir)
