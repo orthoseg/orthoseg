@@ -12,6 +12,7 @@ import keras as kr
 import log_helper
 import segment
 import vector.vector_helper as vh
+import models.model_helper as mh
 
 #-------------------------------------------------------------
 # The real work
@@ -30,13 +31,9 @@ def main():
     base_dir = "X:\\PerPersoon\\PIEROG\\Taken\\2018\\2018-08-12_AutoSegmentation"
     project_dir = os.path.join(base_dir, segment_subject)
     
-    # WMS server we can use to get the image data
-    WMS_SERVER_URL = 'http://geoservices.informatievlaanderen.be/raadpleegdiensten/ofw/wms?'
-    
     # Model we will use for this segmentation
     train_data_version = 13
     model_architecture = "inceptionresnetv2+linknet"
-    model_weights_to_use_base = "0.96790_0.96100_0.97480_120"
 
     # The batch size to use. Depends on available hardware and model used.
     batch_size_512px = 20
@@ -51,24 +48,28 @@ def main():
     #
     # Remark: they don't need to be changed if implied conventions are OK
     # -------------------------------------------------------------------------    
-    # Model and weights to use
-    model_basename = f"{segment_subject}_{train_data_version:02}_{model_architecture}"
-    model_weights_to_use = f"{model_basename}_{model_weights_to_use_base}"
-   
-    model_json_filepath = f"{project_dir}{os.sep}{model_architecture}.json"
-    model_weights_filepath = f"{project_dir}{os.sep}{model_weights_to_use}.hdf5"
-    
     # Main initialisation of the logging
     log_dir = os.path.join(project_dir, "log")
     logger = log_helper.main_log_init(log_dir, __name__)
     logger.info(f"Start {segment_subject} prediction script")
 
-    # Input label data
-    input_labels_dir = os.path.join(project_dir, 'input_labels')
-    input_labels_filename = f"{segment_subject}_groundtruth.geojson"
-    input_labels_filepath = os.path.join(input_labels_dir, 
-                                         input_labels_filename)
-    
+    # Model architecture file to use   
+    model_json_filepath = f"{project_dir}{os.sep}{model_architecture}.json"
+
+    # Create base filename of model to use
+    model_base_filename = mh.model_base_filename(segment_subject,
+                                                 train_data_version,
+                                                 model_architecture)
+
+    # Get a list of all relevant models
+    model_info_df = mh.get_models(model_dir=project_dir,
+                                  model_base_filename=model_base_filename)
+
+    # Get the model with the highest combined accuracy
+    model_to_use = model_info_df.loc[model_info_df['acc_combined'].values.argmax()]
+    model_weights_filepath = model_to_use['filepath']
+    logger.info(f"Best model found: {model_to_use['filename']}")
+        
     # Train and evaluate settings
     # The subdirs where the images and masks can be found by convention for training and validation
     image_subdir = "image"
@@ -79,7 +80,7 @@ def main():
     validation_dir = os.path.join(project_dir, "validation")
     
     # Prepare output subdir to be used for predictions
-    predict_out_subdir = f"predict_{model_weights_to_use}"
+    predict_out_subdir = os.path.splitext(model_to_use['filename'])[0]
     
     # Create the output dir's if they don't exist yet...
     for dir in [project_dir, train_dir, log_dir]:

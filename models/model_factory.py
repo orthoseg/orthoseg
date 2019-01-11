@@ -96,20 +96,25 @@ def get_model(encoder: str = 'inceptionresnetv2',
 
 def compile_model(model,
                   optimizer,
-                  loss_mode='binary_crossentropy',
+                  loss='binary_crossentropy',
                   metrics=None):
 
-    if loss_mode == "bcedice":
+    # If no merics specified, use default ones
+    if metrics is None:
+        metrics=[jaccard_coef_round, 'binary_accuracy']
+#        metrics=[jaccard_coef, jaccard_coef_flat,
+#                           jaccard_coef_int, dice_coef, 'accuracy', 'binary_accuracy']
+
+    # Check loss function
+    if loss == "bcedice":
         loss_func = dice_coef_loss_bce
-    elif loss_mode == "binary_crossentropy":
+    elif loss == "binary_crossentropy":
         loss_func = "binary_crossentropy"
     else:
-        raise Exception(f"Unknown loss function: {loss_mode}")
+        raise Exception(f"Unknown loss function: {loss}")
 
-    # TODO: implement option to specify metrics...
     model.compile(optimizer=optimizer, loss=loss_func,
-                  metrics=[jaccard_coef, jaccard_coef_flat,
-                           jaccard_coef_int, dice_coef, 'accuracy', 'binary_accuracy'])
+                  metrics=metrics)
 
     return model
 
@@ -117,7 +122,7 @@ def load_model(model_to_use_filepath: str):
     model = kr.models.load_model(model_to_use_filepath,
                                  custom_objects={'jaccard_coef': jaccard_coef,
                                                  'jaccard_coef_flat': jaccard_coef_flat,
-                                                 'jaccard_coef_int': jaccard_coef_int,
+                                                 'jaccard_coef_round': jaccard_coef_round,
                                                  'dice_coef': dice_coef})
 
     return model
@@ -177,7 +182,7 @@ def jaccard_coef(y_true, y_pred):
 
     return kr.backend.mean(jac)
 
-def jaccard_coef_int(y_true, y_pred):
+def jaccard_coef_round(y_true, y_pred):
     y_pred_pos = kr.backend.round(kr.backend.clip(y_pred, 0, 1))
 
     intersection = kr.backend.sum(y_true * y_pred_pos, axis=[0, -1, -2])

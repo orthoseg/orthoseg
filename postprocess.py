@@ -328,7 +328,7 @@ def postprocess_prediction(image_filepath: str,
             vh.write_segmented_geoms(geoms, geom_filepath, src_image_crs,
                                      border_xmin, border_ymin, border_xmax, border_ymax)
         else:
-            # For easier evaluation, write some more cleaned versions to disk
+            # For easier evaluation, write the cleaned version as raster
             '''
             # Write the standard cleaned output to file
             logger.debug("Save cleaned prediction")
@@ -397,7 +397,7 @@ def postprocess_prediction(image_filepath: str,
                         # this is where we create a generator of geom, value pairs to use in rasterizing
                 #            shapes = ((geom,value) for geom, value in zip(counties.geometry, counties.LSAD_NUM))
                         logger.debug('Before rasterize')
-                        if geoms_simpl:               
+                        if geoms_simpl_vis:               
                             # Now rasterize!
                             burned = rio_features.rasterize(shapes=geoms_simpl_vis, 
                                                             out_shape=(src_image_height, 

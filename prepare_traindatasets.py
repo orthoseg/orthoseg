@@ -11,6 +11,7 @@ import glob
 import math
 import random
 import datetime
+import filecmp
 
 import numpy as np
 #import pandas as pd
@@ -23,8 +24,9 @@ import rasterio.features as rio_features
 import owslib
 import geopandas as gpd
 
-import ows_helper
 import log_helper
+import ows_helper
+import geofile_helper
 
 #-------------------------------------------------------------
 # First define/init some general variables/constants
@@ -40,9 +42,10 @@ logger = logging.getLogger(__name__)
 def prepare_traindatasets(input_vector_label_filepath: str,
                  wms_server_url: str,
                  wms_server_layer: str,
-                 output_image_dir: str,
-                 output_mask_dir: str,
-                 wms_server_layer_style: str = 'default',
+                 output_basedir: str,
+                 image_subdir: str = "image",
+                 mask_subdir: str = "mask",
+                 wms_server_layer_style: str = "default",
                  image_srs_pixel_x_size: int = 0.25,
                  image_srs_pixel_y_size: int = 0.25,
                  image_pixel_width: int = 512,
@@ -51,7 +54,7 @@ def prepare_traindatasets(input_vector_label_filepath: str,
                  burn_value: int = 255,
                  output_filelist_csv: str = '',
                  output_keep_nested_dirs: bool = False,
-                 force: bool = False):
+                 force: bool = False) -> (str, int):
     """
     This function prepares training data for the vector labels provided.
 
@@ -59,11 +62,41 @@ def prepare_traindatasets(input_vector_label_filepath: str,
         * get orthophoto's from a WMS server
         * create the corresponding label mask for each orthophoto
     """
+    # First determine the corrent data version based on existing output data 
+    # dir(s)
+    output_dirs = glob.glob(f"{output_basedir}_*")
+    if len(output_dirs) == 0:
+        dataversion_new = 1
+    else:
+        # Get the output dir with the highest version (=first if sorted desc)
+        output_dir_mostrecent = sorted(output_dirs, reverse=True)[0]
+        output_subdir_mostrecent = os.path.basename(output_dir_mostrecent)
+        dataversion_mostrecent = int(output_subdir_mostrecent.split('_')[1])
+        dataversion_new = dataversion_mostrecent + 1
+        
+        # If the input vector label file didn't change since previous run 
+        # dataset can be reused
+        output_vector_mostrecent_filepath = os.path.join(
+                output_dir_mostrecent, 
+                os.path.basename(input_vector_label_filepath))
+        if(os.path.exists(output_vector_mostrecent_filepath)
+           and geofile_helper.cmp(input_vector_label_filepath, 
+                                  output_vector_mostrecent_filepath)):
+            logger.info(f"RETURN: input vector label file isn't changed since last prepare_traindatasets, so no need to recreate")
+            return output_dir_mostrecent, dataversion_mostrecent
+                
     # Create the output dir's if they don't exist yet...
-    for dir in [output_mask_dir, output_image_dir]:
+    output_dir = f"{output_basedir}_{dataversion_new:02d}"
+    output_image_dir = os.path.join(output_dir, image_subdir)
+    output_mask_dir = os.path.join(output_dir, mask_subdir)
+    for dir in [output_dir, output_mask_dir, output_image_dir]:
         if dir and not os.path.exists(dir):
             os.makedirs(dir)
 
+    # Copy the vector file(s) to the dest dir so we keep knowing which file was
+    # used to create the dataset
+    geofile_helper.copy(input_vector_label_filepath, output_dir)
+    
     # Open vector layer
     logger.info(f"Open vector file {input_vector_label_filepath}")
     input_label_gdf = gpd.read_file(input_vector_label_filepath)
@@ -75,30 +108,21 @@ def prepare_traindatasets(input_vector_label_filepath: str,
     wms = owslib.wms.WebMapService(wms_server_url, version='1.3.0')
     image_srs_width = math.fabs(image_pixel_width*image_srs_pixel_x_size)   # tile width in units of crs => 500 m
     image_srs_height = math.fabs(image_pixel_height*image_srs_pixel_y_size) # tile height in units of crs => 500 m
-
-    '''
-    # TODO: write something to create train, validation and test dataset 
-    # from base input file
-    # If max_samples > 0 and less than nb labels, take random max_samples
-    if(max_samples and max_samples > 0 
-        and max_samples < len(input_labels)):
-        labels = random.sample(input_labels, max_samples)
-    else:
-        labels = input_labels
-    '''
     
     # Create list with only the input labels that are positive examples, as 
     # are the only ones that will need to be burned in the mask
-    labels_positive_eg_gdf = input_label_gdf[input_label_gdf['is_positive_eg'] == 1]
+    #is_positive_eg
+    labels_to_burn_gdf = input_label_gdf[input_label_gdf['burninmask'] == 1]
+    labels_to_use_for_bounds_gdf = input_label_gdf[input_label_gdf['usebounds'] == 1]
     
-    # Loop trough labels to get an image for each of them
+    # Loop trough all train labels to get an image for each of them
     nb_todo = len(input_label_gdf)
     nb_processed = 0
     logger.info(f"Get images for {nb_todo} labels")   
     created_images_gdf = gpd.GeoDataFrame()
     created_images_gdf['geometry'] = None
     start_time = datetime.datetime.now()
-    for i, label_geom in enumerate(input_label_gdf.geometry):
+    for i, label_geom in enumerate(labels_to_use_for_bounds_gdf.geometry):
 
         # TODO: now just the top-left part of the labeled polygon is taken
         # as a start... ideally make sure we use it entirely for cases with
@@ -135,7 +159,7 @@ def prepare_traindatasets(input_vector_label_filepath: str,
         if image_filepath:
             mask_filepath = image_filepath.replace(output_image_dir, 
                                                    output_mask_dir)
-            _create_mask(input_vector_label_list=labels_positive_eg_gdf.geometry,
+            _create_mask(input_vector_label_list=labels_to_burn_gdf.geometry,
                          input_image_filepath=image_filepath,
                          output_mask_filepath=mask_filepath,
                          burn_value=burn_value,
@@ -143,11 +167,13 @@ def prepare_traindatasets(input_vector_label_filepath: str,
         
         # Log the progress and prediction speed
         time_passed = (datetime.datetime.now()-start_time).seconds
-        if time_passed > 0:
-            processed_per_hour = ((nb_processed)/time_passed) * 3600
+        if time_passed > 0 and nb_processed > 0:
+            processed_per_hour = (nb_processed/time_passed) * 3600
             hours_to_go = (int)((nb_todo - i)/processed_per_hour)
             min_to_go = (int)((((nb_todo - i)/processed_per_hour)%1)*60)
             print(f"{hours_to_go}:{min_to_go} left for {nb_todo-i} of {nb_todo} at {processed_per_hour:0.0f}/h")
+            
+    return output_dir, dataversion_new
 
 def create_masks(input_vector_label_filepath: str,
                  input_image_dir: str,
@@ -291,6 +317,8 @@ if __name__ == "__main__":
     
     # General initialisations for the segmentation project
     segment_subject = "horsetracks"
+    segment_subject = "greenhouses"
+    
     base_dir = "X:\\PerPersoon\\PIEROG\\Taken\\2018\\2018-08-12_AutoSegmentation"
     project_dir = os.path.join(base_dir, segment_subject)
     
@@ -305,30 +333,26 @@ if __name__ == "__main__":
     
     # Input label data
     input_labels_dir = os.path.join(project_dir, 'input_labels')
-    input_labels_filename = f"{segment_subject}_groundtruth.geojson"
-    input_labels_filename = "labels.geojson"
+    input_labels_filename = f"{segment_subject}_trainlabels.shp"
+    #input_labels_filename = "labels.geojson"
     
     input_labels_filepath = os.path.join(input_labels_dir,
                                          input_labels_filename)
     
     # The subdirs where the images and masks can be found by convention for training and validation
-    image_subdir = "image"
-    mask_subdir = "mask"
-    train_dir = os.path.join(project_dir, "train2")
+    train_dir = os.path.join(project_dir, "train_new")
     
     # If the training data doesn't exist yet, create it
-    train_image_dir = os.path.join(train_dir, image_subdir)
     force_create_train_data = True 
     
     if(force_create_train_data 
-       or not os.path.exists(train_image_dir)):
+       or not os.path.exists(train_dir)):
         logger.info('Prepare train and validation data')
         prepare_traindatasets(
                 input_vector_label_filepath=input_labels_filepath,
                 wms_server_url=WMS_SERVER_URL,
                 wms_server_layer='ofw',
-                output_image_dir=train_image_dir,
-                output_mask_dir=os.path.join(train_dir, mask_subdir),
+                output_dir=train_dir,
                 force=force_create_train_data)
     else:
         logger.info("Train data exists already, stop...")
