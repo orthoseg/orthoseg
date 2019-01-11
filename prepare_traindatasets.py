@@ -9,9 +9,7 @@ import os
 import shutil
 import glob
 import math
-import random
 import datetime
-import filecmp
 
 import numpy as np
 #import pandas as pd
@@ -114,6 +112,9 @@ def prepare_traindatasets(input_vector_label_filepath: str,
     #is_positive_eg
     labels_to_burn_gdf = input_label_gdf[input_label_gdf['burninmask'] == 1]
     labels_to_use_for_bounds_gdf = input_label_gdf[input_label_gdf['usebounds'] == 1]
+    
+    # If both burninmask and usebounds are 0, they won't be used... so log a 
+     
     
     # Loop trough all train labels to get an image for each of them
     nb_todo = len(input_label_gdf)

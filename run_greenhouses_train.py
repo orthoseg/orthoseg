@@ -28,6 +28,7 @@ def main():
                             model_decoder='linknet',
                             batch_size_train=8,
                             batch_size_pred=20,
+                            force_traindata_version=None,
                             preload_existing_model=False)
     
 if __name__ == '__main__':

@@ -16,7 +16,6 @@ import skimage.morphology       # Needs to be imported explicitly as it is a sub
 from scipy import ndimage
 import rasterio as rio
 import rasterio.features as rio_features
-import rasterio.plot as rio_plot
 import shapely as sh
 
 import vector.vector_helper as vh
@@ -31,19 +30,6 @@ logger = logging.getLogger(__name__)
 #-------------------------------------------------------------
 # The real work
 #-------------------------------------------------------------
-
-def read_image(image_filepath: str):
-    # Read input file and return data.
-    with rio.open(image_filepath) as image_ds:
-        # Read pixels
-        image_data = image_ds.read()
-        # Change from (channels, width, height) tot (width, height, channels)
-        image_data = rio_plot.reshape_as_image(image_data)
-
-    # Make sure the pixels values are between 0 and 1
-    image_data = image_data / 255
-    
-    return image_data
 
 def region_segmentation(predicted_mask,
                         thresshold_ok: float = 0.5):
@@ -70,25 +56,6 @@ def thresshold(mask, thresshold_ok: float = 0.5):
     
     return mask
 
-def test_postprocess_prediction(image_pred_filepath,
-                           image_filepath: str,
-                           output_dir: str,
-                           input_mask_dir: str = None,
-                           border_pixels_to_ignore: int = 0,
-                           evaluate_mode: bool = False,
-                           force: bool = False):
-    base_filename = os.path.basename(image_pred_filepath)
-        
-    try:
-        with open(f"c:\\tmp\\{base_filename}.txt", "w+") as testfile:
-            testfile.write('test')
-        return
-    except:
-        with open(f"c:\\tmp\\{base_filename}_exception.txt", "w+") as testfile:
-            testfile.write('test_exception')
-        raise
-    #logger.error(f"Start postprocess for {image_pred_filepath}")
-    
 def postprocess_prediction(image_filepath: str,
                            output_dir: str,
                            image_pred_arr = None,

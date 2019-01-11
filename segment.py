@@ -13,6 +13,8 @@ import datetime
 import numpy as np
 import pandas as pd
 import keras as kr
+import rasterio as rio
+import rasterio.plot as rio_plot
 
 import models.model_factory as mf
 import models.model_helper as mh
@@ -262,8 +264,7 @@ def predict(model,
         #logger.info(f"Found {image_done_filenames}")
         
     # Loop through all files to process them...
-    curr_batch_image_data_arr = []
-    curr_batch_image_info_arr = []
+    curr_batch_image_infos = []
     nb_predicted = 0
     image_filepaths_sorted = sorted(image_filepaths)
     for i, image_filepath in enumerate(image_filepaths_sorted):
@@ -276,17 +277,18 @@ def predict(model,
                continue
                 
         # Prepare the filepath for the output
+        image_filepath_noext = os.path.splitext(image_filepath)[0]
         if evaluate_mode:
             # In evaluate mode, put everyting in output base dir for easier 
             # comparison
-            image_dir, image_filename = os.path.split(image_filepath)
-            tmp_filepath = os.path.join(output_base_dir, image_filename)
+            image_dir, image_filename_noext = os.path.split(image_filepath_noext)
+            tmp_output_filepath = os.path.join(output_base_dir, image_filename_noext)
         else:
-            tmp_filepath = image_filepath.replace(input_image_dir,
-                                                  output_base_dir)
-        output_dir, image_pred_filename = os.path.split(tmp_filepath)
-        image_pred_filename_noext = os.path.splitext(image_pred_filename)[0]       
-        image_pred_filename = f"{image_pred_filename_noext}_pred.tif"
+            tmp_output_filepath = image_filepath_noext.replace(input_image_dir,
+                                                        output_base_dir)
+        output_pred_filepath = f"{tmp_output_filepath}_pred.tif"       
+        output_dir, output_pred_filename = os.path.split(output_pred_filepath)
+        
         logger.debug(f"Start predict for image {image_filepath}")
                 
         # Init start time at the first file that isn't skipped
@@ -296,11 +298,14 @@ def predict(model,
         
         # Append the image info to the batch array so they can be treated in 
         # bulk if the batch size is reached
-        curr_batch_image_info_arr.append({'image_filepath': image_filepath,
-                                          'output_dir': output_dir})
+        curr_batch_image_infos.append({'input_image_filepath': image_filepath,
+                                       'output_pred_filepath': output_pred_filepath,
+                                       'output_dir': output_dir})
         
         # If the batch size is reached or we are at the last images
-        nb_images_in_batch = len(curr_batch_image_info_arr)
+        nb_images_in_batch = len(curr_batch_image_infos)
+        curr_batch_image_infos_ext = []
+        curr_batch_image_pixels = []
         if(nb_images_in_batch == batch_size or i == (nb_files-1)):
 
             start_time_batch_read = datetime.datetime.now()
@@ -311,15 +316,24 @@ def predict(model,
             # TODO: try using predict_generator for paralellisation
             logger.debug(f"Start reading input {nb_images_in_batch} images")
 
-            for j, image_info in enumerate(curr_batch_image_info_arr):
+            for j, image_info in enumerate(curr_batch_image_infos):
                 
-                image_data = postp.read_image(image_filepath=image_info['image_filepath'])
-                curr_batch_image_data_arr.append(image_data)
-                    
+                image_data, image_crs, image_transform = read_image(
+                        image_filepath=image_info['input_image_filepath'])
+                curr_batch_image_pixels.append(image_data)
+                # Append the image info to the batch array so they can be treated in 
+                # bulk if the batch size is reached
+                curr_batch_image_infos_ext.append(
+                        {'input_image_filepath': image_info['input_image_filepath'],
+                         'output_pred_filepath': image_info['output_pred_filepath'],
+                         'output_dir': image_info['output_dir'],
+                         'image_crs': image_crs,
+                         'image_transform': image_transform})
+                                    
             # Predict!
             logger.debug(f"Start prediction for {nb_images_in_batch} images")
             curr_batch_image_pred_arr = model.predict_on_batch(
-                    np.asarray(curr_batch_image_data_arr))
+                    np.asarray(curr_batch_image_pixels))
             
             # TODO: possibly add this check in exception handler to make the 
             # error message clearer!
@@ -332,19 +346,28 @@ def predict(model,
             
             # Postprocess predictions
             logger.debug("Start post-processing")    
-            for j, image_info in enumerate(curr_batch_image_info_arr):
-                
-                postp.postprocess_prediction(image_filepath=image_info['image_filepath'],
+            for j, image_info in enumerate(curr_batch_image_infos_ext):
+                '''
+                save_prediction_uint8(
+                        output_filepath=image_info['output_pred_filepath'],
+                        image_pred_arr=curr_batch_image_pred_arr[j],
+                        image_crs=image_info['image_crs'],
+                        image_transform=image_info['image_transform'],
+                        border_pixels_to_ignore=border_pixels_to_ignore,
+                        force=force)
+                '''
+
+                postp.postprocess_prediction(image_filepath=image_info['input_image_filepath'],
                                        output_dir=image_info['output_dir'],
                                        image_pred_arr=curr_batch_image_pred_arr[j],
                                        input_mask_dir=input_mask_dir,
                                        border_pixels_to_ignore=border_pixels_to_ignore,
                                        evaluate_mode=evaluate_mode,
                                        force=force)
-                
+
                 # Write line to file with done files...
                 with open(images_done_log_filepath, "a+") as f:
-                    f.write(os.path.basename(image_info['image_filepath']) + '\n')
+                    f.write(os.path.basename(image_info['input_image_filepath']) + '\n')
 
             logger.debug("Post-processing ready")
         
@@ -358,10 +381,69 @@ def predict(model,
                 min_to_go = (int)((((nb_files - i)/images_per_hour)%1)*60)
                 print(f"{hours_to_go}:{min_to_go} left for {nb_files-i} images at {images_per_hour:0.0f}/h ({images_per_hour_lastbatch:0.0f}/h last batch) in ...{input_image_dir[-30:]}")
             
-            # Reset variables for next batch
-            curr_batch_image_data_arr = []
-            curr_batch_image_info_arr = []
-            
+            # Reset variable for next batch
+            curr_batch_image_infos = []
+
+def read_image(image_filepath: str):
+    # Read input file and return data.
+    with rio.open(image_filepath) as image_ds:
+        # Read geo info
+        image_crs = image_ds.profile['crs']
+        image_transform = image_ds.transform
+        
+        # Read pixelsn change from (channels, width, height) to 
+        # (width, height, channels) and normalize to values between 0 and 1
+        image_data = image_ds.read()
+        image_data = rio_plot.reshape_as_image(image_data)
+        image_data = image_data / 255
+
+    return image_data, image_crs, image_transform
+
+def save_prediction_uint8(output_filepath: str,
+                          image_pred_arr,
+                          image_crs: str,
+                          image_transform,
+                          border_pixels_to_ignore: int = None,
+                          force: bool = False):
+
+    # Make sure the output dir exists...
+    output_dir = os.path.split(output_filepath)[0]
+    if not os.path.exists(output_dir):
+        os.mkdir(output_dir)
+    
+    # Input should be float32
+    if image_pred_arr.dtype != np.float32:
+        raise Exception(f"image prediction is of the wrong type: {image_pred_arr.dtype}") 
+    
+    # Convert to uint8
+    image_pred_uint8 = (image_pred_arr * 255).astype(np.uint8)
+    
+    # Reshape array from 4 dims (image_id, width, height, nb_channels) to 2.
+    image_pred_uint8 = image_pred_uint8.reshape((image_pred_uint8.shape[0], image_pred_uint8.shape[1]))
+
+    # Make the pixels at the borders of the prediction black so they are ignored
+    image_pred_uint8_cropped = image_pred_uint8
+    if border_pixels_to_ignore and border_pixels_to_ignore > 0:
+        image_pred_uint8_cropped[0:border_pixels_to_ignore,:] = 0    # Left border
+        image_pred_uint8_cropped[-border_pixels_to_ignore:,:] = 0    # Right border
+        image_pred_uint8_cropped[:,0:border_pixels_to_ignore] = 0    # Top border
+        image_pred_uint8_cropped[:,-border_pixels_to_ignore:] = 0    # Bottom border
+
+    # Check if the result is entirely black... if so, don't save
+    thresshold = 127
+    if not np.any(image_pred_uint8_cropped >= thresshold):
+        logger.debug('Prediction is entirely black!')
+        return
+        
+    # Write prediction to file
+    logger.debug("Save original prediction")
+    image_width = image_pred_arr.shape[0]
+    image_height = image_pred_arr.shape[1]
+    with rio.open(output_filepath, 'w', driver='GTiff', compress='lzw',
+                  height=image_height, width=image_width, 
+                  count=1, dtype=rio.uint8, crs=image_crs, transform=image_transform) as dst:
+        dst.write(image_pred_uint8_cropped, 1)
+        
 # If the script is ran directly...
 if __name__ == '__main__':
     message = "Main is not implemented"

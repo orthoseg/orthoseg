@@ -22,6 +22,7 @@ def run_training_session(segment_subject: str,
                          batch_size_train: int,
                          batch_size_pred: int,
                          nb_epoch: int = 1000,
+                         force_traindata_version: int = None,
                          preload_existing_model: bool = False):
     """
     The batch size to use depends on the model architecture, the size of the 
@@ -68,16 +69,21 @@ def run_training_session(segment_subject: str,
         labels = input_labels
     '''
     traindata_basedir = os.path.join(training_dir, "train")
-    force_create_train_data = False 
-    logger.info("Prepare train and validation data")
-    traindata_dir, traindata_version = prep.prepare_traindatasets(
-                input_vector_label_filepath=input_labels_filepath,
-                wms_server_url=wms_server_url,
-                wms_server_layer='ofw',
-                output_basedir=traindata_basedir,
-                image_subdir=image_subdir,
-                mask_subdir=mask_subdir,
-                force=force_create_train_data)
+    if force_traindata_version is None:
+        force_create_train_data = False 
+        logger.info("Prepare train and validation data")
+        traindata_dir, traindata_version = prep.prepare_traindatasets(
+                    input_vector_label_filepath=input_labels_filepath,
+                    wms_server_url=wms_server_url,
+                    wms_server_layer='ofw',
+                    output_basedir=traindata_basedir,
+                    image_subdir=image_subdir,
+                    mask_subdir=mask_subdir,
+                    force=force_create_train_data)
+    else:
+        traindata_dir = f"{traindata_basedir}_{force_traindata_version:02d}"
+        traindata_version = force_traindata_version
+            
     logger.info(f"Traindata dir to use is {traindata_dir}, with traindata_version: {traindata_version}")
 
     # Seperate validation dataset for during training...
