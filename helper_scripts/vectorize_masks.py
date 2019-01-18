@@ -20,8 +20,7 @@ import geopandas as gpd
 
 import log_helper
 
-def vectorize_masks(input_image_dir: str,
-                    train_dataset_type: str = 'train'):
+def vectorize_masks(input_image_dir: str):
 
     # Get list of all image files to process...
     image_filepaths = []
@@ -79,41 +78,40 @@ def vectorize_masks(input_image_dir: str,
         if len(geoms) > 0:
             for geom in geoms:
                 label_records.append({'geometry': geom, 
-                                     'is_positive_eg': 1,
-                                     'label_type': label_type,
-                                     'train_dataset_type': train_dataset_type})
+                                     'descr': label_type,
+                                     'burninmask': 1,
+                                     'usebounds': 1})
         else:
             # Nothing found, so it is an all-black, "negative" mask...
             label_records.append({'geometry': sh_geom.box(xmin, ymin, xmax, ymax), 
-                                 'is_positive_eg': 0,
-                                 'label_type': label_type,
-                                 'train_dataset_type': train_dataset_type})
+                                 'descr': label_type,
+                                 'burninmask': 0,
+                                 'usebounds': 1})
             
     # Convert to geodataframe and write to geojson 
     labels_gdf = gpd.GeoDataFrame(label_records, 
-                                  columns=['geometry', 'is_positive_eg', 
-                                           'label_type', 'train_dataset_type'])
+                                  columns=['geometry', 'descr', 
+                                           'burninmask', 'usebounds'])
     labels_gdf.crs = 'epsg:31370'
     
     # Cleanup data (dissolve + simplify)
-    labels_gdf = labels_gdf.dissolve(by=['is_positive_eg', 'label_type', 
-                                         'train_dataset_type'])
+    labels_gdf = labels_gdf.dissolve(by=['descr', 'burninmask', 'usebounds'])
     labels_gdf = labels_gdf.reset_index().explode()
     labels_gdf.geometry = labels_gdf.geometry.simplify(0.5)
     #labels_gdf['geometry'] = labels_gdf.geometry.apply(lambda geom: vh.simplify_visval(geom, 2))
         
     # Write result to file
     #logger.debug(f"Write the {len(geoms_gdf)} geoms, of types {geoms_gdf.geometry.type.unique()} in geoms_gdf to file")
-    out_filepath = os.path.join(input_image_dir, "labels.geojson")
+    out_filepath = os.path.join(input_image_dir, "mask_to_labels.shp")
     if os.path.exists(out_filepath):
         os.remove(out_filepath)
-    labels_gdf.to_file(out_filepath, driver="GeoJSON")
+    labels_gdf.to_file(out_filepath, driver="ESRI Shapefile")
           
 if __name__ == '__main__':
 
     # Main project dir
     #subject = "horsetracks"
-    subject = "greenhouses"
+    subject = "horsetracks"
     base_dir = "X:\\PerPersoon\\PIEROG\\Taken\\2018\\2018-08-12_AutoSegmentation"
     project_dir = os.path.join(base_dir, subject)
     
@@ -121,8 +119,8 @@ if __name__ == '__main__':
     log_dir = os.path.join(project_dir, "log")
     logger = log_helper.main_log_init(log_dir, __name__)
     
-    train_dir = os.path.join(project_dir, "train")
-    mask_dir = os.path.join(train_dir, "mask")
-    mask_dir = os.path.join(train_dir, "mask_prepared")
+    train_dir = os.path.join(project_dir, "training")
+    train_type_dir = os.path.join(train_dir, "validation")
+    mask_dir = os.path.join(train_type_dir, "mask")
     
     vectorize_masks(mask_dir)
