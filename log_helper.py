@@ -40,7 +40,10 @@ def main_log_init(log_dir: str,
     ch = logging.StreamHandler()
     ch.setLevel(logging.INFO)
     #ch.setFormatter(logging.Formatter('%(levelname)s|%(name)s|%(message)s'))
-    ch.setFormatter(logging.Formatter('%(asctime)s|%(levelname)s|%(name)s|%(message)s'))
+    #ch.setFormatter(logging.Formatter('%(asctime)s|%(levelname)s|%(name)s|%(message)s',
+    #                                  datefmt='%H:%M:%S,uuu'))
+    ch.setFormatter(logging.Formatter(fmt='%(asctime)s.%(msecs)03d|%(levelname)s|%(name)s|%(message)s',
+                                      datefmt='%H:%M:%S')) 
     logger.addHandler(ch)
     
     log_filepath = os.path.join(log_dir, f"{datetime.datetime.now():%Y-%m-%d_%H-%M-%S}_{log_basefilename}.log")
