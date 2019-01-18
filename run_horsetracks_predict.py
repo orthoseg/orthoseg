@@ -19,8 +19,6 @@ import models.model_helper as mh
 #-------------------------------------------------------------
 
 def main():
-    
-    #os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
     # General initialisations for the segmentation project
     # -------------------------------------------------------------------------    
@@ -29,7 +27,7 @@ def main():
     
     # Model we will use for this segmentation
     # TODO: autodetect highest data version!!!
-    train_data_version = 99
+    train_data_version = 19
     model_architecture = "inceptionresnetv2+linknet"
 
     # The batch size to use. Depends on available hardware and model used.
@@ -87,17 +85,17 @@ def main():
     logger.info("Model weights loaded")
     
     # Predict for entire dataset
-    segment.predict(model=model,
-                    input_image_dir=to_predict_input_dir,
-                    output_base_dir=f"{to_predict_input_dir}_{predict_out_subdir}",
-                    border_pixels_to_ignore=border_pixels_to_ignore,
-                    input_mask_dir=None,
-                    batch_size=batch_size,
-                    evaluate_mode=False)
+    segment.predict_dir(model=model,
+                        input_image_dir=to_predict_input_dir,
+                        output_base_dir=f"{to_predict_input_dir}_{predict_out_subdir}",
+                        border_pixels_to_ignore=border_pixels_to_ignore,
+                        input_mask_dir=None,
+                        batch_size=batch_size,
+                        evaluate_mode=False)
     
-    vh.union_vectors(base_dir=f"{to_predict_input_dir}_{predict_out_subdir}",
-                     evaluate_mode=False,
-                     force=False)
+    vh.postprocess_vectors(base_dir=f"{to_predict_input_dir}_{predict_out_subdir}",
+                           evaluate_mode=False,
+                           force=False)
     
 if __name__ == '__main__':
     main()

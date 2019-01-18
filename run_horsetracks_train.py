@@ -19,17 +19,19 @@ def main():
     
     # WMS server we can use to get the image data
     WMS_SERVER_URL = 'http://geoservices.informatievlaanderen.be/raadpleegdiensten/ofw/wms?'
-    
+    WMS_SERVER_LAYER = "ofw"
+
     # Start the training session    
     th.run_training_session(segment_subject=segment_subject,
                             base_dir=base_dir,
                             wms_server_url=WMS_SERVER_URL,
+                            wms_server_layer=WMS_SERVER_LAYER,
                             model_encoder='inceptionresnetv2',
                             model_decoder='linknet',
                             batch_size_train=8,
                             batch_size_pred=20,
                             force_traindata_version=None,
-                            preload_existing_model=False)
+                            resume_train=False)
     
 if __name__ == '__main__':
     main()

@@ -9,6 +9,7 @@ import logging
 import os
 import glob
 import datetime
+import concurrent.futures as futures
 
 import numpy as np
 import pandas as pd
@@ -37,16 +38,46 @@ def train(traindata_dir: str,
           model_decoder: str,
           model_save_dir: str,
           model_save_base_filename: str,
+          image_width: int = 512,
+          image_height: int = 512,
           image_subdir: str = "image",
           mask_subdir: str = "mask",
           model_preload_filepath: str = None,
           batch_size: int = 32,
           nb_epoch: int = 100,
           augmented_subdir: str = None):
-
-    image_width = 512
-    image_height = 512
-
+    """
+    Create a new or load an existing neural network and train it using 
+    data from the train and validation directories specified.
+    
+    The best models will be saved to model_save_dir. The filenames of the 
+    models will be constructed like this:
+    {model_save_base_filename}_{combined_acc}_{train_acc}_{validation_acc}_{epoch}
+        * combined_acc: average of train_acc and validation_acc
+        * train_acc: the jaccard coëficient of train dataset for the model
+        * validation_acc: the jaccard coëficient of validation dataset 
+    In the scripts, if the "best model" is mentioned, this is the one with the 
+    highest "combined_acc".
+    
+    Args
+        traindata_dir: dir where the train data is located
+        validationdata_dir: dir where the validation data is located
+        model_encoder: encoder of the neural network to use
+        model_decoder: decoder of the neural network to use
+        model_save_dir: dir where (intermediate) best models will be saved
+        model_save_base_filename: base filename to use when saving models
+        image_width: width the input images will be rescaled to for training
+        image_height: height the input images will be rescaled to for training
+        image_subdir: subdir where the images can be found in traindata_dir and validationdata_dir
+        mask_subdir: subdir where the corresponding masks can be found in traindata_dir and validationdata_dir
+        model_preload_filepath: filepath to the model to continue training on, 
+                                or None if you want to start from scratch
+        batch_size: batch size to use while training. This must be 
+                          choosen depending on the neural network architecture
+                          and available memory on you GPU.
+        nb_epoch: maximum number of epochs to train
+    """
+    
     # These are the augmentations that will be applied to the input training images/masks
     # Remark: fill_mode + cval are defined as they are so missing pixels after eg. rotation
     #         are filled with 0, and so the mask will take care that they are +- ignored.
@@ -106,14 +137,12 @@ def train(traindata_dir: str,
    
     # Create a model
     model_json_filename = f"{model_encoder}+{model_decoder}.json"
-    model_json_filepath = os.path.join(model_save_dir, 
-                                       model_json_filename)
+    model_json_filepath = os.path.join(model_save_dir, model_json_filename)
     if not model_preload_filepath:
         # If no existing model provided, create it from scratch
         # Get the model we want to use
-        model = mf.get_model(encoder=model_encoder,
-                            decoder=model_decoder, 
-                            n_channels=3, n_classes=1)
+        model = mf.get_model(encoder=model_encoder, decoder=model_decoder, 
+                             n_channels=3, n_classes=1)
         
         # Save the model architecture to json if it doesn't exist yet
         if not os.path.exists(model_json_filepath):
@@ -140,8 +169,8 @@ def train(traindata_dir: str,
     # Now prepare the model for training
     # Default learning rate for Adam: lr=1e-3, but doesn't seem to work well for unet
     model = mf.compile_model(model=model,
-                            optimizer=kr.optimizers.Adam(lr=start_learning_rate), 
-                            loss='binary_crossentropy')
+                             optimizer=kr.optimizers.Adam(lr=start_learning_rate), 
+                             loss='binary_crossentropy')
 
     # Define some callbacks for the training
     # Reduce the learning rate if the loss doesn't improve anymore
@@ -162,7 +191,7 @@ def train(traindata_dir: str,
     csv_logger = kr.callbacks.CSVLogger(csv_log_filepath, 
                                         append=True, separator=';')
 
-    # Stop if no more omprovement
+    # Stop if no more improvement
     early_stopping = kr.callbacks.EarlyStopping(monitor='jaccard_coef_round', 
                                                 patience=200,  
                                                 restore_best_weights=False)
@@ -188,13 +217,19 @@ def create_train_generator(input_data_dir, image_subdir, mask_subdir,
                            image_save_prefix="image", mask_save_prefix="mask",
                            flag_multi_class=False, num_class=2,
                            target_size=(256,256), seed=1, class_mode=None):
-    '''
-    Can generate image and mask at the same time
+    """
+    Creates a generator to generate and augment train images. The augmentations
+    specified in aug_dict will be applied. For the augmentations that can be 
+    specified in aug_dict look at the documentation of 
+    keras.preprocessing.image.ImageDataGenerator
+    
+    For more info about the other parameters, check keras flow_from_directory.
 
-    Remarks: * use the same seed for image_datagen and mask_datagen to ensure the
-               transformation for image and mask is the same
-             * if you want to visualize the results of generator, set save_to_dir = "your path"
-    '''
+    Remarks: * use the same seed for image_datagen and mask_datagen to ensure 
+               the transformation for image and mask is the same
+             * set save_to_dir = "your path" to check results of the generator
+    """
+    
     image_datagen = kr.preprocessing.image.ImageDataGenerator(**aug_dict)
     mask_datagen = kr.preprocessing.image.ImageDataGenerator(**aug_dict)
     image_generator = image_datagen.flow_from_directory(
@@ -220,15 +255,52 @@ def create_train_generator(input_data_dir, image_subdir, mask_subdir,
     train_generator = zip(image_generator, mask_generator)
     return train_generator
 
-def predict(model,
-            input_image_dir: str,
-            output_base_dir: str,
-            border_pixels_to_ignore: int = 0,
-            input_mask_dir: str = None,
-            batch_size: int = 16,
-            evaluate_mode: bool = False,
-            force: bool = False):
-
+def predict_dir(model,
+                input_image_dir: str,
+                output_base_dir: str,
+                border_pixels_to_ignore: int = 0,
+                input_mask_dir: str = None,
+                batch_size: int = 16,
+                evaluate_mode: bool = False,
+                force: bool = False):
+    """
+    Create a prediction for all the images in the directories specified 
+    using the model specified.
+    
+    If evaluate_mode is False, the output folder(s) will contain:
+         * the "raw" prediction for every image (if there are white pixels)
+         * a geojson with the vectorized prediction, with a column "onborder"
+           for each feature that is 1 if the feature is on the border of the
+           tile, taking the border_pixels_to_ignore in account if applicable.
+           This columns can be used to speed up union operations afterwards, 
+           because only features on the border of tiles need to be unioned.
+    
+    If evaluate_mode is True, the results will all be put in the root of the 
+    output folder, and the following files will be outputted:
+        * the original image
+        * the mask that was provided, if available
+        * the "raw" prediction
+        * a "cleaned" version of the prediction
+    The files will in this case be prefixed with a number so they are ordered 
+    in a way that is interesting for evaluation. If a mask was available, this
+    prefix will be the % overlap of the mask and the prediction. If no mask is
+    available, the prefix is the % white pixels in the prediction.
+        
+    Args
+        input_image_dir: dir where the input images are located
+        output_base_dir: dir where the output will be put
+        border_pixels_to_ignore: because the segmentation at the borders of the
+                                 input images images is not as good, you can
+                                 specify that x pixels need to be ignored
+        input_mask_dir: optional dir where the mask images are located
+        batch_size: batch size to use while predicting. This must be 
+                    choosen depending on the neural network architecture
+                    and available memory on you GPU.
+        evaluate_mode: True to run in evaluate mode
+        force: False to skip images that already have a prediction, true to
+               ignore existing predictions and overwrite them
+    """
+    
     logger.info(f"Start predict for input_image_dir: {input_image_dir}")
 
     # If we are using evaluate mode, change the output dir...
@@ -250,8 +322,9 @@ def predict(model,
     
     # If force is false, get list of all existing predictions
     # Getting the list once is way faster than checking file per file later on!
-    images_done_log_filename = "images_done.txt"
-    images_done_log_filepath = os.path.join(output_base_dir, images_done_log_filename)
+    images_done_log_filepath = os.path.join(output_base_dir, "images_done.txt")
+    images_error_log_filepath = os.path.join(output_base_dir, 
+                                             "images_error.txt")
     if force is False:
         # First read the listing file if it exists
         image_done_filenames = set()
@@ -259,145 +332,158 @@ def predict(model,
             with open(images_done_log_filepath) as f:
                 for filename in f:
                     image_done_filenames.add(filename.rstrip())
-            
-        logger.info(f"Found {len(image_done_filenames)} predicted images in output dir, they will be skipped")
-        #logger.info(f"Found {image_done_filenames}")
+        if len(image_done_filenames) > 0:
+            logger.info(f"Found {len(image_done_filenames)} predicted images in output dir, they will be skipped")
         
     # Loop through all files to process them...
     curr_batch_image_infos = []
     nb_predicted = 0
     image_filepaths_sorted = sorted(image_filepaths)
-    for i, image_filepath in enumerate(image_filepaths_sorted):
-
-        # If force is false and prediction exists... skip
-        if force is False:
-           filename = os.path.basename(image_filepath)
-           if filename in image_done_filenames:
-               logger.debug(f"Predict for image has already been done before and force is False, so skip: {filename}")
-               continue
-                
-        # Prepare the filepath for the output
-        image_filepath_noext = os.path.splitext(image_filepath)[0]
-        if evaluate_mode:
-            # In evaluate mode, put everyting in output base dir for easier 
-            # comparison
-            image_dir, image_filename_noext = os.path.split(image_filepath_noext)
-            tmp_output_filepath = os.path.join(output_base_dir, image_filename_noext)
-        else:
-            tmp_output_filepath = image_filepath_noext.replace(input_image_dir,
-                                                        output_base_dir)
-        output_pred_filepath = f"{tmp_output_filepath}_pred.tif"       
-        output_dir, output_pred_filename = os.path.split(output_pred_filepath)
+    with futures.ThreadPoolExecutor(batch_size) as pool:
         
-        logger.debug(f"Start predict for image {image_filepath}")
+        for i, image_filepath in enumerate(image_filepaths_sorted):
+    
+            # If force is false and prediction exists... skip
+            if force is False:
+               filename = os.path.basename(image_filepath)
+               if filename in image_done_filenames:
+                   logger.debug(f"Predict for image has already been done before and force is False, so skip: {filename}")
+                   continue
+                    
+            # Prepare the filepath for the output
+            image_filepath_noext = os.path.splitext(image_filepath)[0]
+            if evaluate_mode:
+                # In evaluate mode, put everyting in output base dir for easier 
+                # comparison
+                image_dir, image_filename_noext = os.path.split(image_filepath_noext)
+                tmp_output_filepath = os.path.join(output_base_dir, image_filename_noext)
+            else:
+                tmp_output_filepath = image_filepath_noext.replace(input_image_dir,
+                                                            output_base_dir)
+            output_pred_filepath = f"{tmp_output_filepath}_pred.tif"       
+            output_dir, output_pred_filename = os.path.split(output_pred_filepath)
+            
+            logger.debug(f"Start predict for image {image_filepath}")
+                    
+            # Init start time at the first file that isn't skipped
+            if nb_predicted == 0:
+                start_time = datetime.datetime.now()
+            nb_predicted += 1
+            
+            # Append the image info to the batch array so they can be treated in 
+            # bulk if the batch size is reached
+            curr_batch_image_infos.append({'input_image_filepath': image_filepath,
+                                           'output_pred_filepath': output_pred_filepath,
+                                           'output_dir': output_dir})
+            
+            # If the batch size is reached or we are at the last images
+            nb_images_in_batch = len(curr_batch_image_infos)
+            curr_batch_image_infos_ext = []
+            if(nb_images_in_batch == batch_size or i == (nb_files-1)):
+                start_time_batch_read = datetime.datetime.now()
                 
-        # Init start time at the first file that isn't skipped
-        if nb_predicted == 0:
-            start_time = datetime.datetime.now()
-        nb_predicted += 1
-        
-        # Append the image info to the batch array so they can be treated in 
-        # bulk if the batch size is reached
-        curr_batch_image_infos.append({'input_image_filepath': image_filepath,
-                                       'output_pred_filepath': output_pred_filepath,
-                                       'output_dir': output_dir})
-        
-        # If the batch size is reached or we are at the last images
-        nb_images_in_batch = len(curr_batch_image_infos)
-        curr_batch_image_infos_ext = []
-        curr_batch_image_pixels = []
-        if(nb_images_in_batch == batch_size or i == (nb_files-1)):
+                # Read all input images for the batch (in parallel)
+                logger.debug(f"Start reading input {nb_images_in_batch} images")
+                read_filepaths = [info.get('input_image_filepath') for info in curr_batch_image_infos]
+                read_results = pool.map(read_image, read_filepaths)
+                for j, read_result in enumerate(read_results):
+                    curr_batch_image_infos_ext.append(
+                            {'input_image_filepath': curr_batch_image_infos[j]['input_image_filepath'],
+                             'output_pred_filepath': curr_batch_image_infos[j]['output_pred_filepath'],
+                             'output_dir': curr_batch_image_infos[j]['output_dir'],
+                             'image_crs': read_result['image_crs'],
+                             'image_transform': read_result['image_transform'],
+                             'image_data': read_result['image_data']})
 
-            start_time_batch_read = datetime.datetime.now()
-            
-            # Read all input images for the batch 
-            # Remark: reading them in parallel doesn't work because the image 
-            # data is too large to give back as return value in future.result()
-            # TODO: try using predict_generator for paralellisation
-            logger.debug(f"Start reading input {nb_images_in_batch} images")
-
-            for j, image_info in enumerate(curr_batch_image_infos):
+                # Predict!
+                logger.debug(f"Start prediction for {nb_images_in_batch} images")
+                images = [info.get('image_data') for info in curr_batch_image_infos_ext]
+                curr_batch_image_pred_arr = model.predict_on_batch(
+                        np.asarray(images))
                 
-                image_data, image_crs, image_transform = read_image(
-                        image_filepath=image_info['input_image_filepath'])
-                curr_batch_image_pixels.append(image_data)
-                # Append the image info to the batch array so they can be treated in 
-                # bulk if the batch size is reached
-                curr_batch_image_infos_ext.append(
-                        {'input_image_filepath': image_info['input_image_filepath'],
-                         'output_pred_filepath': image_info['output_pred_filepath'],
-                         'output_dir': image_info['output_dir'],
-                         'image_crs': image_crs,
-                         'image_transform': image_transform})
-                                    
-            # Predict!
-            logger.debug(f"Start prediction for {nb_images_in_batch} images")
-            curr_batch_image_pred_arr = model.predict_on_batch(
-                    np.asarray(curr_batch_image_pixels))
-            
-            # TODO: possibly add this check in exception handler to make the 
-            # error message clearer!
-            # Check if the image size is OK for the segmentation model
-            '''
-            m.check_image_size(decoder=decoder,
-                               input_width=image_data.shape[0], 
-                               input_height=image_data.shape[1])
-            '''
-            
-            # Postprocess predictions
-            logger.debug("Start post-processing")    
-            for j, image_info in enumerate(curr_batch_image_infos_ext):
+                # TODO: possibly add this check in exception handler to make the 
+                # error message clearer!
+                # Check if the image size is OK for the segmentation model
                 '''
-                save_prediction_uint8(
-                        output_filepath=image_info['output_pred_filepath'],
-                        image_pred_arr=curr_batch_image_pred_arr[j],
-                        image_crs=image_info['image_crs'],
-                        image_transform=image_info['image_transform'],
-                        border_pixels_to_ignore=border_pixels_to_ignore,
-                        force=force)
+                m.check_image_size(decoder=decoder,
+                                   input_width=image_data.shape[0], 
+                                   input_height=image_data.shape[1])
                 '''
-
-                postp.postprocess_prediction(image_filepath=image_info['input_image_filepath'],
-                                       output_dir=image_info['output_dir'],
-                                       image_pred_arr=curr_batch_image_pred_arr[j],
-                                       input_mask_dir=input_mask_dir,
-                                       border_pixels_to_ignore=border_pixels_to_ignore,
-                                       evaluate_mode=evaluate_mode,
-                                       force=force)
-
-                # Write line to file with done files...
-                with open(images_done_log_filepath, "a+") as f:
-                    f.write(os.path.basename(image_info['input_image_filepath']) + '\n')
-
-            logger.debug("Post-processing ready")
-        
-            # Log the progress and prediction speed
-            time_passed_s = (datetime.datetime.now()-start_time).total_seconds()
-            time_passed_lastbatch_s = (datetime.datetime.now()-start_time_batch_read).total_seconds()
-            if time_passed_s > 0 and time_passed_lastbatch_s > 0:
-                images_per_hour = (nb_predicted/time_passed_s) * 3600
-                images_per_hour_lastbatch = (batch_size/time_passed_lastbatch_s) * 3600
-                hours_to_go = (int)((nb_files - i)/images_per_hour)
-                min_to_go = (int)((((nb_files - i)/images_per_hour)%1)*60)
-                print(f"{hours_to_go}:{min_to_go} left for {nb_files-i} images at {images_per_hour:0.0f}/h ({images_per_hour_lastbatch:0.0f}/h last batch) in ...{input_image_dir[-30:]}")
+                
+                # Postprocess predictions
+                logger.debug("Start post-processing")    
+                for j, image_info in enumerate(curr_batch_image_infos_ext):    
+                    try:
+                        # Postprocess
+                        postp.postprocess_prediction(
+                                image_filepath=image_info['input_image_filepath'],
+                                output_dir=image_info['output_dir'],
+                                image_crs=image_info['image_crs'],
+                                image_transform=image_info['image_transform'],
+                                image_pred_arr=curr_batch_image_pred_arr[j],
+                                input_mask_dir=input_mask_dir,
+                                border_pixels_to_ignore=border_pixels_to_ignore,
+                                evaluate_mode=evaluate_mode,
+                                force=force)
+    
+                        # Write line to file with done files...
+                        with open(images_done_log_filepath, "a+") as f:
+                            f.write(os.path.basename(
+                                    image_info['input_image_filepath']) + '\n')
+                    except:
+                        logger.error(f"Error postprocessing pred for {image_info['input_image_filepath']}")
+    
+                        # Write line to file with done files...
+                        with open(images_error_log_filepath, "a+") as f:
+                            f.write(os.path.basename(
+                                    image_info['input_image_filepath']) + '\n')
+                        
+                logger.debug("Post-processing ready")
             
-            # Reset variable for next batch
-            curr_batch_image_infos = []
+                # Log the progress and prediction speed
+                time_passed_s = (datetime.datetime.now()-start_time).total_seconds()
+                time_passed_lastbatch_s = (datetime.datetime.now()-start_time_batch_read).total_seconds()
+                if time_passed_s > 0 and time_passed_lastbatch_s > 0:
+                    images_per_hour = (nb_predicted/time_passed_s) * 3600
+                    images_per_hour_lastbatch = (nb_images_in_batch/time_passed_lastbatch_s) * 3600
+                    hours_to_go = (int)((nb_files - i)/images_per_hour)
+                    min_to_go = (int)((((nb_files - i)/images_per_hour)%1)*60)
+                    print(f"\r{hours_to_go}:{min_to_go} left for {nb_files-i} images at {images_per_hour:0.0f}/h ({images_per_hour_lastbatch:0.0f}/h last batch) in ...{input_image_dir[-30:]}",
+                          end='', flush=True)
+                
+                # Reset variable for next batch
+                curr_batch_image_infos = []
 
 def read_image(image_filepath: str):
     # Read input file and return data.
-    with rio.open(image_filepath) as image_ds:
-        # Read geo info
-        image_crs = image_ds.profile['crs']
-        image_transform = image_ds.transform
+    # Because sometimes a read seems to fail, retry upt to 3 times...
+    retry_count = 0
+    while True:
+        try:
+            with rio.open(image_filepath) as image_ds:
+                # Read geo info
+                image_crs = image_ds.profile['crs']
+                image_transform = image_ds.transform
+                
+                # Read pixelsn change from (channels, width, height) to 
+                # (width, height, channels) and normalize to values between 0 and 1
+                image_data = image_ds.read()
+                image_data = rio_plot.reshape_as_image(image_data)
+                image_data = image_data / 255.0
         
-        # Read pixelsn change from (channels, width, height) to 
-        # (width, height, channels) and normalize to values between 0 and 1
-        image_data = image_ds.read()
-        image_data = rio_plot.reshape_as_image(image_data)
-        image_data = image_data / 255
-
-    return image_data, image_crs, image_transform
+            result = {'image_data': image_data,
+                      'image_crs': image_crs,
+                      'image_transform': image_transform,
+                      'image_filepath': image_filepath}
+            return result
+        
+        except:
+            retry_count += 1
+            logger.warning(f"Read failed, retry nb {retry_count} for {image_filepath}")
+            if retry_count >= 3:
+                message = f"STOP: Read failed {retry_count} times for {image_filepath}"
+                logger.critical(message)
+                raise Exception(message)
 
 def save_prediction_uint8(output_filepath: str,
                           image_pred_arr,

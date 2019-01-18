@@ -10,40 +10,47 @@ import os
 import keras as kr
 
 import log_helper
-import segment
+import segment as seg
 import prepare_traindatasets as prep
 import models.model_helper as mh
 
 def run_training_session(segment_subject: str,
                          base_dir: str,
                          wms_server_url: str,
+                         wms_server_layer: str,
                          model_encoder: str,
                          model_decoder: str,
                          batch_size_train: int,
                          batch_size_pred: int,
                          nb_epoch: int = 1000,
                          force_traindata_version: int = None,
-                         preload_existing_model: bool = False):
+                         resume_train: bool = False):
     """
     The batch size to use depends on the model architecture, the size of the 
     training images and the available (GPU) memory
+    
+    Args
+        segment_subject: subject you want to segment (eg. "greenhouses")
+        base_dir: base dir where you want to put your segmentation projects in
+        wms_server_url: url to WMS server you want to use
+        wms_server_layer: layer of the WMS server you want to use
+        model_encoder: encoder of the neural network to use
+        model_decoder: decoder of the neural network to use
+        batch_size_train: batch size to use while training. This must be 
+                          choosen depending on the neural network architecture
+                          and available memory on you GPU.
+        batch_size_pred: batch size to use while predicting
+        nb_epoch: maximum number of epochs to train
+        force_traindata_version: specify version nb. of the traindata to use
+        resume_train: use the best existing model as basis to continue training
     """
     
-    # Main project dir for this subject
+    # Init different dir name for the segementation project
     project_dir = os.path.join(base_dir, segment_subject)       
-     
-    # Dir where input label data can be found
     input_labels_dir = os.path.join(project_dir, 'input_labels')
-    input_labels_filename = f"{segment_subject}_trainlabels.shp"
-    input_labels_filepath = os.path.join(input_labels_dir, 
-                                         input_labels_filename)
-            
-    # Dir where models will be saved
     model_dir = os.path.join(project_dir, "models")
-
-    # Dir where all training info will be saved
     training_dir = os.path.join(project_dir, "training")
-    
+            
     # Main initialisation of the logging
     log_dir = os.path.join(training_dir, "log")
     logger = log_helper.main_log_init(log_dir, __name__)    
@@ -58,54 +65,62 @@ def run_training_session(segment_subject: str,
     mask_subdir = 'mask'
     
     # If the training data doesn't exist yet, create it    
-    '''
-    # TODO: write something to create train, validation and test dataset 
-    # from base input file
-    # If max_samples > 0 and less than nb labels, take random max_samples
-    if(max_samples and max_samples > 0 
-        and max_samples < len(input_labels)):
-        labels = random.sample(input_labels, max_samples)
-    else:
-        labels = input_labels
-    '''
+    # First the "train" training dataset
     traindata_basedir = os.path.join(training_dir, "train")
     if force_traindata_version is None:
-        force_create_train_data = False 
         logger.info("Prepare train and validation data")
+        input_labels_filename = f"{segment_subject}_trainlabels.shp"
+        input_labels_filepath = os.path.join(input_labels_dir, 
+                                             input_labels_filename)
         traindata_dir, traindata_version = prep.prepare_traindatasets(
                     input_vector_label_filepath=input_labels_filepath,
                     wms_server_url=wms_server_url,
-                    wms_server_layer='ofw',
+                    wms_server_layer=wms_server_layer,
                     output_basedir=traindata_basedir,
                     image_subdir=image_subdir,
-                    mask_subdir=mask_subdir,
-                    force=force_create_train_data)
+                    mask_subdir=mask_subdir)
     else:
         traindata_dir = f"{traindata_basedir}_{force_traindata_version:02d}"
-        traindata_version = force_traindata_version
-            
+        traindata_version = force_traindata_version            
     logger.info(f"Traindata dir to use is {traindata_dir}, with traindata_version: {traindata_version}")
 
-    # Seperate validation dataset for during training...
-    # TODO: create validation data based on input vector file as well...
-    validationdata_dir = os.path.join(training_dir, "validation")
+    # Now the "validation" training dataset
+    input_labels_filename = f"{segment_subject}_validationlabels.shp"
+    input_labels_filepath = os.path.join(input_labels_dir, 
+                                         input_labels_filename)
+    validationdata_dir, tmp = prep.prepare_traindatasets(
+                input_vector_label_filepath=input_labels_filepath,
+                wms_server_url=wms_server_url,
+                wms_server_layer=wms_server_layer,
+                output_basedir=os.path.join(training_dir, "validation"),
+                image_subdir=image_subdir,
+                mask_subdir=mask_subdir)
 
-    # TODO: automatically create a random test dataset here as well if it 
-    # doesnt exist?
-
+    # Now the "validation" training dataset
+    logger.info("Prepare train and validation data")
+    input_labels_filename = f"{segment_subject}_testlabels.shp"
+    input_labels_filepath = os.path.join(input_labels_dir, 
+                                         input_labels_filename)
+    testdata_dir, tmp = prep.prepare_traindatasets(
+                input_vector_label_filepath=input_labels_filepath,
+                wms_server_url=wms_server_url,
+                wms_server_layer=wms_server_layer,
+                output_basedir=os.path.join(training_dir, "test"),
+                image_subdir=image_subdir,
+                mask_subdir=mask_subdir)
+    
     # Create base filename of model to use
     model_architecture = f"{model_encoder}+{model_decoder}"
-    model_base_filename = mh.model_base_filename(segment_subject,
-                                                 traindata_version,
-                                                 model_architecture)
-    logger.info(f"model_base_filename: {model_base_filename}")
+    model_base_filename = mh.model_base_filename(
+            segment_subject, traindata_version, model_architecture)
+    logger.debug(f"model_base_filename: {model_base_filename}")
     
     # Get the best model that already exists for this train dataset
     best_model = mh.get_best_model(model_dir=model_dir,
                                    model_base_filename=model_base_filename)
 
     # Check if training is needed
-    if preload_existing_model is False:
+    if resume_train is False:
         # If no (best) model found, training needed!
         if best_model is None:
             train_needed = True
@@ -128,17 +143,14 @@ def run_training_session(segment_subject: str,
         model_preload_filepath = None
         if best_model is not None:
             model_preload_filepath = best_model['filepath']
-        segment.train(traindata_dir=traindata_dir,
-                      validationdata_dir=validationdata_dir,
-                      image_subdir=image_subdir,
-                      mask_subdir=mask_subdir,
-                      model_encoder=model_encoder,
-                      model_decoder=model_decoder,
-                      model_save_dir=model_dir,
-                      model_save_base_filename=model_base_filename,
-                      model_preload_filepath=model_preload_filepath,
-                      batch_size=batch_size_train,
-                      nb_epoch=nb_epoch)  
+        seg.train(traindata_dir=traindata_dir,
+                  validationdata_dir=validationdata_dir,
+                  image_subdir=image_subdir, mask_subdir=mask_subdir,
+                  model_encoder=model_encoder, model_decoder=model_decoder,
+                  model_save_dir=model_dir,
+                  model_save_base_filename=model_base_filename,
+                  model_preload_filepath=model_preload_filepath,
+                  batch_size=batch_size_train, nb_epoch=nb_epoch)  
         
     # If we trained, get the new best model
     if train_needed is True:
@@ -160,41 +172,36 @@ def run_training_session(segment_subject: str,
     predict_out_subdir = os.path.splitext(best_model['filename'])[0]
     
     # Predict training dataset
-    segment.predict(model=model,
+    seg.predict_dir(model=model,
                     input_image_dir=os.path.join(traindata_dir, image_subdir),
                     output_base_dir=os.path.join(traindata_dir, predict_out_subdir),
                     input_mask_dir=os.path.join(traindata_dir, mask_subdir),
-                    batch_size=batch_size_pred,
-                    evaluate_mode=True)
+                    batch_size=batch_size_pred, evaluate_mode=True)
     
     # Predict validation dataset
-    segment.predict(model=model,
+    seg.predict_dir(model=model,
                     input_image_dir=os.path.join(validationdata_dir, image_subdir),
                     output_base_dir=os.path.join(validationdata_dir, predict_out_subdir),
                     input_mask_dir=os.path.join(validationdata_dir, mask_subdir),
-                    batch_size=batch_size_pred,
-                    evaluate_mode=True)
+                    batch_size=batch_size_pred, evaluate_mode=True)
+
+    # Predict test dataset
+    if os.path.exists(testdata_dir):
+        seg.predict_dir(model=model,
+                        input_image_dir=os.path.join(testdata_dir, image_subdir),
+                        output_base_dir=os.path.join(testdata_dir, predict_out_subdir),
+                        input_mask_dir=os.path.join(testdata_dir, mask_subdir),
+                        batch_size=batch_size_pred, evaluate_mode=True)
     
     # Predict extra test dataset with random images in the roi, to add to 
     # train and/or validation dataset if inaccuracies are found
     # -> this is very useful to find false positives to improve the datasets
-    test_random_dir = os.path.join(training_dir, "test_random")
+    test_random_dir = os.path.join(training_dir, "test-random")
     if os.path.exists(test_random_dir):
-        segment.predict(model=model,
+        seg.predict_dir(model=model,
                         input_image_dir=os.path.join(test_random_dir, image_subdir),
                         output_base_dir=os.path.join(test_random_dir, predict_out_subdir),
-                        batch_size=batch_size_pred,
-                        evaluate_mode=True)
-
-    # Predict for test dataset with all known input data we have
-    test_dir = os.path.join(training_dir, "test")
-    if os.path.exists(test_dir):
-        segment.predict(model=model,
-                        input_image_dir=os.path.join(test_dir, image_subdir),
-                        output_base_dir=os.path.join(test_dir, predict_out_subdir),
-                        input_mask_dir=os.path.join(test_dir, mask_subdir),
-                        batch_size=batch_size_pred,
-                        evaluate_mode=True)
+                        batch_size=batch_size_pred, evaluate_mode=True)
 
 if __name__ == '__main__':
     None

@@ -96,7 +96,7 @@ def prepare_traindatasets(input_vector_label_filepath: str,
     geofile_helper.copy(input_vector_label_filepath, output_dir)
     
     # Open vector layer
-    logger.info(f"Open vector file {input_vector_label_filepath}")
+    logger.debug(f"Open vector file {input_vector_label_filepath}")
     input_label_gdf = gpd.read_file(input_vector_label_filepath)
 
     # Get the srs to use from the input vectors...
@@ -113,13 +113,10 @@ def prepare_traindatasets(input_vector_label_filepath: str,
     labels_to_burn_gdf = input_label_gdf[input_label_gdf['burninmask'] == 1]
     labels_to_use_for_bounds_gdf = input_label_gdf[input_label_gdf['usebounds'] == 1]
     
-    # If both burninmask and usebounds are 0, they won't be used... so log a 
-     
-    
     # Loop trough all train labels to get an image for each of them
     nb_todo = len(input_label_gdf)
     nb_processed = 0
-    logger.info(f"Get images for {nb_todo} labels")   
+    logger.info(f"Get images for {nb_todo} labels in {os.path.basename(input_vector_label_filepath)}")
     created_images_gdf = gpd.GeoDataFrame()
     created_images_gdf['geometry'] = None
     start_time = datetime.datetime.now()
@@ -167,12 +164,14 @@ def prepare_traindatasets(input_vector_label_filepath: str,
                          force=force)
         
         # Log the progress and prediction speed
-        time_passed = (datetime.datetime.now()-start_time).seconds
+        nb_processed += 1
+        time_passed = (datetime.datetime.now()-start_time).total_seconds()
         if time_passed > 0 and nb_processed > 0:
             processed_per_hour = (nb_processed/time_passed) * 3600
             hours_to_go = (int)((nb_todo - i)/processed_per_hour)
             min_to_go = (int)((((nb_todo - i)/processed_per_hour)%1)*60)
-            print(f"{hours_to_go}:{min_to_go} left for {nb_todo-i} of {nb_todo} at {processed_per_hour:0.0f}/h")
+            print(f"\r{hours_to_go}:{min_to_go} left for {nb_todo-i} of {nb_todo} at {processed_per_hour:0.0f}/h", 
+                  end="", flush=True)
             
     return output_dir, dataversion_new
 
@@ -316,44 +315,53 @@ def _create_mask(input_vector_label_list,
 ###############################################################################
 if __name__ == "__main__":
     
-    # General initialisations for the segmentation project
-    segment_subject = "horsetracks"
-    segment_subject = "greenhouses"
+    # WMS server we can use to get the image data
+    WMS_SERVER_URL = "http://geoservices.informatievlaanderen.be/raadpleegdiensten/ofw/wms?"
+    WMS_SERVER_LAYER = "ofw"
     
+    # General initialisations
+    segment_subject = "horsetracks"  # "greenhouses"
     base_dir = "X:\\PerPersoon\\PIEROG\\Taken\\2018\\2018-08-12_AutoSegmentation"
     project_dir = os.path.join(base_dir, segment_subject)
+    train_dir = os.path.join(project_dir, "training")
+    input_labels_dir = os.path.join(project_dir, "input_labels")
+    force = False
     
-    # Main initialisation of the logging
-    # Log dir
+    # Initialisation of the logging
     log_dir = os.path.join(project_dir, "log")
     logger = log_helper.main_log_init(log_dir, __name__)
-    logger.info("Start loading images")
-    
-    # WMS server we can use to get the image data
-    WMS_SERVER_URL = 'http://geoservices.informatievlaanderen.be/raadpleegdiensten/ofw/wms?'
-    
-    # Input label data
-    input_labels_dir = os.path.join(project_dir, 'input_labels')
+    # Prepare train dataset
     input_labels_filename = f"{segment_subject}_trainlabels.shp"
-    #input_labels_filename = "labels.geojson"
-    
-    input_labels_filepath = os.path.join(input_labels_dir,
+    input_labels_filepath = os.path.join(input_labels_dir, 
                                          input_labels_filename)
-    
-    # The subdirs where the images and masks can be found by convention for training and validation
-    train_dir = os.path.join(project_dir, "train_new")
-    
-    # If the training data doesn't exist yet, create it
-    force_create_train_data = True 
-    
-    if(force_create_train_data 
-       or not os.path.exists(train_dir)):
-        logger.info('Prepare train and validation data')
-        prepare_traindatasets(
-                input_vector_label_filepath=input_labels_filepath,
-                wms_server_url=WMS_SERVER_URL,
-                wms_server_layer='ofw',
-                output_dir=train_dir,
-                force=force_create_train_data)
-    else:
-        logger.info("Train data exists already, stop...")
+    dataset_basedir = os.path.join(train_dir, "train")
+    prepare_traindatasets(
+            input_vector_label_filepath=input_labels_filepath,
+            wms_server_url=WMS_SERVER_URL,
+            wms_server_layer=WMS_SERVER_LAYER,
+            output_basedir=dataset_basedir,
+            force=force)
+
+    # Prepare validation dataset
+    input_labels_filename = f"{segment_subject}_validationlabels.shp"
+    input_labels_filepath = os.path.join(input_labels_dir, 
+                                         input_labels_filename)
+    dataset_basedir = os.path.join(train_dir, "validation")
+    prepare_traindatasets(
+            input_vector_label_filepath=input_labels_filepath,
+            wms_server_url=WMS_SERVER_URL,
+            wms_server_layer=WMS_SERVER_LAYER,
+            output_basedir=dataset_basedir,
+            force=force)
+
+    # Prepare test dataset
+    input_labels_filename = f"{segment_subject}_testlabels.shp"
+    input_labels_filepath = os.path.join(input_labels_dir, 
+                                         input_labels_filename)
+    dataset_basedir = os.path.join(train_dir, "test")
+    prepare_traindatasets(
+            input_vector_label_filepath=input_labels_filepath,
+            wms_server_url=WMS_SERVER_URL,
+            wms_server_layer=WMS_SERVER_LAYER,
+            output_basedir=dataset_basedir,
+            force=force)
