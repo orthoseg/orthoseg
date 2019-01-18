@@ -229,14 +229,15 @@ def get_images_for_grid(wms_server_url: str,
 
             #logger.info(f"Nb processed: {nb_processed} of {cols*rows} ({nb_processed/(cols*rows):.2f}%), Nb downloaded: {counter_downloaded}")
             # Log the progress and prediction speed once 10 seconds have passed
-            secs_since_last_log = (datetime.datetime.now()-last_progress_log_time).seconds
+            secs_since_last_log = (datetime.datetime.now()-last_progress_log_time).total_seconds()
             if secs_since_last_log > 10:
                 last_progress_log_time = datetime.datetime.now()
-                secs_passed_total = (datetime.datetime.now()-start_time).seconds
+                secs_passed_total = (datetime.datetime.now()-start_time).total_seconds()
                 images_per_hour = ((nb_processed-nb_ignore_in_progress)/secs_passed_total) * 3600
                 hours_to_go = (int)((cols*rows-nb_processed)/images_per_hour)
                 min_to_go = (int)((((cols*rows-nb_processed)/images_per_hour)%1)*60)
-                print(f"{hours_to_go}:{min_to_go} left for {cols*rows-nb_processed} images at {images_per_hour:0.0f}/h")
+                print(f"\r{hours_to_go}:{min_to_go} left for {cols*rows-nb_processed} images at {images_per_hour:0.0f}/h",
+                      end="", flush=True)
 
 def getmap_to_file(wms: WebMapService,
                    layers: [str],
