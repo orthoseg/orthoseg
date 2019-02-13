@@ -20,7 +20,8 @@ import geopandas as gpd
 
 import log_helper
 
-def vectorize_masks(input_image_dir: str):
+def vectorize_masks(input_image_dir: str,
+                    projection_if_missing: str):
 
     # Get list of all image files to process...
     image_filepaths = []
@@ -92,7 +93,8 @@ def vectorize_masks(input_image_dir: str):
     labels_gdf = gpd.GeoDataFrame(label_records, 
                                   columns=['geometry', 'descr', 
                                            'burninmask', 'usebounds'])
-    labels_gdf.crs = 'epsg:31370'
+    if labels_gdf.crs is None:
+        labels_gdf.crs = projection_if_missing
     
     # Cleanup data (dissolve + simplify)
     labels_gdf = labels_gdf.dissolve(by=['descr', 'burninmask', 'usebounds'])
@@ -112,7 +114,7 @@ if __name__ == '__main__':
     # Main project dir
     #subject = "horsetracks"
     subject = "horsetracks"
-    base_dir = "X:\\PerPersoon\\PIEROG\\Taken\\2018\\2018-08-12_AutoSegmentation"
+    base_dir = "X:\\Monitoring\\OrthoSeg\\"
     project_dir = os.path.join(base_dir, subject)
     
     # Main initialisation of the logging
@@ -123,4 +125,5 @@ if __name__ == '__main__':
     train_type_dir = os.path.join(train_dir, "validation")
     mask_dir = os.path.join(train_type_dir, "mask")
     
-    vectorize_masks(mask_dir)
+    vectorize_masks(mask_dir,
+                    projection_if_missing='epsg:31370')
