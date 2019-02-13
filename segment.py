@@ -257,10 +257,11 @@ def create_train_generator(input_data_dir, image_subdir, mask_subdir,
 
 def predict_dir(model,
                 input_image_dir: str,
-                output_base_dir: str,
-                border_pixels_to_ignore: int = 0,
+                output_base_dir: str,         
+                border_pixels_to_ignore: int = 0,                
+                projection_if_missing: str = None,
                 input_mask_dir: str = None,
-                batch_size: int = 16,
+                batch_size: int = 16,                
                 evaluate_mode: bool = False,
                 force: bool = False):
     """
@@ -297,6 +298,8 @@ def predict_dir(model,
                     choosen depending on the neural network architecture
                     and available memory on you GPU.
         evaluate_mode: True to run in evaluate mode
+        projection: Normally the projection should be in the raster file. If it 
+                    is not, you can explicitly specify one.
         force: False to skip images that already have a prediction, true to
                ignore existing predictions and overwrite them
     """
@@ -384,8 +387,15 @@ def predict_dir(model,
                 
                 # Read all input images for the batch (in parallel)
                 logger.debug(f"Start reading input {nb_images_in_batch} images")
-                read_filepaths = [info.get('input_image_filepath') for info in curr_batch_image_infos]
-                read_results = pool.map(read_image, read_filepaths)
+                
+                # Put arguments to pass to map in lists
+                read_arg_filepaths = [info.get('input_image_filepath') for info in curr_batch_image_infos]
+                read_arg_projections = [projection_if_missing for info in curr_batch_image_infos]
+                
+                # Exec read in parallel and extract result
+                read_results = pool.map(read_image,            # Function 
+                                        read_arg_filepaths,    # Arg 1-list
+                                        read_arg_projections)  # Arg 2-list
                 for j, read_result in enumerate(read_results):
                     curr_batch_image_infos_ext.append(
                             {'input_image_filepath': curr_batch_image_infos[j]['input_image_filepath'],
@@ -454,8 +464,10 @@ def predict_dir(model,
                 # Reset variable for next batch
                 curr_batch_image_infos = []
 
-def read_image(image_filepath: str):
-    # Read input file and return data.
+def read_image(image_filepath: str,
+               projection_if_missing: str = None):
+
+    # Read input file
     # Because sometimes a read seems to fail, retry upt to 3 times...
     retry_count = 0
     while True:
@@ -469,21 +481,34 @@ def read_image(image_filepath: str):
                 # (width, height, channels) and normalize to values between 0 and 1
                 image_data = image_ds.read()
                 image_data = rio_plot.reshape_as_image(image_data)
-                image_data = image_data / 255.0
-        
-            result = {'image_data': image_data,
-                      'image_crs': image_crs,
-                      'image_transform': image_transform,
-                      'image_filepath': image_filepath}
-            return result
-        
-        except:
+                image_data = image_data / 255.0 
+            
+            # Read worked, so jump out of the loop...
+            break
+        except Exception as ex:
             retry_count += 1
             logger.warning(f"Read failed, retry nb {retry_count} for {image_filepath}")
             if retry_count >= 3:
-                message = f"STOP: Read failed {retry_count} times for {image_filepath}"
-                logger.critical(message)
+                message = f"STOP: Read failed {retry_count} times for {image_filepath}, with exception: {ex}"
+                logger.error(message)
                 raise Exception(message)
+        
+    # The read was successfull, now check if there was a projection in the 
+    # file and/or if one was provided
+    if image_crs is None:
+        if projection_if_missing is not None:
+            image_crs = projection_if_missing
+        else:
+            message = f"Image doesn't contain projection and no projection_if_missing provided!: {image_filepath}"
+            logger.error(message)
+            raise Exception(message)
+        
+    # Now return the result
+    result = {'image_data': image_data,
+              'image_crs': image_crs,
+              'image_transform': image_transform,
+              'image_filepath': image_filepath}
+    return result
 
 def save_prediction_uint8(output_filepath: str,
                           image_pred_arr,
