@@ -122,8 +122,6 @@ def postprocess_vectors(base_dir: str,
         # If input geoms not yet in memory, read from file
         if geoms_simpl_shap_gdf is None:
             geoms_simpl_shap_gdf = gpd.read_file(geoms_simpl_shap_filepath)
-
-        geoms_simpl_shap_gdf.crs = 'epsg:31370'
             
         # Simplify, fix invalid geoms, remove empty geoms, 
         # apply multipart-to-singlepart, only > 5m² + write
@@ -306,13 +304,8 @@ def merge_vector_files(input_dir: str,
     # Add id column and write to file
     # Remark: reset index because append retains the original index values
     geoms_gdf.reset_index(inplace=True, drop=True)
-    geoms_gdf['id'] = geoms_gdf.index
-    
-    # Make sure file has a crs
-    if geoms_gdf.crs is None:
-        geoms_gdf.crs = "epsg:31370"
-        logger.warning(f"Crs was None, so was set hardcoded to {geoms_gdf.crs}")
-    geoms_gdf.to_file(output_filepath, driver="GeoJSON")
+    geoms_gdf['id'] = geoms_gdf.index    
+    geoms_gdf.to_file(output_filepath, driver="GeoJSON")    
     
     return geoms_gdf
 
@@ -368,7 +361,6 @@ def unary_union_with_onborder(input_gdf: gpd.GeoDataFrame,
     # Rem: Reset index because append retains the original index values
     union_gdf.reset_index(inplace=True, drop=True)
     union_gdf['id'] = union_gdf.index
-    #union_gdf.crs = "epsg:31370"
     union_gdf.to_file(output_filepath, driver="GeoJSON")
     return union_gdf
             
@@ -519,8 +511,9 @@ def calc_onborder(geoms_gdf: gpd.GeoDataFrame,
                or geom_bounds[3] >= border_bounds[3]):
                 onborder = 1
             
-            geoms_gdf.iloc[i][onborder_column_name] = onborder
+            geoms_gdf.loc[i, onborder_column_name] = onborder
 
+    #logger.info(geoms_gdf)
     return geoms_gdf
 
 # TODO: code isn't tested!!!
