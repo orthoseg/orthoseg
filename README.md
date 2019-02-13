@@ -21,8 +21,8 @@ following steps:
       1. Create and activate a new conda environment
       Remark: at time of writing, keras doesn't support 3.7 yet.
       ```
-      conda create --name autoseg python=3.6
-      conda activate autoseg
+      conda create --name orthoseg python=3.6
+      conda activate orthoseg
       ```
       2. Install the dependencies for the scripts:
       I use the conda-forge channel because the packages there are generally 
