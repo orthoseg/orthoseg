@@ -176,7 +176,8 @@ def get_images_for_grid(wms_server_url: str,
                 image_ymax = image_ymax+(pixels_overlap*image_srs_pixel_y_size)
 
             # Create output filename
-            output_filename = create_filename(                    srs=srs,
+            output_filename = create_filename(
+                    srs=srs,
                     bbox=(image_xmin, image_ymin, image_xmax, image_ymax),
                     size=(image_pixel_width+2*pixels_overlap, 
                           image_pixel_height+2*pixels_overlap),
