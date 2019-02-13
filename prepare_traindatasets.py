@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 
 def prepare_traindatasets(input_vector_label_filepath: str,
                  wms_server_url: str,
-                 wms_server_layer: str,
+                 wms_layername: str,
                  output_basedir: str,
                  image_subdir: str = "image",
                  mask_subdir: str = "mask",
@@ -59,8 +59,18 @@ def prepare_traindatasets(input_vector_label_filepath: str,
     It will:
         * get orthophoto's from a WMS server
         * create the corresponding label mask for each orthophoto
+        
+    Returns a tuple with (output_dir, dataversion):
+            output_dir: the dir where the traindataset was created/found
+            dataversion: a version number for the dataset created/found
     """
-    # First determine the corrent data version based on existing output data 
+    # Check if the input file exists, if not, return
+    if not os.path.exists(input_vector_label_filepath):
+        message = f"Input file doesn't exist, so do nothing and return: {input_vector_label_filepath}"
+        logger.info(message)
+        raise Exception(message)
+    
+    # Determine the current data version based on existing output data 
     # dir(s)
     output_dirs = glob.glob(f"{output_basedir}_*")
     if len(output_dirs) == 0:
@@ -144,7 +154,7 @@ def prepare_traindatasets(input_vector_label_filepath: str,
         # Now really get the image
         logger.debug(f"Get image for coordinates {img_bbox.bounds}")
         image_filepath = ows_helper.getmap_to_file(wms=wms,
-                               layers=[wms_server_layer],
+                               layers=[wms_layername],
                                output_dir=output_image_dir,
                                srs=img_srs,
                                bbox=img_bbox.bounds,

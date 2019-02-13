@@ -6,6 +6,8 @@ Created on Tue Jan  8 09:46:44 2019
 """
 
 import os
+import configparser
+
 #os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 import keras as kr
 
@@ -14,37 +16,70 @@ import segment as seg
 import prepare_traindatasets as prep
 import models.model_helper as mh
 
-def run_training_session(segment_subject: str,
-                         base_dir: str,
-                         wms_server_url: str,
-                         wms_server_layer: str,
-                         model_encoder: str,
-                         model_decoder: str,
-                         batch_size_train: int,
-                         batch_size_pred: int,
-                         nb_epoch: int = 1000,
+def run_training_session(segment_config_filepath: str, 
                          force_traindata_version: int = None,
                          resume_train: bool = False):
     """
-    The batch size to use depends on the model architecture, the size of the 
-    training images and the available (GPU) memory
+    Run a training session.
+    
+    Args
+        segment_config_filepath: config(file) to use for the segmentation
+        force_traindata_version: specify version nb. of the traindata to use
+        resume_train: use the best existing model as basis to continue training
+    """
+    
+    # Read the configuration
+    conf = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
+    conf.read(segment_config_filepath)
+    settings = conf['settings']
+    
+    # Start the training session
+    run_training_session2(segment_subject=settings['segment_subject'],
+                          base_dir=settings['base_dir'],
+                          wms_server_url=settings['wms_server_url'],
+                          wms_layername=settings['wms_layername'],
+                          input_projection=settings['input_projection'],
+                          model_encoder=settings['model_encoder'],
+                          model_decoder=settings['model_decoder'],
+                          batch_size_train_fit=int(settings['batch_size_train_fit']),
+                          batch_size_train_predict=int(settings['batch_size_train_predict']),
+                          force_traindata_version=force_traindata_version,
+                          resume_train=resume_train)
+
+def run_training_session2(segment_subject: str,
+                          base_dir: str,
+                          wms_server_url: str,
+                          wms_layername: str,
+                          input_projection: str,
+                          model_encoder: str,
+                          model_decoder: str,
+                          batch_size_train_fit: int,
+                          batch_size_train_predict: int,
+                          nb_epoch: int = 1000,
+                          force_traindata_version: int = None,
+                          resume_train: bool = False):
+    """
+    Run a training session.
     
     Args
         segment_subject: subject you want to segment (eg. "greenhouses")
         base_dir: base dir where you want to put your segmentation projects in
         wms_server_url: url to WMS server you want to use
         wms_server_layer: layer of the WMS server you want to use
+        input_projection: projection of the input images to train/predict
         model_encoder: encoder of the neural network to use
         model_decoder: decoder of the neural network to use
-        batch_size_train: batch size to use while training. This must be 
-                          choosen depending on the neural network architecture
-                          and available memory on you GPU.
-        batch_size_pred: batch size to use while predicting
+        batch_size_train_fit: batch size to use while training. This must be 
+                choosen depending on the neural network architecture
+                and available memory on you GPU.
+        batch_size_train_predict: batch size to use while predicting
         nb_epoch: maximum number of epochs to train
         force_traindata_version: specify version nb. of the traindata to use
         resume_train: use the best existing model as basis to continue training
     """
     
+    # TODO: put al dirs + shp filenames in the config.ini files??? 
+        
     # Init different dir name for the segementation project
     project_dir = os.path.join(base_dir, segment_subject)       
     input_labels_dir = os.path.join(project_dir, 'input_labels')
@@ -75,7 +110,7 @@ def run_training_session(segment_subject: str,
         traindata_dir, traindata_version = prep.prepare_traindatasets(
                     input_vector_label_filepath=input_labels_filepath,
                     wms_server_url=wms_server_url,
-                    wms_server_layer=wms_server_layer,
+                    wms_layername=wms_layername,
                     output_basedir=traindata_basedir,
                     image_subdir=image_subdir,
                     mask_subdir=mask_subdir)
@@ -91,12 +126,12 @@ def run_training_session(segment_subject: str,
     validationdata_dir, tmp = prep.prepare_traindatasets(
                 input_vector_label_filepath=input_labels_filepath,
                 wms_server_url=wms_server_url,
-                wms_server_layer=wms_server_layer,
+                wms_layername=wms_layername,
                 output_basedir=os.path.join(training_dir, "validation"),
                 image_subdir=image_subdir,
                 mask_subdir=mask_subdir)
 
-    # Now the "validation" training dataset
+    # Now the "test" training dataset
     logger.info("Prepare train and validation data")
     input_labels_filename = f"{segment_subject}_testlabels.shp"
     input_labels_filepath = os.path.join(input_labels_dir, 
@@ -104,7 +139,7 @@ def run_training_session(segment_subject: str,
     testdata_dir, tmp = prep.prepare_traindatasets(
                 input_vector_label_filepath=input_labels_filepath,
                 wms_server_url=wms_server_url,
-                wms_server_layer=wms_server_layer,
+                wms_layername=wms_layername,
                 output_basedir=os.path.join(training_dir, "test"),
                 image_subdir=image_subdir,
                 mask_subdir=mask_subdir)
@@ -150,7 +185,7 @@ def run_training_session(segment_subject: str,
                   model_save_dir=model_dir,
                   model_save_base_filename=model_base_filename,
                   model_preload_filepath=model_preload_filepath,
-                  batch_size=batch_size_train, nb_epoch=nb_epoch)  
+                  batch_size=batch_size_train_fit, nb_epoch=nb_epoch)  
         
     # If we trained, get the new best model
     if train_needed is True:
@@ -175,23 +210,26 @@ def run_training_session(segment_subject: str,
     seg.predict_dir(model=model,
                     input_image_dir=os.path.join(traindata_dir, image_subdir),
                     output_base_dir=os.path.join(traindata_dir, predict_out_subdir),
+                    projection_if_missing=input_projection,
                     input_mask_dir=os.path.join(traindata_dir, mask_subdir),
-                    batch_size=batch_size_pred, evaluate_mode=True)
+                    batch_size=batch_size_train_predict, evaluate_mode=True)
     
     # Predict validation dataset
     seg.predict_dir(model=model,
                     input_image_dir=os.path.join(validationdata_dir, image_subdir),
                     output_base_dir=os.path.join(validationdata_dir, predict_out_subdir),
+                    projection_if_missing=input_projection,
                     input_mask_dir=os.path.join(validationdata_dir, mask_subdir),
-                    batch_size=batch_size_pred, evaluate_mode=True)
+                    batch_size=batch_size_train_predict, evaluate_mode=True)
 
     # Predict test dataset
     if os.path.exists(testdata_dir):
         seg.predict_dir(model=model,
                         input_image_dir=os.path.join(testdata_dir, image_subdir),
                         output_base_dir=os.path.join(testdata_dir, predict_out_subdir),
+                        projection_if_missing=input_projection,
                         input_mask_dir=os.path.join(testdata_dir, mask_subdir),
-                        batch_size=batch_size_pred, evaluate_mode=True)
+                        batch_size=batch_size_train_predict, evaluate_mode=True)
     
     # Predict extra test dataset with random images in the roi, to add to 
     # train and/or validation dataset if inaccuracies are found
@@ -201,7 +239,8 @@ def run_training_session(segment_subject: str,
         seg.predict_dir(model=model,
                         input_image_dir=os.path.join(test_random_dir, image_subdir),
                         output_base_dir=os.path.join(test_random_dir, predict_out_subdir),
-                        batch_size=batch_size_pred, evaluate_mode=True)
+                        projection_if_missing=input_projection,
+                        batch_size=batch_size_train_predict, evaluate_mode=True)
 
 if __name__ == '__main__':
     None

@@ -21,20 +21,23 @@ log_dir = "c:\\errorlog\\python"
 
 def main():
 
+    # TODO: change script so it uses ini files!
+    
+    
     # Main initialisation of the logging
     logger = log_helper.main_log_init(log_dir, __name__)
     logger.info("Start loading images")
     
     # Set to True to load random test images...
-    load_random_test_images = False
+    load_random_test_images = True
 #    load_random_test_images = False
     if load_random_test_images:
         image_pixel_width = 512
         image_pixel_height = image_pixel_width
         image_format = ows_helper.FORMAT_JPEG
         pixels_overlap = 0
-#        image_dir = f"X:\\PerPersoon\\PIEROG\\Taken\\2018\\2018-08-12_AutoSegmentation\\greenhouses\\test_random\\image{image_pixel_width}x{image_pixel_height}_{pixels_overlap}pxOverlap"
-        image_dir = f"X:\\PerPersoon\\PIEROG\\Taken\\2018\\2018-08-12_AutoSegmentation\\horsetrack\\test_for_validation\\image"
+#        image_dir = f"X:\\Monitoring\\OrthoSeg\\trees\\test_random\\image{image_pixel_width}x{image_pixel_height}_{pixels_overlap}pxOverlap"
+        image_dir = "X:\\Monitoring\\OrthoSeg\\trees\\training\\test-random\\image"
 
         column_start = 1
         nb_images_to_skip = 50
@@ -48,8 +51,15 @@ def main():
         column_start = 0
         nb_images_to_skip = 0
 
-    WMS_SERVER_URL = 'http://geoservices.informatievlaanderen.be/raadpleegdiensten/ofw/wms?'
-    wms_server_layers = ['ofw']
+    # Winter
+    #WMS_SERVER_URL = 'http://geoservices.informatievlaanderen.be/raadpleegdiensten/ofw/wms?'
+    # wms_server_layers = ['ofw']
+    
+    # Zomer
+    WMS_SERVER_URL = "http://geoservices.informatievlaanderen.be/raadpleegdiensten/OMZ/wms?"
+    wms_server_layers = ['OMZRGB15VL']
+    
+    # SRS...
     srs = "EPSG:31370"
 
     roi_filepath = "X:\\GIS\\GIS DATA\\Gewesten\\2005\\Vlaanderen+Brussel\\gew_VLenBR.shp"
