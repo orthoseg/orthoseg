@@ -1,8 +1,8 @@
 # Orthophoto segmentation
 
-This is a collection of scripts that makes it easy to train neural networks to segment orthophoto's like aerial photo's, satellite photo's,...
+This is a collection of scripts that try to make it easy to train neural networks to segment orthophotos.
 
-Installation
+## Installation
 
 1. As the scripts are written in Python, you need to use a package manager to be able to install
 the packages the scripts depend on. The rest of the installation manual assumes you use anaconda and
