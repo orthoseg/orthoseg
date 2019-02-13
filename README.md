@@ -1,4 +1,6 @@
-# auto_segmentation
+# Orthophoto segmentation
+
+This is a collection of scripts that makes it easy to train neural networks to segment orthophoto's like aerial photo's, satellite photo's,...
 
 Installation
 
