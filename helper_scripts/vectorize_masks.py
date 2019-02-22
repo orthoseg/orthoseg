@@ -21,6 +21,7 @@ import geopandas as gpd
 import log_helper
 
 def vectorize_masks(input_image_dir: str,
+                    output_filepath: str,
                     projection_if_missing: str):
 
     # Get list of all image files to process...
@@ -34,12 +35,8 @@ def vectorize_masks(input_image_dir: str,
     label_records = []
     for mask_filepath in image_filepaths:
         
-        # Read mask file
-        with rio.open(mask_filepath) as mask_ds:
-            # Read pixels
-            mask_arr = mask_ds.read(1)
-        
-        # Pars mask_transform info from filename
+        # First try to parse mask_transform info from filename
+        mask_transform = None
         mask_filename = os.path.basename(mask_filepath)
         mask_filename_noext = os.path.splitext(mask_filename)[0]
         mask_info = mask_filename_noext.split('_')
@@ -53,15 +50,30 @@ def vectorize_masks(input_image_dir: str,
             if len(mask_info) >= 7:
                 label_type = mask_info[6]
             else:
-                label_type = "" 
+                label_type = ""
+            
+            mask_transform = rio.transform.from_bounds(
+                    xmin, ymin, xmax, ymax, pixel_width, pixel_height)
                 
         except:
-            logger.error(f"SKIP FILE: error extracting transform info from filename {mask_filename}")
-            continue
+            #logger.warning(f"Transform info not found in filename {mask_filename}")
+            None
+            
+        # Extract info from the mask file
+        with rio.open(mask_filepath) as mask_ds:            
+            # If mask_transform couldn't be read from filename, try reading
+            # it from the file metadata
+            if mask_transform is None:
+                if(mask_ds.transform is not None
+                   and mask_ds.transform[2] > 0):
+                    mask_transform = mask_ds.transform
+                else:
+                    logger.error(f"SKIP FILE: No valid transform info found in filename nor in file metadata ({mask_ds.transform}) for: {mask_filename}")
+                    continue
 
-        mask_transform = rio.transform.from_bounds(xmin, ymin, xmax, ymax, 
-                                                   pixel_width, pixel_height)
-        
+            # Read pixels
+            mask_arr = mask_ds.read(1)
+                  
         # Polygonize result
         # Returns a list of tupples with (geometry, value)
         shapes = rio_features.shapes(mask_arr,
@@ -79,17 +91,19 @@ def vectorize_masks(input_image_dir: str,
         if len(geoms) > 0:
             for geom in geoms:
                 label_records.append({'geometry': geom, 
-                                     'descr': label_type,
-                                     'burninmask': 1,
-                                     'usebounds': 1})
+                                      'descr': label_type,
+                                      'burninmask': 1,
+                                      'usebounds': 1})
         else:
             # Nothing found, so it is an all-black, "negative" mask...
-            label_records.append({'geometry': sh_geom.box(xmin, ymin, xmax, ymax), 
-                                 'descr': label_type,
-                                 'burninmask': 0,
-                                 'usebounds': 1})
+            label_records.append({'geometry': sh_geom.box(xmin, ymin, 
+                                                          xmax, ymax), 
+                                  'descr': label_type,
+                                  'burninmask': 0,
+                                  'usebounds': 1})
             
-    # Convert to geodataframe and write to geojson 
+    # Convert to geodataframe and write to file 
+    logger.info(f"Found {len(label_records)} labels, write to file: {output_filepath}")
     labels_gdf = gpd.GeoDataFrame(label_records, 
                                   columns=['geometry', 'descr', 
                                            'burninmask', 'usebounds'])
@@ -104,26 +118,30 @@ def vectorize_masks(input_image_dir: str,
         
     # Write result to file
     #logger.debug(f"Write the {len(geoms_gdf)} geoms, of types {geoms_gdf.geometry.type.unique()} in geoms_gdf to file")
-    out_filepath = os.path.join(input_image_dir, "mask_to_labels.shp")
-    if os.path.exists(out_filepath):
-        os.remove(out_filepath)
-    labels_gdf.to_file(out_filepath, driver="ESRI Shapefile")
+    if os.path.exists(output_filepath):
+        os.remove(output_filepath)
+    labels_gdf.to_file(output_filepath, driver="ESRI Shapefile")
           
 if __name__ == '__main__':
 
     # Main project dir
-    #subject = "horsetracks"
-    subject = "horsetracks"
+    subject = "greenhouses"
     base_dir = "X:\\Monitoring\\OrthoSeg\\"
-    project_dir = os.path.join(base_dir, subject)
+    traindata_type = "validation"
     
+    # Init relevant dirs and filenames
+    project_dir = os.path.join(base_dir, subject)
+    train_dir = os.path.join(project_dir, "training")
+    train_type_dir = os.path.join(train_dir, traindata_type)
+    mask_dir = os.path.join(train_type_dir, "mask")    
+    output_filename = f"{subject}_{traindata_type}labels.shp"
+    output_filepath = os.path.join(mask_dir, output_filename)
+
     # Main initialisation of the logging
     log_dir = os.path.join(project_dir, "log")
     logger = log_helper.main_log_init(log_dir, __name__)
     
-    train_dir = os.path.join(project_dir, "training")
-    train_type_dir = os.path.join(train_dir, "validation")
-    mask_dir = os.path.join(train_type_dir, "mask")
-    
-    vectorize_masks(mask_dir,
+    # Now vectorize the masks
+    vectorize_masks(input_image_dir=mask_dir,
+                    output_filepath=output_filepath,
                     projection_if_missing='epsg:31370')
