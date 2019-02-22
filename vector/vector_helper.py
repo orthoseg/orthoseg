@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Dec 17 14:01:07 2018
 
-@author: pierog
+@author: Pieter Roggemans
 """
 
 import logging
@@ -38,6 +37,9 @@ def postprocess_vectors(base_dir: str,
     eval_suffix = ""
     if evaluate_mode:
         eval_suffix = "_eval"
+    
+    output_extension = ".shp"
+    output_driver = "ESRI Shapefile"
 
     # Prepare output dir
     union_dir = os.path.join(base_dir, f"_union_out{eval_suffix}")
@@ -45,14 +47,14 @@ def postprocess_vectors(base_dir: str,
         os.mkdir(union_dir)
 
     # Read and merge input files
-    geoms_orig_filepath = os.path.join(union_dir, f"geoms_orig.geojson")
+    geoms_orig_filepath = os.path.join(union_dir, f"geoms_orig{output_extension}")
     geoms_gdf = merge_vector_files(input_dir=base_dir,
                                    output_filepath=geoms_orig_filepath,
                                    evaluate_mode=evaluate_mode,
                                    force=force)               
 
     # Union the data, optimized using the available onborder column
-    geoms_union_filepath = os.path.join(union_dir, f"geoms_union.geojson")
+    geoms_union_filepath = os.path.join(union_dir, f"geoms_union{output_extension}")
     geoms_union_gdf = unary_union_with_onborder(input_gdf=geoms_gdf,
                               input_filepath=geoms_orig_filepath,
                               output_filepath=geoms_union_filepath,
@@ -60,7 +62,7 @@ def postprocess_vectors(base_dir: str,
                               force=force)
 
     # Retain only geoms > 5m²
-    geoms_gt5m2_filepath = os.path.join(union_dir, f"geoms_union_gt5m2.geojson")
+    geoms_gt5m2_filepath = os.path.join(union_dir, f"geoms_union_gt5m2{output_extension}")
     geoms_gt5m2_gdf = None
     if force or not os.path.exists(geoms_gt5m2_filepath):
         if geoms_union_gdf is None:
@@ -74,13 +76,14 @@ def postprocess_vectors(base_dir: str,
         
         # Qgis wants unique id column, otherwise weird effects!
         geoms_gt5m2_gdf.reset_index(inplace=True, drop=True)
-        geoms_gt5m2_gdf['id'] = geoms_gt5m2_gdf.index 
-        geoms_gt5m2_gdf.to_file(geoms_gt5m2_filepath, driver="GeoJSON")
+        #geoms_gt5m2_gdf['id'] = geoms_gt5m2_gdf.index 
+        geoms_gt5m2_gdf.loc[:, 'id'] = geoms_gt5m2_gdf.index 
+        geoms_gt5m2_gdf.to_file(geoms_gt5m2_filepath, driver=output_driver)
 
     # Simplify with standard shapely algo 
     # -> if preserve_topology False, this is Ramer-Douglas-Peucker, otherwise ?
     geoms_simpl_shap_filepath = os.path.join(
-            union_dir, f"geoms_simpl_shap.geojson")
+            union_dir, f"geoms_simpl_shap{output_extension}")
     geoms_simpl_shap_gdf = None
     if force or not os.path.exists(geoms_simpl_shap_filepath):
         logger.info("Simplify with default shapely algo")
@@ -111,12 +114,12 @@ def postprocess_vectors(base_dir: str,
         geoms_simpl_shap_gdf['nbcoords'] = geoms_simpl_shap_gdf.geometry.apply(
                 lambda geom: get_nb_coords(geom))
         geoms_simpl_shap_gdf.to_file(geoms_simpl_shap_filepath, 
-                                     driver="GeoJSON")
+                                     driver=output_driver)
         logger.info(f"Result written to {geoms_simpl_shap_filepath}")
         
     # Apply begative buffer on result
     geoms_simpl_shap_m1m_filepath = os.path.join(
-            union_dir, f"geoms_simpl_shap_m1.5m_3.geojson")
+            union_dir, f"geoms_simpl_shap_m1.5m_3{output_extension}")
     if force or not os.path.exists(geoms_simpl_shap_m1m_filepath):
         logger.info("Apply negative buffer")
         # If input geoms not yet in memory, read from file
@@ -153,7 +156,7 @@ def postprocess_vectors(base_dir: str,
         geoms_simpl_shap_m1m_gdf['nbcoords'] = geoms_simpl_shap_m1m_gdf.geometry.apply(
                 lambda geom: get_nb_coords(geom))        
         geoms_simpl_shap_m1m_gdf.to_file(geoms_simpl_shap_m1m_filepath, 
-                                     driver="GeoJSON")
+                                     driver=output_driver)
         logger.info(f"Result written to {geoms_simpl_shap_m1m_filepath}")
         
     '''
@@ -587,6 +590,8 @@ def main():
     predict_basedir = "X:\\GIS\GIS DATA\\_SegmentCache\\Ortho_2018"
     predict_subdir = "1024x1024_64pxOverlap_horsetracks_17_inceptionresnetv2+linknet_0.93241_0.95943_0"
     predict_dir = os.path.join(predict_basedir, predict_subdir)
+    
+    predict_dir = "X:\\Monitoring\\OrthoSeg\\_input_images\\Ortho_2018\\1024x1024_64pxOverlap_greenhouses_22_inceptionresnetv2+unet_0.98023_0.97497_0"
     
     postprocess_vectors(base_dir=predict_dir,
                         evaluate_mode=False,
