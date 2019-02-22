@@ -5,7 +5,7 @@ Module with helper functions to create models.
 Offers a common interface, regardless of the underlying model implementation 
 and contains extra metrics, callbacks,...
 
-Many models are supported by using the segmentation model zoo:
+Many models are supported by using this segmentation model zoo:
 https://github.com/qubvel/segmentation_models
 
 @author: Pieter Roggemans
@@ -40,21 +40,21 @@ def get_model(encoder: str = 'inceptionresnetv2',
               init_weights_with: str = 'imagenet'):
 
     if decoder.lower() == 'deeplabv3plus':
-        import model_deeplabv3plus as m
+        import models.model_deeplabv3plus as m
         return m.get_model(input_width=input_width, input_height=input_height,
                            n_channels=n_channels, n_classes=n_classes,
                            init_model_weights=init_weights_with)
     elif decoder.lower() == 'unet':
         # These two unet variants are implemented in a seperate module
         if encoder.lower() == 'standard':
-            import model_unet_standard as m
+            import models.model_unet_standard as m
             if init_weights_with:
                 init_weights = True
             return m.get_model(input_width=input_width, input_height=input_height,
                                n_channels=n_channels, n_classes=n_classes,
                                init_model_weights=init_weights)
         elif encoder.lower() == 'ternaus':
-            import model_unet_ternaus as m
+            import models.model_unet_ternaus as m
             if init_weights_with:
                 init_weights = True
             return m.get_model(input_width=input_width, input_height=input_height,
@@ -65,7 +65,7 @@ def get_model(encoder: str = 'inceptionresnetv2',
         from segmentation_models import Unet
         #from segmentation_models.backbones import get_preprocessing
 
-        model = Unet(backbone_name=encoder,
+        model = Unet(backbone_name=encoder.lower(),
                      input_shape=(input_width, input_height, n_channels),
                      classes=n_classes,
                      encoder_weights=init_weights_with)
@@ -74,7 +74,7 @@ def get_model(encoder: str = 'inceptionresnetv2',
         from segmentation_models import PSPNet
         #from segmentation_models.backbones import get_preprocessing
 
-        model = PSPNet(backbone_name=encoder,
+        model = PSPNet(backbone_name=encoder.lower(),
                        input_shape=(input_width, input_height, n_channels),
                        classes=n_classes,
                        encoder_weights=init_weights_with)
@@ -86,7 +86,7 @@ def get_model(encoder: str = 'inceptionresnetv2',
         # First check if input size is compatible with linknet 
         check_image_size(decoder, input_width, input_height)
             
-        model = Linknet(backbone_name=encoder,
+        model = Linknet(backbone_name=encoder.lower(),
                         input_shape=(input_width, input_height, n_channels),
                         classes=n_classes,
                         encoder_weights=init_weights_with)
