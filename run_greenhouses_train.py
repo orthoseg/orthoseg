@@ -14,7 +14,8 @@ import training_helper as th
 def main():
         
     # Start the training session
-    th.run_training_session(segment_config_filepath='greenhouses.ini',
+    th.run_training_session(segment_config_filepath=['general.ini', 
+                                                     'greenhouses.ini'],
                             force_traindata_version=None,
                             resume_train=False)
     
