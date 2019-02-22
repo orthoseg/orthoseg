@@ -9,6 +9,7 @@ import logging
 import os
 import glob
 import datetime
+import math
 import concurrent.futures as futures
 
 import numpy as np
@@ -71,10 +72,10 @@ def train(traindata_dir: str,
         image_subdir: subdir where the images can be found in traindata_dir and validationdata_dir
         mask_subdir: subdir where the corresponding masks can be found in traindata_dir and validationdata_dir
         model_preload_filepath: filepath to the model to continue training on, 
-                                or None if you want to start from scratch
+                or None if you want to start from scratch
         batch_size: batch size to use while training. This must be 
-                          choosen depending on the neural network architecture
-                          and available memory on you GPU.
+                choosen depending on the neural network architecture
+                and available memory on you GPU.
         nb_epoch: maximum number of epochs to train
     """
     
@@ -145,6 +146,8 @@ def train(traindata_dir: str,
                              n_channels=3, n_classes=1)
         
         # Save the model architecture to json if it doesn't exist yet
+        if not os.path.exists(model_save_dir):
+            os.makedirs(model_save_dir)
         if not os.path.exists(model_json_filepath):
             with open(model_json_filepath, 'w') as dst:
                 dst.write(model.to_json())
@@ -196,19 +199,43 @@ def train(traindata_dir: str,
                                                 patience=200,  
                                                 restore_best_weights=False)
     
+    # Prepare the parameters to pass to fit...
+    # Supported filetypes to train/validate on
+    input_ext = ['.tif', '.jpg', '.png']
+
+    # Calculate the size of the input datasets
+    #train_dataset_size = len(glob.glob(f"{traindata_dir}{os.sep}{image_subdir}{os.sep}*.*"))
+    train_dataset_size = 0
+    for input_ext_cur in input_ext:
+        train_dataset_size += len(glob.glob(f"{traindata_dir}{os.sep}{image_subdir}{os.sep}*{input_ext_cur}"))
+
+    #validation_dataset_size = len(glob.glob(f"{validationdata_dir}{os.sep}{image_subdir}{os.sep}*.*"))
+    validation_dataset_size = 0    
+    for input_ext_cur in input_ext:
+        validation_dataset_size += len(glob.glob(f"{validationdata_dir}{os.sep}{image_subdir}{os.sep}*{input_ext_cur}"))
+    
+    # Calculate the number of steps within an epoch
+    # Remark: number of steps per epoch should be at least 1, even if nb samples < batch size...
+    train_steps_per_epoch = math.ceil(train_dataset_size/batch_size)
+    validation_steps_per_epoch = math.ceil(validation_dataset_size/batch_size)
+    
     # Start training
-    train_dataset_size = len(glob.glob(f"{traindata_dir}{os.sep}{image_subdir}{os.sep}*.*"))
-    train_steps_per_epoch = int(train_dataset_size/batch_size)
-    validation_dataset_size = len(glob.glob(f"{validationdata_dir}{os.sep}{image_subdir}{os.sep}*.*"))
-    validation_steps_per_epoch = int(validation_dataset_size/batch_size)
-    model.fit_generator(train_gen, 
-                        steps_per_epoch=train_steps_per_epoch, epochs=nb_epoch,
-                        validation_data=validation_gen,
-                        validation_steps=validation_steps_per_epoch,       # Number of items in validation/batch_size
-                        callbacks=[model_checkpoint_saver, 
-                                   reduce_lr, early_stopping,
-                                   tensorboard_logger, csv_logger],
-                        initial_epoch=start_epoch)
+    logger.info(f"Start training with batch_size: {batch_size}, train_dataset_size: {train_dataset_size}, train_steps_per_epoch: {train_steps_per_epoch}, validation_dataset_size: {validation_dataset_size}, validation_steps_per_epoch: {validation_steps_per_epoch}")
+    try:        
+        model.fit_generator(train_gen, 
+                            steps_per_epoch=train_steps_per_epoch, 
+                            epochs=nb_epoch,
+                            validation_data=validation_gen,
+                            validation_steps=validation_steps_per_epoch,       # Number of items in validation/batch_size
+                            callbacks=[model_checkpoint_saver, 
+                                       reduce_lr, early_stopping,
+                                       tensorboard_logger, csv_logger],
+                            initial_epoch=start_epoch)
+    finally:        
+        # Release the memory from the GPU...
+        #from keras import backend as K
+        #K.clear_session()
+        kr.backend.clear_session()
 
 def create_train_generator(input_data_dir, image_subdir, mask_subdir,
                            aug_dict, batch_size=32,
