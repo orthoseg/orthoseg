@@ -1,22 +1,28 @@
-# auto_segmentation
+# Orthophoto segmentation
 
-Installation
+This is a collection of scripts that try to make it easy to train neural networks to segment orthophotos.
 
-1. As the scripts are written in Python, you need to use a package manager to be able to install
+## Installation
+
+### Anaconda
+
+As the scripts are written in Python, you need to use a package manager to be able to install
 the packages the scripts depend on. The rest of the installation manual assumes you use anaconda and
 python 3.6+. The installer for anaconda can be found here: https://www.anaconda.com/download/.
 
 If you need some more installation instructions, have a look here:
 https://conda.io/docs/user-guide/install/index.html
 
-2. Once you have anaconda installed, you can open an anaconda terminal window and follow the
+### Dependent packages
+
+Once you have anaconda installed, you can open an anaconda terminal window and follow the
 following steps:
 
       1. Create and activate a new conda environment
       Remark: at time of writing, keras doesn't support 3.7 yet.
       ```
-      conda create --name autoseg python=3.6
-      conda activate autoseg
+      conda create --name orthoseg python=3.6
+      conda activate orthoseg
       ```
       2. Install the dependencies for the scripts:
       I use the conda-forge channel because the packages there are generally 
