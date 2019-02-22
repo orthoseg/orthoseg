@@ -45,7 +45,7 @@ logger.setLevel(logging.DEBUG)
 #-------------------------------------------------------------
 
 def get_images_for_grid(wms_server_url: str,
-                        wms_server_layers: [str],
+                        wms_layernames: [str],
                         srs: str,
                         output_image_dir: str,
                         image_gen_bounds: (float, float, float, float) = None,
@@ -66,6 +66,9 @@ def get_images_for_grid(wms_server_url: str,
                         nb_images_to_skip: int = None,
                         force: bool = False):
 
+    
+    # TODO: might be interesting to parallelize a bit... it is rather slow...
+    
     srs_width = math.fabs(image_pixel_width*image_srs_pixel_x_size)   # tile width in units of crs => 500 m
     srs_height = math.fabs(image_pixel_height*image_srs_pixel_y_size) # tile height in units of crs => 500 m
 
@@ -208,8 +211,9 @@ def get_images_for_grid(wms_server_url: str,
                     continue
                 
             # Now really get the image
-            res = getmap_to_file(wms=wms,
-                    layers=wms_server_layers,
+            res = getmap_to_file(
+                    wms=wms,
+                    layers=wms_layernames,
                     output_dir=output_dir,
                     srs=srs,
                     bbox=(image_xmin, image_ymin, image_xmax, image_ymax),
