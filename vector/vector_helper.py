@@ -12,7 +12,6 @@ import numpy as np
 import shapely.ops as sh_ops
 import geopandas as gpd
 
-import log_helper
 import vector.simplify_visval as simpl_vis
 import vector.simplify_rdp_plus as simpl_rdp_plus
 
@@ -519,7 +518,6 @@ def calc_onborder(geoms_gdf: gpd.GeoDataFrame,
     #logger.info(geoms_gdf)
     return geoms_gdf
 
-# TODO: code isn't tested!!!
 def create_grid(xmin: float,
                 ymin: float,
                 xmax: float,
@@ -534,12 +532,17 @@ def create_grid(xmin: float,
     cell_left = xmin
     cell_right = xmin + cell_width
     for i in range(cols):
-        cell_top = xmin
+        if cell_right > xmax:
+            break
+        cell_top = ymax
         cell_bottom = ymax-cell_height
         for j in range(rows):
+            if cell_bottom < ymin:
+                break
             polygons.append(sh_ops.Polygon([(cell_left, cell_top), (cell_right, cell_top), (cell_right, cell_bottom), (cell_left, cell_bottom)])) 
             cell_top -= cell_height
             cell_bottom -= cell_height
+            
         cell_left += cell_width
         cell_right += cell_width
         
@@ -575,6 +578,8 @@ def write_wkt(in_geoms,
 '''
 
 def main():
+    
+    '''
     # Init
     project_dir = "X:\\PerPersoon\\PIEROG\\Taken\\2018\\2018-08-12_AutoSegmentation\\greenhouses"
     log_dir = os.path.join(project_dir, "log")
@@ -596,6 +601,11 @@ def main():
     postprocess_vectors(base_dir=predict_dir,
                         evaluate_mode=False,
                         force=False)
+    '''
+    grid_gdf = create_grid(xmin=0, ymin=0, xmax=300000, ymax=300000,
+                           cell_width=2000, cell_height=2000)
+    grid_gdf.to_file("X:\\Monitoring\\OrthoSeg\\grid_2000.shp")
+    
     
 if __name__ == '__main__':
     main()
