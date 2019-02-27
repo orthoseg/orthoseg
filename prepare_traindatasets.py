@@ -159,7 +159,7 @@ def prepare_traindatasets(input_vector_label_filepath: str,
                                srs=img_srs,
                                bbox=img_bbox.bounds,
                                size=(image_pixel_width, image_pixel_height),
-                               image_format=ows_helper.FORMAT_TIFF,
+                               image_format=ows_helper.FORMAT_JPEG,
                                transparent=False)
 
         # Create a mask corresponding with the image file
