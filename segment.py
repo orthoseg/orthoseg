@@ -347,8 +347,8 @@ def predict_dir(model,
     input_ext = ['.tif', '.jpg']
     for input_ext_cur in input_ext:
         image_filepaths.extend(glob.glob(f"{input_image_dir}{os.sep}**{os.sep}*{input_ext_cur}", recursive=True))
-    nb_files = len(image_filepaths)
-    logger.info(f"Found {nb_files} {input_ext} images to predict on in {input_image_dir}")
+    nb_todo = len(image_filepaths)
+    logger.info(f"Found {nb_todo} {input_ext} images to predict on in {input_image_dir}")
     
     # If force is false, get list of all existing predictions
     # Getting the list once is way faster than checking file per file later on!
@@ -367,7 +367,7 @@ def predict_dir(model,
         
     # Loop through all files to process them...
     curr_batch_image_infos = []
-    nb_predicted = 0
+    nb_processed = 0
     image_filepaths_sorted = sorted(image_filepaths)
     with futures.ThreadPoolExecutor(batch_size) as pool:
         
@@ -396,9 +396,9 @@ def predict_dir(model,
             logger.debug(f"Start predict for image {image_filepath}")
                     
             # Init start time at the first file that isn't skipped
-            if nb_predicted == 0:
+            if nb_processed == 0:
                 start_time = datetime.datetime.now()
-            nb_predicted += 1
+            nb_processed += 1
             
             # Append the image info to the batch array so they can be treated in 
             # bulk if the batch size is reached
@@ -409,7 +409,7 @@ def predict_dir(model,
             # If the batch size is reached or we are at the last images
             nb_images_in_batch = len(curr_batch_image_infos)
             curr_batch_image_infos_ext = []
-            if(nb_images_in_batch == batch_size or i == (nb_files-1)):
+            if(nb_images_in_batch == batch_size or i == (nb_todo-1)):
                 start_time_batch_read = datetime.datetime.now()
                 
                 # Read all input images for the batch (in parallel)
@@ -481,11 +481,11 @@ def predict_dir(model,
                 time_passed_s = (datetime.datetime.now()-start_time).total_seconds()
                 time_passed_lastbatch_s = (datetime.datetime.now()-start_time_batch_read).total_seconds()
                 if time_passed_s > 0 and time_passed_lastbatch_s > 0:
-                    images_per_hour = (nb_predicted/time_passed_s) * 3600
-                    images_per_hour_lastbatch = (nb_images_in_batch/time_passed_lastbatch_s) * 3600
-                    hours_to_go = (int)((nb_files - i)/images_per_hour)
-                    min_to_go = (int)((((nb_files - i)/images_per_hour)%1)*60)
-                    print(f"\r{hours_to_go}:{min_to_go} left for {nb_files-i} images at {images_per_hour:0.0f}/h ({images_per_hour_lastbatch:0.0f}/h last batch) in ...{input_image_dir[-30:]}",
+                    nb_per_hour = (nb_processed/time_passed_s) * 3600
+                    nb_per_hour_lastbatch = (nb_images_in_batch/time_passed_lastbatch_s) * 3600
+                    hours_to_go = (int)((nb_todo - i)/nb_per_hour)
+                    min_to_go = (int)((((nb_todo - i)/nb_per_hour)%1)*60)
+                    print(f"\r{hours_to_go}:{min_to_go} left for {nb_todo-i} todo at {nb_per_hour:0.0f}/h ({nb_per_hour_lastbatch:0.0f}/h last batch) in ...{input_image_dir[-30:]}",
                           end='', flush=True)
                 
                 # Reset variable for next batch
