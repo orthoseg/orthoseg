@@ -17,7 +17,7 @@ import vector.vector_helper as vh
 import models.model_helper as mh
 
 def run_prediction(segment_config_filepath: str, 
-                   force_model_traindata_version: int):
+                   force_model_traindata_version: int = None):
     """
     Run a prediction of the input dir given.
     
@@ -81,13 +81,14 @@ def run_prediction2(segment_subject: str,
     logger = log_helper.main_log_init(log_dir, __name__)
 
     # Create base filename of model to use
-    # TODO: implement autodetect of traindata version
     # TODO: is force data version the most logical, or rather implement 
     #       force weights file?
     if force_model_traindata_version is not None:
         model_traindata_version = force_model_traindata_version 
     else:
-        raise Exception("NOT IMPLEMENTED")
+        model_traindata_version = mh.get_max_data_version(
+                model_dir=conf.dirs['model_dir'])
+        #logger.info(f"max model_traindata_version found: {model_traindata_version}")
     
     model_base_filename = mh.model_base_filename(segment_subject, 
                                                  model_traindata_version, 

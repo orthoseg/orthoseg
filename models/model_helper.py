@@ -23,65 +23,151 @@ logger = logging.getLogger(__name__)
 # The real work
 #-------------------------------------------------------------
 
-def model_base_filename(segment_subject: str,
-                        train_data_version: int,
-                        model_architecture: str) -> str:
-    return f"{segment_subject}_{train_data_version:02}_{model_architecture}"
+def get_max_data_version(model_dir: str) -> int:
+    """
+    Get the maximum data version a model exists for in the model_dir.
+    
+    Args
+        model_dir: the dir to search models in
+    """
+    models_df = get_models(model_dir)
+    train_data_version_max = models_df['train_data_version'].max()
+    return int(train_data_version_max)
 
-def model_filename(segment_subject: str,
-                   train_data_version: int,
-                   model_architecture: str,
-                   acc_train: float,
-                   acc_val: float,
-                   acc_combined: float,
-                   epoch: int) -> str:
-    base_filename = model_base_filename(segment_subject=segment_subject,
-                                        train_data_version=train_data_version,
-                                        model_architecture=model_architecture)
-    return model_filename2(model_base_filename=base_filename,
-                           acc_train=acc_train,
-                           acc_val=acc_val,
-                           acc_combined=acc_combined,
-                           epoch=epoch)
+def format_model_base_filename(segment_subject: str,
+                               train_data_version: int,
+                               model_architecture: str) -> str:
+    """
+    Format the parameters into a model_base_filename.
+    
+    Args
+        segment_subject: the segment subject
+        train_data_version: the version of the data used to train the model
+        model_architecture: the architecture of the model
+    """
+    retval = f"{segment_subject}_{train_data_version:02}_{model_architecture}"
+    return retval
 
-def model_filename2(model_base_filename: str,
-                    acc_train: float,
-                    acc_val: float,
-                    acc_combined: float,
-                    epoch: int) -> str:
+def format_model_filename(segment_subject: str,
+                          train_data_version: int,
+                          model_architecture: str,
+                          acc_train: float,
+                          acc_val: float,
+                          acc_combined: float,
+                          epoch: int) -> str:
+    """
+    Format the parameters into a model_filename.
+    
+    Args
+        segment_subject: the segment subject
+        train_data_version: the version of the data used to train the model
+        model_architecture: the architecture of the model
+        acc_train: the accuracy reached for the training dataset
+        acc_val: the accuracy reached for the validation dataset
+        acc_combined: the average of the train and validation accuracy
+        epoch: the epoch during training that reached these model weights
+    """
+    base_filename = format_model_base_filename(
+            segment_subject=segment_subject,
+            train_data_version=train_data_version,
+            model_architecture=model_architecture)
+    filename = format_model_filename2(model_base_filename=base_filename,
+                                      acc_train=acc_train,
+                                      acc_val=acc_val,
+                                      acc_combined=acc_combined,
+                                      epoch=epoch)
+    return filename
+
+def format_model_filename2(model_base_filename: str,
+                           acc_train: float,
+                           acc_val: float,
+                           acc_combined: float,
+                           epoch: int) -> str:
+    """
+    Format the parameters into a model_filename.
+    
+    Args
+        model_base_filename: the base filename of the model
+        acc_train: the accuracy reached for the training dataset
+        acc_val: the accuracy reached for the validation dataset
+        acc_combined: the average of the train and validation accuracy
+        epoch: the epoch during training that reached these model weights
+    """
     return f"{model_base_filename}_{acc_combined:.5f}_{acc_train:.5f}_{acc_val:.5f}_{epoch}.hdf5"
 
+def parse_model_filename(filepath) -> dict:
+    """
+    Parse a model_filename to a dict containing the properties of the model:
+        * segment_subject: the segment subject
+        * train_data_version: the version of the data used to train the model
+        * model_architecture: the architecture of the model
+        * acc_train: the accuracy reached for the training dataset
+        * acc_val: the accuracy reached for the validation dataset
+        * acc_combined: the average of the train and validation accuracy
+        * epoch: the epoch during training that reached these model weights        
+    
+    Args
+        filepath: the filepath to the model file
+    """
+    # Prepare filepath to extract info
+    filename = os.path.splitext(os.path.basename(filepath))[0]
+    param_values = filename.split("_")
+
+    # Now extract fields...
+    segment_subject = param_values[0]
+    train_data_version = param_values[1]
+    model_architecture = param_values[2]
+    acc_combined = float(param_values[3])
+    acc_train = float(param_values[4])
+    acc_val = float(param_values[5])
+    epoch = int(param_values[6])
+    
+    return {'filepath': filepath,
+            'filename': filename,
+            'segment_subject': segment_subject,
+            'train_data_version': train_data_version,
+            'model_architecture': model_architecture,
+            'acc_combined': acc_combined,
+            'acc_train': acc_train,
+            'acc_val': acc_val,
+            'epoch': epoch}
+
 def get_models(model_dir: str,
-               model_base_filename: str) -> pd.DataFrame:
+               model_base_filename: str = None) -> pd.DataFrame:
+    """
+    Return the list of models in the model_dir passed. It is returned as a 
+    dataframe with the columns as returned in parse_model_filename()
+    
+    Args
+        model_dir: dir containing the models
+        model_base_filename: optional, if passed, only the models with this 
+            base filename will be returned
+    """
 
     # glob search string    
-    model_weight_filepaths = glob.glob(f"{model_dir}{os.sep}{model_base_filename}_*.hdf5")
+    if model_base_filename is not None:
+        model_weight_filepaths = glob.glob(f"{model_dir}{os.sep}{model_base_filename}_*.hdf5")
+    else:
+        model_weight_filepaths = glob.glob(f"{model_dir}{os.sep}*.hdf5")
 
     # Loop through all models and extract necessary info...
     model_info_list = []
     for filepath in model_weight_filepaths:
-        # Prepare filepath to extract info
-        filename = os.path.splitext(os.path.basename(filepath))[0]
-        param_value_string = filename.replace(model_base_filename + "_", "")
-        param_values = param_value_string.split("_")
-        
-        # Now extract fields we are interested in
-        acc_combined = float(param_values[0])
-        acc_train = float(param_values[1])
-        acc_val = float(param_values[2])
-        epoch = int(param_values[3])
-        
-        model_info_list.append({'filepath': filepath,
-                                'filename': filename,
-                                'acc_combined': acc_combined,
-                                'acc_train': acc_train,
-                                'acc_val': acc_val,
-                                'epoch': epoch})
+        model_info_list.append(parse_model_filename(filepath))
    
     return pd.DataFrame.from_dict(model_info_list)
 
-def get_best_model(model_dir,
-                   model_base_filename) -> dict:
+def get_best_model(model_dir: str,
+                   model_base_filename: str = None) -> dict:
+    """
+    Get the properties of the model with the highest combined accuracy in the 
+    dir.
+    
+    Args
+        model_dir: dir containing the models
+        model_base_filename: optional, if passed, only the models with this 
+            base filename will be taken in account
+    """
     # Get list of existing models for this train dataset
     model_info_df = get_models(model_dir=model_dir,
                                model_base_filename=model_base_filename)
@@ -100,7 +186,21 @@ def save_and_clean_models(model_save_dir: str,
                           verbose: bool = True,
                           debug: bool = False,
                           only_report: bool = False):
-
+    """
+    Save the new model if it is good enough... en cleanup existing models 
+    if they are worse than the new or other existing models.
+    
+    Args
+        model_save_dir: dir containing the models
+        model_save_base_filename: base filename that will be used
+        new_model: optional, the keras model object that will be saved
+        new_model_acc_train: optional: the accuracy on the train dataset
+        new_model_acc_val: optional: the accuracy on the validation dataset
+        new_model_epoch: optional: the epoch in the training
+        verbose: report the best model after save and cleanup
+        debug: write debug logging
+        only_report: optional: only report which models would be cleaned up
+    """
     # Get a list of all existing models
     model_info_df = get_models(model_dir=model_save_dir,
                                model_base_filename=model_save_base_filename)
@@ -112,7 +212,7 @@ def save_and_clean_models(model_save_dir: str,
         new_model_acc_combined = (new_model_acc_train+new_model_acc_val)/2
         
         # Build save filepath
-        new_model_filename = model_filename2(
+        new_model_filename = format_model_filename2(
                 model_base_filename=model_save_base_filename,
                 acc_combined=new_model_acc_combined,
                 acc_train=new_model_acc_train, acc_val=new_model_acc_val, 
@@ -221,7 +321,7 @@ if __name__ == '__main__':
     # Test the clean_models function (without new model)
     # Build save dir and model base filename 
     model_save_dir = os.path.join(project_dir, "models")
-    model_save_base_filename = model_base_filename(
+    model_save_base_filename = format_model_base_filename(
             segment_subject, traindata_version, model_architecture)
     
     # Clean the models (only report)

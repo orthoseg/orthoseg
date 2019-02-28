@@ -13,10 +13,9 @@ import predict_helper as ph
 
 def main():
 
-    # TODO: autodetect highest data version!!!        
     ph.run_prediction(segment_config_filepath=['general.ini', 
                                                'horsetracks.ini'], 
-                      force_model_traindata_version=20)
+                      force_model_traindata_version=None)
     
 if __name__ == '__main__':
     main()
