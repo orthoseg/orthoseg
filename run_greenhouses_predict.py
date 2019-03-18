@@ -13,8 +13,9 @@ import predict_helper as ph
 
 def main():
 
-    ph.run_prediction(segment_config_filepath=['general.ini', 
-                                               'greenhouses.ini'], 
+    ph.run_prediction(segment_config_filepaths=['general.ini', 
+                                                'greenhouses.ini',
+                                                'local_overrule.ini'], 
                       force_model_traindata_version=None)
     
 if __name__ == '__main__':
