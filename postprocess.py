@@ -76,6 +76,12 @@ def postprocess_prediction(image_filepath: str,
                            border_pixels_to_ignore: int = 0,
                            evaluate_mode: bool = False,
                            force: bool = False):
+    """
+    TODO
+    
+    Args
+        
+    """
     
     logger.debug(f"Start postprocess for {image_pred_filepath}")
     
@@ -395,10 +401,262 @@ def get_pixelsize_y(transform):
     return -transform[4]
 
 #-------------------------------------------------------------
+# Postprocess to use on all vector outputs
+#-------------------------------------------------------------
+
+def postprocess_vectors(input_dir: str,
+                        output_filepath: str,
+                        evaluate_mode: bool = False,
+                        force: bool = False):
+    """
+    Merges all geojson files in input dir (recursively), unions them, and 
+    does general cleanup on them.
+    
+    Outputs actually several files. The output files will have a suffix 
+    to the general output_filepath provided depending on the type of the 
+    output file.
+    
+    Args
+        input_dir: the dir where all geojson files can be found. All geojson 
+                files will be searched for recursively.
+        output_filepath: the filepath where the output file(s) will be written.
+        force: False to just keep existing output files instead of processing
+                them again. 
+        evaluate_mode: True to apply the logic to a subset of the files.            
+    """
+    
+    # TODO: this function should be split to several ones, because now it does
+    # several things that aren't covered with the name
+    
+    eval_suffix = ""
+    if evaluate_mode:
+        eval_suffix = "_eval"
+    
+    # Prepare output dir
+    output_dir, output_filename = os.path.split(output_filepath)
+    output_dir = f"{output_dir}{eval_suffix}"
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    # Prepare output driver
+    output_basefilename_noext, output_ext = os.path.splitext(output_filename)
+    output_ext = output_ext.lower()
+    
+    if output_ext == '.shp':
+        output_driver = "ESRI Shapefile"
+    else:
+        message = f"Unsuported output extansion: {output_ext}"
+        logger.error(message)
+        raise Exception(message)
+
+    # Read and merge input files
+    geoms_orig_filepath = os.path.join(
+            output_dir, f"{output_basefilename_noext}_orig{output_ext}")
+    geoms_gdf = vh.merge_vector_files(input_dir=input_dir,
+                                      output_filepath=geoms_orig_filepath,
+                                      evaluate_mode=evaluate_mode,
+                                      force=force)               
+
+    # Union the data, optimized using the available onborder column
+    geoms_union_filepath = os.path.join(
+            output_dir, f"{output_basefilename_noext}_union{output_ext}")
+    geoms_union_gdf = vh.unary_union_with_onborder(input_gdf=geoms_gdf,
+                              input_filepath=geoms_orig_filepath,
+                              output_filepath=geoms_union_filepath,
+                              evaluate_mode=evaluate_mode,
+                              force=force)
+
+    # Retain only geoms > 5m²
+    geoms_gt5m2_filepath = os.path.join(
+            output_dir, f"{output_basefilename_noext}_union_gt5m2{output_ext}")
+    geoms_gt5m2_gdf = None
+    if force or not os.path.exists(geoms_gt5m2_filepath):
+        if geoms_union_gdf is None:
+            geoms_union_gdf = gpd.read_file(geoms_union_filepath)
+        geoms_gt5m2_gdf = geoms_union_gdf.loc[(geoms_union_gdf.geometry.area > 5)]
+        # TODO: setting the CRS here hardcoded should be removed
+        if geoms_gt5m2_gdf.crs is None:
+            message = "No crs available!!!"
+            logger.error(message)
+            #raise Exception(message)
+        
+        # Qgis wants unique id column, otherwise weird effects!
+        geoms_gt5m2_gdf.reset_index(inplace=True, drop=True)
+        #geoms_gt5m2_gdf['id'] = geoms_gt5m2_gdf.index 
+        geoms_gt5m2_gdf.loc[:, 'id'] = geoms_gt5m2_gdf.index 
+        geoms_gt5m2_gdf.to_file(geoms_gt5m2_filepath, driver=output_driver)
+
+    # Simplify with standard shapely algo 
+    # -> if preserve_topology False, this is Ramer-Douglas-Peucker, otherwise ?
+    geoms_simpl_shap_filepath = os.path.join(
+            output_dir, f"{output_basefilename_noext}_simpl_shap{output_ext}")
+    geoms_simpl_shap_gdf = None
+    if force or not os.path.exists(geoms_simpl_shap_filepath):
+        logger.info("Simplify with default shapely algo")
+        # If input geoms not yet in memory, read from file
+        if geoms_gt5m2_gdf is None:
+            geoms_gt5m2_gdf = gpd.read_file(geoms_gt5m2_filepath)
+
+        # Simplify, fix invalid geoms, remove empty geoms, 
+        # apply multipart-to-singlepart, only > 5m² + write
+        geoms_simpl_shap_gdf = geoms_gt5m2_gdf.copy()
+        geoms_simpl_shap_gdf['geometry'] = geoms_simpl_shap_gdf.simplify(
+                tolerance=0.5, preserve_topology=True)
+        geoms_simpl_shap_gdf['geometry'] = geoms_simpl_shap_gdf.geometry.apply(
+                lambda geom: vh.fix(geom))
+        geoms_simpl_shap_gdf.dropna(subset=['geometry'], inplace=True)
+        geoms_simpl_shap_gdf = geoms_simpl_shap_gdf.reset_index(drop=True).explode()
+        geoms_simpl_shap_gdf['geometry'] = geoms_simpl_shap_gdf.geometry.apply(
+                lambda geom: vh.remove_inner_rings(geom, 2))        
+                
+        # Add area column, and remove rows with small area
+        geoms_simpl_shap_gdf['area'] = geoms_simpl_shap_gdf.geometry.area       
+        geoms_simpl_shap_gdf = geoms_simpl_shap_gdf.loc[
+                (geoms_simpl_shap_gdf['area'] > 5)]
+
+        # Qgis wants unique id column, otherwise weird effects!
+        geoms_simpl_shap_gdf.reset_index(inplace=True, drop=True)
+        geoms_simpl_shap_gdf['id'] = geoms_simpl_shap_gdf.index 
+        geoms_simpl_shap_gdf['nbcoords'] = geoms_simpl_shap_gdf.geometry.apply(
+                lambda geom: vh.get_nb_coords(geom))
+        geoms_simpl_shap_gdf.to_file(geoms_simpl_shap_filepath, 
+                                     driver=output_driver)
+        logger.info(f"Result written to {geoms_simpl_shap_filepath}")
+        
+    # Apply begative buffer on result
+    geoms_simpl_shap_m1m_filepath = os.path.join(
+            output_dir, f"{output_basefilename_noext}_simpl_shap_m1.5m_3{output_ext}")    
+    if force or not os.path.exists(geoms_simpl_shap_m1m_filepath):
+        logger.info("Apply negative buffer")
+        # If input geoms not yet in memory, read from file
+        if geoms_simpl_shap_gdf is None:
+            geoms_simpl_shap_gdf = gpd.read_file(geoms_simpl_shap_filepath)
+            
+        # Simplify, fix invalid geoms, remove empty geoms, 
+        # apply multipart-to-singlepart, only > 5m² + write
+        geoms_simpl_shap_m1m_gdf = geoms_simpl_shap_gdf.copy()
+        geoms_simpl_shap_m1m_gdf['geometry'] = geoms_simpl_shap_m1m_gdf.buffer(
+                distance=-1.5, resolution=3)
+        
+        '''
+        geoms_simpl_shap_gdf['geometry'] = geoms_simpl_shap_gdf.simplify(
+                tolerance=0.5, preserve_topology=True)
+        geoms_simpl_shap_gdf['geometry'] = geoms_simpl_shap_gdf.geometry.apply(
+                lambda geom: fix(geom))
+        '''
+        geoms_simpl_shap_m1m_gdf.dropna(subset=['geometry'], inplace=True)
+        geoms_simpl_shap_m1m_gdf = geoms_simpl_shap_m1m_gdf.reset_index(drop=True).explode()
+        '''
+        geoms_simpl_shap_m1m_gdf['geometry'] = geoms_simpl_shap_m1m_gdf.geometry.apply(
+                lambda geom: remove_inner_rings(geom, 2))        
+        '''
+                
+        # Add/calculate area column, and remove rows with small area
+        geoms_simpl_shap_m1m_gdf['area'] = geoms_simpl_shap_m1m_gdf.geometry.area       
+        geoms_simpl_shap_m1m_gdf = geoms_simpl_shap_m1m_gdf.loc[
+                (geoms_simpl_shap_m1m_gdf['area'] > 5)]
+
+        # Qgis wants unique id column, otherwise weird effects!
+        geoms_simpl_shap_m1m_gdf.reset_index(inplace=True, drop=True)
+        geoms_simpl_shap_m1m_gdf['id'] = geoms_simpl_shap_m1m_gdf.index 
+        geoms_simpl_shap_m1m_gdf['nbcoords'] = geoms_simpl_shap_m1m_gdf.geometry.apply(
+                lambda geom: vh.get_nb_coords(geom))        
+        geoms_simpl_shap_m1m_gdf.to_file(geoms_simpl_shap_m1m_filepath, 
+                                     driver=output_driver)
+        logger.info(f"Result written to {geoms_simpl_shap_m1m_filepath}")
+        
+    '''
+    # Also do the simplify with Visvalingam algo
+    geoms_simpl_vis_filepath = os.path.join(
+            union_dir, f"geoms_simpl_vis.geojson")
+    if force or not os.path.exists(geoms_simpl_vis_filepath):
+        # If input geoms not yet in memory, read from file
+        if geoms_gt5m2_gdf is None:
+            geoms_gt5m2_gdf = gpd.read_file(geoms_gt5m2_filepath)
+
+        # Simplify, fix invalid geoms, remove empty geoms, 
+        # apply multipart-to-singlepart, only > 5m² + write
+        geoms_simpl_vis_gdf = geoms_gt5m2_gdf.copy()
+        geoms_simpl_vis_gdf['geometry'] = geoms_simpl_vis_gdf.geometry.apply(
+                lambda geom: simplify_visval(geom, 10))
+        geoms_simpl_vis_gdf['geometry'] = geoms_simpl_vis_gdf.geometry.apply(
+                lambda geom: fix(geom))
+        geoms_simpl_vis_gdf.dropna(subset=['geometry'], inplace=True)
+        geoms_simpl_vis_gdf = geoms_simpl_vis_gdf.reset_index().explode()
+        geoms_simpl_vis_gdf['geometry'] = geoms_simpl_vis_gdf.geometry.apply(
+                lambda geom: remove_inner_rings(geom, 2))
+        geoms_simpl_vis_gdf = geoms_simpl_vis_gdf.loc[
+                (geoms_simpl_vis_gdf.geometry.area > 5)]
+        
+        # Qgis wants unique id column, otherwise weird effects!
+        geoms_simpl_vis_gdf.reset_index(inplace=True)
+        geoms_simpl_vis_gdf['id'] = geoms_simpl_vis_gdf.index        
+        geoms_simpl_vis_gdf.to_file(geoms_simpl_vis_filepath, 
+                                          driver="GeoJSON")
+        logger.info(f"Result written to {geoms_simpl_vis_filepath}")
+    
+    # Also do the simplify with Ramer-Douglas-Peucker "plus" algo:
+    # the plus is that there is some extra checks
+    geoms_simpl_rdpp_filepath = os.path.join(
+            union_dir, f"geoms_simpl_rdpp.geojson")
+    if force or not os.path.exists(geoms_simpl_rdpp_filepath):
+        # If input geoms not yet in memory, read from file
+        if geoms_gt5m2_gdf is None:
+            geoms_gt5m2_gdf = gpd.read_file(geoms_gt5m2_filepath)
+
+        # Simplify, fix invalid geoms, remove empty geoms, 
+        # apply multipart-to-singlepart, only > 5m² + write
+        geoms_simpl_rdpp_gdf = geoms_gt5m2_gdf.copy()
+        geoms_simpl_rdpp_gdf['geometry'] = geoms_simpl_rdpp_gdf.geometry.apply(
+                lambda geom: simplify_rdp_plus(geom, 1))
+        geoms_simpl_rdpp_gdf['geometry'] = geoms_simpl_rdpp_gdf.geometry.apply(
+                lambda geom: fix(geom))
+        geoms_simpl_rdpp_gdf.dropna(subset=['geometry'], inplace=True)
+        geoms_simpl_rdpp_gdf = geoms_simpl_rdpp_gdf.reset_index().explode()
+        geoms_simpl_rdpp_gdf['geometry'] = geoms_simpl_rdpp_gdf.geometry.apply(
+                lambda geom: remove_inner_rings(geom, 2))
+        # Qgis wants unique id column, otherwise weird effects!
+        geoms_simpl_rdpp_gdf.reset_index(inplace=True)
+        geoms_simpl_rdpp_gdf['id'] = geoms_simpl_rdpp_gdf.index               
+        geoms_simpl_rdpp_gdf.to_file(geoms_simpl_rdpp_filepath, 
+                                     driver="GeoJSON")
+        logger.info(f"Result written to {geoms_simpl_rdpp_filepath}")
+    '''
+    
+#-------------------------------------------------------------
 # If the script is ran directly...
 #-------------------------------------------------------------
     
-if __name__ == '__main__':
+def main():
+    
+    # Init
+    project_dir = "X:\\PerPersoon\\PIEROG\\Taken\\2018\\2018-08-12_AutoSegmentation\\greenhouses"
+    log_dir = os.path.join(project_dir, "log")
+    import log_helper
+    global logger
+    logger = log_helper.main_log_init(log_dir, __name__)
+
+    # Read the configuration
+    import config_helper as conf
+    conf.read_config(config_filepaths=['general.ini', 
+                                       'greenhouses.ini',
+                                       'local_overrule.ini'])
+
+    # Input and output dir
+    input_dir = "X:\\Monitoring\\OrthoSeg\\_input_images\\BEFL_aerial_winter_2018_rgb\\1024x1024_128pxOverlap_greenhouses_26_inceptionresnetv2+unet_0.96762_0.95358_0"
+    output_vector_dir = conf.dirs['output_vector_dir']
+    output_filepath = os.path.join(output_vector_dir, f"{conf.general['segment_subject']}_test.shp")
+    
+    postprocess_vectors(input_dir=input_dir,
+                        output_filepath=output_filepath,
+                        evaluate_mode=True,
+                        force=True)
+
+    '''    
     message = "Not implemented"
     logger.error(message)
     raise Exception(message)
+    '''
+
+if __name__ == '__main__':
+    main()

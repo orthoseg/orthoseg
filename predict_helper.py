@@ -12,9 +12,9 @@ import keras as kr
 
 import config_helper as conf
 import log_helper
-import segment
-import vector.vector_helper as vh
 import models.model_helper as mh
+import segment
+import postproces as postp
 
 def run_prediction(segment_config_filepaths: str, 
                    force_model_traindata_version: int = None):
@@ -89,8 +89,8 @@ def run_prediction(segment_config_filepaths: str,
     # Now postprocess the vector results, so the end result is one big file
     output_vector_dir = conf.dirs['output_vector_dir']
     output_filepath = os.path.join(output_vector_dir, f"{conf.general['segment_subject']}_{model_traindata_version}.shp")
-    vh.postprocess_vectors(input_dir=predict_output_dir,
-                           output_filepath = output_filepath,
-                           evaluate_mode=False,
-                           force=False)
+    postp.postprocess_vectors(input_dir=predict_output_dir,
+                              output_filepath = output_filepath,
+                              evaluate_mode=False,
+                              force=False)
     
