@@ -19,6 +19,6 @@ if __name__ == '__main__':
     time_start = dt.datetime.now()
     print(f"Start delete at {time_start}")
     shutil.rmtree(del_dir)
-    time_taken = (dt.datetime.now()-time_start).total_seconds()/1000
-    print(f"Time taken: {time_taken:.5f}")
+    time_taken = (dt.datetime.now()-time_start).total_seconds()/3600
+    print(f"Time taken: {time_taken:.5f hours}")
     
