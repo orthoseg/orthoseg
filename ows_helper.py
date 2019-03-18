@@ -157,7 +157,7 @@ def get_images_for_grid(wms_server_url: str,
     counter = 0
 
     if not os.path.exists(output_image_dir):
-        os.mkdir(output_image_dir)
+        os.makedirs(output_image_dir)
 
     wms = WebMapService(wms_server_url, version='1.3.0')
 
@@ -284,7 +284,7 @@ def get_images_for_grid(wms_server_url: str,
                     read_results = pool.map(
                             getmap_to_file,        # Function 
                             it.repeat(wms),
-                            it.repeat(wms_layernames),
+                            it.repeat([wms_layernames]),
                             it.repeat(output_dir),
                             it.repeat(srs),
                             bbox_list,
@@ -426,12 +426,12 @@ def getmap_to_file(wms: WebMapService,
 
         except:
             # Retry 10 times...
-            if nb_retries <= 10:
+            if nb_retries < 10:
                 nb_retries += 1
                 time.sleep(10)
                 continue
             else:
-                logger.error("Retried 10 times and didn't work")
+                logger.error(f"Retried 10 times and didn't work, with layers: {layers}, styles: {layers_styles}")
                 raise
 
     # Write image to file...
