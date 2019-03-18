@@ -76,10 +76,10 @@ def run_prediction(segment_config_filepaths: str,
     logger.info("Model weights loaded")
 
     # Predict for entire dataset"''
-    output_base_dir = f"{conf.dirs['predict_image_dir']}_{predict_out_subdir}"
+    predict_output_dir = f"{conf.dirs['predict_image_dir']}_{predict_out_subdir}"
     segment.predict_dir(model=model,
                         input_image_dir=conf.dirs['predict_image_dir'],
-                        output_base_dir=output_base_dir,
+                        output_base_dir=predict_output_dir,
                         border_pixels_to_ignore=int(conf.predict['image_pixels_overlap']),
                         projection_if_missing=conf.general['projection'],
                         input_mask_dir=None,
@@ -87,7 +87,10 @@ def run_prediction(segment_config_filepaths: str,
                         evaluate_mode=False)
     
     # Now postprocess the vector results, so the end result is one big file
-    vh.postprocess_vectors(base_dir=output_base_dir,
+    output_vector_dir = conf.dirs['output_vector_dir']
+    output_filepath = os.path.join(output_vector_dir, f"{conf.general['segment_subject']}_{model_traindata_version}.shp")
+    vh.postprocess_vectors(input_dir=predict_output_dir,
+                           output_filepath = output_filepath,
                            evaluate_mode=False,
                            force=False)
     

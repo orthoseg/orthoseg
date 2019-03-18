@@ -27,33 +27,62 @@ logger = logging.getLogger(__name__)
 
 # TODO: this function isn't a general-purpose vector helper, maybe should be 
 # moved somewhere else?
-def postprocess_vectors(base_dir: str,
+def postprocess_vectors(input_dir: str,
+                        output_filepath: str,
                         evaluate_mode: bool = False,
                         force: bool = False):
+    """
+    Merges all geojson files in input dir (recursively), unions them, and 
+    does general cleanup on them.
+    
+    Outputs actually several files. The output files will have a suffix 
+    to the general output_filepath provided depending on the type of the 
+    output file.
+    
+    Args
+        input_dir: the dir where all geojson files can be found. All geojson 
+                files will be searched for recursively.
+        output_filepath: the filepath where the output file(s) will be written.
+        force: False to just keep existing output files instead of processing
+                them again. 
+        evaluate_mode: True to apply the logic to a subset of the files.            
+    """
     
     # TODO: this function should be split to several ones, because now it does
     # several things that aren't covered with the name
+    
     eval_suffix = ""
     if evaluate_mode:
         eval_suffix = "_eval"
     
-    output_extension = ".shp"
-    output_driver = "ESRI Shapefile"
-
     # Prepare output dir
-    union_dir = os.path.join(base_dir, f"_union_out{eval_suffix}")
-    if not os.path.exists(union_dir):
-        os.mkdir(union_dir)
+    output_dir, output_filename = os.path.split(output_filepath)
+    output_dir = f"{output_dir}{eval_suffix}"
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    # Prepare output driver
+    output_basefilename_noext, output_ext = os.path.splitext(output_filename)
+    output_ext = output_ext.lower()
+    
+    if output_ext == '.shp':
+        output_driver = "ESRI Shapefile"
+    else:
+        message = f"Unsuported output extansion: {output_ext}"
+        logger.error(message)
+        raise Exception(message)
 
     # Read and merge input files
-    geoms_orig_filepath = os.path.join(union_dir, f"geoms_orig{output_extension}")
-    geoms_gdf = merge_vector_files(input_dir=base_dir,
+    geoms_orig_filepath = os.path.join(
+            output_dir, f"{output_basefilename_noext}_orig{output_ext}")
+    geoms_gdf = merge_vector_files(input_dir=input_dir,
                                    output_filepath=geoms_orig_filepath,
                                    evaluate_mode=evaluate_mode,
                                    force=force)               
 
     # Union the data, optimized using the available onborder column
-    geoms_union_filepath = os.path.join(union_dir, f"geoms_union{output_extension}")
+    geoms_union_filepath = os.path.join(
+            output_dir, f"{output_basefilename_noext}_union{output_ext}")
     geoms_union_gdf = unary_union_with_onborder(input_gdf=geoms_gdf,
                               input_filepath=geoms_orig_filepath,
                               output_filepath=geoms_union_filepath,
@@ -61,7 +90,8 @@ def postprocess_vectors(base_dir: str,
                               force=force)
 
     # Retain only geoms > 5m²
-    geoms_gt5m2_filepath = os.path.join(union_dir, f"geoms_union_gt5m2{output_extension}")
+    geoms_gt5m2_filepath = os.path.join(
+            output_dir, f"{output_basefilename_noext}_union_gt5m2{output_ext}")
     geoms_gt5m2_gdf = None
     if force or not os.path.exists(geoms_gt5m2_filepath):
         if geoms_union_gdf is None:
@@ -82,7 +112,7 @@ def postprocess_vectors(base_dir: str,
     # Simplify with standard shapely algo 
     # -> if preserve_topology False, this is Ramer-Douglas-Peucker, otherwise ?
     geoms_simpl_shap_filepath = os.path.join(
-            union_dir, f"geoms_simpl_shap{output_extension}")
+            output_dir, f"{output_basefilename_noext}_simpl_shap{output_ext}")
     geoms_simpl_shap_gdf = None
     if force or not os.path.exists(geoms_simpl_shap_filepath):
         logger.info("Simplify with default shapely algo")
@@ -118,7 +148,7 @@ def postprocess_vectors(base_dir: str,
         
     # Apply begative buffer on result
     geoms_simpl_shap_m1m_filepath = os.path.join(
-            union_dir, f"geoms_simpl_shap_m1.5m_3{output_extension}")
+            output_dir, f"{output_basefilename_noext}_simpl_shap_m1.5m_3{output_ext}")    
     if force or not os.path.exists(geoms_simpl_shap_m1m_filepath):
         logger.info("Apply negative buffer")
         # If input geoms not yet in memory, read from file
@@ -579,33 +609,34 @@ def write_wkt(in_geoms,
 
 def main():
     
-    '''
     # Init
     project_dir = "X:\\PerPersoon\\PIEROG\\Taken\\2018\\2018-08-12_AutoSegmentation\\greenhouses"
     log_dir = os.path.join(project_dir, "log")
+    import log_helper
     global logger
     logger = log_helper.main_log_init(log_dir, __name__)
 
-    # Model information
-    segment_subject = "horsetracks"
-    base_dir = "X:\\PerPersoon\\PIEROG\\Taken\\2018\\2018-08-12_AutoSegmentation"
-    project_dir = os.path.join(base_dir, segment_subject)
-    training_dir = os.path.join(project_dir, "training")
-    traindata_dir = os.path.join(training_dir, "train_14")
-    predict_basedir = "X:\\GIS\GIS DATA\\_SegmentCache\\Ortho_2018"
-    predict_subdir = "1024x1024_64pxOverlap_horsetracks_17_inceptionresnetv2+linknet_0.93241_0.95943_0"
-    predict_dir = os.path.join(predict_basedir, predict_subdir)
+    # Read the configuration
+    import config_helper as conf
+    conf.read_config(config_filepaths=['..\\general.ini', 
+                                       '..\\greenhouses.ini',
+                                       '..\\local_overrule.ini'])
+
+    # Input and output dir
+    input_dir = "X:\\Monitoring\\OrthoSeg\\_input_images\\BEFL_aerial_winter_2018_rgb\\1024x1024_128pxOverlap_greenhouses_26_inceptionresnetv2+unet_0.96762_0.95358_0"
+    output_vector_dir = conf.dirs['output_vector_dir']
+    output_filepath = os.path.join(output_vector_dir, f"{conf.general['segment_subject']}_test.shp")
     
-    predict_dir = "X:\\Monitoring\\OrthoSeg\\_input_images\\Ortho_2018\\1024x1024_64pxOverlap_greenhouses_22_inceptionresnetv2+unet_0.98023_0.97497_0"
-    
-    postprocess_vectors(base_dir=predict_dir,
-                        evaluate_mode=False,
+    postprocess_vectors(input_dir=input_dir,
+                        output_filepath=output_filepath,
+                        evaluate_mode=True,
                         force=False)
+
     '''
     grid_gdf = create_grid(xmin=0, ymin=0, xmax=300000, ymax=300000,
                            cell_width=2000, cell_height=2000)
     grid_gdf.to_file("X:\\Monitoring\\OrthoSeg\\grid_2000.shp")
-    
+    '''
     
 if __name__ == '__main__':
     main()
