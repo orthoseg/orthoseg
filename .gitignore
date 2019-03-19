@@ -4,3 +4,5 @@ Old/
 tensorboard_logs/
 tmp/
 local_overrule.ini
+.vscode/settings.json
+.vscode/launch.json
