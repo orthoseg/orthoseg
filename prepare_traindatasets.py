@@ -63,6 +63,13 @@ def prepare_traindatasets(input_vector_label_filepath: str,
     Returns a tuple with (output_dir, dataversion):
             output_dir: the dir where the traindataset was created/found
             dataversion: a version number for the dataset created/found
+
+    Args
+        input_vector_label_filepath: filepath to the vector labels to prepare train dataset for
+        wms_server_url: WMS server where the images can be fetched from
+        wms_layername: layername on the WMS server to use
+        output_basedir: the base dir where the train dataset needs to be written to 
+
     """
     # Check if the input file exists, if not, return
     if not os.path.exists(input_vector_label_filepath):
@@ -185,6 +192,7 @@ def prepare_traindatasets(input_vector_label_filepath: str,
             
     return output_dir, dataversion_new
 
+# TODO: this is a deprecated function, maybe better delete it to evade having to keep supporting it?
 def create_masks(input_vector_label_filepath: str,
                  input_image_dir: str,
                  output_mask_dir: str,
@@ -323,7 +331,8 @@ def _create_mask(input_vector_label_list,
         return False
 
 ###############################################################################
-if __name__ == "__main__":
+
+def main():
     
     # WMS server we can use to get the image data
     WMS_SERVER_URL = "http://geoservices.informatievlaanderen.be/raadpleegdiensten/ofw/wms?"
@@ -375,3 +384,6 @@ if __name__ == "__main__":
             wms_server_layer=WMS_SERVER_LAYER,
             output_basedir=dataset_basedir,
             force=force)
+
+if __name__ == "__main__":
+    main()
