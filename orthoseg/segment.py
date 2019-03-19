@@ -18,9 +18,9 @@ import keras as kr
 import rasterio as rio
 import rasterio.plot as rio_plot
 
-import models.model_factory as mf
-import models.model_helper as mh
-import postprocess as postp
+import orthoseg.model.model_factory as mf
+import orthoseg.model.model_helper as mh
+import orthoseg.predict_postprocess as postp
 
 #-------------------------------------------------------------
 # First define/init some general variables/constants

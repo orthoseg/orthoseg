@@ -10,11 +10,11 @@ import os
 #os.environ["CUDA_VISIBLE_DEVICES"] = "-1" # Disable using GPU
 import keras as kr
 
-import config_helper as conf
-import log_helper
-import models.model_helper as mh
+import orthoseg.helpers.config as conf
+import orthoseg.helpers.log as log_helper
+import orthoseg.model.model_helper as mh
 import segment
-import postprocess as postp
+import orthoseg.predict_postprocess as postp
 
 def run_prediction(segment_config_filepaths: str, 
                    force_model_traindata_version: int = None):

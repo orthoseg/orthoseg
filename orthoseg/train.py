@@ -10,11 +10,11 @@ import os
 #os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 import keras as kr
 
-import config_helper as conf
-import log_helper
+import orthoseg.helpers.config as conf
+import orthoseg.helpers.log as log_helper
 import segment as seg
 import prepare_traindatasets as prep
-import models.model_helper as mh
+import orthoseg.model.model_helper as mh
 
 def run_training_session(segment_config_filepaths: [], 
                          force_traindata_version: int = None,

@@ -5,7 +5,7 @@ Module to run a prediction.
 @author: Pieter Roggemans
 """
 
-import predict_helper as ph
+import orthoseg.predict_run as ph
 
 #-------------------------------------------------------------
 # The real work

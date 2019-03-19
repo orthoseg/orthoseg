@@ -5,7 +5,7 @@ Script to run a training session for greenhouse segmentation.
 @author: Pieter Roggemans
 """
 
-import training_helper as th
+import orthoseg.training_run as th
 
 #-------------------------------------------------------------
 # The real work
