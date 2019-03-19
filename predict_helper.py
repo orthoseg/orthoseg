@@ -14,7 +14,7 @@ import config_helper as conf
 import log_helper
 import models.model_helper as mh
 import segment
-import postproces as postp
+import postprocess as postp
 
 def run_prediction(segment_config_filepaths: str, 
                    force_model_traindata_version: int = None):
