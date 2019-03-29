@@ -5,11 +5,17 @@ Module that manages the configuration of a segmentation
 @author: Pieter Roggemans
 """
 
+import os
 import configparser
 import pprint
 
 def read_config(config_filepaths: []):
         
+    # Log config filepaths that don't exist...
+    for config_filepath in config_filepaths:
+        if not os.path.exists(config_filepath):
+            print(f"config_filepath does not exist: {config_filepath}")
+
     # Read the configuration
     global config
     config = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
