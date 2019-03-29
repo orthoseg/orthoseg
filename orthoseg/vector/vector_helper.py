@@ -57,7 +57,13 @@ def merge_vector_files(input_dir: str,
     # Get list of all files to process...
     logger.info(f"List all files to be merged in {input_dir}")
     in_filepaths = glob.glob(f"{input_dir}{os.sep}**{os.sep}*_pred_cleaned.geojson", recursive=True)
-    logger.info(f"Found {len(in_filepaths)} files to process")
+
+    # Check if files were found...
+    if len(in_filepaths) == 0:
+        logger.warn("No files found to process... so return")
+        raise RuntimeWarning("NOFILESFOUND")
+    else:
+        logger.info(f"Found {len(in_filepaths)} files to process")
 
     # Loop through all files to be processed...
     geoms_gdf = None

@@ -445,17 +445,23 @@ def postprocess_vectors(input_dir: str,
     if output_ext == '.shp':
         output_driver = "ESRI Shapefile"
     else:
-        message = f"Unsuported output extansion: {output_ext}"
+        message = f"Unsuported output extension: {output_ext}"
         logger.error(message)
         raise Exception(message)
 
     # Read and merge input files
     geoms_orig_filepath = os.path.join(
-            output_dir, f"{output_basefilename_noext}_orig{output_ext}")
-    geoms_gdf = vh.merge_vector_files(input_dir=input_dir,
-                                      output_filepath=geoms_orig_filepath,
-                                      evaluate_mode=evaluate_mode,
-                                      force=force)               
+            output_dir, f"{output_basefilename_noext}_orig{output_ext}")    
+    try:
+        geoms_gdf = vh.merge_vector_files(input_dir=input_dir,
+                                          output_filepath=geoms_orig_filepath,
+                                          evaluate_mode=evaluate_mode,
+                                          force=force)               
+    except RuntimeWarning as ex:
+        logger.warn(f"No vector files found to merge, ex: {ex}")
+        if str(ex) == "NOFILESFOUND":
+            logger.warn("No vector files found to merge")
+            return
 
     # Union the data, optimized using the available onborder column
     geoms_union_filepath = os.path.join(
