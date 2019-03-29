@@ -154,8 +154,6 @@ def get_images_for_grid(wms_server_url: str,
 
     print(f"Number rows: {rows}, number columns: {cols}")
 
-    counter = 0
-
     if not os.path.exists(output_image_dir):
         os.makedirs(output_image_dir)
 
@@ -196,8 +194,8 @@ def get_images_for_grid(wms_server_url: str,
                 
                 # To be able to quickly get images spread over the roi...
                 if(nb_images_to_skip
-                   and (counter%nb_images_to_skip) != 0):
-                    #logger.debug(f"Skip this image, because {counter}%{nb_images_to_skip} is not 0")
+                   and (nb_processed%nb_images_to_skip) != 0):
+                    #logger.debug(f"Skip this image, because {nb_processed}%{nb_images_to_skip} is not 0")
                     continue
     
                 # Calculate y bounds            
