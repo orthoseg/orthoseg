@@ -331,6 +331,11 @@ def predict_dir(model,
                ignore existing predictions and overwrite them
     """
     
+    # Check if input params are ok
+    if not os.path.exists(input_image_dir):
+        logger.warn(f"In predict_dir, but input_image_dir doesn't exist, so return: {input_image_dir}")
+        return
+
     logger.info(f"Start predict for input_image_dir: {input_image_dir}")
 
     # If we are using evaluate mode, change the output dir...
