@@ -19,7 +19,7 @@ import rasterio as rio
 import geopandas as gpd
 import shapely.geometry as sh_geom
 
-import vector.vector_helper as vh
+import orthoseg.vector.vector_helper as vh
 
 #-------------------------------------------------------------
 # First define/init some general variables/constants

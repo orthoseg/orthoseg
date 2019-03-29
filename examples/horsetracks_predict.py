@@ -5,7 +5,13 @@ Module to run the prediction for horsetracks.
 @author: Pieter Roggemans
 """
 
-import orthoseg.predict_run as ph
+import os
+
+# Because orthoseg isn't installed as package + it is higher in dir hierarchy, add root to sys.path
+import sys
+sys.path.insert(0, '.')
+
+import orthoseg.predict as pred
 
 #-------------------------------------------------------------
 # The real work
@@ -13,10 +19,11 @@ import orthoseg.predict_run as ph
 
 def main():
 
-    ph.run_prediction(segment_config_filepaths=['general.ini', 
-                                                'horsetracks.ini',
-                                                'local_overrule.ini'], 
-                      force_model_traindata_version=None)
+    scriptdir = os.path.dirname(os.path.abspath(__file__))
+    pred.run_prediction(segment_config_filepaths=[os.path.join(scriptdir, 'general.ini'), 
+                                                  os.path.join(scriptdir, 'horsetracks.ini'),
+                                                  os.path.join(scriptdir, 'local_overrule.ini')], 
+                        force_model_traindata_version=None)
     
 if __name__ == '__main__':
     main()

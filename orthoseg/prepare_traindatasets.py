@@ -22,9 +22,9 @@ import rasterio.features as rio_features
 import owslib
 import geopandas as gpd
 
-import log_helper
-import ows_helper
-import geofile_helper
+import orthoseg.helpers.log as log_helper
+import orthoseg.helpers.ows as ows_helper
+import orthoseg.helpers.geofile as geofile_helper
 
 #-------------------------------------------------------------
 # First define/init some general variables/constants

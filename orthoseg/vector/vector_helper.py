@@ -12,8 +12,8 @@ import numpy as np
 import shapely.ops as sh_ops
 import geopandas as gpd
 
-import vector.simplify_visval as simpl_vis
-import vector.simplify_rdp_plus as simpl_rdp_plus
+import orthoseg.vector.simplify_visval as simpl_vis
+import orthoseg.vector.simplify_rdp_plus as simpl_rdp_plus
 
 #-------------------------------------------------------------
 # First define/init some general variables/constants

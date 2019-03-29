@@ -12,8 +12,8 @@ import keras as kr
 
 import orthoseg.helpers.config as conf
 import orthoseg.helpers.log as log_helper
-import segment as seg
-import prepare_traindatasets as prep
+import orthoseg.segment as seg
+import orthoseg.prepare_traindatasets as prep
 import orthoseg.model.model_helper as mh
 
 def run_training_session(segment_config_filepaths: [], 

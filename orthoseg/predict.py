@@ -13,7 +13,7 @@ import keras as kr
 import orthoseg.helpers.config as conf
 import orthoseg.helpers.log as log_helper
 import orthoseg.model.model_helper as mh
-import segment
+import orthoseg.segment as segment
 import orthoseg.predict_postprocess as postp
 
 def run_prediction(segment_config_filepaths: str, 

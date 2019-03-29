@@ -5,7 +5,13 @@ Script to run a training session for horsetrack segmentation.
 @author: Pieter Roggemans
 """
 
-import training_helper as th
+import os
+
+# Because orthoseg isn't installed as package + it is higher in dir hierarchy, add root to sys.path
+import sys
+sys.path.insert(0, '.')
+
+import orthoseg.train as train
 
 #-------------------------------------------------------------
 # The real work
@@ -14,11 +20,12 @@ import training_helper as th
 def main():
         
     # Start the training session
-    th.run_training_session(segment_config_filepaths=['general.ini', 
-                                                      'horsetracks.ini',
-                                                      'local_overrule.ini'],
-                            force_traindata_version=None,
-                            resume_train=False)
+    scriptdir = os.path.dirname(os.path.abspath(__file__))
+    train.run_training_session(segment_config_filepaths=[os.path.join(scriptdir, 'general.ini'), 
+                                                         os.path.join(scriptdir, 'horsetracks.ini'),
+                                                         os.path.join(scriptdir, 'local_overrule.ini')],
+                               force_traindata_version=None,
+                               resume_train=False)
     
 if __name__ == '__main__':
     main()

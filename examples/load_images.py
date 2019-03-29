@@ -7,16 +7,21 @@ Script to load images from a WMS server.
 
 import os
 
-import config_helper as conf
-import log_helper
-import ows_helper
+# Because orthoseg isn't installed as package + it is higher in dir hierarchy, add root to sys.path
+import sys
+sys.path.insert(0, '.')
+
+import orthoseg.helpers.config as conf
+import orthoseg.helpers.log as log_helper
+import orthoseg.helpers.ows as ows_helper
 
 def load_images(load_testsample_images: bool = False):
 
     # Read the configuration
-    segment_config_filepaths=['general.ini', 
-                              'horsetracks.ini',
-                              'local_overrule.ini']
+    scriptdir = os.path.dirname(os.path.abspath(__file__))
+    segment_config_filepaths=[os.path.join(scriptdir, 'general.ini'), 
+                              os.path.join(scriptdir, 'sealedsurfaces.ini'),
+                              os.path.join(scriptdir, 'local_overrule.ini')]
     conf.read_config(segment_config_filepaths)
     
     # Main initialisation of the logging
@@ -51,7 +56,7 @@ def load_images(load_testsample_images: bool = False):
     else:
         output_image_dir=conf.dirs['predict_image_dir']
         
-        # Get the image size for te predict
+        # Get the image size for the predict
         image_pixel_width = int(conf.predict['image_pixel_width'])
         image_pixel_height = int(conf.predict['image_pixel_height'])
         image_pixel_x_size = float(conf.train['image_pixel_x_size'])
