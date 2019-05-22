@@ -66,7 +66,7 @@ def run_training_session(segment_config_filepaths: [],
     logger.info(f"Traindata dir to use is {traindata_dir}, with traindata_version: {traindata_version}")
 
     # Now the "validation" training dataset
-    validationdata_dir, tmp = prep.prepare_traindatasets(
+    validationdata_dir, _ = prep.prepare_traindatasets(
             input_vector_label_filepath=conf.files['input_validationlabels_filepath'],
             wms_server_url=conf.general['wms_server_url'],
             wms_layername=conf.general['wms_layername'],
@@ -79,14 +79,18 @@ def run_training_session(segment_config_filepaths: [],
     # in the (added) data in the training/validation dataset?
         
     # Now the "test" training dataset
-    testdata_dir, tmp = prep.prepare_traindatasets(
-            input_vector_label_filepath=conf.files['input_testlabels_filepath'],
-            wms_server_url=conf.general['wms_server_url'],
-            wms_layername=conf.general['wms_layername'],
-            output_basedir=conf.dirs['training_test_basedir'],
-            image_subdir=conf.dirs['image_subdir'],
-            mask_subdir=conf.dirs['mask_subdir'])
-    
+    if os.path.exists(conf.files['input_testlabels_filepath']):
+        testdata_dir, _ = prep.prepare_traindatasets(
+                input_vector_label_filepath=conf.files['input_testlabels_filepath'],
+                wms_server_url=conf.general['wms_server_url'],
+                wms_layername=conf.general['wms_layername'],
+                output_basedir=conf.dirs['training_test_basedir'],
+                image_subdir=conf.dirs['image_subdir'],
+                mask_subdir=conf.dirs['mask_subdir'])
+    else:
+        testdata_dir = None
+        logger.warn(f"Testlabels input file doesn't exist: {conf.files['input_testlabels_filepath']}")
+
     # Create base filename of model to use
     model_base_filename = mh.format_model_base_filename(
             conf.general['segment_subject'], traindata_version, conf.model['architecture'])
@@ -114,7 +118,7 @@ def run_training_session(segment_config_filepaths: [],
             logger.error(message)
             raise Exception(message)
     
-    # Start training
+    # If training is needed
     if train_needed is True:
         logger.info('Start training')
         model_preload_filepath = None
@@ -176,7 +180,7 @@ def run_training_session(segment_config_filepaths: [],
                     evaluate_mode=True)
 
     # Predict test dataset, if it exists
-    if os.path.exists(testdata_dir):
+    if testdata_dir is not None and os.path.exists(testdata_dir):
         seg.predict_dir(model=model,
                         input_image_dir=os.path.join(testdata_dir, 
                                                      conf.dirs['image_subdir']),
