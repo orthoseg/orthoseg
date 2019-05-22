@@ -37,6 +37,13 @@ def run_training_session(segment_config_filepaths: [],
     logger = log_helper.main_log_init(conf.dirs['log_training_dir'], __name__)      
     logger.info(f"Config used: \n{conf.pformat_config()}")
     
+    # First check if the segment_subject has a valid name
+    segment_subject = conf.general['segment_subject']
+    if segment_subject == 'MUST_OVERRIDE':
+        raise Exception("The segment_subject parameter needs to be overridden in the subject specific config file!!!") 
+    elif '_' in segment_subject:
+        raise Exception(f"The segment_subject parameter should not contain '_', so this is invalid: {segment_subject}!!!") 
+
     # Create the output dir's if they don't exist yet...
     for dir in [conf.dirs['project_dir'], conf.dirs['training_dir']]:
         if dir and not os.path.exists(dir):
