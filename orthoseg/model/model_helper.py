@@ -31,8 +31,11 @@ def get_max_data_version(model_dir: str) -> int:
         model_dir: the dir to search models in
     """
     models_df = get_models(model_dir)
-    train_data_version_max = models_df['train_data_version'].max()
-    return int(train_data_version_max)
+    if models_df is not None and len(models_df.index) > 0:
+        train_data_version_max = models_df['train_data_version'].max()
+        return int(train_data_version_max)
+    else:
+        return -1
 
 def format_model_base_filename(segment_subject: str,
                                train_data_version: int,
@@ -160,8 +163,8 @@ def get_models(model_dir: str,
 def get_best_model(model_dir: str,
                    model_base_filename: str = None) -> dict:
     """
-    Get the properties of the model with the highest combined accuracy in the 
-    dir.
+    Get the properties of the model with the highest combined accuracy for the highest 
+    traindata version in the dir.
     
     Args
         model_dir: dir containing the models
@@ -172,6 +175,13 @@ def get_best_model(model_dir: str,
     model_info_df = get_models(model_dir=model_dir,
                                model_base_filename=model_base_filename)
     
+    # If no model_base_filename provided, take highest data version
+    if model_base_filename is None:
+        max_data_version = get_max_data_version(model_dir)
+        if max_data_version == -1:
+            return None
+        model_info_df = model_info_df.loc[model_info_df['train_data_version'] == max_data_version]
+        
     if len(model_info_df) > 0:
         return model_info_df.loc[model_info_df['acc_combined'].values.argmax()]
     else :
