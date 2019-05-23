@@ -417,6 +417,7 @@ def getmap_to_file(wms: WebMapService,
                              size=size,
                              format=image_format,
                              transparent=transparent)
+            logger.debug(f"Finished doing request {response.geturl()}")
             
             # If a random sleep was specified... apply it
             if random_sleep:
