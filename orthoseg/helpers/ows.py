@@ -372,6 +372,7 @@ def getmap_to_file(wms: WebMapService,
         random_sleep: sleep a random time between 0 and this amount of seconds
                       between requests tot the WMS server
     """
+
     # If there isn't a filename supplied, create one...
     if output_filename is None:
         # Choose image extension based on format
@@ -406,8 +407,10 @@ def getmap_to_file(wms: WebMapService,
     nb_retries = 0
     while True:
         try:
-            logger.debug(f"Call GetMap for bbox {bbox}")
-            img = wms.getmap(layers=layers,
+            logger.debug(f"Start call GetMap for bbox {bbox}")
+
+
+            response = wms.getmap(layers=layers,
                              styles=layers_styles,
                              srs=srs,
                              bbox=bbox,
@@ -422,7 +425,7 @@ def getmap_to_file(wms: WebMapService,
             # Image was retrieved... so stop loop
             break
 
-        except:
+        except Exception as ex:
             # Retry 10 times...
             if nb_retries < 10:
                 nb_retries += 1
@@ -436,7 +439,7 @@ def getmap_to_file(wms: WebMapService,
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
     with open(output_filepath, 'wb') as image_file:
-        image_file.write(img.read())
+        image_file.write(response.read())
 
     # If geotiff is asked, check if the the coordinates are embedded...
     if image_format == FORMAT_GEOTIFF:
