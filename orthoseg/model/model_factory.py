@@ -31,8 +31,8 @@ preprocessing_fn = get_preprocessing('resnet34')
 x = preprocessing_fn(x)
 '''
 
-def get_model(encoder: str = 'inceptionresnetv2',
-              decoder: str = 'linknet',
+def get_model(encoder: str,
+              decoder: str,
               input_width: int = None,
               input_height: int = None,
               n_channels: int = 3,
