@@ -409,6 +409,9 @@ def getmap_to_file(wms: WebMapService,
         try:
             logger.debug(f"Start call GetMap for bbox {bbox}")
 
+            # For some coordinate systems apparently the axis ordered is configured wrong in LibOWS :-(
+            if srs.lower() == 'epsg:3059':
+                bbox = (bbox[1], bbox[0], bbox[3], bbox[2])
 
             response = wms.getmap(layers=layers,
                              styles=layers_styles,
