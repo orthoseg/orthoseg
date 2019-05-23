@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 Script to run a training session for greenhouse segmentation.
-
-@author: Pieter Roggemans
 """
 
 import os
@@ -23,9 +21,7 @@ def main():
     scriptdir = os.path.dirname(os.path.abspath(__file__))    
     train.run_training_session(segment_config_filepaths=[os.path.join(scriptdir, 'general.ini'), 
                                                          os.path.join(scriptdir, 'greenhouses.ini'),
-                                                         os.path.join(scriptdir, 'local_overrule.ini')],
-                               force_traindata_version=None,
-                               resume_train=False)
+                                                         os.path.join(scriptdir, 'local_overrule.ini')])
     
 if __name__ == '__main__':
     main()

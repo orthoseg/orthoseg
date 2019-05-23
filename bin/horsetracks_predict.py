@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 Module to run the prediction for horsetracks.
-
-@author: Pieter Roggemans
 """
 
 import os
@@ -22,8 +20,7 @@ def main():
     scriptdir = os.path.dirname(os.path.abspath(__file__))
     pred.run_prediction(segment_config_filepaths=[os.path.join(scriptdir, 'general.ini'), 
                                                   os.path.join(scriptdir, 'horsetracks.ini'),
-                                                  os.path.join(scriptdir, 'local_overrule.ini')], 
-                        force_model_traindata_version=None)
+                                                  os.path.join(scriptdir, 'local_overrule.ini')])
     
 if __name__ == '__main__':
     main()

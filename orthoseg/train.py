@@ -16,16 +16,12 @@ import orthoseg.segment as seg
 import orthoseg.prepare_traindatasets as prep
 import orthoseg.model.model_helper as mh
 
-def run_training_session(segment_config_filepaths: [], 
-                         force_traindata_version: int = None,
-                         resume_train: bool = False):
+def run_training_session(segment_config_filepaths: []):
     """
     Run a training session.
     
     Args
         segment_config_filepath: config(file) to use for the segmentation
-        force_traindata_version: specify version nb. of the traindata to use
-        resume_train: use the best existing model as basis to continue training
     """
     
     # TODO: add something to delete old data, predictions???
@@ -51,7 +47,11 @@ def run_training_session(segment_config_filepaths: [],
     
     # If the training data doesn't exist yet, create it    
     # First the "train" training dataset
-    if force_traindata_version is None:
+    force_model_traindata_version = conf.model.getint('force_model_traindata_version')
+    if force_model_traindata_version > -1:
+        traindata_dir = f"{conf.dirs['training_train_basedir']}_{force_model_traindata_version:02d}"
+        traindata_version = force_model_traindata_version            
+    else:
         logger.info("Prepare train, validation and test data")
         traindata_dir, traindata_version = prep.prepare_traindatasets(
                 input_vector_label_filepath=conf.files['input_trainlabels_filepath'],
@@ -60,9 +60,6 @@ def run_training_session(segment_config_filepaths: [],
                 output_basedir=conf.dirs['training_train_basedir'],
                 image_subdir=conf.dirs['image_subdir'],
                 mask_subdir=conf.dirs['mask_subdir'])
-    else:
-        traindata_dir = f"{conf.dirs['training_train_basedir']}_{force_traindata_version:02d}"
-        traindata_version = force_traindata_version            
     logger.info(f"Traindata dir to use is {traindata_dir}, with traindata_version: {traindata_version}")
 
     # Now the "validation" training dataset
@@ -101,6 +98,7 @@ def run_training_session(segment_config_filepaths: [],
                                    model_base_filename=model_base_filename)
 
     # Check if training is needed
+    resume_train = conf.model.getboolean('resume_train')
     if resume_train is False:
         # If no (best) model found, training needed!
         if best_model is None:

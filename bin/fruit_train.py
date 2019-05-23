@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 Script with commands to run a training or prediction session.
-
-@author: Pieter Roggemans
 """
 
 import os
@@ -24,13 +22,10 @@ def main():
     scriptdir = os.path.dirname(os.path.abspath(__file__))
     train.run_training_session(segment_config_filepaths=[os.path.join(scriptdir, 'general.ini'), 
                                                          os.path.join(scriptdir, 'fruit.ini'),
-                                                         os.path.join(scriptdir, 'local_overrule.ini')],
-                               force_traindata_version=None,
-                               resume_train=False)
+                                                         os.path.join(scriptdir, 'local_overrule.ini')])
     pred.run_prediction(segment_config_filepaths=[os.path.join(scriptdir, 'general.ini'), 
                                                   os.path.join(scriptdir, 'fruit.ini'),
-                                                  os.path.join(scriptdir, 'local_overrule.ini')], 
-                        force_model_traindata_version=None)
+                                                  os.path.join(scriptdir, 'local_overrule.ini')])
 
 if __name__ == '__main__':
     main()

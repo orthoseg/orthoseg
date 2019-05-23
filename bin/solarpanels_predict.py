@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 Module to run a prediction.
-
-@author: Pieter Roggemans
 """
 
 import os
@@ -22,8 +20,7 @@ def main():
     scriptdir = os.path.dirname(os.path.abspath(__file__))
     pred.run_prediction(segment_config_filepaths=[os.path.join(scriptdir, 'general.ini'), 
                                                   os.path.join(scriptdir, 'solarpanels.ini'),
-                                                  os.path.join(scriptdir, 'local_overrule.ini')], 
-                        force_model_traindata_version=None)
+                                                  os.path.join(scriptdir, 'local_overrule.ini')])
     
 if __name__ == '__main__':
     main()
