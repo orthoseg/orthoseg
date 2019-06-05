@@ -84,8 +84,10 @@ def run_prediction(segment_config_filepaths: str):
                         evaluate_mode=False)
     
     # Now postprocess the vector results, so the end result is one big file
-    output_vector_dir = conf.dirs['output_vector_dir']
-    output_filepath = os.path.join(output_vector_dir, f"{conf.general['segment_subject']}_{model_traindata_version}.shp")
+    output_vector_base_dir = conf.dirs['output_vector_dir']
+    output_base_name = f"{conf.general['segment_subject']}_{model_traindata_version:02d}"
+    output_vector_dir = os.path.join(output_vector_base_dir, output_base_name)
+    output_filepath = os.path.join(output_vector_dir, f"{output_base_name}.gpkg")
     postp.postprocess_vectors(input_dir=predict_output_dir,
                               output_filepath = output_filepath,
                               evaluate_mode=False,
