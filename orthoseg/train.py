@@ -118,6 +118,53 @@ def run_training_session(segment_config_filepaths: []):
     
     # If training is needed
     if train_needed is True:
+
+        # If a model already exists, use it to predict (possibly new) training and 
+        # validation dataset. This way it is possibl to have a quick check on errors
+        # in (new) added labels in the datasets.
+
+        # Get the current best model that already exists for this subject
+        best_model_curr = mh.get_best_model(model_dir=conf.dirs['model_dir'])
+        if best_model_curr is not None:
+            # Load prediction model...
+            model_json_filepath = conf.files['model_json_filepath']
+            logger.info(f"Load model from {model_json_filepath}")
+            with open(model_json_filepath, 'r') as src:
+                model_json = src.read()
+                model = kr.models.model_from_json(model_json)
+            logger.info(f"Load weights from {best_model_curr['filepath']}")                
+            model.load_weights(best_model_curr['filepath'])
+            logger.info("Model weights loaded")
+
+            # Prepare output subdir to be used for predictions
+            predict_out_subdir = os.path.splitext(best_model_curr['filename'])[0]
+            
+            # Predict training dataset
+            seg.predict_dir(model=model,
+                            input_image_dir=os.path.join(traindata_dir,
+                                                        conf.dirs['image_subdir']),
+                            output_base_dir=os.path.join(traindata_dir,
+                                                        predict_out_subdir),
+                            projection_if_missing=conf.general['projection'],
+                            input_mask_dir=os.path.join(traindata_dir,
+                                                        conf.dirs['mask_subdir']),
+                            batch_size=int(conf.train['batch_size_predict']), 
+                            evaluate_mode=True)
+                        
+            # Predict validation dataset
+            seg.predict_dir(model=model,
+                            input_image_dir=os.path.join(validationdata_dir,
+                                                        conf.dirs['image_subdir']),
+                            output_base_dir=os.path.join(validationdata_dir,
+                                                        predict_out_subdir),
+                            projection_if_missing=conf.general['projection'],
+                            input_mask_dir=os.path.join(validationdata_dir,
+                                                        conf.dirs['mask_subdir']),
+                            batch_size=int(conf.train['batch_size_predict']), 
+                            evaluate_mode=True)
+            del model
+        
+        # Now we can really start training
         logger.info('Start training')
         model_preload_filepath = None
         if best_model is not None:
@@ -211,6 +258,8 @@ def run_training_session(segment_config_filepaths: []):
     for i in range(20):
         #print(gc.collect())
         gc.collect()
+
+    # TODO: send email if training ready...
     
 if __name__ == '__main__':
     None
