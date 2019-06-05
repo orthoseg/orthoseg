@@ -7,13 +7,18 @@
 import logging
 import os
 import glob
+import time
 
+import concurrent.futures as futures
+import fiona
+import geopandas as gpd
 import numpy as np
 import shapely.ops as sh_ops
-import geopandas as gpd
+import shapely.geometry as sh_geom
 
 import orthoseg.vector.simplify_visval as simpl_vis
 import orthoseg.vector.simplify_rdp_plus as simpl_rdp_plus
+import orthoseg.helpers.geofile as geofile_util
 
 #-------------------------------------------------------------
 # First define/init some general variables/constants
@@ -29,7 +34,7 @@ def merge_vector_files(input_dir: str,
                        output_filepath: str,
                        apply_on_border_distance: float = None,
                        evaluate_mode: bool = False,
-                       force: bool = False) -> gpd.GeoDataFrame:
+                       force: bool = False):
     """
     Merges all geojson files in input dir (recursively) and writes it to file.
     
@@ -44,6 +49,8 @@ def merge_vector_files(input_dir: str,
         force:
     """
     
+    swap_xy = False
+                        
     # Check if we need to do anything anyway
     if not force and os.path.exists(output_filepath):
         logger.info(f"Force is false and output file exists already, skip: {output_filepath}")
@@ -62,69 +69,156 @@ def merge_vector_files(input_dir: str,
     if len(in_filepaths) == 0:
         logger.warn("No files found to process... so return")
         raise RuntimeWarning("NOFILESFOUND")
-    else:
-        logger.info(f"Found {len(in_filepaths)} files to process")
 
-    # Loop through all files to be processed...
-    geoms_gdf = None
-    sorted_filepaths = sorted(in_filepaths)
-    for i, in_filepath in enumerate(sorted_filepaths):
-        
-        if evaluate_mode and i >= 100:
-            logger.info("Evaluate mode and 100 files processed, so stop")
-            break
-            
-        # Read the geoms in the file and add to general list of geoms
-        logger.debug(f"Read input geom wkt file: {in_filepath}")
-        geoms_file_gdf = gpd.read_file(in_filepath)
-        
-        # If caller wants on_border column to be added
-        if apply_on_border_distance is not None:
-            
-            # Implementation is not finished, and don't really need it anymore
-            # Just keep it here for if it should be revived.
-            raise Exception("Not implemented!!!")
-            '''            
-            for j, row in geoms_file_gdf.iterrows():
-                basename = os.path.basename(in_filepath)
-                splitted = basename.split('_')
-                xmin = float(splitted[0]) + ((64*0.25) + 1)
-                ymin = float(splitted[1]) + ((64*0.25) + 1)
-                xmax = float(splitted[2]) - ((64*0.25) + 1)
-                ymax = float(splitted[3]) - ((64*0.25) + 1)
-                
-                if(row.geometry.bounds[0] <= xmin 
-                   or row.geometry.bounds[1] <= ymin
-                   or row.geometry.bounds[2] >= xmax
-                   or row.geometry.bounds[3] >= ymax):
-                    geoms_file_gdf.loc[j, 'onborder'] = 1
-                else:
-                    geoms_file_gdf.loc[j, 'onborder'] = 0
-            '''
-            
-        if i == 0:
-            geoms_gdf = geoms_file_gdf
-            
-            # Check if the input has a crs
-            if geoms_gdf.crs is None:
-                message = "STOP: input does not have a crs!"
-                logger.critical(message)
-                raise Exception(message)      
-        else:
-            geoms_gdf = geoms_gdf.append(geoms_file_gdf, sort=False)
-        
-        if evaluate_mode:
-            logger.debug(f"File {i} contains {len(geoms_file_gdf)} geoms: {os.path.basename(in_filepath)}")
-        
-    logger.info(f"Write the {len(geoms_gdf)} geoms to {output_filepath}")
+    logger.info(f"Found {len(in_filepaths)} files to process")
+
+    # Get some info about the first input file to use as input for the output file
+    with fiona.open(in_filepaths[0], 'r') as in_file:
+        input_crs = in_file.crs
+        input_schema = in_file.schema
+
+    try:
+        # Open the destination file, for appending, and use the info as read from the first input file
+        with fiona.open(output_filepath, 'w', driver=geofile_util.get_driver(output_filepath), 
+                        layer='default', crs=input_crs, schema=input_schema) as output_file:
+
+            # Loop through all files to be processed...
+            max_parallel = 24
+            with futures.ThreadPoolExecutor(max_parallel) as read_pool:
+
+                sorted_filepaths = sorted(in_filepaths)
+                #geoms_gdf = None
+                files_busy = {}
+                last_file_busy = -1 
+                geom_list = []
+                nb_files = len(sorted_filepaths)
+                while True:
+
+                    # Start the next read if the limit isn't reached
+                    if((not (evaluate_mode and i >= 100))
+                       and len(files_busy) <= max_parallel*2):
+
+                        last_file_busy += 1
+                        in_filepath = sorted_filepaths[last_file_busy]
+                    
+                        # Read file with fiona
+                        future = read_pool.submit(read_file, in_filepath)
+                        files_busy[in_filepath] = {'read_filepath': in_filepath,
+                                                   'read_future': future}
+
     
-    # Add id column and write to file
-    # Remark: reset index because append retains the original index values
-    geoms_gdf.reset_index(inplace=True, drop=True)
-    geoms_gdf['id'] = geoms_gdf.index    
-    geoms_gdf.to_file(output_filepath, driver="GeoJSON")    
-    
-    return geoms_gdf
+                        """
+                        # TODO: Pandas implementation. Once pandas supports appending to file in to_file, reactivate this code
+
+                        # Read the geoms in the file and add to general list of geoms
+                        logger.debug(f"Read input geom wkt file: {in_filepath}")
+                        geoms_file_gdf = gpd.read_file(in_filepath)
+                        
+                        # If caller wants on_border column to be added
+                        if apply_on_border_distance is not None:
+                            
+                            # Implementation is not finished, and don't really need it anymore
+                            # Just keep it here for if it should be revived.
+                            raise Exception("Not implemented!!!")
+                            '''            
+                            for j, row in geoms_file_gdf.iterrows():
+                                basename = os.path.basename(in_filepath)
+                                splitted = basename.split('_')
+                                xmin = float(splitted[0]) + ((64*0.25) + 1)
+                                ymin = float(splitted[1]) + ((64*0.25) + 1)
+                                xmax = float(splitted[2]) - ((64*0.25) + 1)
+                                ymax = float(splitted[3]) - ((64*0.25) + 1)
+                                
+                                if(row.geometry.bounds[0] <= xmin 
+                                or row.geometry.bounds[1] <= ymin
+                                or row.geometry.bounds[2] >= xmax
+                                or row.geometry.bounds[3] >= ymax):
+                                    geoms_file_gdf.loc[j, 'onborder'] = 1
+                                else:
+                                    geoms_file_gdf.loc[j, 'onborder'] = 0
+                            '''
+                            
+                        if i == 0:
+                            geoms_gdf = geoms_file_gdf
+                            
+                            # Check if the input has a crs
+                            if geoms_gdf.crs is None:
+                                message = "STOP: input does not have a crs!"
+                                logger.critical(message)
+                                raise Exception(message)      
+                        else:
+                            geoms_gdf = geoms_gdf.append(geoms_file_gdf, sort=False)
+                        """
+                    else:
+                        time.sleep(0.01)
+                    
+                    # Treat files that are ready 
+                    files_ready = [] 
+                    for filepath_busy in files_busy:
+                        # If read is still running, skip to next read
+                        read_future = files_busy[filepath_busy]['read_future']
+                        if read_future.running() is True:
+                            continue
+
+                        # Get result
+                        try:
+                            records_read = read_future.result()
+                            for record in records_read:
+                                # If geom is on the border keep it
+                                if record['properties']['onborder'] == 1:
+                                    if swap_xy:
+                                        geom = sh_geom.shape(record['geometry'])  
+                                        geom_simplified = sh_ops.transform(lambda x, y: (y, x), geom_simplified)
+                                        record['geometry'] = sh_geom.mapping(geom_simplified)
+                                    geom_list.append(record)
+                                else:
+                                    geom = sh_geom.shape(record['geometry'])  
+                                    
+                                    # If too small... skip
+                                    if geom.area < 1:
+                                        continue
+                                    
+                                    # Simplify
+                                    geom_simplified = geom.simplify(0.25)
+                                    if swap_xy:
+                                        geom_simplified = sh_ops.transform(lambda x, y: (y, x), geom_simplified)
+                                    record['geometry'] = sh_geom.mapping(geom_simplified)
+                                    geom_list.append(record)
+                        except Exception as ex:
+                            logger.exception(f"Error reading {filepath_busy}")
+                        finally:
+                            files_ready.append(filepath_busy) 
+                    
+                    # Remove finished files from busy list...
+                    for filepath in files_ready:
+                        del files_busy[filepath]
+
+                    # If all files are treated or enough geoms are read, write
+                    if(len(geom_list) > 0
+                       and (last_file_busy == (nb_files-1)
+                            or (last_file_busy >= 100 and evaluate_mode) 
+                            or len(geom_list) > 18000)):
+                        try:
+                            output_file.writerecords(geom_list)
+                            geom_list = []
+                            logger.info(f"{last_file_busy} of {nb_files} processed ({(last_file_busy*100/nb_files):0.0f}%)")
+                        except Exception as ex:
+                            message = f"Error processing geom records starting at {geom_list[0]}"
+                            logger.exception(message)
+                            raise Exception(message) from ex
+
+                    # If completely ready, stop
+                    if(len(files_busy) == 0
+                       and (last_file_busy == (nb_files-1)
+                            or (last_file_busy >= 100 and evaluate_mode))):
+                        break
+    except Exception as ex:
+        os.rename(output_filepath, output_filepath + "_error")
+        raise Exception(f"Error while creating file {output_filepath}, renamed to ...error") from ex
+
+def read_file(filepath): 
+    with fiona.open(filepath, 'r') as in_file:
+        return list(in_file)
 
 def unary_union_with_onborder(input_gdf: gpd.GeoDataFrame,
                               input_filepath: str,
@@ -178,7 +272,7 @@ def unary_union_with_onborder(input_gdf: gpd.GeoDataFrame,
     # Rem: Reset index because append retains the original index values
     union_gdf.reset_index(inplace=True, drop=True)
     union_gdf['id'] = union_gdf.index
-    union_gdf.to_file(output_filepath, driver="GeoJSON")
+    geofile_util.to_file(union_gdf, output_filepath)
     return union_gdf
             
 def extract_polygons(in_geom) -> []:
@@ -239,7 +333,7 @@ def remove_inner_rings(geometry,
     # If only small rings need to be removed... loop over them
     ring_coords_to_keep = []
     small_ring_found = False
-    for i, ring in enumerate(geometry.interiors):
+    for ring in geometry.interiors:
         if abs(ring.area) <= min_area_to_keep:
             small_ring_found = True
         else:
@@ -346,12 +440,12 @@ def create_grid(xmin: float,
     polygons = []
     cell_left = xmin
     cell_right = xmin + cell_width
-    for i in range(cols):
+    for _ in range(cols):
         if cell_right > xmax:
             break
         cell_top = ymax
         cell_bottom = ymax-cell_height
-        for j in range(rows):
+        for _ in range(rows):
             if cell_bottom < ymin:
                 break
             polygons.append(sh_ops.Polygon([(cell_left, cell_top), (cell_right, cell_top), (cell_right, cell_bottom), (cell_left, cell_bottom)])) 
@@ -396,7 +490,7 @@ def main():
     '''
     grid_gdf = create_grid(xmin=0, ymin=0, xmax=300000, ymax=300000,
                            cell_width=2000, cell_height=2000)
-    grid_gdf.to_file("X:\\Monitoring\\OrthoSeg\\grid_2000.shp")
+    geofile_util.to_file(grid_gdf, "X:\\Monitoring\\OrthoSeg\\grid_2000.gpkg")
     '''
     
 if __name__ == '__main__':
