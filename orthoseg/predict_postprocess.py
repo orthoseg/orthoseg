@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 Module with functions for post-processing prediction masks towards polygons.
-
-@author: Pieter Roggemans
 """
 
 import logging
@@ -20,6 +18,7 @@ import shapely as sh
 import geopandas as gpd
 
 import orthoseg.vector.vector_helper as vh
+import orthoseg.helpers.geofile as geofile_util
 
 #-------------------------------------------------------------
 # First define/init some general variables/constants
@@ -162,12 +161,14 @@ def postprocess_prediction(image_filepath: str,
         image_pred_uint8 = (image_pred_arr * 255).astype(np.uint8)
         image_pred_uint8_bin = to_binary_uint8(image_pred_uint8, 
                                                thresshold_ok_uint8)
+        image_pred_uint8_base10 = (image_pred_arr * 10).astype(np.uint8)
+        image_pred_uint8_base10 = image_pred_uint8_base10 * 25
+
         if image_pred_uint8_cleaned_bin is None:
             image_pred_uint8_cleaned_bin = image_pred_uint8_bin
 
         # Make sure the output dir exists...
-        if not os.path.exists(output_dir):
-            os.mkdir(output_dir)
+        os.makedirs(output_dir, exist_ok=True)
                 
         # If in evaluate mode, put a prefix in the file name
         pred_prefix_str = ''
@@ -265,26 +266,30 @@ def postprocess_prediction(image_filepath: str,
         image_width = image_pred_arr.shape[0]
         image_height = image_pred_arr.shape[1]
 
-        # Now write original prediction (as uint8) to file
-        logger.debug("Save detailed (uint8) prediction")
+        # Now write +- original prediction (as uint8) to file
+        logger.debug("Save semi-detailed (uint8, 10 different values) prediction")
+        
         image_pred_orig_filepath = f"{output_dir}{os.sep}{pred_prefix_str}{image_filename_noext}_pred.tif"
-        with rio.open(image_pred_orig_filepath, 'w', driver='GTiff', compress='lzw',
+        with rio.open(image_pred_orig_filepath, 'w', driver='GTiff', 
+                      compress='lzw', predictor=2, num_threads=4, tiled='no',
                       height=image_height, width=image_width, 
                       count=1, dtype=rio.uint8, crs=image_crs, transform=image_transform) as dst:
-            dst.write(image_pred_uint8, 1)
+            dst.write(image_pred_uint8_base10, 1)
             
         # Polygonize result
         # Returns a list of tupples with (geometry, value)
-        shapes = rio_features.shapes(image_pred_uint8_bin,
-                                     mask=image_pred_uint8_bin,
-                                     transform=image_transform)
-    
+        polygonized_records = list(rio_features.shapes(
+                image_pred_uint8_bin, mask=image_pred_uint8_bin, transform=image_transform))
+        
+        # If nothing found, we can return
+        if len(polygonized_records) == 0:
+            logger.warning(f"Despite that all-black images are normally not written, this prediction didn't result in any polygons: {image_pred_orig_filepath}")
+            return 
+
         # Convert shapes to shapely geoms 
         geoms = []
-        for shape in list(shapes):
-            geom, value = shape
-            geom_sh = sh.geometry.shape(geom)
-            geoms.append(geom_sh)   
+        for geom, value in polygonized_records:
+            geoms.append(sh.geometry.shape(geom))   
         geoms_gdf = gpd.GeoDataFrame(geoms, columns=['geometry'])
         geoms_gdf.crs = image_crs
         
@@ -301,7 +306,7 @@ def postprocess_prediction(image_filepath: str,
                              image_bounds[3]-border_pixels_to_ignore*y_pixsize)
             geoms_gdf = vh.calc_onborder(geoms_gdf, border_bounds)
             geom_filepath = f"{output_dir}{os.sep}{pred_prefix_str}{image_filename_noext}_pred_cleaned.geojson"
-            geoms_gdf.to_file(geom_filepath, driver="GeoJSON")
+            geofile_util.to_file(geoms_gdf, geom_filepath)
             
         else:
             # For easier evaluation, write the cleaned version as raster
@@ -345,11 +350,14 @@ def postprocess_prediction(image_filepath: str,
                     if not geom_simpl.is_empty:
                         geoms_simpl.append(geom_simpl)
                     
+                    '''
                     # Also do the simplify with Visvalingam algo
                     # -> seems to give better results for this application
+                    # Throws away too much info!!!
                     geom_simpl_vis = vh.simplify_visval(geom, 5)
                     if geom_simpl_vis is not None:
                         geoms_simpl_vis.append(geom_simpl_vis)
+                    '''
                 
                 # Write simplified wkt result to raster for comparing. 
                 if len(geoms_simpl) > 0:
@@ -442,21 +450,15 @@ def postprocess_vectors(input_dir: str,
     output_basefilename_noext, output_ext = os.path.splitext(output_filename)
     output_ext = output_ext.lower()
     
-    if output_ext == '.shp':
-        output_driver = "ESRI Shapefile"
-    else:
-        message = f"Unsuported output extension: {output_ext}"
-        logger.error(message)
-        raise Exception(message)
-
     # Read and merge input files
     geoms_orig_filepath = os.path.join(
             output_dir, f"{output_basefilename_noext}_orig{output_ext}")    
     try:
-        geoms_gdf = vh.merge_vector_files(input_dir=input_dir,
-                                          output_filepath=geoms_orig_filepath,
-                                          evaluate_mode=evaluate_mode,
-                                          force=force)               
+        vh.merge_vector_files(input_dir=input_dir,
+                              output_filepath=geoms_orig_filepath,
+                              evaluate_mode=evaluate_mode,
+                              force=force)               
+        geoms_gdf = geofile_util.read_file(geoms_orig_filepath)
     except RuntimeWarning as ex:
         logger.warn(f"No vector files found to merge, ex: {ex}")
         if str(ex) == "NOFILESFOUND":
@@ -478,7 +480,7 @@ def postprocess_vectors(input_dir: str,
     geoms_gt5m2_gdf = None
     if force or not os.path.exists(geoms_gt5m2_filepath):
         if geoms_union_gdf is None:
-            geoms_union_gdf = gpd.read_file(geoms_union_filepath)
+            geoms_union_gdf = geofile_util.read_file(geoms_union_filepath)
         geoms_gt5m2_gdf = geoms_union_gdf.loc[(geoms_union_gdf.geometry.area > 5)]
         # TODO: setting the CRS here hardcoded should be removed
         if geoms_gt5m2_gdf.crs is None:
@@ -490,7 +492,7 @@ def postprocess_vectors(input_dir: str,
         geoms_gt5m2_gdf.reset_index(inplace=True, drop=True)
         #geoms_gt5m2_gdf['id'] = geoms_gt5m2_gdf.index 
         geoms_gt5m2_gdf.loc[:, 'id'] = geoms_gt5m2_gdf.index 
-        geoms_gt5m2_gdf.to_file(geoms_gt5m2_filepath, driver=output_driver)
+        geofile_util.to_file(geoms_gt5m2_gdf, geoms_gt5m2_filepath)
 
     # Simplify with standard shapely algo 
     # -> if preserve_topology False, this is Ramer-Douglas-Peucker, otherwise ?
@@ -501,7 +503,7 @@ def postprocess_vectors(input_dir: str,
         logger.info("Simplify with default shapely algo")
         # If input geoms not yet in memory, read from file
         if geoms_gt5m2_gdf is None:
-            geoms_gt5m2_gdf = gpd.read_file(geoms_gt5m2_filepath)
+            geoms_gt5m2_gdf = geofile_util.read_file(geoms_gt5m2_filepath)
 
         # Simplify, fix invalid geoms, remove empty geoms, 
         # apply multipart-to-singlepart, only > 5m² + write
@@ -525,8 +527,7 @@ def postprocess_vectors(input_dir: str,
         geoms_simpl_shap_gdf['id'] = geoms_simpl_shap_gdf.index 
         geoms_simpl_shap_gdf['nbcoords'] = geoms_simpl_shap_gdf.geometry.apply(
                 lambda geom: vh.get_nb_coords(geom))
-        geoms_simpl_shap_gdf.to_file(geoms_simpl_shap_filepath, 
-                                     driver=output_driver)
+        geofile_util.to_file(geoms_simpl_shap_gdf, geoms_simpl_shap_filepath)
         logger.info(f"Result written to {geoms_simpl_shap_filepath}")
         
     # Apply begative buffer on result
@@ -536,7 +537,7 @@ def postprocess_vectors(input_dir: str,
         logger.info("Apply negative buffer")
         # If input geoms not yet in memory, read from file
         if geoms_simpl_shap_gdf is None:
-            geoms_simpl_shap_gdf = gpd.read_file(geoms_simpl_shap_filepath)
+            geoms_simpl_shap_gdf = geofile_util.read_file(geoms_simpl_shap_filepath)
             
         # Simplify, fix invalid geoms, remove empty geoms, 
         # apply multipart-to-singlepart, only > 5m² + write
@@ -567,8 +568,7 @@ def postprocess_vectors(input_dir: str,
         geoms_simpl_shap_m1m_gdf['id'] = geoms_simpl_shap_m1m_gdf.index 
         geoms_simpl_shap_m1m_gdf['nbcoords'] = geoms_simpl_shap_m1m_gdf.geometry.apply(
                 lambda geom: vh.get_nb_coords(geom))        
-        geoms_simpl_shap_m1m_gdf.to_file(geoms_simpl_shap_m1m_filepath, 
-                                     driver=output_driver)
+        geofile_util.to_file(geoms_simpl_shap_m1m_gdf, geoms_simpl_shap_m1m_filepath)
         logger.info(f"Result written to {geoms_simpl_shap_m1m_filepath}")
         
     '''
@@ -578,7 +578,7 @@ def postprocess_vectors(input_dir: str,
     if force or not os.path.exists(geoms_simpl_vis_filepath):
         # If input geoms not yet in memory, read from file
         if geoms_gt5m2_gdf is None:
-            geoms_gt5m2_gdf = gpd.read_file(geoms_gt5m2_filepath)
+            geoms_gt5m2_gdf = geofile_util.read_file(geoms_gt5m2_filepath)
 
         # Simplify, fix invalid geoms, remove empty geoms, 
         # apply multipart-to-singlepart, only > 5m² + write
@@ -597,8 +597,7 @@ def postprocess_vectors(input_dir: str,
         # Qgis wants unique id column, otherwise weird effects!
         geoms_simpl_vis_gdf.reset_index(inplace=True)
         geoms_simpl_vis_gdf['id'] = geoms_simpl_vis_gdf.index        
-        geoms_simpl_vis_gdf.to_file(geoms_simpl_vis_filepath, 
-                                          driver="GeoJSON")
+        geofile_util.to_file(geoms_simpl_vis_gdf, geoms_simpl_vis_filepath)
         logger.info(f"Result written to {geoms_simpl_vis_filepath}")
     
     # Also do the simplify with Ramer-Douglas-Peucker "plus" algo:
@@ -608,7 +607,7 @@ def postprocess_vectors(input_dir: str,
     if force or not os.path.exists(geoms_simpl_rdpp_filepath):
         # If input geoms not yet in memory, read from file
         if geoms_gt5m2_gdf is None:
-            geoms_gt5m2_gdf = gpd.read_file(geoms_gt5m2_filepath)
+            geoms_gt5m2_gdf = geofile_util.read_file(geoms_gt5m2_filepath)
 
         # Simplify, fix invalid geoms, remove empty geoms, 
         # apply multipart-to-singlepart, only > 5m² + write
@@ -624,45 +623,15 @@ def postprocess_vectors(input_dir: str,
         # Qgis wants unique id column, otherwise weird effects!
         geoms_simpl_rdpp_gdf.reset_index(inplace=True)
         geoms_simpl_rdpp_gdf['id'] = geoms_simpl_rdpp_gdf.index               
-        geoms_simpl_rdpp_gdf.to_file(geoms_simpl_rdpp_filepath, 
-                                     driver="GeoJSON")
+        geofile_util.to_file(geoms_simpl_rdpp_gdf, geoms_simpl_rdpp_filepath)
         logger.info(f"Result written to {geoms_simpl_rdpp_filepath}")
     '''
     
 #-------------------------------------------------------------
 # If the script is ran directly...
 #-------------------------------------------------------------
-    
-def main():
-    
-    # Init
-    project_dir = "X:\\PerPersoon\\PIEROG\\Taken\\2018\\2018-08-12_AutoSegmentation\\greenhouses"
-    log_dir = os.path.join(project_dir, "log")
-    import log_helper
-    global logger
-    logger = log_helper.main_log_init(log_dir, __name__)
 
-    # Read the configuration
-    import config_helper as conf
-    conf.read_config(config_filepaths=['general.ini', 
-                                       'greenhouses.ini',
-                                       'local_overrule.ini'])
-
-    # Input and output dir
-    input_dir = "X:\\Monitoring\\OrthoSeg\\_input_images\\BEFL_aerial_winter_2018_rgb\\1024x1024_128pxOverlap_greenhouses_26_inceptionresnetv2+unet_0.96762_0.95358_0"
-    output_vector_dir = conf.dirs['output_vector_dir']
-    output_filepath = os.path.join(output_vector_dir, f"{conf.general['segment_subject']}_test.shp")
-    
-    postprocess_vectors(input_dir=input_dir,
-                        output_filepath=output_filepath,
-                        evaluate_mode=True,
-                        force=True)
-
-    '''    
+if __name__ == '__main__':
     message = "Not implemented"
     logger.error(message)
     raise Exception(message)
-    '''
-
-if __name__ == '__main__':
-    main()
