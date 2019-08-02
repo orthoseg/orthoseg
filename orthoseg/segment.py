@@ -375,12 +375,13 @@ def predict_dir(model,
     # Loop through all files to process them...
     image_filepaths_sorted = sorted(image_filepaths)
     nb_processed = 0
+    nb_read_busy = 0
     last_image_started = -1
     images_busy = {}
     start_time = None
     prev_start_time_batch_predict = None
-    with futures.ThreadPoolExecutor(batch_size*3) as read_pool:
-        with futures.ThreadPoolExecutor(batch_size*3) as postpredict_save_pool:
+    with futures.ThreadPoolExecutor(batch_size) as read_pool:
+        with futures.ThreadPoolExecutor(batch_size) as postpredict_save_pool:
             while True:
         
                 # If the maximum number of images to treat simultaenously isn't met yet, start processing another
@@ -423,14 +424,20 @@ def predict_dir(model,
 
                     # Start reading the image
                     logger.debug(f"Start read for image {image_filepath}")
-                    read_future = read_pool.submit(read_image,                          # Function 
-                                                   image_filepath,  # Arg 1
+                    nb_read_busy += 1
+                    read_future = read_pool.submit(read_image,              # Function 
+                                                   image_filepath,          # Arg 1
                                                    projection_if_missing)
                     images_busy[image_filepath]['read_future'] = read_future
+
+                    images_ready_to_predict = [image_filepath for image_filepath in images_busy if images_busy[image_filepath]['read_ready'] == True]
+                    if (len(images_ready_to_predict) + nb_read_busy) < batch_size * 3:
+                        continue
                 else:
+                    logger.info(f"Many busy: {len(images_busy)}")
                     # Sleep a little bit...
                     # TODO: check if this is the best spot to sleep
-                    time.sleep(0.001)
+                    #time.sleep(0.001)
 
                 # Check if there are reads ready...
                 for image_busy_filepath in images_busy:
@@ -444,6 +451,7 @@ def predict_dir(model,
                             try:
                                 # Get the results from the read
                                 read_result = read_future.result()
+                                nb_read_busy -= 1
                                 images_busy[image_busy_filepath]['image_crs'] = read_result['image_crs']
                                 images_busy[image_busy_filepath]['image_transform'] = read_result['image_transform']
                                 images_busy[image_busy_filepath]['image_data'] = read_result['image_data']  
@@ -465,25 +473,27 @@ def predict_dir(model,
 
                 # If enough images have been read to predict, predict...
                 images_ready_to_predict = [image_filepath for image_filepath in images_busy if images_busy[image_filepath]['read_ready'] == True]
-                nb_images_ready_to_predict = len(images_ready_to_predict) 
+                nb_images_ready_to_predict = len(images_ready_to_predict)
+                logger.info(f"nb_images_ready_to_predict: {nb_images_ready_to_predict}") 
                 start_time_batch_predict = None
                 if(nb_images_ready_to_predict >= batch_size 
                    or (last_image_started >= (nb_todo-1) and nb_images_ready_to_predict > 0)):
 
-                    # Init start time at the first batch getting predicted
+                    # Get the first batch_size images to predict them...
+                    start_time_batch_predict = datetime.datetime.now()
+                    images_to_predict = images_ready_to_predict[:batch_size]
+                    nb_images_to_predict = len(images_to_predict)
+                    
+                    # Init start time after the first batch getting predicted, because first can take
+                    # long time 
                     if start_time is None:
                         start_time = datetime.datetime.now()
 
-                    # Get the first batch_size images to predict them...
-                    images_to_predict = images_ready_to_predict[:batch_size]
-                    start_time_batch_predict = datetime.datetime.now()
-                    nb_images_to_predict = len(images_to_predict)
-                    
                     # Predict!
                     logger.info(f"Start prediction for {nb_images_to_predict} images")
                     image_datas = [images_busy[image_path].get('image_data') for image_path in images_to_predict]
                     image_pred_arr = model.predict_on_batch(np.asarray(image_datas))
-                    
+
                     # Copy the results to the images_busy dict
                     for j, image_path in enumerate(images_to_predict):
                         images_busy[image_path]['image_pred_data'] = image_pred_arr[j]
@@ -494,10 +504,10 @@ def predict_dir(model,
 
                     # If prediction isn't ready yet or postprocessing is already ready... continue 
                     if(images_busy[image_busy_filepath]['predict_ready'] is False
-                    or images_busy[image_busy_filepath]['postprocess_save_ready'] is True):
+                       or images_busy[image_busy_filepath]['postprocess_save_ready'] is True):
                         continue
 
-                    # Image is ready to postprocess, if it postprocess isn't busy yet, start it.
+                    # Image is ready to postprocess, if its postprocess isn't busy yet, start it.
                     postprocess_save_future = images_busy[image_busy_filepath]['postprocess_save_future']
                     if postprocess_save_future is None:
                         postprocess_save_future = postpredict_save_pool.submit(

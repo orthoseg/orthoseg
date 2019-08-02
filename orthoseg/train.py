@@ -120,7 +120,7 @@ def run_training_session(segment_config_filepaths: []):
     if train_needed is True:
 
         # If a model already exists, use it to predict (possibly new) training and 
-        # validation dataset. This way it is possibl to have a quick check on errors
+        # validation dataset. This way it is possible to have a quick check on errors
         # in (new) added labels in the datasets.
 
         # Get the current best model that already exists for this subject
