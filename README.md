@@ -28,6 +28,6 @@ following steps:
       I use the conda-forge channel because the packages there are generally 
       better maintained.
       ```     
-      conda install --channel conda-forge keras-gpu tensorflow-gpu rasterio geopandas scikit-image owslib spyder
+      conda install --channel conda-forge keras-gpu tensorflow-gpu rasterio geopandas scikit-image owslib
       pip install segmentation-models   # No conda package available
       ```
