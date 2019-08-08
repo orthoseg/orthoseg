@@ -9,9 +9,6 @@ import glob
 import shutil
 
 import numpy as np
-import skimage
-import skimage.morphology       # Needs to be imported explicitly as it is a submodule
-from scipy import ndimage
 import rasterio as rio
 import rasterio.features as rio_features
 import shapely as sh
@@ -30,6 +27,12 @@ logger = logging.getLogger(__name__)
 #-------------------------------------------------------------
 # The real work
 #-------------------------------------------------------------
+"""
+Not used anymore!
+
+import skimage
+import skimage.morphology       # Needs to be imported explicitly as it is a submodule
+from scipy import ndimage
 
 def region_segmentation(predicted_mask,
                         thresshold_ok: float = 0.5):
@@ -53,7 +56,7 @@ def region_segmentation(predicted_mask,
     segmentation = ndimage.binary_fill_holes(segmentation - 1)
     
     return segmentation
-
+"""
 def to_binary_uint8(in_arr, thresshold_ok):
     if in_arr.dtype != np.uint8:
         raise Exception("Input should be dtype = uint8, not: {in_arr.dtype}")
