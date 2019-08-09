@@ -4,6 +4,9 @@ Script to load images from a WMS server.
 """
 
 import os
+# TODO: the init of this doensn't seem to work properly... should be solved somewhere else?
+os.environ["GDAL_DATA"] = r"C:\Tools\anaconda3\envs\orthoseg4\Library\share\gdal"
+    
 import logging
 
 # Because orthoseg isn't installed as package + it is higher in dir hierarchy, add root to sys.path
