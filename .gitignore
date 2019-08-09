@@ -8,3 +8,4 @@ local_overrule.ini
 .vscode/launch.json
 */__pycache__/
 .vscode/.ropeproject/config.py
+bin/run_orthoseg_config.csv

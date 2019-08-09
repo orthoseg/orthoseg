@@ -1,0 +1,13 @@
+subject,to_run,action
+fruit,0,train
+fruit,0,predict
+greenhouses,0,train
+greenhouses,0,predict
+horsetracks,0,train
+horsetracks,0,predict
+sealedsurfaces,0,train
+sealedsurfaces,0,predict
+solarpanels,0,train
+solarpanels,0,predict
+trees,1,train
+trees,1,predict
