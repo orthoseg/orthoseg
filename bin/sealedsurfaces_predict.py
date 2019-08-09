@@ -9,7 +9,8 @@ os.environ["GDAL_DATA"] = r"C:\Tools\anaconda3\envs\orthoseg4\Library\share\gdal
     
 # Because orthoseg isn't installed as package + it is higher in dir hierarchy, add root to sys.path
 import sys
-sys.path.insert(0, '.')
+#sys.path.insert(0, '.')
+[sys.path.append(i) for i in ['.', '..']]
 
 import orthoseg.predict as pred
 
