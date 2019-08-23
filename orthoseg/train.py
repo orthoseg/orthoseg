@@ -140,28 +140,24 @@ def run_training_session(segment_config_filepaths: []):
             predict_out_subdir = os.path.splitext(best_model_curr['filename'])[0]
             
             # Predict training dataset
-            seg.predict_dir(model=model,
-                            input_image_dir=os.path.join(traindata_dir,
-                                                        conf.dirs['image_subdir']),
-                            output_base_dir=os.path.join(traindata_dir,
-                                                        predict_out_subdir),
-                            projection_if_missing=conf.general['projection'],
-                            input_mask_dir=os.path.join(traindata_dir,
-                                                        conf.dirs['mask_subdir']),
-                            batch_size=int(conf.train['batch_size_predict']), 
-                            evaluate_mode=True)
-                        
+            seg.predict_dir(
+                    model=model,
+                    input_image_dir=os.path.join(traindata_dir, conf.dirs['image_subdir']),
+                    output_base_dir=os.path.join(traindata_dir, predict_out_subdir),
+                    projection_if_missing=conf.general['projection'],
+                    input_mask_dir=os.path.join(traindata_dir, conf.dirs['mask_subdir']),
+                    batch_size=int(conf.train['batch_size_predict']), 
+                    evaluate_mode=True)
+                
             # Predict validation dataset
-            seg.predict_dir(model=model,
-                            input_image_dir=os.path.join(validationdata_dir,
-                                                        conf.dirs['image_subdir']),
-                            output_base_dir=os.path.join(validationdata_dir,
-                                                        predict_out_subdir),
-                            projection_if_missing=conf.general['projection'],
-                            input_mask_dir=os.path.join(validationdata_dir,
-                                                        conf.dirs['mask_subdir']),
-                            batch_size=int(conf.train['batch_size_predict']), 
-                            evaluate_mode=True)
+            seg.predict_dir(
+                    model=model,
+                    input_image_dir=os.path.join(validationdata_dir, conf.dirs['image_subdir']),
+                    output_base_dir=os.path.join(validationdata_dir, predict_out_subdir),
+                    projection_if_missing=conf.general['projection'],
+                    input_mask_dir=os.path.join(validationdata_dir, conf.dirs['mask_subdir']),
+                    batch_size=int(conf.train['batch_size_predict']), 
+                    evaluate_mode=True)
             del model
         
         # Now we can really start training
@@ -201,53 +197,47 @@ def run_training_session(segment_config_filepaths: []):
     predict_out_subdir = os.path.splitext(best_model['filename'])[0]
     
     # Predict training dataset
-    seg.predict_dir(model=model,
-                    input_image_dir=os.path.join(traindata_dir,
-                                                 conf.dirs['image_subdir']),
-                    output_base_dir=os.path.join(traindata_dir,
-                                                 predict_out_subdir),
-                    projection_if_missing=conf.general['projection'],
-                    input_mask_dir=os.path.join(traindata_dir,
-                                                conf.dirs['mask_subdir']),
-                    batch_size=int(conf.train['batch_size_predict']), 
-                    evaluate_mode=True)
+    seg.predict_dir(
+            model=model,
+            input_image_dir=os.path.join(traindata_dir, conf.dirs['image_subdir']),
+            output_base_dir=os.path.join(traindata_dir, predict_out_subdir),
+            projection_if_missing=conf.general['projection'],
+            input_mask_dir=os.path.join(traindata_dir, conf.dirs['mask_subdir']),
+            batch_size=int(conf.train['batch_size_predict']), 
+            evaluate_mode=True)
     
     # Predict validation dataset
-    seg.predict_dir(model=model,
-                    input_image_dir=os.path.join(validationdata_dir,
-                                                 conf.dirs['image_subdir']),
-                    output_base_dir=os.path.join(validationdata_dir,
-                                                 predict_out_subdir),
-                    projection_if_missing=conf.general['projection'],
-                    input_mask_dir=os.path.join(validationdata_dir,
-                                                conf.dirs['mask_subdir']),
-                    batch_size=int(conf.train['batch_size_predict']), 
-                    evaluate_mode=True)
+    seg.predict_dir(
+            model=model,
+            input_image_dir=os.path.join(validationdata_dir, conf.dirs['image_subdir']),
+            output_base_dir=os.path.join(validationdata_dir, predict_out_subdir),
+            projection_if_missing=conf.general['projection'],
+            input_mask_dir=os.path.join(validationdata_dir, conf.dirs['mask_subdir']),
+            batch_size=int(conf.train['batch_size_predict']), 
+            evaluate_mode=True)
 
     # Predict test dataset, if it exists
     if testdata_dir is not None and os.path.exists(testdata_dir):
-        seg.predict_dir(model=model,
-                        input_image_dir=os.path.join(testdata_dir, 
-                                                     conf.dirs['image_subdir']),
-                        output_base_dir=os.path.join(testdata_dir,
-                                                     predict_out_subdir),                        
-                        projection_if_missing=conf.general['projection'],
-                        input_mask_dir=os.path.join(testdata_dir, 
-                                                    conf.dirs['mask_subdir']),
-                        batch_size=int(conf.train['batch_size_predict']), 
-                        evaluate_mode=True)
+        seg.predict_dir(
+                model=model,
+                input_image_dir=os.path.join(testdata_dir, conf.dirs['image_subdir']),
+                output_base_dir=os.path.join(testdata_dir, predict_out_subdir),                        
+                projection_if_missing=conf.general['projection'],
+                input_mask_dir=os.path.join(testdata_dir, conf.dirs['mask_subdir']),
+                batch_size=int(conf.train['batch_size_predict']), 
+                evaluate_mode=True)
     
     # Predict extra test dataset with random images in the roi, to add to 
     # train and/or validation dataset if inaccuracies are found
     # -> this is very useful to find false positives to improve the datasets
-    if os.path.exists(conf.dirs['predictsample_image_dir']):
-        seg.predict_dir(model=model,
-                        input_image_dir=conf.dirs['predictsample_image_dir'],
-                        output_base_dir=(conf.dirs['predictsample_image_dir'] + 
-                                         predict_out_subdir),
-                        projection_if_missing=conf.general['projection'],
-                        batch_size=int(conf.train['batch_size_predict']), 
-                        evaluate_mode=True)
+    if os.path.exists(conf.dirs['predictsample_image_input_dir']):
+        seg.predict_dir(
+                model=model,
+                input_image_dir=conf.dirs['predictsample_image_input_dir'],
+                output_base_dir=(conf.dirs['predictsample_image_output_basedir'] + predict_out_subdir),
+                projection_if_missing=conf.general['projection'],
+                batch_size=int(conf.train['batch_size_predict']), 
+                evaluate_mode=True)
     
     # Release the memory from the GPU... 
     # TODO: doesn't work!!!
@@ -255,7 +245,7 @@ def run_training_session(segment_config_filepaths: []):
     del model
     
     import gc
-    for i in range(20):
+    for _ in range(20):
         #print(gc.collect())
         gc.collect()
 

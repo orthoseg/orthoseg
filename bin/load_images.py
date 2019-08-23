@@ -42,10 +42,10 @@ def load_images(load_testsample_images: bool = False):
 
         # Use the same image size as for the training, that is the most 
         # convenient to check the quality
-        image_pixel_width = int(conf.train['image_pixel_width'])
-        image_pixel_height = int(conf.train['image_pixel_height'])
-        image_pixel_x_size = float(conf.train['image_pixel_x_size'])
-        image_pixel_y_size = float(conf.train['image_pixel_y_size'])
+        image_pixel_width = conf.predict.getint('image_pixel_width')
+        image_pixel_height = conf.predict.getint('image_pixel_height')
+        image_pixel_x_size = conf.train.getfloat('image_pixel_x_size')
+        image_pixel_y_size = conf.train.getfloat('image_pixel_y_size')
         image_pixels_overlap = 0
         image_format = ows_helper.FORMAT_JPEG
         
@@ -57,11 +57,11 @@ def load_images(load_testsample_images: bool = False):
         output_image_dir=conf.dirs['predict_image_dir']
         
         # Get the image size for the predict
-        image_pixel_width = int(conf.predict['image_pixel_width'])
-        image_pixel_height = int(conf.predict['image_pixel_height'])
-        image_pixel_x_size = float(conf.train['image_pixel_x_size'])
-        image_pixel_y_size = float(conf.train['image_pixel_y_size'])
-        image_pixels_overlap = int(conf.predict['image_pixels_overlap'])
+        image_pixel_width = conf.predict.getint('image_pixel_width')
+        image_pixel_height = conf.predict.getint('image_pixel_height')
+        image_pixel_x_size = conf.train.getfloat('image_pixel_x_size')
+        image_pixel_y_size = conf.train.getfloat('image_pixel_y_size')
+        image_pixels_overlap = conf.predict.getint('image_pixels_overlap')
         image_format = ows_helper.FORMAT_JPEG
         
         # For the real prediction dataset, no skipping obviously...

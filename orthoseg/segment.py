@@ -501,7 +501,6 @@ def predict_dir(model,
                                 
                 # Check if there are images that still need postprocessing, or are ready postprocessing
                 for image_busy_filepath in images_busy:
-
                     # If prediction isn't ready yet or postprocessing is already ready... continue 
                     if(images_busy[image_busy_filepath]['predict_ready'] is False
                        or images_busy[image_busy_filepath]['postprocess_save_ready'] is True):
