@@ -371,202 +371,121 @@ def predict_dir(model,
                     image_done_filenames.add(filename.rstrip())
         if len(image_done_filenames) > 0:
             logger.info(f"Found {len(image_done_filenames)} predicted images in {images_done_log_filepath} and {images_error_log_filepath}, they will be skipped")
-        
+
     # Loop through all files to process them...
-    image_filepaths_sorted = sorted(image_filepaths)
+    curr_batch_image_infos = []
     nb_processed = 0
-    nb_read_busy = 0
-    last_image_started = -1
-    images_busy = {}
-    start_time = None
-    prev_start_time_batch_predict = None
-    with futures.ThreadPoolExecutor(batch_size) as read_pool:
-        with futures.ThreadPoolExecutor(batch_size) as postpredict_save_pool:
-            while True:
+    image_filepaths_sorted = sorted(image_filepaths)
+    with futures.ThreadPoolExecutor(batch_size) as pool:
         
-                # If the maximum number of images to treat simultaenously isn't met yet, start processing another
-                if(len(images_busy) <= (batch_size * 8)
-                   and last_image_started < (nb_todo-1)):
-
-                    # Get the next image to start processing
-                    last_image_started += 1
-                    image_filepath = image_filepaths_sorted[last_image_started]
+        for i, image_filepath in enumerate(image_filepaths_sorted):
+    
+            # If force is false and prediction exists... skip
+            if force is False:
+               filename = os.path.basename(image_filepath)
+               if filename in image_done_filenames:
+                   logger.debug(f"Predict for image has already been done before and force is False, so skip: {filename}")
+                   continue
                     
-                    # If force is false and prediction exists... skip
-                    if force is False:
-                        filename = os.path.basename(image_filepath)
-                        if filename in image_done_filenames:
-                            logger.debug(f"Predict for image has already been done before and force is False, so skip: {filename}")
-                            continue
-
-                    # Prepare the filepath for the output
-                    image_filepath_noext, _ = os.path.splitext(image_filepath)
-                    if evaluate_mode:
-                        # In evaluate mode, put everyting in output base dir for easier 
-                        # comparison
-                        _, image_filename_noext = os.path.split(image_filepath_noext)
-                        tmp_output_filepath = os.path.join(output_base_dir, image_filename_noext)
-                    else:
-                        tmp_output_filepath = image_filepath_noext.replace(input_image_dir, output_base_dir)
-                    output_pred_filepath = f"{tmp_output_filepath}_pred.tif"       
-                    output_dir, _ = os.path.split(output_pred_filepath)
-                    
-                    # Add image to dict with the images we are busy with...
-                    images_busy[image_filepath] = {
-                                'image_filepath': image_filepath,
-                                'output_pred_filepath': output_pred_filepath,
-                                'output_dir': output_dir,
-                                'read_future': None,
-                                'read_ready': False,
-                                'predict_ready': False,
-                                'postprocess_save_future': None,
-                                'postprocess_save_ready': False}
-
-                    # Start reading the image
-                    logger.debug(f"Start read for image {image_filepath}")
-                    nb_read_busy += 1
-                    read_future = read_pool.submit(read_image,              # Function 
-                                                   image_filepath,          # Arg 1
-                                                   projection_if_missing)
-                    images_busy[image_filepath]['read_future'] = read_future
-
-                    images_ready_to_predict = [image_filepath for image_filepath in images_busy if images_busy[image_filepath]['read_ready'] == True]
-                    if (len(images_ready_to_predict) + nb_read_busy) < batch_size * 3:
-                        continue
-                else:
-                    logger.info(f"Many busy: {len(images_busy)}")
-                    # Sleep a little bit...
-                    # TODO: check if this is the best spot to sleep
-                    #time.sleep(0.001)
-
-                # Check if there are reads ready...
-                for image_busy_filepath in images_busy:
-                    # If read result hasn't been collected yet, check if it is still busy
-                    read_future = images_busy[image_busy_filepath]['read_future']
-                    if read_future is not None:
-                        # If still running, not ready yet
-                        if read_future.running() is True:
-                            continue
-                        else:
-                            try:
-                                # Get the results from the read
-                                read_result = read_future.result()
-                                nb_read_busy -= 1
-                                images_busy[image_busy_filepath]['image_crs'] = read_result['image_crs']
-                                images_busy[image_busy_filepath]['image_transform'] = read_result['image_transform']
-                                images_busy[image_busy_filepath]['image_data'] = read_result['image_data']  
-                            except:
-                                logger.exception(f"Error postprocessing pred for {image_busy_filepath}")
-                                # Write line to file with error files...
-                                with open(images_error_log_filepath, "a+") as f:
-                                    f.write(os.path.basename(image_busy_filepath) + '\n')
-                            finally:
-                                # Mark read as completed
-                                images_busy[image_busy_filepath]['read_ready'] = True
-                                images_busy[image_busy_filepath]['read_future'] = None
-
-                """
-                nb_images_in_batch = len(curr_batch_image_infos)
-                curr_batch_image_infos_ext = []
-                if(nb_images_in_batch == batch_size or i == (nb_todo-1)):
-                """
-
-                # If enough images have been read to predict, predict...
-                images_ready_to_predict = [image_filepath for image_filepath in images_busy if images_busy[image_filepath]['read_ready'] == True]
-                nb_images_ready_to_predict = len(images_ready_to_predict)
-                logger.info(f"nb_images_ready_to_predict: {nb_images_ready_to_predict}") 
-                start_time_batch_predict = None
-                if(nb_images_ready_to_predict >= batch_size 
-                   or (last_image_started >= (nb_todo-1) and nb_images_ready_to_predict > 0)):
-
-                    # Get the first batch_size images to predict them...
-                    start_time_batch_predict = datetime.datetime.now()
-                    images_to_predict = images_ready_to_predict[:batch_size]
-                    nb_images_to_predict = len(images_to_predict)
-                    
-                    # Init start time after the first batch getting predicted, because first can take
-                    # long time 
-                    if start_time is None:
-                        start_time = datetime.datetime.now()
-
-                    # Predict!
-                    logger.info(f"Start prediction for {nb_images_to_predict} images")
-                    image_datas = [images_busy[image_path].get('image_data') for image_path in images_to_predict]
-                    image_pred_arr = model.predict_on_batch(np.asarray(image_datas))
-
-                    # Copy the results to the images_busy dict
-                    for j, image_path in enumerate(images_to_predict):
-                        images_busy[image_path]['image_pred_data'] = image_pred_arr[j]
-                        images_busy[image_path]['predict_ready'] = True
-                                
-                # Check if there are images that still need postprocessing, or are ready postprocessing
-                for image_busy_filepath in images_busy:
-                    # If prediction isn't ready yet or postprocessing is already ready... continue 
-                    if(images_busy[image_busy_filepath]['predict_ready'] is False
-                       or images_busy[image_busy_filepath]['postprocess_save_ready'] is True):
-                        continue
-
-                    # Image is ready to postprocess, if its postprocess isn't busy yet, start it.
-                    postprocess_save_future = images_busy[image_busy_filepath]['postprocess_save_future']
-                    if postprocess_save_future is None:
-                        postprocess_save_future = postpredict_save_pool.submit(
-                                postp.postprocess_prediction,                             # Function
-                                image_busy_filepath,                                      # Arg 1
-                                images_busy[image_busy_filepath]['image_crs'],            # Arg 2
-                                images_busy[image_busy_filepath]['image_transform'],      # ...
-                                images_busy[image_busy_filepath]['output_dir'],
-                                images_busy[image_busy_filepath]['image_pred_data'],
-                                None,                                                     # prediction_filepath
-                                input_mask_dir,
-                                border_pixels_to_ignore,
-                                evaluate_mode,
-                                force)
-                        images_busy[image_busy_filepath]['postprocess_save_future'] = postprocess_save_future 
-                    else:
-                        # Postprocess is still running, so skip this image
-                        if postprocess_save_future.running() is True:
-                            continue
-                        else:
-                            # Postprocess is finished, try to get the results 
-                            try:
-                                _ = postprocess_save_future.result()
-                                # Write line to file with done files...
-                                with open(images_done_log_filepath, "a+") as f:
-                                    f.write(os.path.basename(image_busy_filepath) + '\n')
-                            except:
-                                logger.exception(f"Error postprocessing pred for {image_busy_filepath}")
-                                # Write line to file with error files...
-                                with open(images_error_log_filepath, "a+") as f:
-                                    f.write(os.path.basename(image_busy_filepath) + '\n')
-                            finally:
-                                nb_processed += 1
-                                images_busy[image_busy_filepath]['postprocess_save_ready'] = True
-                                images_busy[image_busy_filepath]['postprocess_save_future'] = None
-
-                # Remove images that are ready from images_busy
-                images_ready = [image_filepath for image_filepath in images_busy if images_busy[image_filepath]['postprocess_save_ready'] == True]
-                for image_ready in images_ready:
-                    del images_busy[image_ready]
+            # Prepare the filepath for the output
+            image_filepath_noext = os.path.splitext(image_filepath)[0]
+            if evaluate_mode:
+                # In evaluate mode, put everyting in output base dir for easier 
+                # comparison
+                image_dir, image_filename_noext = os.path.split(image_filepath_noext)
+                tmp_output_filepath = os.path.join(output_base_dir, image_filename_noext)
+            else:
+                tmp_output_filepath = image_filepath_noext.replace(input_image_dir, output_base_dir)
+            output_pred_filepath = f"{tmp_output_filepath}_pred.tif"       
+            output_dir, output_pred_filename = os.path.split(output_pred_filepath)
             
-                # Log the progress and prediction speed... if there was a prediction this loop...
-                if start_time_batch_predict is not None:
-                    time_passed_s = (datetime.datetime.now()-start_time).total_seconds()
-                    if prev_start_time_batch_predict is not None:
-                        time_passed_lastbatch_s = (start_time_batch_predict-prev_start_time_batch_predict).total_seconds()
-                    else:
-                        time_passed_lastbatch_s = (datetime.datetime.now()-start_time_batch_predict).total_seconds()
-                    if nb_processed > 0 and time_passed_s > 0 and time_passed_lastbatch_s > 0:
-                        nb_per_hour = (nb_processed/time_passed_s) * 3600
-                        nb_per_hour_lastbatch = (batch_size/time_passed_lastbatch_s) * 3600
-                        hours_to_go = (int)((nb_todo-last_image_started)/nb_per_hour)
-                        min_to_go = (int)((((nb_todo-last_image_started)/nb_per_hour)%1)*60)
-                        print(f"\r{hours_to_go}:{min_to_go} left for {nb_todo-last_image_started} todo at {nb_per_hour:0.0f}/h ({nb_per_hour_lastbatch:0.0f}/h last batch) in ...{input_image_dir[-30:]}",
-                                end='', flush=True)
-                    prev_start_time_batch_predict = start_time_batch_predict
+            # Init start time at the first file that isn't skipped
+            if nb_processed == 0:
+                start_time = datetime.datetime.now()
+            nb_processed += 1
+            
+            # Append the image info to the batch array so they can be treated in 
+            # bulk if the batch size is reached
+            logger.debug(f"Start predict for image {image_filepath}")                   
+            curr_batch_image_infos.append({'input_image_filepath': image_filepath,
+                                           'output_pred_filepath': output_pred_filepath,
+                                           'output_dir': output_dir})
+            
+            # If the batch size is reached or we are at the last images
+            nb_images_in_batch = len(curr_batch_image_infos)
+            curr_batch_image_infos_ext = []
+            if(nb_images_in_batch == batch_size or i == (nb_todo-1)):
+                start_time_batch_read = datetime.datetime.now()
+                
+                # Read all input images for the batch (in parallel)
+                logger.debug(f"Start reading input {nb_images_in_batch} images")
+                
+                # Put arguments to pass to map in lists
+                read_arg_filepaths = [info.get('input_image_filepath') for info in curr_batch_image_infos]
+                read_arg_projections = [projection_if_missing for info in curr_batch_image_infos]
+                
+                # Exec read in parallel and extract result
+                read_results = pool.map(read_image,            # Function 
+                                        read_arg_filepaths,    # Arg 1-list
+                                        read_arg_projections)  # Arg 2-list
+                for j, read_result in enumerate(read_results):
+                    curr_batch_image_infos_ext.append(
+                            {'input_image_filepath': curr_batch_image_infos[j]['input_image_filepath'],
+                             'output_pred_filepath': curr_batch_image_infos[j]['output_pred_filepath'],
+                             'output_dir': curr_batch_image_infos[j]['output_dir'],
+                             'image_crs': read_result['image_crs'],
+                             'image_transform': read_result['image_transform'],
+                             'image_data': read_result['image_data']})
 
-                # If we are ready... stop
-                if len(images_busy) == 0 and last_image_started >= (nb_todo-1):
-                    break
+                # Predict!
+                logger.debug(f"Start prediction for {nb_images_in_batch} images")
+                images = [info.get('image_data') for info in curr_batch_image_infos_ext]
+                curr_batch_image_pred_arr = model.predict_on_batch(
+                        np.asarray(images))
+                
+                # Postprocess predictions
+                # Remark: trying to parallelize this doesn't seem to help at all!
+                logger.debug("Start post-processing")    
+                for j, image_info in enumerate(curr_batch_image_infos_ext):    
+                    try:
+                        # Postprocess
+                        postp.postprocess_prediction(
+                                image_filepath=image_info['input_image_filepath'],
+                                output_dir=image_info['output_dir'],
+                                image_crs=image_info['image_crs'],
+                                image_transform=image_info['image_transform'],
+                                image_pred_arr=curr_batch_image_pred_arr[j],
+                                input_mask_dir=input_mask_dir,
+                                border_pixels_to_ignore=border_pixels_to_ignore,
+                                evaluate_mode=evaluate_mode,
+                                force=force)
+    
+                        # Write line to file with done files...
+                        with open(images_done_log_filepath, "a+") as f:
+                            f.write(os.path.basename(
+                                    image_info['input_image_filepath']) + '\n')
+                    except:
+                        logger.error(f"Error postprocessing pred for {image_info['input_image_filepath']}")
+    
+                        # Write line to file with done files...
+                        with open(images_error_log_filepath, "a+") as f:
+                            f.write(os.path.basename(
+                                    image_info['input_image_filepath']) + '\n')
+                logger.debug("Post-processing ready")
+
+                # Log the progress and prediction speed
+                time_passed_s = (datetime.datetime.now()-start_time).total_seconds()
+                time_passed_lastbatch_s = (datetime.datetime.now()-start_time_batch_read).total_seconds()
+                if time_passed_s > 0 and time_passed_lastbatch_s > 0:
+                    nb_per_hour = (nb_processed/time_passed_s) * 3600
+                    nb_per_hour_lastbatch = (nb_images_in_batch/time_passed_lastbatch_s) * 3600
+                    hours_to_go = (int)((nb_todo - i)/nb_per_hour)
+                    min_to_go = (int)((((nb_todo - i)/nb_per_hour)%1)*60)
+                    print(f"\r{hours_to_go}:{min_to_go} left for {nb_todo-i} todo at {nb_per_hour:0.0f}/h ({nb_per_hour_lastbatch:0.0f}/h last batch) in ...{input_image_dir[-30:]}",
+                          end='', flush=True)
+                
+                # Reset variable for next batch
+                curr_batch_image_infos = []
 
 def read_image(image_filepath: str,
                projection_if_missing: str = None):
