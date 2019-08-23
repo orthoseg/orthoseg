@@ -77,8 +77,9 @@ def prepare_traindatasets(
         logger.info(message)
         raise Exception(message)
     
-    # Determine the current data version based on existing output data dir(s)
+    # Determine the current data version based on existing output data dir(s), but ignore dirs ending on _ERROR
     output_dirs = glob.glob(f"{output_basedir}_*")
+    output_dirs = [output_dir for output_dir in output_dirs if output_dir.endswith('_ERROR') is False]
     if len(output_dirs) == 0:
         dataversion_new = 1
     else:
@@ -91,8 +92,7 @@ def prepare_traindatasets(
         # If the input vector label file didn't change since previous run 
         # dataset can be reused
         output_vector_mostrecent_filepath = os.path.join(
-                output_dir_mostrecent, 
-                os.path.basename(input_vector_label_filepath))
+                output_dir_mostrecent, os.path.basename(input_vector_label_filepath))
         if(os.path.exists(output_vector_mostrecent_filepath)
            and geofile_helper.cmp(input_vector_label_filepath, 
                                   output_vector_mostrecent_filepath)):
@@ -103,101 +103,115 @@ def prepare_traindatasets(
     output_dir = f"{output_basedir}_{dataversion_new:02d}"
     output_image_dir = os.path.join(output_dir, image_subdir)
     output_mask_dir = os.path.join(output_dir, mask_subdir)
+
     for dir in [output_dir, output_mask_dir, output_image_dir]:
         if dir and not os.path.exists(dir):
             os.makedirs(dir)
 
-    # Copy the vector file(s) to the dest dir so we keep knowing which file was
-    # used to create the dataset
-    geofile_helper.copy(input_vector_label_filepath, output_dir)
-    
-    # Open vector layer
-    logger.debug(f"Open vector file {input_vector_label_filepath}")
-    input_label_gdf = gpd.read_file(input_vector_label_filepath)
-
-    # Get the srs to use from the input vectors...
-    img_srs = input_label_gdf.crs['init']
+    try:
+        # Copy the vector file(s) to the dest dir so we keep knowing which file was
+        # used to create the dataset
+        geofile_helper.copy(input_vector_label_filepath, output_dir)
         
-    # Now loop over label polygons to create the training/validation data
-    image_srs_width = math.fabs(image_pixel_width*image_srs_pixel_x_size)   # tile width in units of crs => 500 m
-    image_srs_height = math.fabs(image_pixel_height*image_srs_pixel_y_size) # tile height in units of crs => 500 m
-    
-    # Create list with only the input labels that are positive examples, as 
-    # are the only ones that will need to be burned in the mask
-    #is_positive_eg
-    labels_to_burn_gdf = input_label_gdf[input_label_gdf['burninmask'] == 1]
-    labels_to_use_for_bounds_gdf = input_label_gdf[input_label_gdf['usebounds'] == 1]
-    
-    # Loop trough all train labels to get an image for each of them
-    nb_todo = len(input_label_gdf)
-    nb_processed = 0
-    logger.info(f"Get images for {nb_todo} labels in {os.path.basename(input_vector_label_filepath)}")
-    created_images_gdf = gpd.GeoDataFrame()
-    created_images_gdf['geometry'] = None
-    start_time = datetime.datetime.now()
-    wms_servers = {}
-    for i, label_geom in enumerate(labels_to_use_for_bounds_gdf.geometry):
+        # Open vector layer
+        logger.debug(f"Open vector file {input_vector_label_filepath}")
+        input_label_gdf = gpd.read_file(input_vector_label_filepath)
 
-        # TODO: now just the top-left part of the labeled polygon is taken
-        # as a start... ideally make sure we use it entirely for cases with
-        # no abundance of data
-        # Make sure the image requested is of the correct size
-        geom_bounds = label_geom.bounds
-        xmin = geom_bounds[0]-(geom_bounds[0]%image_srs_pixel_x_size)-10
-        ymin = geom_bounds[1]-(geom_bounds[1]%image_srs_pixel_y_size)-10
-        xmax = xmin + image_srs_width
-        ymax = ymin + image_srs_height
-        img_bbox = sh_geom.box(xmin, ymin, xmax, ymax)
+        # Get the srs to use from the input vectors...
+        img_srs = input_label_gdf.crs['init']
+            
+        # Now loop over label polygons to create the training/validation data
+        image_srs_width = math.fabs(image_pixel_width*image_srs_pixel_x_size)   # tile width in units of crs => 500 m
+        image_srs_height = math.fabs(image_pixel_height*image_srs_pixel_y_size) # tile height in units of crs => 500 m
         
-        # Skip the bbox if it overlaps with any already created images. 
-        if created_images_gdf.intersects(img_bbox).any():
-            logger.debug(f"Bounds overlap with already created image, skip: {img_bbox}")
-            continue
-        else:
-            created_images_gdf = created_images_gdf.append({'geometry': img_bbox}, 
-                                                           ignore_index=True)
-
-        # If the wms to be used hasn't been initialised yet
-        # TODO: implement option to use different wms per image
-        image_datasource_code = 'default_image_datasource_code'
-        if image_datasource_code not in wms_servers:
-            wms_servers['default_image_datasource_code'] = owslib.wms.WebMapService(
-                    url=image_datasources[image_datasource_code]['wms_server_url'], 
-                    version=image_datasources[image_datasource_code]['wms_version'])
-                                        
-        # Now really get the image
-        logger.debug(f"Get image for coordinates {img_bbox.bounds}")
-        image_filepath = ows_helper.getmap_to_file(
-                wms=wms_servers[image_datasource_code],
-                layers=image_datasources[image_datasource_code]['wms_layernames'],
-                styles=image_datasources[image_datasource_code]['wms_layerstyles'],
-                output_dir=output_image_dir,
-                srs=img_srs,
-                bbox=img_bbox.bounds,
-                size=(image_pixel_width, image_pixel_height),
-                image_format=ows_helper.FORMAT_JPEG,
-                transparent=False)
-
-        # Create a mask corresponding with the image file
-        # image_filepath can be None if file existed already, so check if not None...
-        if image_filepath:
-            mask_filepath = image_filepath.replace(output_image_dir, 
-                                                   output_mask_dir)
-            _create_mask(input_vector_label_list=labels_to_burn_gdf.geometry,
-                         input_image_filepath=image_filepath,
-                         output_mask_filepath=mask_filepath,
-                         burn_value=burn_value,
-                         force=force)
+        # Create list with only the input labels that are positive examples, as 
+        # are the only ones that will need to be burned in the mask
+        #is_positive_eg
+        labels_to_burn_gdf = input_label_gdf[input_label_gdf['burninmask'] == 1]
+        labels_to_use_for_bounds_gdf = input_label_gdf[input_label_gdf['usebounds'] == 1]
         
-        # Log the progress and prediction speed
-        nb_processed += 1
-        time_passed = (datetime.datetime.now()-start_time).total_seconds()
-        if time_passed > 0 and nb_processed > 0:
-            processed_per_hour = (nb_processed/time_passed) * 3600
-            hours_to_go = (int)((nb_todo - i)/processed_per_hour)
-            min_to_go = (int)((((nb_todo - i)/processed_per_hour)%1)*60)
-            print(f"\r{hours_to_go}:{min_to_go} left for {nb_todo-i} of {nb_todo} at {processed_per_hour:0.0f}/h", 
-                  end="", flush=True)
+        # Loop trough all train labels to get an image for each of them
+        nb_todo = len(input_label_gdf)
+        nb_processed = 0
+        logger.info(f"Get images for {nb_todo} labels in {os.path.basename(input_vector_label_filepath)}")
+        created_images_gdf = gpd.GeoDataFrame()
+        created_images_gdf['geometry'] = None
+        start_time = datetime.datetime.now()
+        wms_servers = {}
+        for i, label_geom in enumerate(labels_to_use_for_bounds_gdf.geometry):
+
+            # TODO: now just the top-left part of the labeled polygon is taken
+            # as a start... ideally make sure we use it entirely for cases with
+            # no abundance of data
+            # Make sure the image requested is of the correct size
+            geom_bounds = label_geom.bounds
+            xmin = geom_bounds[0]-(geom_bounds[0]%image_srs_pixel_x_size)-10
+            ymin = geom_bounds[1]-(geom_bounds[1]%image_srs_pixel_y_size)-10
+            xmax = xmin + image_srs_width
+            ymax = ymin + image_srs_height
+            img_bbox = sh_geom.box(xmin, ymin, xmax, ymax)
+            
+            # Skip the bbox if it overlaps with any already created images. 
+            if created_images_gdf.intersects(img_bbox).any():
+                logger.debug(f"Bounds overlap with already created image, skip: {img_bbox}")
+                continue
+            else:
+                created_images_gdf = created_images_gdf.append({'geometry': img_bbox}, 
+                                                            ignore_index=True)
+
+            # If the wms to be used hasn't been initialised yet
+            # TODO: implement option to use different wms per image
+            image_datasource_code = default_image_datasource_code
+            if image_datasource_code not in wms_servers:
+                wms_servers[image_datasource_code] = owslib.wms.WebMapService(
+                        url=image_datasources[image_datasource_code]['wms_server_url'], 
+                        version=image_datasources[image_datasource_code]['wms_version'])
+                                            
+            # Now really get the image
+            logger.debug(f"Get image for coordinates {img_bbox.bounds}")
+            image_filepath = ows_helper.getmap_to_file(
+                    wms=wms_servers[image_datasource_code],
+                    layers=image_datasources[image_datasource_code]['wms_layernames'],
+                    styles=image_datasources[image_datasource_code]['wms_layerstyles'],
+                    output_dir=output_image_dir,
+                    srs=img_srs,
+                    bbox=img_bbox.bounds,
+                    size=(image_pixel_width, image_pixel_height),
+                    image_format=ows_helper.FORMAT_JPEG,
+                    transparent=False)
+
+            # Create a mask corresponding with the image file
+            # image_filepath can be None if file existed already, so check if not None...
+            if image_filepath:
+                mask_filepath = image_filepath.replace(output_image_dir, output_mask_dir)
+                _create_mask(input_vector_label_list=labels_to_burn_gdf.geometry,
+                            input_image_filepath=image_filepath,
+                            output_mask_filepath=mask_filepath,
+                            burn_value=burn_value,
+                            force=force)
+            
+            # Log the progress and prediction speed
+            nb_processed += 1
+            time_passed = (datetime.datetime.now()-start_time).total_seconds()
+            if time_passed > 0 and nb_processed > 0:
+                processed_per_hour = (nb_processed/time_passed) * 3600
+                hours_to_go = (int)((nb_todo - i)/processed_per_hour)
+                min_to_go = (int)((((nb_todo - i)/processed_per_hour)%1)*60)
+                print(f"\r{hours_to_go}:{min_to_go} left for {nb_todo-i} of {nb_todo} at {processed_per_hour:0.0f}/h", 
+                    end="", flush=True)
+    except Exception as ex:
+        message = "Error preparing dataset!"
+
+        # If there was an error, rename the dataset directory so it is clearly an error
+        if os.path.exists(output_dir):
+            for i in range(999):
+                output_error_dir = f"{output_dir}_{i:03d}_ERROR"
+                if os.path.exists(output_error_dir):
+                    continue
+                os.rename(output_dir, output_error_dir)
+                message += f", output dir is renamed to: {output_error_dir}"
+        logger.exception(message)
+        raise Exception(message) from ex
             
     return output_dir, dataversion_new
 '''

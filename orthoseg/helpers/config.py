@@ -48,10 +48,10 @@ def read_config(config_filepaths: []):
             image_datasources[image_datasource_code] = dict(config[section])
             
             # The layer names ad layer styles are lists
-            wms_layer_names = config[section].getlist('wms_layer_names')
-            image_datasources[image_datasource_code]['wms_layer_names'] = wms_layer_names
-            wms_layer_styles = config[section].getlist('wms_layer_styles')
-            image_datasources[image_datasource_code]['wms_layer_styles'] = wms_layer_styles
+            wms_layernames = config[section].getlist('wms_layernames')
+            image_datasources[image_datasource_code]['wms_layernames'] = wms_layernames
+            wms_layerstyles = config[section].getlist('wms_layerstyles')
+            image_datasources[image_datasource_code]['wms_layerstyles'] = wms_layerstyles
 
 def pformat_config():
     message = f"Config files used: {pprint.pformat(config_filepaths_used)} \n"
