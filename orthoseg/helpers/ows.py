@@ -14,7 +14,8 @@ import math
 import itertools as it
 import concurrent.futures as futures
 
-from owslib.wms import WebMapService
+import owslib
+import owslib.wms
 import rasterio as rio
 import geopandas as gpd
 import shapely.geometry as sh_geom
@@ -154,10 +155,11 @@ def get_images_for_grid(wms_server_url: str,
 
     print(f"Number rows: {rows}, number columns: {cols}")
 
+    # Inits to start getting images 
     if not os.path.exists(output_image_dir):
         os.makedirs(output_image_dir)
-
-    wms = WebMapService(wms_server_url, version='1.3.0')
+    auth = owslib.util.Authentication()
+    wms = owslib.wms.WebMapService(wms_server_url, version='1.3.0', auth=auth)
 
     with futures.ThreadPoolExecutor(nb_concurrent_calls) as pool:
 
@@ -295,7 +297,7 @@ def get_images_for_grid(wms_server_url: str,
                             it.repeat(random_sleep),
                             it.repeat(force))
                             
-                    for j, read_result in enumerate(read_results):
+                    for _ in read_results:
                         nb_downloaded += 1
     
                     '''
@@ -353,7 +355,7 @@ def get_images_for_grid(wms_server_url: str,
                               end="", flush=True)
                     '''
                     
-def getmap_to_file(wms: WebMapService,
+def getmap_to_file(wms: owslib.wms.WebMapService,
                    layers: [str],
                    output_dir: str,
                    srs: str,
@@ -363,7 +365,7 @@ def getmap_to_file(wms: WebMapService,
                    output_filename: str = None,
                    transparent: bool = False,
                    tiff_compress: str = 'lzw',
-                   layers_styles: [str] = ['default'],
+                   styles: [str] = ['default'],
                    random_sleep: float = 0.0,
                    force: bool = False) -> str:
     """
@@ -386,7 +388,6 @@ def getmap_to_file(wms: WebMapService,
             image_ext = FORMAT_PNG_EXT
         else:
             raise Exception(f"image format {image_format} is not implemented!")
-            image_ext = None
 
         # Use different file names for projected vs geographic SRS
         is_srs_projected = rio.crs.CRS.from_string(srs).is_projected
@@ -413,13 +414,14 @@ def getmap_to_file(wms: WebMapService,
             if srs.lower() == 'epsg:3059':
                 bbox = (bbox[1], bbox[0], bbox[3], bbox[2])
 
-            response = wms.getmap(layers=layers,
-                             styles=layers_styles,
-                             srs=srs,
-                             bbox=bbox,
-                             size=size,
-                             format=image_format,
-                             transparent=transparent)
+            response = wms.getmap(
+                    layers=layers,
+                    styles=styles,
+                    srs=srs,
+                    bbox=bbox,
+                    size=size,
+                    format=image_format,
+                    transparent=transparent)
             logger.debug(f"Finished doing request {response.geturl()}")
             
             # If a random sleep was specified... apply it
@@ -436,8 +438,9 @@ def getmap_to_file(wms: WebMapService,
                 time.sleep(10)
                 continue
             else:
-                logger.error(f"Retried 10 times and didn't work, with layers: {layers}, styles: {layers_styles}")
-                raise
+                message = f"Retried 10 times and didn't work, with layers: {layers}, styles: {styles}"
+                logger.error(message)
+                raise Exception(message) from ex
 
     # Write image to file...
     if not os.path.exists(output_dir):
@@ -547,7 +550,6 @@ def create_filename(srs: str,
         image_ext = FORMAT_PNG_EXT
     else:
         raise Exception(f"image format {image_format} is not implemented!")
-        image_ext = None
 
     # Use different file names for projected vs geographic SRS
     is_srs_projected = rio.crs.CRS.from_string(srs).is_projected

@@ -37,22 +37,22 @@ logger = logging.getLogger(__name__)
 # The real work
 #-------------------------------------------------------------
 
-def prepare_traindatasets(input_vector_label_filepath: str,
-                 wms_server_url: str,
-                 wms_layername: str,
-                 output_basedir: str,
-                 image_subdir: str = "image",
-                 mask_subdir: str = "mask",
-                 wms_server_layer_style: str = "default",
-                 image_srs_pixel_x_size: int = 0.25,
-                 image_srs_pixel_y_size: int = 0.25,
-                 image_pixel_width: int = 512,
-                 image_pixel_height: int = 512,
-                 max_samples: int = 5000,
-                 burn_value: int = 255,
-                 output_filelist_csv: str = '',
-                 output_keep_nested_dirs: bool = False,
-                 force: bool = False) -> (str, int):
+def prepare_traindatasets(
+        input_vector_label_filepath: str,
+        image_datasources: dict,
+        default_image_datasource_code: str,
+        output_basedir: str,
+        image_subdir: str = "image",
+        mask_subdir: str = "mask",
+        image_srs_pixel_x_size: int = 0.25,
+        image_srs_pixel_y_size: int = 0.25,
+        image_pixel_width: int = 512,
+        image_pixel_height: int = 512,
+        max_samples: int = 5000,
+        burn_value: int = 255,
+        output_filelist_csv: str = '',
+        output_keep_nested_dirs: bool = False,
+        force: bool = False) -> (str, int):
     """
     This function prepares training data for the vector labels provided.
 
@@ -77,8 +77,7 @@ def prepare_traindatasets(input_vector_label_filepath: str,
         logger.info(message)
         raise Exception(message)
     
-    # Determine the current data version based on existing output data 
-    # dir(s)
+    # Determine the current data version based on existing output data dir(s)
     output_dirs = glob.glob(f"{output_basedir}_*")
     if len(output_dirs) == 0:
         dataversion_new = 1
@@ -120,7 +119,6 @@ def prepare_traindatasets(input_vector_label_filepath: str,
     img_srs = input_label_gdf.crs['init']
         
     # Now loop over label polygons to create the training/validation data
-    wms = owslib.wms.WebMapService(wms_server_url, version='1.3.0')
     image_srs_width = math.fabs(image_pixel_width*image_srs_pixel_x_size)   # tile width in units of crs => 500 m
     image_srs_height = math.fabs(image_pixel_height*image_srs_pixel_y_size) # tile height in units of crs => 500 m
     
@@ -137,6 +135,7 @@ def prepare_traindatasets(input_vector_label_filepath: str,
     created_images_gdf = gpd.GeoDataFrame()
     created_images_gdf['geometry'] = None
     start_time = datetime.datetime.now()
+    wms_servers = {}
     for i, label_geom in enumerate(labels_to_use_for_bounds_gdf.geometry):
 
         # TODO: now just the top-left part of the labeled polygon is taken
@@ -158,16 +157,26 @@ def prepare_traindatasets(input_vector_label_filepath: str,
             created_images_gdf = created_images_gdf.append({'geometry': img_bbox}, 
                                                            ignore_index=True)
 
+        # If the wms to be used hasn't been initialised yet
+        # TODO: implement option to use different wms per image
+        image_datasource_code = 'default_image_datasource_code'
+        if image_datasource_code not in wms_servers:
+            wms_servers['default_image_datasource_code'] = owslib.wms.WebMapService(
+                    url=image_datasources[image_datasource_code]['wms_server_url'], 
+                    version=image_datasources[image_datasource_code]['wms_version'])
+                                        
         # Now really get the image
         logger.debug(f"Get image for coordinates {img_bbox.bounds}")
-        image_filepath = ows_helper.getmap_to_file(wms=wms,
-                               layers=[wms_layername],
-                               output_dir=output_image_dir,
-                               srs=img_srs,
-                               bbox=img_bbox.bounds,
-                               size=(image_pixel_width, image_pixel_height),
-                               image_format=ows_helper.FORMAT_JPEG,
-                               transparent=False)
+        image_filepath = ows_helper.getmap_to_file(
+                wms=wms_servers[image_datasource_code],
+                layers=image_datasources[image_datasource_code]['wms_layernames'],
+                styles=image_datasources[image_datasource_code]['wms_layerstyles'],
+                output_dir=output_image_dir,
+                srs=img_srs,
+                bbox=img_bbox.bounds,
+                size=(image_pixel_width, image_pixel_height),
+                image_format=ows_helper.FORMAT_JPEG,
+                transparent=False)
 
         # Create a mask corresponding with the image file
         # image_filepath can be None if file existed already, so check if not None...
@@ -191,7 +200,7 @@ def prepare_traindatasets(input_vector_label_filepath: str,
                   end="", flush=True)
             
     return output_dir, dataversion_new
-
+'''
 # TODO: this is a deprecated function, maybe better delete it to evade having to keep supporting it?
 def create_masks(input_vector_label_filepath: str,
                  input_image_dir: str,
@@ -255,13 +264,14 @@ def create_masks(input_vector_label_filepath: str,
                 os.mkdir(dir)
 
         # Create mask file
-        ret_val = _create_mask(input_vector_label_layer=input_labels,
-                               input_image_filepath=image_filepath,
-                               output_mask_filepath=output_mask_filepath,
-                               output_image_filepath=output_image_filepath,
-                               burn_value=burn_value,
-                               minimum_pct_labeled=1,
-                               force=force)
+        ret_val = _create_mask(
+                input_vector_label_layer=input_labels,
+                input_image_filepath=image_filepath,
+                output_mask_filepath=output_mask_filepath,
+                output_image_filepath=output_image_filepath,
+                burn_value=burn_value,
+                minimum_pct_labeled=1,
+                force=force)
 
         # Add to list of files to output later on
         if ret_val is True:
@@ -269,16 +279,16 @@ def create_masks(input_vector_label_filepath: str,
             filelist.append([image_filename, image_filepath, image_filepath,
                              output_mask_filepath, output_mask_filepath])
 
-    '''
+    """
     # Put list in dataframe and save to csv
     df_filelist = pd.DataFrame(filelist, columns=['image_filename', 'image_filepath',
                                                   'image_visible_filepath',
                                                   'mask_filepath', 'mask_visible_filepath'])
     if len(df_filelist) > 0:
         df_filelist.to_csv(output_filelist_csv, index=False)
-    '''
+    """
     return filelist
-
+'''
 ###############################################################################
 
 def _create_mask(input_vector_label_list,

@@ -28,7 +28,8 @@ def test_postprocess_vectors():
     logger.info(f"Config used: \n{conf.pformat_config()}")
 
     # Input and output dir
-    input_dir = conf.dirs['predict_image_dir'] + "_sealedsurfaces_08_inceptionresnetv2+linknet_0.94311_0.92964_0"
+    input_dir = (conf.dirs['predict_image_output_basedir'] 
+                 + "_sealedsurfaces_08_inceptionresnetv2+linknet_0.94311_0.92964_0")
     output_dir = os.path.join(conf.dirs['output_vector_dir'], 
                               f"{conf.general['segment_subject']}_test")
     output_filepath = os.path.join(output_dir, 

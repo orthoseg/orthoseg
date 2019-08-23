@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 Module that manages the configuration of a segmentation
-
-@author: Pieter Roggemans
 """
 
 import os
@@ -18,7 +16,10 @@ def read_config(config_filepaths: []):
 
     # Read the configuration
     global config
-    config = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
+    config = configparser.ConfigParser(
+            interpolation=configparser.ExtendedInterpolation(),
+            converters={'list': lambda x: [i.strip() for i in x.split(',')],
+                        'listint': lambda x: [int(i.strip()) for i in x.split(',')]})
 
     config.read(config_filepaths)
     global config_filepaths_used
@@ -37,7 +38,21 @@ def read_config(config_filepaths: []):
     dirs = config['dirs']
     global files
     files = config['files']
-        
+
+    # Create a dictionary of the configured image datasources 
+    global image_datasources
+    image_datasources = {}
+    for section in config.sections():
+        if section.startswith('image_datasource_'):
+            image_datasource_code = section.replace('image_datasource_', '')
+            image_datasources[image_datasource_code] = dict(config[section])
+            
+            # The layer names ad layer styles are lists
+            wms_layer_names = config[section].getlist('wms_layer_names')
+            image_datasources[image_datasource_code]['wms_layer_names'] = wms_layer_names
+            wms_layer_styles = config[section].getlist('wms_layer_styles')
+            image_datasources[image_datasource_code]['wms_layer_styles'] = wms_layer_styles
+
 def pformat_config():
     message = f"Config files used: {pprint.pformat(config_filepaths_used)} \n"
     message += "Config info listing:\n"

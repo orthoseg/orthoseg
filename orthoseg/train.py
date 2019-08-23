@@ -45,7 +45,10 @@ def run_training_session(segment_config_filepaths: []):
         if dir and not os.path.exists(dir):
             os.mkdir(dir)
     
-    # If the training data doesn't exist yet, create it    
+    # If the training data doesn't exist yet, create it
+    # Get the image datasource section to use for training
+    train_image_datasource_code = conf.train['image_datasource_code']
+
     # First the "train" training dataset
     force_model_traindata_version = conf.model.getint('force_model_traindata_version')
     if force_model_traindata_version > -1:
@@ -55,8 +58,8 @@ def run_training_session(segment_config_filepaths: []):
         logger.info("Prepare train, validation and test data")
         traindata_dir, traindata_version = prep.prepare_traindatasets(
                 input_vector_label_filepath=conf.files['input_trainlabels_filepath'],
-                wms_server_url=conf.general['wms_server_url'],
-                wms_layername=conf.general['wms_layername'],
+                image_datasources=conf.image_datasources,
+                default_image_datasource_code=train_image_datasource_code,
                 output_basedir=conf.dirs['training_train_basedir'],
                 image_subdir=conf.dirs['image_subdir'],
                 mask_subdir=conf.dirs['mask_subdir'])
@@ -65,22 +68,18 @@ def run_training_session(segment_config_filepaths: []):
     # Now the "validation" training dataset
     validationdata_dir, _ = prep.prepare_traindatasets(
             input_vector_label_filepath=conf.files['input_validationlabels_filepath'],
-            wms_server_url=conf.general['wms_server_url'],
-            wms_layername=conf.general['wms_layername'],
+            image_datasources=conf.image_datasources,
+            default_image_datasource_code=train_image_datasource_code,
             output_basedir=conf.dirs['training_validation_basedir'],
             image_subdir=conf.dirs['image_subdir'],
             mask_subdir=conf.dirs['mask_subdir'])
 
-    # TODO: maybe it is practical to predict the train and validation dataset
-    # with the best available model here so user can check if there aren't errors
-    # in the (added) data in the training/validation dataset?
-        
     # Now the "test" training dataset
     if os.path.exists(conf.files['input_testlabels_filepath']):
         testdata_dir, _ = prep.prepare_traindatasets(
                 input_vector_label_filepath=conf.files['input_testlabels_filepath'],
-                wms_server_url=conf.general['wms_server_url'],
-                wms_layername=conf.general['wms_layername'],
+                image_datasources=conf.image_datasources,
+                default_image_datasource_code=train_image_datasource_code,
                 output_basedir=conf.dirs['training_test_basedir'],
                 image_subdir=conf.dirs['image_subdir'],
                 mask_subdir=conf.dirs['mask_subdir'])

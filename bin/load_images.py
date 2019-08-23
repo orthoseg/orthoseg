@@ -18,10 +18,13 @@ import orthoseg.helpers.ows as ows_helper
 def load_images(load_testsample_images: bool = False):
 
     # Read the configuration
-    scriptdir = os.path.dirname(os.path.abspath(__file__))
-    segment_config_filepaths=[os.path.join(scriptdir, 'general.ini'), 
-                              os.path.join(scriptdir, 'sealedsurfaces.ini'),
-                              os.path.join(scriptdir, 'local_overrule.ini')]
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    base_dir, _ = os.path.split(script_dir)
+    config_dir = os.path.join(base_dir, "config")
+
+    segment_config_filepaths=[os.path.join(config_dir, 'general.ini'), 
+                              os.path.join(config_dir, 'sealedsurfaces.ini'),
+                              os.path.join(config_dir, 'local_overrule.ini')]
     conf.read_config(segment_config_filepaths)
     
     # Main initialisation of the logging
@@ -38,7 +41,7 @@ def load_images(load_testsample_images: bool = False):
     
     # Use different setting depending if testsample or all images
     if load_testsample_images:
-        output_image_dir=conf.dirs['predictsample_image_dir']
+        output_image_dir=conf.dirs['predictsample_image_input_dir']
 
         # Use the same image size as for the training, that is the most 
         # convenient to check the quality
@@ -54,7 +57,7 @@ def load_images(load_testsample_images: bool = False):
         nb_images_to_skip = 50
         
     else:
-        output_image_dir=conf.dirs['predict_image_dir']
+        output_image_dir=conf.dirs['predict_image_input_dir']
         
         # Get the image size for the predict
         image_pixel_width = conf.predict.getint('image_pixel_width')

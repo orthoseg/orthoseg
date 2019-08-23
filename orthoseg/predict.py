@@ -61,7 +61,7 @@ def run_prediction(segment_config_filepaths: str):
         logger.info(f"Best model found: {model_weights_filepath}")
     
     # Prepare output subdir to be used for predictions
-    predict_out_subdir = os.path.splitext(best_model['filename'])[0]
+    predict_out_subdir = f"{best_model['segment_subject']}_{best_model['train_data_version']}_{best_model['model_architecture']}_{best_model['epoch']}"
     
     # Load prediction model...
     logger.info(f"Load model from {conf.files['model_json_filepath']}")
@@ -72,24 +72,24 @@ def run_prediction(segment_config_filepaths: str):
     model.load_weights(model_weights_filepath)
     logger.info("Model weights loaded")
 
-    # Predict for entire dataset"''
-    predict_output_dir = f"{conf.dirs['predict_image_dir']}_{predict_out_subdir}"
+    # Predict for entire dataset
+    image_datasource = conf.image_datasources[conf.predict['image_datasource_code']]
+    predict_output_dir = f"{conf.dirs['predict_image_output_basedir']}_{predict_out_subdir}"
     segment.predict_dir(model=model,
-                        input_image_dir=conf.dirs['predict_image_dir'],
+                        input_image_dir=conf.dirs['predict_image_input_dir'],
                         output_base_dir=predict_output_dir,
                         border_pixels_to_ignore=int(conf.predict['image_pixels_overlap']),
-                        projection_if_missing=conf.general['projection'],
+                        projection_if_missing=image_datasource['projection'],
                         input_mask_dir=None,
                         batch_size=int(conf.predict['batch_size']),
                         evaluate_mode=False)
     
     # Now postprocess the vector results, so the end result is one big file
     output_vector_base_dir = conf.dirs['output_vector_dir']
-    output_base_name = f"{conf.general['segment_subject']}_{model_traindata_version:02d}"
+    output_base_name = f"{conf.general['segment_subject']}_{conf.predict['image_datasource_code']}_{model_traindata_version:02d}"
     output_vector_dir = os.path.join(output_vector_base_dir, output_base_name)
     output_filepath = os.path.join(output_vector_dir, f"{output_base_name}.gpkg")
     postp.postprocess_vectors(input_dir=predict_output_dir,
                               output_filepath = output_filepath,
                               evaluate_mode=False,
                               force=False)
-    
