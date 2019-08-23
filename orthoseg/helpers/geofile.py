@@ -23,15 +23,19 @@ logger = logging.getLogger(__name__)
 #-------------------------------------------------------------
 
 def read_file(filepath: str,
-              layer: str = 'default',
+              layer: str = None,
               columns: [] = None) -> gpd.GeoDataFrame:
     """
     Reads a file to a pandas dataframe. The fileformat is detected based on the filepath extension.
 
     # TODO: think about if possible/how to support  adding optional parameter and pass them to next function, example encoding, float_format,...
     """
-    _, ext = os.path.splitext(filepath)
+    # If no layer name specified, use the filename (without extension)
+    filepath_noext, ext = os.path.splitext(filepath)
+    if layer is None:
+        _, layer = os.path.split(filepath_noext)
 
+    # Depending on the extension... different implementations
     ext_lower = ext.lower()
     if ext_lower == '.shp':
         return gpd.read_file(filepath)
@@ -44,15 +48,19 @@ def read_file(filepath: str,
 
 def to_file(gdf: gpd.GeoDataFrame,
             filepath: str,
-            layer: str = 'default',
+            layer: str = None,
             index: bool = True):
     """
     Reads a pandas dataframe to file. The fileformat is detected based on the filepath extension.
 
     # TODO: think about if possible/how to support  adding optional parameter and pass them to next function, example encoding, float_format,...
     """
-    _, ext = os.path.splitext(filepath)
+    # If no layer name specified, use the filename (without extension)
+    filepath_noext, ext = os.path.splitext(filepath)
+    if layer is None:
+        _, layer = os.path.split(filepath_noext)
 
+    # Depending on the extension... different implementations
     ext_lower = ext.lower()
     if ext_lower == '.shp':
         gdf.to_file(filepath)
