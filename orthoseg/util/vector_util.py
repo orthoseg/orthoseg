@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Utility functions for vector manipulations
+Modile with generic Utility functions for vector manipulations.
 """
 
 import logging

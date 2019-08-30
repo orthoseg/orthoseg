@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Module that manages the configuration of a segmentation.
+Module with specific helper functions to manage the configuration of orthoseg.
 """
 
 import os

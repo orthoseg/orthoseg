@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Helper module to support some tasks regarding using OWS services.
+Module with generic usable utility functions to make some tasks using OWS services easier.
 """
 
 import logging

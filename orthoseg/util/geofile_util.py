@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Module with helper functions to work with geo file.
+Module with generic usable utility functions to work with geo files.
 """
 
 import os

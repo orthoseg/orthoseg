@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Module to init logging.
+Module with specific helper functions to manage the logging of orthoseg.
 """
 
 import logging
