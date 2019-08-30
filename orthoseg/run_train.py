@@ -10,9 +10,10 @@ import keras as kr
 
 from orthoseg.helpers import config_helper as conf
 from orthoseg.helpers import log_helper
-import orthoseg.segment as seg
-import orthoseg.prepare_traindatasets as prep
 import orthoseg.model.model_helper as mh
+import orthoseg.prepare_traindatasets as prep
+from orthoseg import segment_predict
+from orthoseg import segment_train
 
 def run_training_session(config_filepaths: []):
     """
@@ -139,7 +140,7 @@ def run_training_session(config_filepaths: []):
             
             # Predict training dataset
             
-            seg.predict_dir(
+            segment_predict.predict_dir(
                     model=model,
                     input_image_dir=os.path.join(traindata_dir, conf.dirs['image_subdir']),
                     output_base_dir=os.path.join(traindata_dir, predict_out_subdir),
@@ -149,7 +150,7 @@ def run_training_session(config_filepaths: []):
                     evaluate_mode=True)
                 
             # Predict validation dataset
-            seg.predict_dir(
+            segment_predict.predict_dir(
                     model=model,
                     input_image_dir=os.path.join(validationdata_dir, conf.dirs['image_subdir']),
                     output_base_dir=os.path.join(validationdata_dir, predict_out_subdir),
@@ -164,18 +165,19 @@ def run_training_session(config_filepaths: []):
         model_preload_filepath = None
         if best_model is not None:
             model_preload_filepath = best_model['filepath']
-        seg.train(traindata_dir=traindata_dir,
-                  validationdata_dir=validationdata_dir,
-                  image_subdir=conf.dirs['image_subdir'], 
-                  mask_subdir=conf.dirs['mask_subdir'],
-                  model_encoder=conf.model['encoder'], 
-                  model_decoder=conf.model['decoder'],
-                  model_save_dir=conf.dirs['model_dir'],
-                  model_save_base_filename=model_base_filename,
-                  model_preload_filepath=model_preload_filepath,
-                  batch_size=int(conf.train['batch_size_fit']), 
-                  nb_epoch=int(conf.train['max_epoch'])) 
-        
+        segment_train.train(
+                traindata_dir=traindata_dir,
+                validationdata_dir=validationdata_dir,
+                image_subdir=conf.dirs['image_subdir'], 
+                mask_subdir=conf.dirs['mask_subdir'],
+                model_encoder=conf.model['encoder'], 
+                model_decoder=conf.model['decoder'],
+                model_save_dir=conf.dirs['model_dir'],
+                model_save_base_filename=model_base_filename,
+                model_preload_filepath=model_preload_filepath,
+                batch_size=int(conf.train['batch_size_fit']), 
+                nb_epoch=int(conf.train['max_epoch'])) 
+    
     # If we trained, get the new best model
     if train_needed is True:
         best_model = mh.get_best_model(model_dir=conf.dirs['model_dir'],
@@ -196,7 +198,7 @@ def run_training_session(config_filepaths: []):
     predict_out_subdir = os.path.splitext(best_model['filename'])[0]
     
     # Predict training dataset
-    seg.predict_dir(
+    segment_predict.predict_dir(
             model=model,
             input_image_dir=os.path.join(traindata_dir, conf.dirs['image_subdir']),
             output_base_dir=os.path.join(traindata_dir, predict_out_subdir),
@@ -206,7 +208,7 @@ def run_training_session(config_filepaths: []):
             evaluate_mode=True)
     
     # Predict validation dataset
-    seg.predict_dir(
+    segment_predict.predict_dir(
             model=model,
             input_image_dir=os.path.join(validationdata_dir, conf.dirs['image_subdir']),
             output_base_dir=os.path.join(validationdata_dir, predict_out_subdir),
@@ -217,7 +219,7 @@ def run_training_session(config_filepaths: []):
 
     # Predict test dataset, if it exists
     if testdata_dir is not None and os.path.exists(testdata_dir):
-        seg.predict_dir(
+        segment_predict.predict_dir(
                 model=model,
                 input_image_dir=os.path.join(testdata_dir, conf.dirs['image_subdir']),
                 output_base_dir=os.path.join(testdata_dir, predict_out_subdir),                        
@@ -230,7 +232,7 @@ def run_training_session(config_filepaths: []):
     # train and/or validation dataset if inaccuracies are found
     # -> this is very useful to find false positives to improve the datasets
     if os.path.exists(conf.dirs['predictsample_image_input_dir']):
-        seg.predict_dir(
+        segment_predict.predict_dir(
                 model=model,
                 input_image_dir=conf.dirs['predictsample_image_input_dir'],
                 output_base_dir=(conf.dirs['predictsample_image_output_basedir'] + predict_out_subdir),

@@ -11,8 +11,8 @@ import keras as kr
 from orthoseg.helpers import config_helper as conf
 from orthoseg.helpers import log_helper
 import orthoseg.model.model_helper as mh
-import orthoseg.segment as segment
 import orthoseg.postprocess_predictions as postp
+from orthoseg import segment_predict
 
 def run_prediction(config_filepaths: str):
     """
@@ -72,11 +72,17 @@ def run_prediction(config_filepaths: str):
     # Predict for entire dataset
     image_datasource = conf.image_datasources[conf.predict['image_datasource_code']]
     predict_output_dir = f"{conf.dirs['predict_image_output_basedir']}_{predict_out_subdir}"
-    segment.predict_dir(model=model,
-                        input_image_dir=conf.dirs['predict_image_input_dir'],
-                        output_base_dir=predict_output_dir,
-                        border_pixels_to_ignore=int(conf.predict['image_pixels_overlap']),
-                        projection_if_missing=image_datasource['projection'],
-                        input_mask_dir=None,
-                        batch_size=int(conf.predict['batch_size']),
-                        evaluate_mode=False)
+    segment_predict.predict_dir(
+            model=model,
+            input_image_dir=conf.dirs['predict_image_input_dir'],
+            output_base_dir=predict_output_dir,
+            border_pixels_to_ignore=int(conf.predict['image_pixels_overlap']),
+            projection_if_missing=image_datasource['projection'],
+            input_mask_dir=None,
+            batch_size=int(conf.predict['batch_size']),
+            evaluate_mode=False)
+
+# If the script is ran directly...
+if __name__ == '__main__':
+    raise Exception("Not implemented")
+    
