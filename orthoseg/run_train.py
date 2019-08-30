@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Helper module to make it easy to start a training session.
-
-@author: Pieter Roggemans
+Module to make it easy to start a training session.
 """
 
 import os
@@ -10,24 +8,24 @@ import os
 #os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 import keras as kr
 
-import orthoseg.helpers.config as conf
-import orthoseg.helpers.log as log_helper
+from orthoseg.helpers import config_helper as conf
+from orthoseg.helpers import log_helper
 import orthoseg.segment as seg
 import orthoseg.prepare_traindatasets as prep
 import orthoseg.model.model_helper as mh
 
-def run_training_session(segment_config_filepaths: []):
+def run_training_session(config_filepaths: []):
     """
     Run a training session.
     
     Args
-        segment_config_filepath: config(file) to use for the segmentation
+        config_filepaths: config(file) to use for the segmentation
     """
     ##### Init #####
     # TODO: add something to delete old data, predictions???
     
     # Read the configuration
-    conf.read_config(segment_config_filepaths)
+    conf.read_config(config_filepaths)
     
     # Main initialisation of the logging
     logger = log_helper.main_log_init(conf.dirs['log_training_dir'], __name__)      

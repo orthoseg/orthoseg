@@ -19,7 +19,7 @@ import rasterio.plot as rio_plot
 
 import orthoseg.model.model_factory as mf
 import orthoseg.model.model_helper as mh
-import orthoseg.predict_postprocess as postp
+import orthoseg.postprocess_predictions as postp
 
 #-------------------------------------------------------------
 # First define/init some general variables/constants

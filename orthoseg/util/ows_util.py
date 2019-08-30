@@ -18,7 +18,7 @@ import rasterio as rio
 import geopandas as gpd
 import shapely.geometry as sh_geom
 
-import orthoseg.vector.vector_helper as vh
+from orthoseg.util import vector_util
 
 #-------------------------------------------------------------
 # First define/init some general variables/constants
@@ -99,7 +99,7 @@ def get_images_for_grid(
         if is_srs_projected:
             
             # Create grid
-            grid = vh.create_grid(
+            grid = vector_util.create_grid(
                     xmin=image_gen_bounds[0], ymin=image_gen_bounds[1], 
                     xmax=image_gen_bounds[2], ymax=image_gen_bounds[3],
                     cell_width=4000, cell_height=4000)

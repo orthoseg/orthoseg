@@ -11,9 +11,9 @@ os.environ["GDAL_DATA"] = r"C:\Tools\anaconda3\envs\orthoseg4\Library\share\gdal
 import sys
 sys.path.insert(0, '.')
 
-import orthoseg.helpers.config as conf
-import orthoseg.helpers.log as log_helper
-import orthoseg.helpers.ows as ows_helper
+from orthoseg.helpers import config_helper as conf
+from orthoseg.helpers import log_helper
+from orthoseg.util import ows_util
 
 def load_images(
             config_filepaths: [str],
@@ -36,7 +36,7 @@ def load_images(
         image_pixel_x_size = conf.train.getfloat('image_pixel_x_size')
         image_pixel_y_size = conf.train.getfloat('image_pixel_y_size')
         image_pixels_overlap = 0
-        image_format = ows_helper.FORMAT_JPEG
+        image_format = ows_util.FORMAT_JPEG
         
         # To create the testsample, fetch only on every ... images
         column_start = 1
@@ -51,7 +51,7 @@ def load_images(
         image_pixel_x_size = conf.train.getfloat('image_pixel_x_size')
         image_pixel_y_size = conf.train.getfloat('image_pixel_y_size')
         image_pixels_overlap = conf.predict.getint('image_pixels_overlap')
-        image_format = ows_helper.FORMAT_JPEG
+        image_format = ows_util.FORMAT_JPEG
         
         # For the real prediction dataset, no skipping obviously...
         column_start = 0
@@ -65,7 +65,7 @@ def load_images(
     bbox = conf.image_datasources[predict_datasource_code]['bbox']
     grid_xmin = conf.image_datasources[predict_datasource_code]['grid_xmin']
     grid_ymin = conf.image_datasources[predict_datasource_code]['grid_ymin']
-    ows_helper.get_images_for_grid(
+    ows_util.get_images_for_grid(
             wms_server_url=wms_server_url,
             wms_layernames=wms_layernames,
             wms_layerstyles=wms_layerstyles,

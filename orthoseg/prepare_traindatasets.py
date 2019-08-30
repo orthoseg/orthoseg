@@ -19,9 +19,9 @@ import rasterio as rio
 import rasterio.features as rio_features
 import shapely.geometry as sh_geom
 
-import orthoseg.helpers.log as log_helper
-import orthoseg.helpers.ows as ows_helper
-import orthoseg.helpers.geofile as geofile_helper
+from orthoseg.helpers import log_helper
+from orthoseg.util import ows_util
+from orthoseg.util import geofile_util
 
 #-------------------------------------------------------------
 # First define/init some general variables/constants
@@ -91,7 +91,7 @@ def prepare_traindatasets(
         output_vector_mostrecent_filepath = os.path.join(
                 output_dir_mostrecent, os.path.basename(input_vector_label_filepath))
         if(os.path.exists(output_vector_mostrecent_filepath)
-           and geofile_helper.cmp(input_vector_label_filepath, 
+           and geofile_util.cmp(input_vector_label_filepath, 
                                   output_vector_mostrecent_filepath)):
             logger.info(f"RETURN: input vector label file isn't changed since last prepare_traindatasets, so no need to recreate")
             return output_dir_mostrecent, dataversion_mostrecent
@@ -108,7 +108,7 @@ def prepare_traindatasets(
     try:
         # Copy the vector file(s) to the dest dir so we keep knowing which file was
         # used to create the dataset
-        geofile_helper.copy(input_vector_label_filepath, output_dir)
+        geofile_util.copy(input_vector_label_filepath, output_dir)
         
         # Open vector layer
         logger.debug(f"Open vector file {input_vector_label_filepath}")
@@ -172,7 +172,7 @@ def prepare_traindatasets(
                                             
             # Now really get the image
             logger.debug(f"Get image for coordinates {img_bbox.bounds}")
-            image_filepath = ows_helper.getmap_to_file(
+            image_filepath = ows_util.getmap_to_file(
                     wms=wms_servers[image_datasource_code],
                     layers=image_datasources[image_datasource_code]['wms_layernames'],
                     styles=image_datasources[image_datasource_code]['wms_layerstyles'],
@@ -180,7 +180,7 @@ def prepare_traindatasets(
                     srs=img_srs,
                     bbox=img_bbox.bounds,
                     size=(image_pixel_width, image_pixel_height),
-                    image_format=ows_helper.FORMAT_JPEG,
+                    image_format=ows_util.FORMAT_JPEG,
                     transparent=False)
 
             # Create a mask corresponding with the image file

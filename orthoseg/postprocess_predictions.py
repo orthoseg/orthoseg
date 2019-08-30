@@ -21,8 +21,8 @@ import shapely as sh
 import geopandas as gpd
 import pandas as pd
 
-import orthoseg.vector.vector_helper as vh
-import orthoseg.helpers.geofile as geofile_util
+from orthoseg.util import geofile_util
+from orthoseg.util import vector_util
 
 #-------------------------------------------------------------
 # First define/init some general variables/constants
@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 #-------------------------------------------------------------
 # The real work
 #-------------------------------------------------------------
+
 """
 Not used anymore!
 
@@ -506,7 +507,7 @@ def polygonize_pred_for_evaluation(
                 # Also do the simplify with Visvalingam algo
                 # -> seems to give better results for this application
                 # Throws away too much info!!!
-                geom_simpl_vis = vh.simplify_visval(geom, 5)
+                geom_simpl_vis = vector_util.simplify_visval(geom, 5)
                 if geom_simpl_vis is not None:
                     geoms_simpl_vis.append(geom_simpl_vis)
                 '''
@@ -632,7 +633,7 @@ def polygonize_pred(
                             image_bounds[3]-border_pixels_to_ignore*y_pixsize)
         
         # Now we can calculate the "onborder" property
-        geoms_gdf = vh.calc_onborder(geoms_gdf, border_bounds)
+        geoms_gdf = vector_util.calc_onborder(geoms_gdf, border_bounds)
 
         # Write the geoms to file
         if output_basefilepath is not None:
@@ -727,7 +728,7 @@ def postprocess_predictions(
     # Union the data, optimized using the available onborder column
     geoms_union_filepath = os.path.join(
             output_dir, f"{output_basefilename_noext}_union{output_ext}")
-    geoms_union_gdf = vh.unary_union_with_onborder(
+    geoms_union_gdf = vector_util.unary_union_with_onborder(
             input_gdf=geoms_gdf,
             input_filepath=geoms_orig_filepath,
             output_filepath=geoms_union_filepath,
@@ -771,11 +772,11 @@ def postprocess_predictions(
         geoms_simpl_shap_gdf['geometry'] = geoms_simpl_shap_gdf.simplify(
                 tolerance=0.5, preserve_topology=True)
         geoms_simpl_shap_gdf['geometry'] = geoms_simpl_shap_gdf.geometry.apply(
-                lambda geom: vh.fix(geom))
+                lambda geom: vector_util.fix(geom))
         geoms_simpl_shap_gdf.dropna(subset=['geometry'], inplace=True)
         geoms_simpl_shap_gdf = geoms_simpl_shap_gdf.reset_index(drop=True).explode()
         geoms_simpl_shap_gdf['geometry'] = geoms_simpl_shap_gdf.geometry.apply(
-                lambda geom: vh.remove_inner_rings(geom, 2))        
+                lambda geom: vector_util.remove_inner_rings(geom, 2))        
                 
         # Add area column, and remove rows with small area
         geoms_simpl_shap_gdf['area'] = geoms_simpl_shap_gdf.geometry.area       
@@ -786,7 +787,7 @@ def postprocess_predictions(
         geoms_simpl_shap_gdf.reset_index(inplace=True, drop=True)
         geoms_simpl_shap_gdf['id'] = geoms_simpl_shap_gdf.index 
         geoms_simpl_shap_gdf['nbcoords'] = geoms_simpl_shap_gdf.geometry.apply(
-                lambda geom: vh.get_nb_coords(geom))
+                lambda geom: vector_util.get_nb_coords(geom))
         geofile_util.to_file(geoms_simpl_shap_gdf, geoms_simpl_shap_filepath)
         logger.info(f"Result written to {geoms_simpl_shap_filepath}")
         
@@ -827,7 +828,7 @@ def postprocess_predictions(
         geoms_simpl_shap_m1m_gdf.reset_index(inplace=True, drop=True)
         geoms_simpl_shap_m1m_gdf['id'] = geoms_simpl_shap_m1m_gdf.index 
         geoms_simpl_shap_m1m_gdf['nbcoords'] = geoms_simpl_shap_m1m_gdf.geometry.apply(
-                lambda geom: vh.get_nb_coords(geom))        
+                lambda geom: vector_util.get_nb_coords(geom))        
         geofile_util.to_file(geoms_simpl_shap_m1m_gdf, geoms_simpl_shap_m1m_filepath)
         logger.info(f"Result written to {geoms_simpl_shap_m1m_filepath}")
         

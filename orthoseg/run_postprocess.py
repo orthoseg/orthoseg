@@ -11,7 +11,7 @@ os.environ["GDAL_DATA"] = r"C:\Tools\anaconda3\envs\orthoseg4\Library\share\gdal
 import sys
 sys.path.insert(0, '.')
 
-import orthoseg.predict_postprocess as postp
+import orthoseg.postprocess_predictions as postp
 from orthoseg.helpers import config_helper as conf
 from orthoseg.helpers import log_helper
 

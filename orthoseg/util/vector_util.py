@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-
-@author: Pieter Roggemans
+Utility functions for vector manipulations
 """
 
 import logging
@@ -16,9 +15,9 @@ import numpy as np
 import shapely.ops as sh_ops
 import shapely.geometry as sh_geom
 
-import orthoseg.vector.simplify_visval as simpl_vis
-import orthoseg.vector.simplify_rdp_plus as simpl_rdp_plus
-import orthoseg.helpers.geofile as geofile_util
+from orthoseg.util.vector import simplify_visval as simpl_vis
+from orthoseg.util.vector import simplify_rdp_plus as simpl_rdp_plus
+from orthoseg.util import geofile_util
 
 #-------------------------------------------------------------
 # First define/init some general variables/constants
@@ -30,193 +29,7 @@ logger = logging.getLogger(__name__)
 # The real work
 #-------------------------------------------------------------
     
-def merge_vector_files(input_dir: str,
-                       output_filepath: str,
-                       apply_on_border_distance: float = None,
-                       evaluate_mode: bool = False,
-                       force: bool = False):
-    """
-    Merges all geojson files in input dir (recursively) and writes it to file.
-    
-    Returns the resulting GeoDataFrame or None if the output file already 
-    exists.
-    
-    Args
-        input_dir:
-        output_filepath:
-        apply_on_border_distance:
-        evaluate_mode:
-        force:
-    """
-    
-    swap_xy = False
-                        
-    # Check if we need to do anything anyway
-    if not force and os.path.exists(output_filepath):
-        logger.info(f"Force is false and output file exists already, skip: {output_filepath}")
-        return None
-
-    # Make sure the output dir exists
-    output_dir = os.path.split(output_filepath)[0]
-    if not os.path.exists(output_dir):
-        os.mkdir(output_dir)
-
-    # Get list of all files to process...
-    logger.info(f"List all files to be merged in {input_dir}")
-    in_filepaths = glob.glob(f"{input_dir}{os.sep}**{os.sep}*_pred_cleaned.geojson", recursive=True)
-
-    # Check if files were found...
-    if len(in_filepaths) == 0:
-        logger.warn("No files found to process... so return")
-        raise RuntimeWarning("NOFILESFOUND")
-
-    logger.info(f"Found {len(in_filepaths)} files to process")
-
-    # Get some info about the first input file to use as input for the output file
-    with fiona.open(in_filepaths[0], 'r') as in_file:
-        input_crs = in_file.crs
-        input_schema = in_file.schema
-
-    try:
-        # Open the destination file, for appending, and use the info as read from the first input file
-        with fiona.open(output_filepath, 'w', driver=geofile_util.get_driver(output_filepath), 
-                        layer='default', crs=input_crs, schema=input_schema) as output_file:
-
-            # Loop through all files to be processed...
-            max_parallel = 24
-            with futures.ThreadPoolExecutor(max_parallel) as read_pool:
-
-                sorted_filepaths = sorted(in_filepaths)
-                #geoms_gdf = None
-                files_busy = {}
-                last_file_busy = -1 
-                geom_list = []
-                nb_files = len(sorted_filepaths)
-                while True:
-
-                    # Start the next read if the limit isn't reached
-                    if((not (evaluate_mode and i >= 100))
-                       and len(files_busy) <= max_parallel*2):
-
-                        last_file_busy += 1
-                        in_filepath = sorted_filepaths[last_file_busy]
-                    
-                        # Read file with fiona
-                        future = read_pool.submit(read_file, in_filepath)
-                        files_busy[in_filepath] = {'read_filepath': in_filepath,
-                                                   'read_future': future}
-
-    
-                        """
-                        # TODO: Pandas implementation. Once pandas supports appending to file in to_file, reactivate this code
-
-                        # Read the geoms in the file and add to general list of geoms
-                        logger.debug(f"Read input geom wkt file: {in_filepath}")
-                        geoms_file_gdf = gpd.read_file(in_filepath)
-                        
-                        # If caller wants on_border column to be added
-                        if apply_on_border_distance is not None:
-                            
-                            # Implementation is not finished, and don't really need it anymore
-                            # Just keep it here for if it should be revived.
-                            raise Exception("Not implemented!!!")
-                            '''            
-                            for j, row in geoms_file_gdf.iterrows():
-                                basename = os.path.basename(in_filepath)
-                                splitted = basename.split('_')
-                                xmin = float(splitted[0]) + ((64*0.25) + 1)
-                                ymin = float(splitted[1]) + ((64*0.25) + 1)
-                                xmax = float(splitted[2]) - ((64*0.25) + 1)
-                                ymax = float(splitted[3]) - ((64*0.25) + 1)
-                                
-                                if(row.geometry.bounds[0] <= xmin 
-                                or row.geometry.bounds[1] <= ymin
-                                or row.geometry.bounds[2] >= xmax
-                                or row.geometry.bounds[3] >= ymax):
-                                    geoms_file_gdf.loc[j, 'onborder'] = 1
-                                else:
-                                    geoms_file_gdf.loc[j, 'onborder'] = 0
-                            '''
-                            
-                        if i == 0:
-                            geoms_gdf = geoms_file_gdf
-                            
-                            # Check if the input has a crs
-                            if geoms_gdf.crs is None:
-                                message = "STOP: input does not have a crs!"
-                                logger.critical(message)
-                                raise Exception(message)      
-                        else:
-                            geoms_gdf = geoms_gdf.append(geoms_file_gdf, sort=False)
-                        """
-                    else:
-                        time.sleep(0.01)
-                    
-                    # Treat files that are ready 
-                    files_ready = [] 
-                    for filepath_busy in files_busy:
-                        # If read is still running, skip to next read
-                        read_future = files_busy[filepath_busy]['read_future']
-                        if read_future.running() is True:
-                            continue
-
-                        # Get result
-                        try:
-                            records_read = read_future.result()
-                            for record in records_read:
-                                # If geom is on the border keep it
-                                if record['properties']['onborder'] == 1:
-                                    if swap_xy:
-                                        geom = sh_geom.shape(record['geometry'])  
-                                        geom_simplified = sh_ops.transform(lambda x, y: (y, x), geom_simplified)
-                                        record['geometry'] = sh_geom.mapping(geom_simplified)
-                                    geom_list.append(record)
-                                else:
-                                    geom = sh_geom.shape(record['geometry'])  
-                                    
-                                    # If too small... skip
-                                    if geom.area < 1:
-                                        continue
-                                    
-                                    # Simplify
-                                    geom_simplified = geom.simplify(0.25)
-                                    if swap_xy:
-                                        geom_simplified = sh_ops.transform(lambda x, y: (y, x), geom_simplified)
-                                    record['geometry'] = sh_geom.mapping(geom_simplified)
-                                    geom_list.append(record)
-                        except Exception as ex:
-                            logger.exception(f"Error reading {filepath_busy}")
-                        finally:
-                            files_ready.append(filepath_busy) 
-                    
-                    # Remove finished files from busy list...
-                    for filepath in files_ready:
-                        del files_busy[filepath]
-
-                    # If all files are treated or enough geoms are read, write
-                    if(len(geom_list) > 0
-                       and (last_file_busy == (nb_files-1)
-                            or (last_file_busy >= 100 and evaluate_mode) 
-                            or len(geom_list) > 18000)):
-                        try:
-                            output_file.writerecords(geom_list)
-                            geom_list = []
-                            logger.info(f"{last_file_busy} of {nb_files} processed ({(last_file_busy*100/nb_files):0.0f}%)")
-                        except Exception as ex:
-                            message = f"Error processing geom records starting at {geom_list[0]}"
-                            logger.exception(message)
-                            raise Exception(message) from ex
-
-                    # If completely ready, stop
-                    if(len(files_busy) == 0
-                       and (last_file_busy == (nb_files-1)
-                            or (last_file_busy >= 100 and evaluate_mode))):
-                        break
-    except Exception as ex:
-        os.rename(output_filepath, output_filepath + "_error")
-        raise Exception(f"Error while creating file {output_filepath}, renamed to ...error") from ex
-
-def read_file(filepath): 
+def read_file(filepath) -> []: 
     with fiona.open(filepath, 'r') as in_file:
         return list(in_file)
 

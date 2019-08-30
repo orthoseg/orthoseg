@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 High-level API to run a segmentation.
-
-@author: Pieter Roggemans
 """
 
 import os
@@ -10,11 +8,11 @@ import os
 #os.environ["CUDA_VISIBLE_DEVICES"] = "-1" # Disable using GPU
 import keras as kr
 
-import orthoseg.helpers.config as conf
-import orthoseg.helpers.log as log_helper
+from orthoseg.helpers import config_helper as conf
+from orthoseg.helpers import log_helper
 import orthoseg.model.model_helper as mh
 import orthoseg.segment as segment
-import orthoseg.predict_postprocess as postp
+import orthoseg.postprocess_predictions as postp
 
 def run_prediction(config_filepaths: str):
     """
@@ -25,7 +23,6 @@ def run_prediction(config_filepaths: str):
     """
     
     # TODO: add something to delete old data, predictions???
-
     # Read the configuration
     conf.read_config(config_filepaths)
     

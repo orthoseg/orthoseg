@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 Module to init logging.
-
-@author: Pieter Roggemans
 """
 
 import logging
