@@ -3,17 +3,17 @@
 Module with high-level operations to segment images.
 """
 
+from concurrent import futures
 import logging
 import os
 import glob
 import datetime
 import time
 import math
-import concurrent.futures as futures
 
+import keras as kr
 import numpy as np
 import pandas as pd
-import keras as kr
 import rasterio as rio
 import rasterio.plot as rio_plot
 
@@ -32,20 +32,21 @@ logger = logging.getLogger(__name__)
 # The real work
 #-------------------------------------------------------------
 
-def train(traindata_dir: str,
-          validationdata_dir: str,
-          model_encoder: str,
-          model_decoder: str,
-          model_save_dir: str,
-          model_save_base_filename: str,
-          image_width: int = 512,
-          image_height: int = 512,
-          image_subdir: str = "image",
-          mask_subdir: str = "mask",
-          model_preload_filepath: str = None,
-          batch_size: int = 32,
-          nb_epoch: int = 100,
-          augmented_subdir: str = None):
+def train(
+        traindata_dir: str,
+        validationdata_dir: str,
+        model_encoder: str,
+        model_decoder: str,
+        model_save_dir: str,
+        model_save_base_filename: str,
+        image_width: int = 512,
+        image_height: int = 512,
+        image_subdir: str = "image",
+        mask_subdir: str = "mask",
+        model_preload_filepath: str = None,
+        batch_size: int = 32,
+        nb_epoch: int = 100,
+        augmented_subdir: str = None):
     """
     Create a new or load an existing neural network and train it using 
     data from the train and validation directories specified.
@@ -393,12 +394,12 @@ def predict_dir(model,
             if evaluate_mode:
                 # In evaluate mode, put everyting in output base dir for easier 
                 # comparison
-                image_dir, image_filename_noext = os.path.split(image_filepath_noext)
+                _, image_filename_noext = os.path.split(image_filepath_noext)
                 tmp_output_filepath = os.path.join(output_base_dir, image_filename_noext)
             else:
                 tmp_output_filepath = image_filepath_noext.replace(input_image_dir, output_base_dir)
             output_pred_filepath = f"{tmp_output_filepath}_pred.tif"       
-            output_dir, output_pred_filename = os.path.split(output_pred_filepath)
+            output_dir, _ = os.path.split(output_pred_filepath)
             
             # Init start time at the first file that isn't skipped
             if nb_processed == 0:
@@ -508,7 +509,7 @@ def read_image(image_filepath: str,
                projection_if_missing: str = None):
 
     # Read input file
-    # Because sometimes a read seems to fail, retry upt to 3 times...
+    # Because sometimes a read seems to fail, retry up to 3 times...
     retry_count = 0
     while True:
         try:
