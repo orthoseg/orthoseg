@@ -4,6 +4,8 @@ Module with functions for post-processing prediction masks towards polygons.
 """
 
 import os
+# TODO: the init of this doensn't seem to work properly... should be solved somewhere else?
+os.environ["GDAL_DATA"] = r"C:\Tools\anaconda3\envs\orthoseg4\Library\share\gdal"
 
 # Because orthoseg isn't installed as package + it is higher in dir hierarchy, add root to sys.path
 import sys
@@ -29,11 +31,12 @@ def test_postprocess_vectors():
 
     # Input and output dir
     input_dir = (conf.dirs['predict_image_output_basedir'] 
-                 + "_sealedsurfaces_08_inceptionresnetv2+linknet_0.94311_0.92964_0")
-    output_dir = os.path.join(conf.dirs['output_vector_dir'], 
-                              f"{conf.general['segment_subject']}_test")
-    output_filepath = os.path.join(output_dir, 
-                                   f"{conf.general['segment_subject']}_test.gpkg")
+                 + "_sealedsurfaces_16_inceptionresnetv2+unet_348")
+    output_vector_name = f"{conf.general['segment_subject']}_{conf.predict['image_datasource_code']}_16"
+    output_dir = os.path.join(
+            conf.dirs['output_vector_dir'], output_vector_name)
+    output_filepath = os.path.join(
+            output_dir, f"{output_vector_name}.gpkg")
     
     postp.postprocess_vectors(input_dir=input_dir,
                               output_filepath=output_filepath,
