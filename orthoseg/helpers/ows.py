@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 Helper module to support some tasks regarding using OWS services.
-
-@author: Pieter Roggemans
 """
 
 import logging
@@ -49,31 +47,30 @@ logger.setLevel(logging.DEBUG)
 # The real work
 #-------------------------------------------------------------
 
-def get_images_for_grid(wms_server_url: str,
-                        wms_layernames: [str],
-                        srs: str,
-                        output_image_dir: str,
-                        image_gen_bounds: (float, float, float, float) = None,
-                        image_gen_roi_filepath: str = None,
-                        grid_xmin: float = 0.0,
-                        grid_ymin: float = 0.0,
-                        image_srs_pixel_x_size: int = 0.25,
-                        image_srs_pixel_y_size: int = 0.25,
-                        image_pixel_width: int = 1024,
-                        image_pixel_height: int = 1024,
-                        nb_concurrent_calls: int = 0,
-                        image_format: str = FORMAT_GEOTIFF,
-                        tiff_compress: str = 'lzw',
-                        transparent: str = False,
-                        wms_server_layers_styles: [str] = ['default'],
-                        pixels_overlap: int = 0,
-                        random_sleep: float = 0.0,
-                        column_start: int = 0,
-                        nb_images_to_skip: int = None,
-                        force: bool = False):
-
-    
-    # TODO: might be interesting to parallelize a bit... it is rather slow...
+def get_images_for_grid(
+        wms_server_url: str,
+        wms_layernames: [str],
+        srs: str,
+        output_image_dir: str,
+        image_gen_bounds: (float, float, float, float) = None,
+        image_gen_roi_filepath: str = None,
+        grid_xmin: float = 0.0,
+        grid_ymin: float = 0.0,
+        image_srs_pixel_x_size: int = 0.25,
+        image_srs_pixel_y_size: int = 0.25,
+        image_pixel_width: int = 1024,
+        image_pixel_height: int = 1024,
+        nb_concurrent_calls: int = 0,
+        image_format: str = FORMAT_GEOTIFF,
+        tiff_compress: str = 'lzw',
+        transparent: str = False,
+        wms_layerstyles: [str] = ['default'],
+        pixels_overlap: int = 0,
+        random_sleep: float = 0.0,
+        column_start: int = 0,
+        nb_images_to_skip: int = None,
+        max_nb_images: int = -1,
+        force: bool = False):
     
     srs_width = math.fabs(image_pixel_width*image_srs_pixel_x_size)   # tile width in units of crs => 500 m
     srs_height = math.fabs(image_pixel_height*image_srs_pixel_y_size) # tile height in units of crs => 500 m
@@ -83,26 +80,9 @@ def get_images_for_grid(wms_server_url: str,
     roi_gdf = None
     if image_gen_roi_filepath:
         # Open vector layer
-        # TODO: performance can be improved by intersecting with a 2x2 km grid
-        # so calculating intersections per cell afterwards is cheaper...
-        # eg: grid res_intersection = geopandas.overlay(df1, df2, how='intersection')
         logger.info(f"Open vector file {image_gen_roi_filepath}")
         roi_gdf = gpd.read_file(image_gen_roi_filepath)
-        
-        '''
-        roi_data = fiona.open(image_gen_roi_filepath)
-
-        # Convert to lists of shapely geometries
-        roi_rows = []
-        for roi_row in roi_data:
-            geom = sh_geom.shape(roi_row['geometry'])
-            geom_bounds = geom.bounds
-            # Needs to be a shapely geom, not a tupple to use for intersection
-            geom_bounds_box = sh_geom.box(geom_bounds[0], geom_bounds[1],
-                                          geom_bounds[2], geom_bounds[3])
-            roi_rows.append({'geom_bounds': geom_bounds_box, 'geom': geom})
-        '''
-        
+                
         # If the generate_window wasn't specified, calculate the bounds
         # based on the roi (but make sure they fit the grid!)
         if not image_gen_bounds:
@@ -119,9 +99,10 @@ def get_images_for_grid(wms_server_url: str,
         if is_srs_projected:
             
             # Create grid
-            grid = vh.create_grid(xmin=image_gen_bounds[0], ymin=image_gen_bounds[1], 
-                               xmax=image_gen_bounds[2], ymax=image_gen_bounds[3],
-                               cell_width=4000, cell_height=4000)
+            grid = vh.create_grid(
+                    xmin=image_gen_bounds[0], ymin=image_gen_bounds[1], 
+                    xmax=image_gen_bounds[2], ymax=image_gen_bounds[3],
+                    cell_width=4000, cell_height=4000)
             # Create intersection layer between grid and roi
             #roi_gdf = roi_gdf.geometry.intersection(grid.geometry)
             roi_gdf = gpd.overlay(grid, roi_gdf, how='intersection')
@@ -132,18 +113,22 @@ def get_images_for_grid(wms_server_url: str,
             #roi_gdf.to_file("X:\\Monitoring\\OrthoSeg\\roi_gridded.shp")
             
     # Check if the image_gen_bounds are compatible with the grid...
-    error_message = None
-    if((image_gen_bounds[0]-grid_xmin)%srs_width != 0):
-        error_message += f"image_gen_bounds[0] (xmin) is not compatible with grid!\n"
-    elif((image_gen_bounds[2]-grid_xmin)%srs_width != 0):
-        error_message += f"image_gen_bounds[2] (xmax) is not compatible with grid!\n"
-    elif((image_gen_bounds[1]-grid_ymin)%srs_height != 0):
-        error_message += f"image_gen_bounds[1] (ymin) is not compatible with grid!\n"
-    elif((image_gen_bounds[3]-grid_ymin)%srs_height != 0):
-        error_message += f"image_gen_bounds[3] (ymax) is not compatible with grid!\n"
+    error_message = ''
+    if (image_gen_bounds[0]-grid_xmin)%srs_width != 0:
+        xmin_suggestion = image_gen_bounds[0] - ((image_gen_bounds[0]-grid_xmin)%srs_width)
+        error_message += f"\n\txmin {image_gen_bounds[0]} is not compatible with grid specified, {xmin_suggestion} is!"
+    if (image_gen_bounds[1]-grid_ymin)%srs_height != 0:
+        ymin_suggestion = image_gen_bounds[1] - ((image_gen_bounds[1]-grid_ymin)%srs_height)
+        error_message += f"\n\tymin {image_gen_bounds[1]} is not compatible with grid specified, {ymin_suggestion} is!"
+    if (image_gen_bounds[2]-grid_xmin)%srs_width != 0:
+        xmax_suggestion = image_gen_bounds[2] + srs_width - ((image_gen_bounds[2]-grid_xmin)%srs_width)
+        error_message += f"\n\txmax {image_gen_bounds[2]} is not compatible with grid specified, {xmax_suggestion} is!"
+    if (image_gen_bounds[3]-grid_ymin)%srs_height != 0:
+        ymax_suggestion = image_gen_bounds[3] + srs_height - ((image_gen_bounds[3]-grid_ymin)%srs_height)
+        error_message += f"\n\tymax {image_gen_bounds[3]} is not compatible with grid specified, {ymax_suggestion } is!"
 
     # If there was an error, stop!
-    if error_message:
+    if error_message != '':
         logger.critical(error_message)
         raise Exception(error_message)
 
@@ -263,7 +248,7 @@ def get_images_for_grid(wms_server_url: str,
                         continue
                     '''
                 
-                # Now we are getting to start fetcing images... init start_time 
+                # Now we are getting to start fetching images... init start_time 
                 if start_time is None:
                     start_time = datetime.datetime.now()
                 
@@ -284,7 +269,7 @@ def get_images_for_grid(wms_server_url: str,
                     read_results = pool.map(
                             getmap_to_file,        # Function 
                             it.repeat(wms),
-                            it.repeat([wms_layernames]),
+                            it.repeat(wms_layernames),
                             it.repeat(output_dir),
                             it.repeat(srs),
                             bbox_list,
@@ -293,7 +278,7 @@ def get_images_for_grid(wms_server_url: str,
                             output_filename_list,
                             it.repeat(transparent),
                             it.repeat(tiff_compress),
-                            it.repeat(wms_server_layers_styles),
+                            it.repeat(wms_layerstyles),
                             it.repeat(random_sleep),
                             it.repeat(force))
                             
@@ -332,14 +317,16 @@ def get_images_for_grid(wms_server_url: str,
                         nb_per_hour_lastbatch = (nb_images_in_batch/time_passed_lastbatch_s) * 3600
                         hours_to_go = (int)((nb_todo - nb_processed)/nb_per_hour)
                         min_to_go = (int)((((nb_todo - nb_processed)/nb_per_hour)%1)*60)
-                        print(f"\r{hours_to_go}:{min_to_go} left for {nb_todo-nb_processed} images at {nb_per_hour:0.0f}/h ({nb_per_hour_lastbatch:0.0f}/h last batch)",
+                        print(f"\r{hours_to_go}:{min_to_go} left for {nb_todo-nb_processed} images at {nb_per_hour:0.0f}/h ({nb_per_hour_lastbatch:0.0f}/h last batch), with {nb_ignore_in_progress} skipped",
                               end='', flush=True)
                     
                     # Reset variable for next batch
                     bbox_list = []
                     size_list = []
                     output_filename_list = []
-                    
+
+                    if max_nb_images > -1 and nb_downloaded >= max_nb_images:
+                        return            
                     '''
                     # TODO: cleanup
                     #logger.info(f"Nb processed: {nb_processed} of {cols*rows} ({nb_processed/(cols*rows):.2f}%), Nb downloaded: {counter_downloaded}")
@@ -355,19 +342,20 @@ def get_images_for_grid(wms_server_url: str,
                               end="", flush=True)
                     '''
                     
-def getmap_to_file(wms: owslib.wms.WebMapService,
-                   layers: [str],
-                   output_dir: str,
-                   srs: str,
-                   bbox,
-                   size,
-                   image_format: str = FORMAT_GEOTIFF,
-                   output_filename: str = None,
-                   transparent: bool = False,
-                   tiff_compress: str = 'lzw',
-                   styles: [str] = ['default'],
-                   random_sleep: float = 0.0,
-                   force: bool = False) -> str:
+def getmap_to_file(
+        wms: owslib.wms.WebMapService,
+        layers: [str],
+        output_dir: str,
+        srs: str,
+        bbox,
+        size,
+        image_format: str = FORMAT_GEOTIFF,
+        output_filename: str = None,
+        transparent: bool = False,
+        tiff_compress: str = 'lzw',
+        styles: [str] = ['default'],
+        random_sleep: float = 0.0,
+        force: bool = False) -> str:
     """
 
     Args
@@ -411,6 +399,7 @@ def getmap_to_file(wms: owslib.wms.WebMapService,
             logger.debug(f"Start call GetMap for bbox {bbox}")
 
             # For some coordinate systems apparently the axis ordered is configured wrong in LibOWS :-(
+            bbox_orig = bbox
             if srs.lower() == 'epsg:3059':
                 bbox = (bbox[1], bbox[0], bbox[3], bbox[2])
 
@@ -484,22 +473,23 @@ def getmap_to_file(wms: owslib.wms.WebMapService,
             logger.debug(f"Map request bbox: {bbox}")
             logger.debug(f"Map request size: {size}")
 
-            srs_pixel_x_size = (bbox[2]-bbox[0])/size[0]
-            srs_pixel_y_size = (bbox[1]-bbox[3])/size[1]
+            # For some coordinate systems apparently the axis ordered is configured wrong in LibOWS :-(
+            srs_pixel_x_size = (bbox_orig[2]-bbox_orig[0])/size[0]
+            srs_pixel_y_size = (bbox_orig[1]-bbox_orig[3])/size[1]
 
             logger.debug(f"Coordinates to put in geotiff:\n" +
                          f"    - x-component of the pixel width, W-E: {srs_pixel_x_size}\n" +
                          f"    - y-component of the pixel width, W-E (0 if image is exactly N up): 0\n" +
-                         f"    - top-left x: {bbox[0]}\n" +
+                         f"    - top-left x: {bbox_orig[0]}\n" +
                          f"    - x-component of the pixel height, N-S (0 if image is exactly N up): \n" +
                          f"    - y-component of the pixel height, N-S: {srs_pixel_y_size}\n" +
-                         f"    - top-left y: {bbox[3]}")
+                         f"    - top-left y: {bbox_orig[3]}")
 
             # Add transform and srs to the profile
             image_profile.update(
                     transform = rio.transform.Affine(
-                                srs_pixel_x_size, 0, bbox[0],
-                                0 , srs_pixel_y_size, bbox[3]),
+                                srs_pixel_x_size, 0, bbox_orig[0],
+                                0 , srs_pixel_y_size, bbox_orig[3]),
                     crs=srs)
 
             logger.debug(f"image_profile that will be used: {image_profile}")
@@ -509,8 +499,8 @@ def getmap_to_file(wms: owslib.wms.WebMapService,
     else:
         # If a file format is asked that doesn't support coordinates,
         # write world file
-        srs_pixel_x_size = (bbox[2]-bbox[0])/size[0]
-        srs_pixel_y_size = (bbox[1]-bbox[3])/size[1]
+        srs_pixel_x_size = (bbox_orig[2]-bbox_orig[0])/size[0]
+        srs_pixel_y_size = (bbox_orig[1]-bbox_orig[3])/size[1]
 
         path_noext, ext = os.path.splitext(output_filepath)
         if ext.lower() == FORMAT_TIFF_EXT:
@@ -529,8 +519,8 @@ def getmap_to_file(wms: owslib.wms.WebMapService,
             wld_file.write("\n0.000")
             wld_file.write("\n0.000")
             wld_file.write(f"\n{srs_pixel_y_size}")
-            wld_file.write(f"\n{bbox[0]}")
-            wld_file.write(f"\n{bbox[3]}")
+            wld_file.write(f"\n{bbox_orig[0]}")
+            wld_file.write(f"\n{bbox_orig[3]}")
 
     return output_filepath
 

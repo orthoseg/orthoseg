@@ -15,30 +15,16 @@ import orthoseg.helpers.config as conf
 import orthoseg.helpers.log as log_helper
 import orthoseg.helpers.ows as ows_helper
 
-def load_images(load_testsample_images: bool = False):
+def load_images(
+            config_filepaths: [str],
+            load_testsample_images: bool = False):
 
-    # Read the configuration
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    base_dir, _ = os.path.split(script_dir)
-    config_dir = os.path.join(base_dir, "config")
-
-    segment_config_filepaths=[os.path.join(config_dir, 'general.ini'), 
-                              os.path.join(config_dir, 'sealedsurfaces.ini'),
-                              os.path.join(config_dir, 'local_overrule.ini')]
-    conf.read_config(segment_config_filepaths)
-    
+    ##### Init #####
     # Main initialisation of the logging
+    conf.read_config(config_filepaths)
     logger = log_helper.main_log_init(conf.dirs['log_dir'], __name__)      
-    logger.info("Start loading images")
     logger.info(f"Config used: \n{conf.pformat_config()}")
-
-    '''
-    generate_window_xmin = 22000
-    generate_window_ymin = 150000
-    generate_window_xmax = 259000
-    generate_window_ymax = 245000
-    '''    
-    
+   
     # Use different setting depending if testsample or all images
     if load_testsample_images:
         output_image_dir=conf.dirs['predictsample_image_input_dir']
@@ -71,13 +57,24 @@ def load_images(load_testsample_images: bool = False):
         column_start = 0
         nb_images_to_skip = 0
     
-    # Now start loading the images
+    predict_datasource_code = conf.predict['image_datasource_code']
+    wms_server_url = conf.image_datasources[predict_datasource_code]['wms_server_url']
+    wms_layernames = conf.image_datasources[predict_datasource_code]['wms_layernames']
+    wms_layerstyles = conf.image_datasources[predict_datasource_code]['wms_layerstyles']
+    projection = conf.image_datasources[predict_datasource_code]['projection']
+    bbox = conf.image_datasources[predict_datasource_code]['bbox']
+    grid_xmin = conf.image_datasources[predict_datasource_code]['grid_xmin']
+    grid_ymin = conf.image_datasources[predict_datasource_code]['grid_ymin']
     ows_helper.get_images_for_grid(
-            wms_server_url=conf.general['wms_server_url'],
-            wms_layernames=conf.general['wms_layername'],
-            srs=conf.general['projection'],
+            wms_server_url=wms_server_url,
+            wms_layernames=wms_layernames,
+            wms_layerstyles=wms_layerstyles,
+            srs=projection,
             output_image_dir=output_image_dir,
+            image_gen_bounds=bbox,
             image_gen_roi_filepath=conf.files['roi_filepath'],
+            grid_xmin=grid_xmin,
+            grid_ymin=grid_ymin,
             image_srs_pixel_x_size=image_pixel_x_size,
             image_srs_pixel_y_size=image_pixel_y_size,
             image_pixel_width=image_pixel_width,
@@ -89,5 +86,4 @@ def load_images(load_testsample_images: bool = False):
             nb_images_to_skip=nb_images_to_skip)
 
 if __name__ == '__main__':
-    
-    load_images(load_testsample_images=False)
+    raise Exception("Not implemented!")
