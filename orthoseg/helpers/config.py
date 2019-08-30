@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Module that manages the configuration of a segmentation
+Module that manages the configuration of a segmentation.
 """
 
 import os
@@ -47,11 +47,30 @@ def read_config(config_filepaths: []):
             image_datasource_code = section.replace('image_datasource_', '')
             image_datasources[image_datasource_code] = dict(config[section])
             
-            # The layer names ad layer styles are lists
+            # The layer names and layer styles are lists
             wms_layernames = config[section].getlist('wms_layernames')
             image_datasources[image_datasource_code]['wms_layernames'] = wms_layernames
             wms_layerstyles = config[section].getlist('wms_layerstyles')
             image_datasources[image_datasource_code]['wms_layerstyles'] = wms_layerstyles
+
+            # Check if a bbox is specified
+            bbox_tuple = None
+            if config.has_option(section, 'bbox'):
+                bbox_list = config[section].getlist('bbox')
+                bbox_tuple = (float(bbox_list[0]), float(bbox_list[1]), 
+                              float(bbox_list[2]), float(bbox_list[3]))
+                image_datasources[image_datasource_code]['bbox'] = bbox_tuple
+            image_datasources[image_datasource_code]['bbox'] = bbox_tuple
+
+            # Check if the grid xmin and xmax are specified            
+            grid_xmin = 0
+            if config.has_option(section, 'grid_xmin'):
+                grid_xmin = config[section].getfloat('grid_xmin')                
+            image_datasources[image_datasource_code]['grid_xmin'] = grid_xmin
+            grid_ymin = 0
+            if config.has_option(section, 'grid_ymin'):
+                grid_ymin = config[section].getfloat('grid_ymin')
+            image_datasources[image_datasource_code]['grid_ymin'] = grid_ymin
 
 def pformat_config():
     message = f"Config files used: {pprint.pformat(config_filepaths_used)} \n"

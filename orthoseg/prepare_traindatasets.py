@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-@author: Pieter Roggemans
+Module to prepare the training datasets.
 """
 
 from __future__ import print_function
@@ -11,16 +11,13 @@ import glob
 import math
 import datetime
 
-import numpy as np
-#import pandas as pd
-
-import shapely.geometry as sh_geom
-#import shapely.ops as sh_ops
 import fiona
+import geopandas as gpd
+import numpy as np
+import owslib
 import rasterio as rio
 import rasterio.features as rio_features
-import owslib
-import geopandas as gpd
+import shapely.geometry as sh_geom
 
 import orthoseg.helpers.log as log_helper
 import orthoseg.helpers.ows as ows_helper
@@ -138,12 +135,13 @@ def prepare_traindatasets(
         created_images_gdf['geometry'] = None
         start_time = datetime.datetime.now()
         wms_servers = {}
-        for i, label_geom in enumerate(labels_to_use_for_bounds_gdf.geometry):
-
+        for i, label_tuple in enumerate(labels_to_use_for_bounds_gdf.itertuples()):
+            
             # TODO: now just the top-left part of the labeled polygon is taken
             # as a start... ideally make sure we use it entirely for cases with
             # no abundance of data
             # Make sure the image requested is of the correct size
+            label_geom = label_tuple.geometry            
             geom_bounds = label_geom.bounds
             xmin = geom_bounds[0]-(geom_bounds[0]%image_srs_pixel_x_size)-10
             ymin = geom_bounds[1]-(geom_bounds[1]%image_srs_pixel_y_size)-10
@@ -156,12 +154,17 @@ def prepare_traindatasets(
                 logger.debug(f"Bounds overlap with already created image, skip: {img_bbox}")
                 continue
             else:
-                created_images_gdf = created_images_gdf.append({'geometry': img_bbox}, 
-                                                            ignore_index=True)
+                created_images_gdf = created_images_gdf.append(
+                        {'geometry': img_bbox}, ignore_index=True)
+
+            # If an image layer is specified, use that layer
+            image_datasource_code = default_image_datasource_code
+            if 'image' in label_tuple._fields:
+                if(getattr(label_tuple, 'image') is not None 
+                   and getattr(label_tuple, 'image') != ''):
+                    image_datasource_code = getattr(label_tuple, 'image')
 
             # If the wms to be used hasn't been initialised yet
-            # TODO: implement option to use different wms per image
-            image_datasource_code = default_image_datasource_code
             if image_datasource_code not in wms_servers:
                 wms_servers[image_datasource_code] = owslib.wms.WebMapService(
                         url=image_datasources[image_datasource_code]['wms_server_url'], 
@@ -184,11 +187,12 @@ def prepare_traindatasets(
             # image_filepath can be None if file existed already, so check if not None...
             if image_filepath:
                 mask_filepath = image_filepath.replace(output_image_dir, output_mask_dir)
-                _create_mask(input_vector_label_list=labels_to_burn_gdf.geometry,
-                            input_image_filepath=image_filepath,
-                            output_mask_filepath=mask_filepath,
-                            burn_value=burn_value,
-                            force=force)
+                _create_mask(
+                        input_vector_label_list=labels_to_burn_gdf.geometry,
+                        input_image_filepath=image_filepath,
+                        output_mask_filepath=mask_filepath,
+                        burn_value=burn_value,
+                        force=force)
             
             # Log the progress and prediction speed
             nb_processed += 1
@@ -214,96 +218,6 @@ def prepare_traindatasets(
         raise Exception(message) from ex
             
     return output_dir, dataversion_new
-'''
-# TODO: this is a deprecated function, maybe better delete it to evade having to keep supporting it?
-def create_masks(input_vector_label_filepath: str,
-                 input_image_dir: str,
-                 output_mask_dir: str,
-                 output_image_dir: str = None,
-                 burn_value: int = 255,
-#                 output_filelist_csv: str = '',
-                 output_keep_nested_dirs: bool = False,
-                 force: bool = False):
-    """
-    Create masks for the extents of the files in the input folder, based on
-    the vector data in the input vector file.
-
-    Args
-
-    """
-
-    # Create output dirs
-    for dir in [output_mask_dir]:
-        if not os.path.exists(dir):
-            os.mkdir(dir)
-
-    # Load vector input file with the labels
-    # Open vector layer
-    logger.info(f"Open vector file {input_vector_label_filepath}")
-    input_vector_labels = fiona.open(input_vector_label_filepath)
-
-    # Convert to lists of shapely geometries
-    input_labels = [(sh_geom.shape(input_label['geometry']), input_label['properties']['CODE_OBJ']) for input_label in input_vector_labels]
-    input_labels = []
-    for input_label in input_vector_labels:
-        input_labels.append(sh_geom.shape(input_label['geometry']))
-
-    # iterate through images, convert to 8-bit, and create masks
-    filelist = []
-    search_string = f"{input_image_dir}{os.sep}**{os.sep}*.tif"
-    image_filepaths = glob.glob(search_string, recursive=True)
-    for i, image_filepath in enumerate(image_filepaths):
-
-        if i%50 == 0:
-            logger.info(f"Processing file nb {i} of {len(image_filepaths)}")
-
-        # Create output file name
-        output_image_filepath = None
-        if output_keep_nested_dirs:
-            output_mask_filepath = image_filepath.replace(input_image_dir, output_mask_dir)
-            if output_image_dir:
-                output_image_filepath = image_filepath.replace(input_image_dir, output_image_dir)
-        else:
-            filename = os.path.split(image_filepath)[1]
-            output_mask_filepath = os.path.join(output_mask_dir, filename)
-            if output_image_dir:
-                output_image_filepath = os.path.join(output_image_dir, filename)
-
-        logger.debug(f"Process image_filepath: {image_filepath}, with output_mask_filepath: {output_mask_filepath}, output_image_filepath: {output_image_filepath}")
-
-        # Check if output dir exists already
-        output_mask_dir = os.path.split(output_mask_filepath)[0]
-        for dir in [output_mask_dir, output_image_dir]:
-            if dir and not os.path.exists(dir):
-                os.mkdir(dir)
-
-        # Create mask file
-        ret_val = _create_mask(
-                input_vector_label_layer=input_labels,
-                input_image_filepath=image_filepath,
-                output_mask_filepath=output_mask_filepath,
-                output_image_filepath=output_image_filepath,
-                burn_value=burn_value,
-                minimum_pct_labeled=1,
-                force=force)
-
-        # Add to list of files to output later on
-        if ret_val is True:
-            image_filename = os.path.split(image_filepath)[1]
-            filelist.append([image_filename, image_filepath, image_filepath,
-                             output_mask_filepath, output_mask_filepath])
-
-    """
-    # Put list in dataframe and save to csv
-    df_filelist = pd.DataFrame(filelist, columns=['image_filename', 'image_filepath',
-                                                  'image_visible_filepath',
-                                                  'mask_filepath', 'mask_visible_filepath'])
-    if len(df_filelist) > 0:
-        df_filelist.to_csv(output_filelist_csv, index=False)
-    """
-    return filelist
-'''
-###############################################################################
 
 def _create_mask(input_vector_label_list,
                  input_image_filepath: str,
