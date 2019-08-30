@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 Module with helper functions regarding (keras) models.
-
-@author: Pieter Roggemans
 """
 
 import os
@@ -193,6 +191,7 @@ def save_and_clean_models(model_save_dir: str,
                           new_model_acc_train: float = None,
                           new_model_acc_val: float = None,
                           new_model_epoch: int = None,
+                          save_weights_only: bool = False,
                           verbose: bool = True,
                           debug: bool = False,
                           only_report: bool = False):
@@ -272,7 +271,10 @@ def save_and_clean_models(model_save_dir: str,
                and only_report is not True
                and model_info['filepath'] == new_model_filepath
                and not os.path.exists(new_model_filepath)):
-                new_model.save_weights(new_model_filepath)
+                if save_weights_only:
+                    new_model.save_weights(new_model_filepath)
+                else:
+                    new_model.save(new_model_filepath)
 
     if verbose is True or debug is True:
         best_model = get_best_model(model_save_dir, model_save_base_filename)
