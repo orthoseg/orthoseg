@@ -88,9 +88,10 @@ def train(traindata_dir: str,
                                width_shift_range=0.05,
                                height_shift_range=0.05,
                                shear_range=0.0,
-                               zoom_range=0.05,
+                               zoom_range=0.1,
                                horizontal_flip=True,
-                               vertical_flip=True)
+                               vertical_flip=True,
+                               brightness_range=(0.9,1.1))
 
     # Create the train generator
     traindata_augmented_dir = None
@@ -448,24 +449,40 @@ def predict_dir(model,
                 logger.debug("Start post-processing")    
                 for j, image_info in enumerate(curr_batch_image_infos_ext):    
                     try:
-                        # Postprocess
-                        postp.postprocess_prediction(
+                        # Save prediction
+                        image_pred_uint8_cleaned = clean_prediction(
+                                image_pred_arr=curr_batch_image_pred_arr[j], 
+                                border_pixels_to_ignore=border_pixels_to_ignore)
+                        image_pred_filepath = save_prediction_uint8(
                                 image_filepath=image_info['input_image_filepath'],
-                                output_dir=image_info['output_dir'],
+                                image_pred_uint8_cleaned=image_pred_uint8_cleaned,
                                 image_crs=image_info['image_crs'],
                                 image_transform=image_info['image_transform'],
-                                image_pred_arr=curr_batch_image_pred_arr[j],
-                                input_mask_dir=input_mask_dir,
-                                border_pixels_to_ignore=border_pixels_to_ignore,
-                                evaluate_mode=evaluate_mode,
+                                output_dir=image_info['output_dir'],
                                 force=force)
-    
+
+                        # Postprocess for evaluation
+                        if evaluate_mode is True:
+                            # Create binary version and postprocess
+                            image_pred_uint8_cleaned_bin = postp.to_binary_uint8(image_pred_uint8_cleaned, 125)                       
+                            postp.postprocess_for_evaluation(
+                                    image_filepath=image_info['input_image_filepath'],
+                                    image_crs=image_info['image_crs'],
+                                    image_transform=image_info['image_transform'],
+                                    image_pred_filepath=image_pred_filepath,
+                                    image_pred_uint8_cleaned_bin=image_pred_uint8_cleaned_bin,
+                                    output_dir=image_info['output_dir'],
+                                    input_image_dir=input_image_dir,
+                                    input_mask_dir=input_mask_dir,
+                                    border_pixels_to_ignore=border_pixels_to_ignore,
+                                    force=force)
+                                
                         # Write line to file with done files...
                         with open(images_done_log_filepath, "a+") as f:
                             f.write(os.path.basename(
                                     image_info['input_image_filepath']) + '\n')
                     except:
-                        logger.error(f"Error postprocessing pred for {image_info['input_image_filepath']}")
+                        logger.exception(f"Error postprocessing pred for {image_info['input_image_filepath']}")
     
                         # Write line to file with done files...
                         with open(images_error_log_filepath, "a+") as f:
@@ -533,22 +550,15 @@ def read_image(image_filepath: str,
               'image_filepath': image_filepath}
     return result
 
-def save_prediction_uint8(input_filepath: str,
-                          output_dir: str,
-                          image_pred_arr,
-                          image_crs: str,
-                          image_transform,
-                          border_pixels_to_ignore: int = None,
-                          force: bool = False) -> bool:
+def clean_prediction(
+        image_pred_arr: np.array,
+        border_pixels_to_ignore: int = 0) -> np.array:
 
-    # Make sure the output dir exists...
-    if not os.path.exists(output_dir):
-        os.mkdir(output_dir)
-    
-    # Prepare the filepath for the output
-    _, image_filename = os.path.split(input_filepath)
-    image_filename_noext, _ = os.path.splitext(image_filename)
-    output_filepath = f"{output_dir}{os.sep}{image_filename_noext}_pred.tif"
+    # Check the number of channels of the output prediction
+    image_pred_shape = image_pred_arr.shape
+    n_channels = image_pred_shape[2]
+    if n_channels > 1:
+        raise Exception(f"Not implemented: processing prediction output with multiple channels: {n_channels}")    
 
     # Input should be float32
     if image_pred_arr.dtype != np.float32:
@@ -557,9 +567,10 @@ def save_prediction_uint8(input_filepath: str,
     # Convert to uint8
     image_pred_uint8 = (image_pred_arr * 10).astype(np.uint8)
     image_pred_uint8 = image_pred_uint8 * 25
+    #image_pred_uint8 = (image_pred_arr * 255).astype(np.uint8)
     
     # Reshape array from 4 dims (image_id, width, height, nb_channels) to 2.
-    image_pred_uint8 = image_pred_uint8.reshape((image_pred_uint8.shape[0], image_pred_uint8.shape[1]))
+    image_pred_uint8 = image_pred_uint8.reshape((image_pred_shape[0], image_pred_shape[1]))
 
     # Make the pixels at the borders of the prediction black so they are ignored
     image_pred_uint8_cropped = image_pred_uint8
@@ -568,28 +579,53 @@ def save_prediction_uint8(input_filepath: str,
         image_pred_uint8_cropped[-border_pixels_to_ignore:,:] = 0    # Right border
         image_pred_uint8_cropped[:,0:border_pixels_to_ignore] = 0    # Top border
         image_pred_uint8_cropped[:,-border_pixels_to_ignore:] = 0    # Bottom border
+    return image_pred_uint8_cropped
 
+def save_prediction_uint8(
+        image_filepath: str,
+        image_pred_uint8_cleaned,
+        image_crs: str,
+        image_transform,
+        output_dir: str,
+        border_pixels_to_ignore: int = None,
+        force: bool = False) -> str:
+
+    ##### Init #####
+    # If no decent transform metadata, stop!
+    if image_transform is None or image_transform[0] == 0:
+        message = f"No transform found for {image_filepath}: {image_transform}"
+        logger.error(message)
+        raise Exception(message)
+
+    # Make sure the output dir exists...
+    if not os.path.exists(output_dir):
+        os.mkdir(output_dir)
+    
+    # Prepare the filepath for the output
+    _, image_filename = os.path.split(image_filepath)
+    image_filename_noext, _ = os.path.splitext(image_filename)
+    output_filepath = f"{output_dir}{os.sep}{image_filename_noext}_pred.tif"
+                
     # Check if the result is entirely black... if so, don't save
     thresshold = 125
-    if not np.any(image_pred_uint8_cropped >= thresshold):
+    if not np.any(image_pred_uint8_cleaned >= thresshold):
         logger.debug('Prediction is entirely black!')
-        return
+        return None
         
     # Write prediction to file
-    logger.debug("Save original prediction")
-    image_width = image_pred_arr.shape[0]
-    image_height = image_pred_arr.shape[1]
+    logger.debug("Save +- original prediction")
+    image_shape = image_pred_uint8_cleaned.shape
+    image_width = image_shape[0]
+    image_height = image_shape[1]
     with rio.open(output_filepath, 'w', driver='GTiff', tiled='no',
                   compress='lzw', predictor=2, num_threads=4,
                   height=image_height, width=image_width, 
                   count=1, dtype=rio.uint8, crs=image_crs, transform=image_transform) as dst:
-        dst.write(image_pred_uint8_cropped, 1)
+        dst.write(image_pred_uint8_cleaned, 1)
     
-    return True
+    return output_filepath
         
 # If the script is ran directly...
 if __name__ == '__main__':
-    message = "Main is not implemented"
-    logger.error(message)
-    raise Exception(message)
+    raise Exception("Not implemented")
     
