@@ -356,6 +356,11 @@ def polygonize_pred(
         # by the min pixel size, rounded up in centimeter 
         simplify_tolerance = math.ceil(math.sqrt(pow(min_pixel_size, 2)/2)*100)/100
         geoms_gdf.geometry = geoms_gdf.geometry.simplify(simplify_tolerance)
+        
+        # Fix + remove empty geom rows
+        geoms_gdf['geometry'] = geoms_gdf.geometry.apply(lambda geom: vector_util.fix(geom))
+        geoms_gdf.dropna(subset=['geometry'], inplace=True)
+        geoms_gdf = geoms_gdf.reset_index(drop=True).explode()
 
         # Calculate the bounds of the image in projected coordinates
         image_shape = image_pred_uint8_bin.shape
@@ -458,9 +463,8 @@ def postprocess_predictions(
 
     # Check the size of the orig file: if too large, no use continuing!
     if os.path.getsize(geoms_orig_filepath) > (1024*1024*1024):
-        message = f"File > 1 GB, so stop postprocessing: {geoms_orig_filepath}"
-        logger.error(message)
-        raise Exception(message)
+        logger.warn(f"File > 1 GB, so stop postprocessing: {geoms_orig_filepath}")
+        return
     geoms_gdf = geofile_util.read_file(geoms_orig_filepath)
 
     # Union the data, optimized using the available onborder column
@@ -529,7 +533,7 @@ def postprocess_predictions(
         geofile_util.to_file(geoms_simpl_shap_gdf, geoms_simpl_shap_filepath)
         logger.info(f"Result written to {geoms_simpl_shap_filepath}")
         
-    # Apply begative buffer on result
+    # Apply negative buffer on result
     geoms_simpl_shap_m1m_filepath = os.path.join(
             output_dir, f"{output_basefilename_noext}_simpl_shap_m1.5m_3{output_ext}")    
     if force or not os.path.exists(geoms_simpl_shap_m1m_filepath):
@@ -644,13 +648,13 @@ def polygonize_prediction_files(
                 finally:
                     nb_geoms_ready_to_write = len(geoms_gdf)
                     if nb_files_done%100 == 0:
-                        logger.info(f"{nb_files_done} of {nb_files} processed ({(nb_files_done*100/nb_files):0.0f}%), {nb_geoms_ready_to_write} ready to write")
+                        logger.debug(f"{nb_files_done} of {nb_files} processed ({(nb_files_done*100/nb_files):0.0f}%), {nb_geoms_ready_to_write} ready to write")
             
-                # If all files are treated or enough geoms are read, write
+                # If all files are treated or enough geoms are read, clean + write
                 if(geoms_gdf is not None 
                     and nb_geoms_ready_to_write > 0
                     and (nb_files_done == (nb_files-1)
-                        or nb_geoms_ready_to_write > 18000)):
+                        or nb_geoms_ready_to_write > 10000)):
                     try:
                         # If output file isn't created yet, do so...
                         if output_file is None:
@@ -678,6 +682,7 @@ def polygonize_prediction_files(
         raise Exception(f"Error creating file {output_filepath}") from ex
     finally:
         if output_file is not None:
+            
             output_file.close()
 
 def read_prediction_file(
