@@ -76,7 +76,7 @@ def prepare_traindatasets(
     
     # Determine the current data version based on existing output data dir(s), but ignore dirs ending on _ERROR
     output_dirs = glob.glob(f"{output_basedir}_*")
-    output_dirs = [output_dir for output_dir in output_dirs if output_dir.endswith('_ERROR') is False]
+    output_dirs = [output_dir for output_dir in output_dirs if output_dir.endswith('_BUSY') is False]
     if len(output_dirs) == 0:
         dataversion_new = 1
     else:
@@ -98,17 +98,21 @@ def prepare_traindatasets(
                 
     # Create the output dir's if they don't exist yet...
     output_dir = f"{output_basedir}_{dataversion_new:02d}"
-    output_image_dir = os.path.join(output_dir, image_subdir)
-    output_mask_dir = os.path.join(output_dir, mask_subdir)
+    output_tmp_dir = f"{output_basedir}_{dataversion_new:02d}_BUSY"
+    output_tmp_image_dir = os.path.join(output_tmp_dir, image_subdir)
+    output_tmp_mask_dir = os.path.join(output_tmp_dir, mask_subdir)
 
-    for dir in [output_dir, output_mask_dir, output_image_dir]:
+    # Prepare the output dir...
+    if os.path.exists(output_tmp_dir):
+        shutil.rmtree(output_tmp_dir)
+    for dir in [output_tmp_dir, output_tmp_mask_dir, output_tmp_image_dir]:
         if dir and not os.path.exists(dir):
             os.makedirs(dir)
 
     try:
         # Copy the vector file(s) to the dest dir so we keep knowing which file was
         # used to create the dataset
-        geofile_util.copy(input_vector_label_filepath, output_dir)
+        geofile_util.copy(input_vector_label_filepath, output_tmp_dir)
         
         # Open vector layer
         logger.debug(f"Open vector file {input_vector_label_filepath}")
@@ -176,7 +180,7 @@ def prepare_traindatasets(
                     wms=wms_servers[image_datasource_code],
                     layers=image_datasources[image_datasource_code]['wms_layernames'],
                     styles=image_datasources[image_datasource_code]['wms_layerstyles'],
-                    output_dir=output_image_dir,
+                    output_dir=output_tmp_image_dir,
                     srs=img_srs,
                     bbox=img_bbox.bounds,
                     size=(image_pixel_width, image_pixel_height),
@@ -186,7 +190,7 @@ def prepare_traindatasets(
             # Create a mask corresponding with the image file
             # image_filepath can be None if file existed already, so check if not None...
             if image_filepath:
-                mask_filepath = image_filepath.replace(output_image_dir, output_mask_dir)
+                mask_filepath = image_filepath.replace(output_tmp_image_dir, output_tmp_mask_dir)
                 _create_mask(
                         input_vector_label_list=labels_to_burn_gdf.geometry,
                         input_image_filepath=image_filepath,
@@ -205,18 +209,11 @@ def prepare_traindatasets(
                     end="", flush=True)
     except Exception as ex:
         message = "Error preparing dataset!"
-
-        # If there was an error, rename the dataset directory so it is clearly an error
-        if os.path.exists(output_dir):
-            for i in range(999):
-                output_error_dir = f"{output_dir}_{i:03d}_ERROR"
-                if os.path.exists(output_error_dir):
-                    continue
-                os.rename(output_dir, output_error_dir)
-                message += f", output dir is renamed to: {output_error_dir}"
-        logger.exception(message)
         raise Exception(message) from ex
-            
+
+    # If everything went fine, rename output_tmp_dir to the final output_dir
+    os.rename(output_tmp_dir, output_dir)
+
     return output_dir, dataversion_new
 
 def _create_mask(input_vector_label_list,
@@ -238,18 +235,33 @@ def _create_mask(input_vector_label_list,
     # First read the properties of the input image to copy them for the output
     logger.debug("Create mask and write to file")
     with rio.open(input_image_filepath) as image_ds:
-        image_profile = image_ds.profile
+        image_output_profile = image_ds.profile
         image_transform_affine = image_ds.transform
 
     # Use meta attributes of the source image, but set band count to 1,
     # dtype to uint8 and specify LZW compression.
-    image_profile.update(dtype=rio.uint8, count=1, compress='lzw', nodata=0)
+    image_output_profile.update(dtype=rio.uint8, count=1, compress='lzw', nodata=0)
+
+    # Depending on the output type, set some extra field in the profile
+    output_ext_lower = os.path.splitext(output_mask_filepath)[1].lower()
+    if output_ext_lower == '.tif':
+        image_output_profile.update(compress='lzw')
+    elif output_ext_lower in ('.jpg', '.jpeg'):
+        # Remark: I cannot get rid of the warning about sharing, no matter what
+        image_output_profile["sharing"] = None
+        if "tiled" in image_output_profile:
+            del image_output_profile["tiled"]
+        if "compress" in image_output_profile:
+            del image_output_profile["compress"]
+        if "interleave" in image_output_profile:
+            del image_output_profile["interleave"]
+        if "photometric" in image_output_profile:
+            del image_output_profile["photometric"]
 
     # this is where we create a generator of geom, value pairs to use in rasterizing
-#    shapes = ((geom,value) for geom, value in zip(counties.geometry, counties.LSAD_NUM))
     burned = rio_features.rasterize(shapes=input_vector_label_list, fill=0,
-                default_value=burn_value, transform=image_transform_affine,
-                out_shape=(image_profile['width'], image_profile['height']))
+            default_value=burn_value, transform=image_transform_affine,
+            out_shape=(image_output_profile['width'], image_output_profile['height']))
 
     # Check of the mask meets the requirements to be written...
     nb_pixels = np.size(burned, 0) * np.size(burned, 1)
@@ -258,7 +270,7 @@ def _create_mask(input_vector_label_list,
 
     if (nb_pixels_data / nb_pixels >= minimum_pct_labeled):
         # Write the labeled mask
-        with rio.open(output_mask_filepath, 'w', **image_profile) as mask_ds:
+        with rio.open(output_mask_filepath, 'w', **image_output_profile) as mask_ds:
             mask_ds.write(burned, 1)
 
         # Copy the original image if wanted...
