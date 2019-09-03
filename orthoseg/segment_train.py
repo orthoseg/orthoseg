@@ -92,7 +92,8 @@ def train(
                                zoom_range=0.1,
                                horizontal_flip=True,
                                vertical_flip=True,
-                               brightness_range=(0.9,1.1))
+                               brightness_range=(0.95,1.05),
+                               )
 
     # Create the train generator
     traindata_augmented_dir = None
