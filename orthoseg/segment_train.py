@@ -12,6 +12,7 @@ import time
 import math
 
 import keras as kr
+
 import numpy as np
 import pandas as pd
 import rasterio as rio
@@ -92,8 +93,7 @@ def train(
                                zoom_range=0.1,
                                horizontal_flip=True,
                                vertical_flip=True,
-                               brightness_range=(0.95,1.05),
-                               )
+                               brightness_range=(0.95,1.05),)
 
     # Create the train generator
     traindata_augmented_dir = None
@@ -102,22 +102,24 @@ def train(
         if not os.path.exists(traindata_augmented_dir):
             os.makedirs(traindata_augmented_dir)
             
-    train_gen = create_train_generator(input_data_dir=traindata_dir,
-                            image_subdir=image_subdir, mask_subdir=mask_subdir,
-                            aug_dict=data_gen_train_args, batch_size=batch_size,
-                            target_size=(image_width, image_height),
-                            class_mode=None,
-                            save_to_dir=traindata_augmented_dir)
+    train_gen = create_train_generator(
+            input_data_dir=traindata_dir,
+            image_subdir=image_subdir, mask_subdir=mask_subdir,
+            aug_dict=data_gen_train_args, batch_size=batch_size,
+            target_size=(image_width, image_height),
+            class_mode=None,
+            save_to_dir=traindata_augmented_dir)
 
     # If there is a validation data dir specified, create extra generator
     if validationdata_dir:
         data_gen_validation_args = dict(rescale=1./255)
-        validation_gen = create_train_generator(input_data_dir=validationdata_dir,
-                                image_subdir=image_subdir, mask_subdir=mask_subdir,
-                                aug_dict=data_gen_validation_args, batch_size=batch_size,
-                                target_size=(image_width, image_height),
-                                class_mode=None,
-                                save_to_dir=None)
+        validation_gen = create_train_generator(
+                input_data_dir=validationdata_dir,
+                image_subdir=image_subdir, mask_subdir=mask_subdir,
+                aug_dict=data_gen_validation_args, batch_size=batch_size,
+                target_size=(image_width, image_height),
+                class_mode=None,
+                save_to_dir=None)
     else:
         validation_gen = None
 
@@ -144,8 +146,8 @@ def train(
     if not model_preload_filepath:
         # If no existing model provided, create it from scratch
         # Get the model we want to use
-        model = mf.get_model(encoder=model_encoder, decoder=model_decoder, 
-                             n_channels=3, n_classes=1)
+        model = mf.get_model(
+                encoder=model_encoder, decoder=model_decoder, n_channels=3, n_classes=1)
         
         # Save the model architecture to json if it doesn't exist yet
         if not os.path.exists(model_save_dir):
@@ -170,36 +172,51 @@ def train(
         logger.info(f"Load weights from {model_preload_filepath}")
         model.load_weights(model_preload_filepath)
         logger.info("Model weights loaded")
-    
+   
     # Now prepare the model for training
-    # Default learning rate for Adam: lr=1e-3, but doesn't seem to work well for unet
-    model = mf.compile_model(model=model,
-                             optimizer=kr.optimizers.Adam(lr=start_learning_rate), 
-                             loss='binary_crossentropy')
+    nb_gpu = len(kr.backend.tensorflow_backend._get_available_gpus())
 
+    # TODO: because of bug in tensorflow 1.14, multi GPU doesn't work (this way),
+    # so always use standard model
+    if nb_gpu <= 10:
+        model_for_train = model
+        logger.info(f"Train using single GPU or CPU, with nb_gpu: {nb_gpu}")
+    else:
+        # If multiple GPU's available, create multi_gpu_model
+        try:
+            model_for_train = kr.utils.multi_gpu_model(model, gpus=nb_gpu, cpu_relocation=True)
+            logger.info(f"Train using multiple GPUs: {nb_gpu}")
+        except ValueError:
+            logger.info("Train using single GPU or CPU")
+    optimizer = kr.optimizers.Adam(lr=start_learning_rate)
+    loss = 'binary_crossentropy'   
+    model_for_train = mf.compile_model(model=model_for_train, optimizer=optimizer, loss=loss)
+    
     # Define some callbacks for the training
     # Reduce the learning rate if the loss doesn't improve anymore
-    reduce_lr = kr.callbacks.ReduceLROnPlateau(monitor='loss', factor=0.2,
-                                               patience=20, min_lr=1e-20)
+    reduce_lr = kr.callbacks.ReduceLROnPlateau(
+            monitor='loss', factor=0.2, patience=20, min_lr=1e-20)
 
     # Custom callback that saves the best models using both train and 
     # validation metric
+    # Remark: the save of the model should be done on the standard model, not
+    #         on the parallel_model, otherwise issues to use it afterwards
     model_checkpoint_saver = mh.ModelCheckpointExt(
-                                model_save_dir, 
-                                model_save_base_filename,
-                                acc_metric_train='jaccard_coef_round',
-                                acc_metric_validation='val_jaccard_coef_round')
+            model_save_dir=model_save_dir, 
+            model_save_base_filename=model_save_base_filename,
+            acc_metric_train='jaccard_coef_round',
+            acc_metric_validation='val_jaccard_coef_round',
+            model_template_for_save=model)
 
     # Callbacks for logging
     tensorboard_log_dir = f"{model_save_dir}{os.sep}{model_save_base_filename}_tensorboard_log"
     tensorboard_logger = kr.callbacks.TensorBoard(log_dir=tensorboard_log_dir)
-    csv_logger = kr.callbacks.CSVLogger(csv_log_filepath, 
-                                        append=True, separator=';')
+    csv_logger = kr.callbacks.CSVLogger(
+            csv_log_filepath, append=True, separator=';')
 
     # Stop if no more improvement
-    early_stopping = kr.callbacks.EarlyStopping(monitor='jaccard_coef_round', 
-                                                patience=200,  
-                                                restore_best_weights=False)
+    early_stopping = kr.callbacks.EarlyStopping(
+            monitor='jaccard_coef_round', patience=200, restore_best_weights=False)
     
     # Prepare the parameters to pass to fit...
     # Supported filetypes to train/validate on
@@ -224,15 +241,16 @@ def train(
     # Start training
     logger.info(f"Start training with batch_size: {batch_size}, train_dataset_size: {train_dataset_size}, train_steps_per_epoch: {train_steps_per_epoch}, validation_dataset_size: {validation_dataset_size}, validation_steps_per_epoch: {validation_steps_per_epoch}")
     try:        
-        model.fit_generator(train_gen, 
-                            steps_per_epoch=train_steps_per_epoch, 
-                            epochs=nb_epoch,
-                            validation_data=validation_gen,
-                            validation_steps=validation_steps_per_epoch,       # Number of items in validation/batch_size
-                            callbacks=[model_checkpoint_saver, 
-                                       reduce_lr, early_stopping,
-                                       tensorboard_logger, csv_logger],
-                            initial_epoch=start_epoch)
+        model_for_train.fit_generator(
+                train_gen, 
+                steps_per_epoch=train_steps_per_epoch, 
+                epochs=nb_epoch,
+                validation_data=validation_gen,
+                validation_steps=validation_steps_per_epoch,       # Number of items in validation/batch_size
+                callbacks=[model_checkpoint_saver, 
+                           reduce_lr, early_stopping,
+                           tensorboard_logger, csv_logger],
+                initial_epoch=start_epoch)
     finally:        
         # Release the memory from the GPU...
         #from keras import backend as K

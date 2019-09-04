@@ -82,11 +82,26 @@ def run_prediction(config_filepaths: str):
     model.load_weights(model_weights_filepath)
     logger.info("Model weights loaded")
 
+    # Prepare the model for predicting
+    nb_gpu = len(kr.backend.tensorflow_backend._get_available_gpus())
+    # TODO: because of bug in tensorflow 1.14, multi GPU doesn't work (this way), 
+    # so always use one
+    if nb_gpu <= 10:
+        model_for_predict = model
+        logger.info(f"Train using single GPU or CPU, with nb_gpu: {nb_gpu}")
+    else:
+        # If multiple GPU's available, create multi_gpu_model
+        try:
+            model_for_predict = kr.utils.multi_gpu_model(model, gpus=nb_gpu, cpu_relocation=True)
+            logger.info(f"Train using multiple GPUs: {nb_gpu}")
+        except ValueError:
+            logger.info("Train using single GPU or CPU..")
+
     # Predict for entire dataset
     image_datasource = conf.image_datasources[conf.predict['image_datasource_code']]
     predict_output_dir = f"{conf.dirs['predict_image_output_basedir']}_{predict_out_subdir}"
     segment_predict.predict_dir(
-            model=model,
+            model=model_for_predict,
             input_image_dir=conf.dirs['predict_image_input_dir'],
             output_base_dir=predict_output_dir,
             border_pixels_to_ignore=int(conf.predict['image_pixels_overlap']),
