@@ -3,6 +3,7 @@
 High-level API to run a segmentation.
 """
 
+import logging
 import os
 
 #os.environ["CUDA_VISIBLE_DEVICES"] = "-1" # Disable using GPU
@@ -14,6 +15,17 @@ import orthoseg.model.model_helper as mh
 import orthoseg.postprocess_predictions as postp
 from orthoseg import segment_predict
 
+#-------------------------------------------------------------
+# First define/init some general variables/constants
+#-------------------------------------------------------------
+# Get a logger...
+logger = logging.getLogger(__name__)
+#logger.setLevel(logging.DEBUG)
+
+#-------------------------------------------------------------
+# The real work
+#-------------------------------------------------------------
+
 def run_prediction(config_filepaths: str):
     """
     Run a prediction of the input dir given.
@@ -23,13 +35,14 @@ def run_prediction(config_filepaths: str):
     """
     
     # TODO: add something to delete old data, predictions???
+    '''
     # Read the configuration
     conf.read_config(config_filepaths)
     
     # Main initialisation of the logging
     logger = log_helper.main_log_init(conf.dirs['log_dir'], __name__)      
     logger.info(f"Config used: \n{conf.pformat_config()}")
-
+    '''
     # Create base filename of model to use
     # TODO: is force data version the most logical, or rather implement 
     #       force weights file or ?

@@ -3,6 +3,7 @@
 Module to make it easy to start a training session.
 """
 
+import logging
 import os
 
 #os.environ["CUDA_VISIBLE_DEVICES"] = "0"
@@ -15,6 +16,17 @@ import orthoseg.prepare_traindatasets as prep
 from orthoseg import segment_predict
 from orthoseg import segment_train
 
+#-------------------------------------------------------------
+# First define/init some general variables/constants
+#-------------------------------------------------------------
+# Get a logger...
+logger = logging.getLogger(__name__)
+#logger.setLevel(logging.DEBUG)
+
+#-------------------------------------------------------------
+# The real work
+#-------------------------------------------------------------
+
 def run_training_session(config_filepaths: []):
     """
     Run a training session.
@@ -24,14 +36,14 @@ def run_training_session(config_filepaths: []):
     """
     ##### Init #####
     # TODO: add something to delete old data, predictions???
-    
+    '''
     # Read the configuration
     conf.read_config(config_filepaths)
     
     # Main initialisation of the logging
     logger = log_helper.main_log_init(conf.dirs['log_training_dir'], __name__)      
     logger.info(f"Config used: \n{conf.pformat_config()}")
-    
+    '''
     # First check if the segment_subject has a valid name
     segment_subject = conf.general['segment_subject']
     if segment_subject == 'MUST_OVERRIDE':
@@ -139,7 +151,6 @@ def run_training_session(config_filepaths: []):
             predict_out_subdir = os.path.splitext(best_model_curr['filename'])[0]
             
             # Predict training dataset
-            
             segment_predict.predict_dir(
                     model=model,
                     input_image_dir=os.path.join(traindata_dir, conf.dirs['image_subdir']),
