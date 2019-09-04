@@ -28,6 +28,8 @@ def read_config(config_filepaths: []):
     # Now set global variables to each section as shortcuts
     global general
     general = config['general']
+    global email
+    email = config['email']
     global train
     train = config['train']
     global predict
