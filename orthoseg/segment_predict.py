@@ -191,8 +191,7 @@ def predict_dir(model,
                 # Predict!
                 logger.debug(f"Start prediction for {nb_images_in_batch} images")
                 images = [info.get('image_data') for info in curr_batch_image_infos_ext]
-                curr_batch_image_pred_arr = model.predict_on_batch(
-                        np.asarray(images))
+                curr_batch_image_pred_arr = model.predict_on_batch(np.asarray(images))
                 
                 # Postprocess predictions
                 # Remark: trying to parallelize this doesn't seem to help at all!
