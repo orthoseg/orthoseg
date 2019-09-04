@@ -185,27 +185,31 @@ def get_best_model(model_dir: str,
     else :
         return None
     
-def save_and_clean_models(model_save_dir: str,
-                          model_save_base_filename: str,
-                          new_model=None,
-                          new_model_acc_train: float = None,
-                          new_model_acc_val: float = None,
-                          new_model_epoch: int = None,
-                          save_weights_only: bool = False,
-                          verbose: bool = True,
-                          debug: bool = False,
-                          only_report: bool = False):
+def save_and_clean_models(
+        model_save_dir: str,
+        model_save_base_filename: str,
+        new_model_acc_train: float = None,
+        new_model_acc_val: float = None,
+        new_model_epoch: int = None,
+        new_model = None,
+        model_template_for_save = None,
+        save_weights_only: bool = False,
+        verbose: bool = True,
+        debug: bool = False,
+        only_report: bool = False):
     """
-    Save the new model if it is good enough... en cleanup existing models 
+    Save the new model if it is good enough... and cleanup existing models 
     if they are worse than the new or other existing models.
     
     Args
         model_save_dir: dir containing the models
         model_save_base_filename: base filename that will be used
-        new_model: optional, the keras model object that will be saved
         new_model_acc_train: optional: the accuracy on the train dataset
         new_model_acc_val: optional: the accuracy on the validation dataset
         new_model_epoch: optional: the epoch in the training
+        new_model: optional, the keras model object that will be saved
+        model_template_for_save: optional, if using multi-GPU training, pass
+            the original model here to use this as template for saving
         verbose: report the best model after save and cleanup
         debug: write debug logging
         only_report: optional: only report which models would be cleaned up
@@ -272,9 +276,15 @@ def save_and_clean_models(model_save_dir: str,
                and model_info['filepath'] == new_model_filepath
                and not os.path.exists(new_model_filepath)):
                 if save_weights_only:
-                    new_model.save_weights(new_model_filepath)
+                    if model_template_for_save is not None:
+                        model_template_for_save.save_weights(new_model_filepath)
+                    else:
+                        new_model.save_weights(new_model_filepath)
                 else:
-                    new_model.save(new_model_filepath)
+                    if model_template_for_save is not None:
+                        model_template_for_save.save(new_model_filepath)
+                    else:
+                        new_model.save(new_model_filepath)
 
     if verbose is True or debug is True:
         best_model = get_best_model(model_save_dir, model_save_base_filename)
@@ -287,25 +297,28 @@ class ModelCheckpointExt(kr.callbacks.Callback):
                  model_save_base_filename: str,
                  acc_metric_train: str,
                  acc_metric_validation: str,
+                 model_template_for_save = None,
                  verbose: bool = True,
                  only_report: bool = False):
         self.model_save_dir = model_save_dir
         self.model_save_base_filename = model_save_base_filename
         self.acc_metric_train = acc_metric_train
         self.acc_metric_validation = acc_metric_validation
+        self.model_template_for_save = model_template_for_save
         self.verbose = verbose
         self.only_report = only_report
         
     def on_epoch_end(self, epoch, logs={}):
-        logger.debug("Start in callback on_epoch_begin")
-        
+        logger.info(f"Start in callback on_epoch_begin, with logs: {logs}")      
+
         save_and_clean_models(
                 model_save_dir=self.model_save_dir,
                 model_save_base_filename=self.model_save_base_filename,
-                new_model=self.model,
                 new_model_acc_train=logs.get(self.acc_metric_train),
                 new_model_acc_val=logs.get(self.acc_metric_validation),
                 new_model_epoch=epoch,
+                new_model=self.model,
+                model_template_for_save=self.model_template_for_save,
                 verbose=self.verbose,
                 only_report=self.only_report)
         
