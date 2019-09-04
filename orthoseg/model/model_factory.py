@@ -113,8 +113,7 @@ def compile_model(model,
     else:
         raise Exception(f"Unknown loss function: {loss}")
 
-    model.compile(optimizer=optimizer, loss=loss_func,
-                  metrics=metrics)
+    model.compile(optimizer=optimizer, loss=loss_func, metrics=metrics)
 
     return model
 
