@@ -59,6 +59,10 @@ def to_file(gdf: gpd.GeoDataFrame,
     filepath_noext, ext = os.path.splitext(filepath)
     if layer is None:
         _, layer = os.path.split(filepath_noext)
+    # If the dataframe is empty, log warning and return
+    if len(gdf) <= 0:
+        logger.warn(f"Cannot write an empty dataframe to {filepath}.{layer}")
+        return
 
     # Depending on the extension... different implementations
     ext_lower = ext.lower()
