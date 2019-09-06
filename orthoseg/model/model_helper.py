@@ -292,25 +292,26 @@ def save_and_clean_models(
             
 class ModelCheckpointExt(kr.callbacks.Callback):
     
-    def __init__(self, 
-                 model_save_dir: str, 
-                 model_save_base_filename: str,
-                 acc_metric_train: str,
-                 acc_metric_validation: str,
-                 model_template_for_save = None,
-                 verbose: bool = True,
-                 only_report: bool = False):
+    def __init__(
+                self, 
+                model_save_dir: str, 
+                model_save_base_filename: str,
+                acc_metric_train: str,
+                acc_metric_validation: str,
+                model_template_for_save = None,
+                save_weights_only: bool = False,
+                verbose: bool = True,
+                only_report: bool = False):
         self.model_save_dir = model_save_dir
         self.model_save_base_filename = model_save_base_filename
         self.acc_metric_train = acc_metric_train
         self.acc_metric_validation = acc_metric_validation
         self.model_template_for_save = model_template_for_save
+        self.save_weights_only = save_weights_only
         self.verbose = verbose
         self.only_report = only_report
         
     def on_epoch_end(self, epoch, logs={}):
-        logger.info(f"Start in callback on_epoch_begin, with logs: {logs}")      
-
         save_and_clean_models(
                 model_save_dir=self.model_save_dir,
                 model_save_base_filename=self.model_save_base_filename,
@@ -319,6 +320,7 @@ class ModelCheckpointExt(kr.callbacks.Callback):
                 new_model_epoch=epoch,
                 new_model=self.model,
                 model_template_for_save=self.model_template_for_save,
+                save_weights_only=self.save_weights_only,
                 verbose=self.verbose,
                 only_report=self.only_report)
         
