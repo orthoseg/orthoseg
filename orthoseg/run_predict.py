@@ -84,18 +84,20 @@ def run_prediction(config_filepaths: str):
 
     # Prepare the model for predicting
     nb_gpu = len(kr.backend.tensorflow_backend._get_available_gpus())
+    batch_size = conf.predict.getint('batch_size')
     # TODO: because of bug in tensorflow 1.14, multi GPU doesn't work (this way), 
     # so always use one
-    if nb_gpu <= 10:
+    if nb_gpu <= 1:
         model_for_predict = model
         logger.info(f"Train using single GPU or CPU, with nb_gpu: {nb_gpu}")
     else:
         # If multiple GPU's available, create multi_gpu_model
         try:
             model_for_predict = kr.utils.multi_gpu_model(model, gpus=nb_gpu, cpu_relocation=True)
-            logger.info(f"Train using multiple GPUs: {nb_gpu}")
+            logger.info(f"Train using multiple GPUs: {nb_gpu}, batch size becomes: {batch_size*nb_gpu}")
+            batch_size *= nb_gpu
         except ValueError:
-            logger.info("Train using single GPU or CPU..")
+            logger.info("Train using single GPU or CPU")
 
     # Predict for entire dataset
     image_datasource = conf.image_datasources[conf.predict['image_datasource_code']]
@@ -107,7 +109,7 @@ def run_prediction(config_filepaths: str):
             border_pixels_to_ignore=int(conf.predict['image_pixels_overlap']),
             projection_if_missing=image_datasource['projection'],
             input_mask_dir=None,
-            batch_size=int(conf.predict['batch_size']),
+            batch_size=batch_size,
             evaluate_mode=False)
 
 # If the script is ran directly...
