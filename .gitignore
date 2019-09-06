@@ -3,8 +3,6 @@ Old/
 tensorboard_logs/
 tmp/
 local_overrule.ini
-.vscode/settings.json
-.vscode/launch.json
 */__pycache__/
-.vscode/.ropeproject/config.py
+.vscode/*
 bin/run_job_config.csv
