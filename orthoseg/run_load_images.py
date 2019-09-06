@@ -31,8 +31,8 @@ def load_images(
 
         # Use the same image size as for the training, that is the most 
         # convenient to check the quality
-        image_pixel_width = conf.predict.getint('image_pixel_width')
-        image_pixel_height = conf.predict.getint('image_pixel_height')
+        image_pixel_width = conf.train.getint('image_pixel_width')
+        image_pixel_height = conf.train.getint('image_pixel_height')
         image_pixel_x_size = conf.train.getfloat('image_pixel_x_size')
         image_pixel_y_size = conf.train.getfloat('image_pixel_y_size')
         image_pixels_overlap = 0
@@ -48,8 +48,8 @@ def load_images(
         # Get the image size for the predict
         image_pixel_width = conf.predict.getint('image_pixel_width')
         image_pixel_height = conf.predict.getint('image_pixel_height')
-        image_pixel_x_size = conf.train.getfloat('image_pixel_x_size')
-        image_pixel_y_size = conf.train.getfloat('image_pixel_y_size')
+        image_pixel_x_size = conf.predict.getfloat('image_pixel_x_size')
+        image_pixel_y_size = conf.predict.getfloat('image_pixel_y_size')
         image_pixels_overlap = conf.predict.getint('image_pixels_overlap')
         image_format = ows_util.FORMAT_JPEG
         
@@ -65,6 +65,7 @@ def load_images(
     bbox = conf.image_datasources[predict_datasource_code]['bbox']
     grid_xmin = conf.image_datasources[predict_datasource_code]['grid_xmin']
     grid_ymin = conf.image_datasources[predict_datasource_code]['grid_ymin']
+    image_pixels_ignore_border = conf.image_datasources[predict_datasource_code]['image_pixels_ignore_border']
     ows_util.get_images_for_grid(
             wms_server_url=wms_server_url,
             wms_layernames=wms_layernames,
@@ -79,6 +80,7 @@ def load_images(
             image_srs_pixel_y_size=image_pixel_y_size,
             image_pixel_width=image_pixel_width,
             image_pixel_height=image_pixel_height,
+            image_pixels_ignore_border=image_pixels_ignore_border,
             nb_concurrent_calls=6,
             image_format=image_format,
             pixels_overlap=image_pixels_overlap,

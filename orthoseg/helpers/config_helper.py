@@ -74,6 +74,12 @@ def read_config(config_filepaths: []):
                 grid_ymin = config[section].getfloat('grid_ymin')
             image_datasources[image_datasource_code]['grid_ymin'] = grid_ymin
 
+            # Check if a image_pixels_ignore_border is specified
+            image_pixels_ignore_border = 0
+            if config.has_option(section, 'image_pixels_ignore_border'):
+                image_pixels_ignore_border = config[section].getint('image_pixels_ignore_border')
+            image_datasources[image_datasource_code]['image_pixels_ignore_border'] = image_pixels_ignore_border                                
+            
 def pformat_config():
     message = f"Config files used: {pprint.pformat(config_filepaths_used)} \n"
     message += "Config info listing:\n"

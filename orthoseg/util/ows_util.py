@@ -60,6 +60,7 @@ def get_images_for_grid(
         image_srs_pixel_y_size: int = 0.25,
         image_pixel_width: int = 1024,
         image_pixel_height: int = 1024,
+        image_pixels_ignore_border: int = 0,
         nb_concurrent_calls: int = 0,
         image_format: str = FORMAT_GEOTIFF,
         tiff_compress: str = 'lzw',
@@ -280,6 +281,7 @@ def get_images_for_grid(
                             it.repeat(tiff_compress),
                             it.repeat(wms_layerstyles),
                             it.repeat(random_sleep),
+                            it.repeat(image_pixels_ignore_border),
                             it.repeat(force))
                             
                     for _ in read_results:
@@ -355,6 +357,7 @@ def getmap_to_file(
         tiff_compress: str = 'lzw',
         styles: [str] = ['default'],
         random_sleep: float = 0.0,
+        image_pixels_ignore_border: int = 0,
         force: bool = False) -> str:
     """
 
@@ -398,17 +401,30 @@ def getmap_to_file(
         try:
             logger.debug(f"Start call GetMap for bbox {bbox}")
 
-            # For some coordinate systems apparently the axis ordered is configured wrong in LibOWS :-(
-            bbox_orig = bbox
+            # Some hacks for special cases...
+            bbox_for_getmap = bbox
+            size_for_getmap = size
+            # Dirty hack to ask a bigger picture, and then remove the border again!
+            if image_pixels_ignore_border > 0:
+                x_pixsize = (bbox[2]-bbox[0])/size[0]
+                y_pixsize = (bbox[3]-bbox[1])/size[1]
+                bbox_for_getmap = (bbox[0] - x_pixsize*image_pixels_ignore_border,
+                                   bbox[1] - y_pixsize*image_pixels_ignore_border,
+                                   bbox[2] + x_pixsize*image_pixels_ignore_border,
+                                   bbox[3] + y_pixsize*image_pixels_ignore_border)
+                size_for_getmap = (size[0] + 2*image_pixels_ignore_border,
+                                   size[1] + 2*image_pixels_ignore_border)
+            # Dirty hack to support y,x cordinate system
             if srs.lower() == 'epsg:3059':
-                bbox = (bbox[1], bbox[0], bbox[3], bbox[2])
+                bbox_for_getmap = (bbox_for_getmap[1], bbox_for_getmap[0], 
+                                   bbox_for_getmap[3], bbox_for_getmap[2])
 
             response = wms.getmap(
                     layers=layers,
                     styles=styles,
                     srs=srs,
-                    bbox=bbox,
-                    size=size,
+                    bbox=bbox_for_getmap,
+                    size=size_for_getmap,
                     format=image_format,
                     transparent=transparent)
             logger.debug(f"Finished doing request {response.geturl()}")
@@ -443,12 +459,20 @@ def getmap_to_file(
         with rio.open(output_filepath) as image_ds:
             image_profile_orig = image_ds.profile
             image_transform_affine = image_ds.transform
-            image_data = image_ds.read()
+
+            if image_pixels_ignore_border == 0:
+                image_data = image_ds.read()
+            else:
+                image_data = image_ds.read(window=rio.windows.Window(
+                        image_pixels_ignore_border, image_pixels_ignore_border, 
+                        size[0], size[1]))
 
         logger.debug(f"original image_profile: {image_profile_orig}")
 
-        # If coordinates are not embedded add them!
-        if image_transform_affine[2] == 0 and image_transform_affine[5] == 0:
+        # If coordinates are not embedded add them, if image_pixels_ignore_border
+        # change them
+        if((image_transform_affine[2] == 0 and image_transform_affine[5] == 0)
+            or image_pixels_ignore_border > 0):
             logger.debug(f"Coordinates not present in image, driver: {image_profile_orig['driver']}")
 
             # If profile format is not gtiff, create new profile
@@ -459,37 +483,37 @@ def getmap_to_file(
                 image_profile_gtiff.update(
 #                        driver=rio.profiles.DefaultGTiffProfile.driver,
                         count=image_profile_orig['count'],
-                        width=image_profile_orig['width'],
-                        height=image_profile_orig['height'],
+                        width=size[0],
+                        height=size[1],
                         nodata=image_profile_orig['nodata'],
                         dtype=image_profile_orig['dtype'])
                 image_profile = image_profile_gtiff
             else:
                 image_profile = image_profile_orig
 
-            # Set the asked comression
+            # Set the asked compression
             image_profile_gtiff.update(compress=tiff_compress)
 
-            logger.debug(f"Map request bbox: {bbox}")
-            logger.debug(f"Map request size: {size}")
+            logger.debug(f"Map request bbox: {bbox_for_getmap}")
+            logger.debug(f"Map request size: {size_for_getmap}")
 
             # For some coordinate systems apparently the axis ordered is configured wrong in LibOWS :-(
-            srs_pixel_x_size = (bbox_orig[2]-bbox_orig[0])/size[0]
-            srs_pixel_y_size = (bbox_orig[1]-bbox_orig[3])/size[1]
+            srs_pixel_x_size = (bbox[2]-bbox[0])/size[0]
+            srs_pixel_y_size = (bbox[1]-bbox[3])/size[1]
 
             logger.debug(f"Coordinates to put in geotiff:\n" +
                          f"    - x-component of the pixel width, W-E: {srs_pixel_x_size}\n" +
                          f"    - y-component of the pixel width, W-E (0 if image is exactly N up): 0\n" +
-                         f"    - top-left x: {bbox_orig[0]}\n" +
+                         f"    - top-left x: {bbox[0]}\n" +
                          f"    - x-component of the pixel height, N-S (0 if image is exactly N up): \n" +
                          f"    - y-component of the pixel height, N-S: {srs_pixel_y_size}\n" +
-                         f"    - top-left y: {bbox_orig[3]}")
+                         f"    - top-left y: {bbox[3]}")
 
             # Add transform and srs to the profile
             image_profile.update(
                     transform = rio.transform.Affine(
-                                srs_pixel_x_size, 0, bbox_orig[0],
-                                0 , srs_pixel_y_size, bbox_orig[3]),
+                                srs_pixel_x_size, 0, bbox[0],
+                                0 , srs_pixel_y_size, bbox[3]),
                     crs=srs)
 
             logger.debug(f"image_profile that will be used: {image_profile}")
@@ -497,10 +521,9 @@ def getmap_to_file(
                 image_file.write(image_data)
 
     else:
-        # If a file format is asked that doesn't support coordinates,
-        # write world file
-        srs_pixel_x_size = (bbox_orig[2]-bbox_orig[0])/size[0]
-        srs_pixel_y_size = (bbox_orig[1]-bbox_orig[3])/size[1]
+        # For file formats that doesn't support coordinates, we add a worldfile
+        srs_pixel_x_size = (bbox[2]-bbox[0])/size[0]
+        srs_pixel_y_size = (bbox[1]-bbox[3])/size[1]
 
         path_noext, ext = os.path.splitext(output_filepath)
         if ext.lower() == FORMAT_TIFF_EXT:
@@ -519,8 +542,20 @@ def getmap_to_file(
             wld_file.write("\n0.000")
             wld_file.write("\n0.000")
             wld_file.write(f"\n{srs_pixel_y_size}")
-            wld_file.write(f"\n{bbox_orig[0]}")
-            wld_file.write(f"\n{bbox_orig[3]}")
+            wld_file.write(f"\n{bbox[0]}")
+            wld_file.write(f"\n{bbox[3]}")
+        
+        # If an ignore border was asked, cut it off...
+        if image_pixels_ignore_border > 0:
+            with rio.open(output_filepath) as image_ds:
+                image_profile = image_ds.profile
+                image_data = image_ds.read(window=rio.windows.Window(
+                        image_pixels_ignore_border, image_pixels_ignore_border, 
+                        size[0], size[1]))
+
+            image_profile.update(width=size[0], height=size[1])
+            with rio.open(output_filepath, 'w', **image_profile) as image_file:
+                image_file.write(image_data)       
 
     return output_filepath
 

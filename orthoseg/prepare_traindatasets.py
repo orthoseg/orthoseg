@@ -185,6 +185,7 @@ def prepare_traindatasets(
                     bbox=img_bbox.bounds,
                     size=(image_pixel_width, image_pixel_height),
                     image_format=ows_util.FORMAT_JPEG,
+                    image_pixels_ignore_border=image_datasources[image_datasource_code]['image_pixels_ignore_border'],
                     transparent=False)
 
             # Create a mask corresponding with the image file
