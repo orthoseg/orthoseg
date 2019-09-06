@@ -162,6 +162,7 @@ def train(
             logger.critical(message)
             raise Exception(message)
         
+        '''
         # First load the model from json file
         logger.info(f"Load model from {model_json_filepath}")
         with open(model_json_filepath, 'r') as src:
@@ -172,25 +173,34 @@ def train(
         logger.info(f"Load weights from {model_preload_filepath}")
         model.load_weights(model_preload_filepath)
         logger.info("Model weights loaded")
-   
+        '''
+        # Load the existing model
+        logger.info(f"Load model from {model_preload_filepath}")
+        model = mf.load_model(model_preload_filepath)
+
     # Now prepare the model for training
     nb_gpu = len(kr.backend.tensorflow_backend._get_available_gpus())
 
     # TODO: because of bug in tensorflow 1.14, multi GPU doesn't work (this way),
     # so always use standard model
-    if nb_gpu <= 10:
+    if nb_gpu <= 1:
         model_for_train = model
         logger.info(f"Train using single GPU or CPU, with nb_gpu: {nb_gpu}")
     else:
         # If multiple GPU's available, create multi_gpu_model
         try:
             model_for_train = kr.utils.multi_gpu_model(model, gpus=nb_gpu, cpu_relocation=True)
-            logger.info(f"Train using multiple GPUs: {nb_gpu}")
+            logger.info(f"Train using multiple GPUs: {nb_gpu}, batch size becomes: {batch_size*nb_gpu}")
+            batch_size *= nb_gpu
         except ValueError:
             logger.info("Train using single GPU or CPU")
-    optimizer = kr.optimizers.Adam(lr=start_learning_rate)
-    loss = 'binary_crossentropy'   
-    model_for_train = mf.compile_model(model=model_for_train, optimizer=optimizer, loss=loss)
+            model_for_train = model
+
+    # If we started a model from scratch, compile it to prepare for training 
+    if not model_preload_filepath:
+        optimizer = kr.optimizers.Adam(lr=start_learning_rate)
+        loss = 'binary_crossentropy'   
+        model_for_train = mf.compile_model(model=model_for_train, optimizer=optimizer, loss=loss)
     
     # Define some callbacks for the training
     # Reduce the learning rate if the loss doesn't improve anymore
@@ -201,12 +211,16 @@ def train(
     # validation metric
     # Remark: the save of the model should be done on the standard model, not
     #         on the parallel_model, otherwise issues to use it afterwards
+    if nb_gpu > 1:
+        model_template_for_save = model
+    else:
+        model_template_for_save = None
     model_checkpoint_saver = mh.ModelCheckpointExt(
             model_save_dir=model_save_dir, 
             model_save_base_filename=model_save_base_filename,
             acc_metric_train='jaccard_coef_round',
             acc_metric_validation='val_jaccard_coef_round',
-            model_template_for_save=model)
+            model_template_for_save=model_template_for_save)
 
     # Callbacks for logging
     tensorboard_log_dir = f"{model_save_dir}{os.sep}{model_save_base_filename}_tensorboard_log"
