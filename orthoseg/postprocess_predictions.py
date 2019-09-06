@@ -35,369 +35,6 @@ logger = logging.getLogger(__name__)
 # The real work
 #-------------------------------------------------------------
 
-def to_binary_uint8(in_arr, thresshold_ok) -> np.array:
-    if in_arr.dtype != np.uint8:
-        raise Exception("Input should be dtype = uint8, not: {in_arr.dtype}")
-        
-    # First copy to new numpy array, otherwise input array is changed
-    out_arr = np.copy(in_arr)
-    out_arr[out_arr >= thresshold_ok] = 255
-    out_arr[out_arr < thresshold_ok] = 0
-    
-    return out_arr
-
-def postprocess_for_evaluation(
-        image_filepath: str,
-        image_crs: str,
-        image_transform,
-        image_pred_filepath: str,
-        image_pred_uint8_cleaned_bin: np.array,
-        output_dir: str,
-        input_image_dir: str = None,
-        input_mask_dir: str = None,
-        border_pixels_to_ignore: int = 0,
-        force: bool = False):
-    """
-    This function postprocesses a prediction to make it easy to evaluate 
-    visually if the result is OK by creating images of the different stages of 
-    the prediction logic by creating the following output:
-        - the input image
-        - the mask image as digitized in the train files (if available)
-        - the "raw" prediction image
-        - the "raw" polygonized prediction, as an image
-        - the simplified polygonized prediction, as an image
-
-    The filenames start with a prefix:
-        - if a mask is available, the % overlap between the result and the mask
-        - if no mask is available, the % of pixels that is white
-    
-    Args
-        
-    """
-    
-    logger.debug(f"Start postprocess for {image_pred_filepath}")
-
-    _, image_filename = os.path.split(image_filepath)
-    image_filename_noext, image_ext = os.path.splitext(image_filename)
-    all_black = False
-    try:      
-        
-        # If the image wasn't saved, it must have been all black
-        if image_pred_filepath is None:
-            all_black = True
-
-        # Make sure the output dir exists...
-        os.makedirs(output_dir, exist_ok=True)
-                
-        # Determine the prefix to use for the output filenames
-        pred_prefix_str = ''            
-        def jaccard_similarity(im1, im2):
-            if im1.shape != im2.shape:
-                message = f"Shape mismatch: input have different shape: im1: {im1.shape}, im2: {im2.shape}"
-                logger.critical(message)
-                raise ValueError(message)
-
-            intersection = np.logical_and(im1, im2)
-            union = np.logical_or(im1, im2)
-
-            sum_union = float(union.sum())
-            if sum_union == 0.0:
-                # If 0 positive pixels in union: perfect prediction, so 1
-                return 1
-            else:
-                sum_intersect = intersection.sum()
-                return sum_intersect/sum_union
-
-        # If there is a mask dir specified... use the groundtruth mask
-        if input_mask_dir and os.path.exists(input_mask_dir):
-            # Read mask file and get all needed info from it...
-            mask_filepath = image_filepath.replace(input_image_dir, input_mask_dir)
-            # Check if this file exists, if not, look for similar files
-            if not os.path.exists(mask_filepath):
-                mask_filepath_noext = os.path.splitext(mask_filepath)[0]
-                files = glob.glob(mask_filepath_noext + '*')
-                if len(files) == 1:
-                    mask_filepath = files[0]
-                else:
-                    message = f"Error finding mask file with {mask_filepath_noext + '*'}: {len(files)} mask(s) found"
-                    logger.error(message)
-                    raise Exception(message)
-
-            with rio.open(mask_filepath) as mask_ds:
-                # Read pixels
-                mask_arr = mask_ds.read(1)
-
-            # Make the pixels at the borders of the mask black so they are 
-            # ignored in the comparison
-            if border_pixels_to_ignore and border_pixels_to_ignore > 0:
-                mask_arr[0:border_pixels_to_ignore,:] = 0    # Left border
-                mask_arr[-border_pixels_to_ignore:,:] = 0    # Right border
-                mask_arr[:,0:border_pixels_to_ignore] = 0    # Top border
-                mask_arr[:,-border_pixels_to_ignore:] = 0    # Bottom border
-                
-            #similarity = jaccard_similarity(mask_arr, image_pred)
-            # Use accuracy as similarity... is more practical than jaccard
-            similarity = np.equal(mask_arr, image_pred_uint8_cleaned_bin
-                                    ).sum()/image_pred_uint8_cleaned_bin.size
-            pred_prefix_str = f"{similarity:0.3f}_"
-            
-            # Copy mask file if the file doesn't exist yet
-            mask_copy_dest_filepath = f"{output_dir}{os.sep}{pred_prefix_str}{image_filename_noext}_mask.tif"
-            if not os.path.exists(mask_copy_dest_filepath):
-                shutil.copyfile(mask_filepath, mask_copy_dest_filepath)
-
-        else:
-            # If all_black, no need to calculate again
-            if all_black: 
-                pct_black = 1
-            else:
-                # Calculate percentage black pixels
-                pct_black = 1 - ((image_pred_uint8_cleaned_bin.sum()/250)
-                                    /image_pred_uint8_cleaned_bin.size)
-            
-            # If the result after segmentation is all black, set all_black
-            if pct_black == 1:
-                # Force the prefix to be really high so it is clear they are entirely black
-                pred_prefix_str = "1.001_"
-                all_black = True
-            else:
-                pred_prefix_str = f"{pct_black:0.3f}_"
-
-            # If there are few white pixels, don't save it,
-            # because we are in evaluetion mode anyway...
-            #if similarity >= 0.95:
-                #continue
-        
-        # Copy the input image if it doesn't exist yet in output path
-        output_basefilepath = f"{output_dir}{os.sep}{pred_prefix_str}{image_filename_noext}"
-        image_dest_filepath = f"{output_basefilepath}{image_ext}"
-        if not os.path.exists(image_dest_filepath):
-            shutil.copyfile(image_filepath, image_dest_filepath)
-
-        # Rename the prediction file so it also contains the prefix,... 
-        if image_pred_filepath is not None:
-            image_dest_filepath = f"{output_basefilepath}_pred{image_ext}"
-            if not os.path.exists(image_dest_filepath):
-                shutil.move(image_pred_filepath, image_dest_filepath)
-
-        # If all_black, we are ready now
-        if all_black:
-            logger.debug("All black prediction, no use proceding")
-            return 
-        
-        polygonize_pred_for_evaluation(
-                image_pred_uint8_bin=image_pred_uint8_cleaned_bin,
-                image_crs=image_crs,
-                image_transform=image_transform,
-                output_basefilepath=output_basefilepath)
-    
-    except Exception as ex:
-        message = f"Exception postprocessing prediction for {image_filepath}\n: file {image_pred_filepath}!!!"
-        logger.error(message)
-        raise Exception(message) from ex
-
-
-def polygonize_pred_for_evaluation(
-        image_pred_uint8_bin,
-        image_crs: str,
-        image_transform,
-        output_basefilepath: str):
-
-    # Polygonize result
-    try:
-        # Returns a list of tupples with (geometry, value)
-        polygonized_records = list(rio_features.shapes(
-                image_pred_uint8_bin, mask=image_pred_uint8_bin, transform=image_transform))
-        
-        # If nothing found, we can return
-        if len(polygonized_records) == 0:
-            logger.debug("This prediction didn't result in any polygons")
-            return
-
-        # Convert shapes to geopandas geodataframe 
-        geoms = []
-        for geom, _ in polygonized_records:
-            geoms.append(sh.geometry.shape(geom))   
-        geoms_gdf = gpd.GeoDataFrame(geoms, columns=['geometry'])
-        geoms_gdf.crs = image_crs
-
-        image_shape = image_pred_uint8_bin.shape
-        image_width = image_shape[0]
-        image_height = image_shape[1]
-
-        # For easier evaluation, write the cleaned version as raster
-        # Write the standard cleaned output to file
-        logger.debug("Save binary prediction")
-        image_pred_cleaned_filepath = f"{output_basefilepath}_pred_bin.tif"
-        with rio.open(image_pred_cleaned_filepath, 'w', driver='GTiff', 
-                        compress='lzw',
-                        height=image_height, width=image_width, 
-                        count=1, dtype=rio.uint8, 
-                        crs=image_crs, transform=image_transform) as dst:
-            dst.write(image_pred_uint8_bin, 1)
-        
-        # If the input image contained a tranform, also create an image 
-        # based on the simplified vectors
-        if(image_transform[0] != 0 
-            and len(geoms) > 0):
-            # Simplify geoms
-            geoms_simpl = []
-            geoms_simpl_vis = []
-            for geom in geoms:
-                # The simplify of shapely uses the deuter-pecker algo
-                # preserve_topology is slower bu makes sure no polygons are removed
-                geom_simpl = geom.simplify(0.5, preserve_topology=True)
-                if not geom_simpl.is_empty:
-                    geoms_simpl.append(geom_simpl)
-            
-            # Write simplified wkt result to raster for comparing. 
-            if len(geoms_simpl) > 0:
-                # TODO: doesn't support multiple classes
-                logger.debug('Before writing simpl rasterized file')
-                image_pred_simpl_filepath = f"{output_basefilepath}_pred_cleaned_simpl.tif"
-                with rio.open(image_pred_simpl_filepath, 'w', driver='GTiff', compress='lzw',
-                                height=image_height, width=image_width, 
-                                count=1, dtype=rio.uint8, crs=image_crs, transform=image_transform) as dst:
-                    # this is where we create a generator of geom, value pairs to use in rasterizing
-                    logger.debug('Before rasterize')
-                    burned = rio_features.rasterize(
-                            shapes=geoms_simpl, 
-                            out_shape=(image_height, image_width),
-                            fill=0, default_value=255, dtype=rio.uint8,
-                            transform=image_transform)
-                    dst.write(burned, 1)
-            
-            # Write simplified wkt result to raster for comparing. Use the same
-            if len(geoms_simpl_vis) > 0:
-                # file profile as created before for writing the raw prediction result
-                # TODO: doesn't support multiple classes
-                logger.debug('Before writing simpl with visvangali algo rasterized file')
-                image_pred_simpl_filepath = f"{output_basefilepath}_pred_cleaned_simpl_vis.tif"
-                with rio.open(image_pred_simpl_filepath, 'w', driver='GTiff', compress='lzw',
-                                height=image_height, width=image_width, 
-                                count=1, dtype=rio.uint8, crs=image_crs, transform=image_transform) as dst:
-                    # this is where we create a generator of geom, value pairs to use in rasterizing
-                    logger.debug('Before rasterize')
-                    burned = rio_features.rasterize(
-                            shapes=geoms_simpl_vis, 
-                            out_shape=(image_height, image_width),
-                            fill=0, default_value=255, dtype=rio.uint8,
-                            transform=image_transform)
-                    dst.write(burned, 1)
-
-    except Exception as ex:
-        message = f"Exception while polygonizing to file {output_basefilepath}!"
-        raise Exception(message) from ex
-
-def polygonize_pred_from_file(
-        image_pred_filepath: str,
-        border_pixels_to_ignore: int = 0,
-        save_to_file: bool = False) -> gpd.geodataframe:
-
-    try:
-        with rio.open(image_pred_filepath) as image_ds:
-            # Read geo info
-            image_crs = image_ds.profile['crs']
-            image_transform = image_ds.transform
-            
-            # Read pixels and change from (channels, width, height) to 
-            # (width, height, channels) and normalize to values between 0 and 1
-            image_data = image_ds.read()
-    
-         # Create binary version
-        #image_data = rio_plot.reshape_as_image(image_data)
-        image_pred_uint8_bin = to_binary_uint8(image_data, 125)
-
-        output_basefilepath = None
-        if save_to_file is True:
-            output_basefilepath, _ = os.path.splitext(image_pred_filepath)   
-        return polygonize_pred(
-                image_pred_uint8_bin=image_pred_uint8_bin,
-                image_crs=image_crs,
-                image_transform=image_transform,
-                image_pred_filepath=image_pred_filepath,
-                output_basefilepath=output_basefilepath,
-                border_pixels_to_ignore=border_pixels_to_ignore)
-
-    except Exception as ex:
-        raise Exception(f"Error in polygonize_pred_from_file on {image_pred_filepath}") from ex
-
-def polygonize_pred(
-        image_pred_uint8_bin,
-        image_crs: str,
-        image_transform,
-        image_pred_filepath: str = None,
-        output_basefilepath: str = None,
-        border_pixels_to_ignore: int = 0) -> gpd.geodataframe:
-
-    # Polygonize result
-    try:
-        # Returns a list of tupples with (geometry, value)
-        polygonized_records = list(rio_features.shapes(
-                image_pred_uint8_bin, mask=image_pred_uint8_bin, transform=image_transform))
-
-        # If nothing found, we can return
-        if len(polygonized_records) == 0:
-            logger.warn(f"Prediction didn't result in any polygons: {image_pred_filepath}")
-            return None
-
-        # Convert shapes to geopandas geodataframe 
-        geoms = []
-        for geom, _ in polygonized_records:
-            geoms.append(sh.geometry.shape(geom))   
-        geoms_gdf = gpd.GeoDataFrame(geoms, columns=['geometry'])
-        geoms_gdf.crs = image_crs
-
-        # Apply a minimal simplify to the geometries based on the pixel size
-        pixel_sizex = image_transform[0]
-        pixel_sizey = -image_transform[4]
-        min_pixel_size = min(pixel_sizex, pixel_sizey)
-        # Calculate the tolerance as half the diagonal of the square formed 
-        # by the min pixel size, rounded up in centimeter 
-        simplify_tolerance = math.ceil(math.sqrt(pow(min_pixel_size, 2)/2)*100)/100
-        geoms_gdf.geometry = geoms_gdf.geometry.simplify(simplify_tolerance)
-        
-        # Fix + remove empty geom rows
-        geoms_gdf['geometry'] = geoms_gdf.geometry.apply(lambda geom: vector_util.fix(geom))
-        geoms_gdf.dropna(subset=['geometry'], inplace=True)
-        geoms_gdf = geoms_gdf.reset_index(drop=True).explode()
-
-        # Calculate the bounds of the image in projected coordinates
-        image_shape = image_pred_uint8_bin.shape
-        image_width = image_shape[0]
-        image_height = image_shape[1]
-        image_bounds = rio.transform.array_bounds(
-                image_height, image_width, image_transform)
-        x_pixsize = get_pixelsize_x(image_transform)
-        y_pixsize = get_pixelsize_y(image_transform)
-        border_bounds = (image_bounds[0]+border_pixels_to_ignore*x_pixsize,
-                            image_bounds[1]+border_pixels_to_ignore*y_pixsize,
-                            image_bounds[2]-border_pixels_to_ignore*x_pixsize,
-                            image_bounds[3]-border_pixels_to_ignore*y_pixsize)
-        
-        # Now we can calculate the "onborder" property
-        geoms_gdf = vector_util.calc_onborder(geoms_gdf, border_bounds)
-
-        # Write the geoms to file
-        if output_basefilepath is not None:
-            geom_filepath = f"{output_basefilepath}_pred_cleaned_2.geojson"
-            geofile_util.to_file(geoms_gdf, geom_filepath)
-        
-        return geoms_gdf
-            
-    except Exception as ex:
-        message = f"Exception while polygonizing to file {output_basefilepath}"
-        raise Exception(message) from ex
-
-#-------------------------------------------------------------
-# Helpers for working with Affine objects...                    
-#-------------------------------------------------------------
-
-def get_pixelsize_x(transform):
-    return transform[0]
-    
-def get_pixelsize_y(transform):
-    return -transform[4]
 
 #-------------------------------------------------------------
 # Postprocess to use on all vector outputs
@@ -606,9 +243,16 @@ def polygonize_prediction_files(
 
     logger.info(f"Found {len(in_filepaths)} files to process")
 
-    output_file = None
+    # First write to tmp output file so it is clear if the file was ready or not
+    output_filepath_noext, output_ext = os.path.splitext(output_filepath)
+    _, layer = os.path.split(output_filepath_noext)
+    output_tmp_filepath = f"{output_filepath_noext}_BUSY{output_ext}"
+    output_tmp_file = None
+    if os.path.exists(output_tmp_filepath):
+        os.remove(output_tmp_filepath)
+
+    # Loop through all files to be processed...
     try:       
-        # Loop through all files to be processed...
         max_parallel = multiprocessing.cpu_count()
         with futures.ProcessPoolExecutor(max_parallel) as read_pool:
 
@@ -657,34 +301,28 @@ def polygonize_prediction_files(
                         or nb_geoms_ready_to_write > 10000)):
                     try:
                         # If output file isn't created yet, do so...
-                        if output_file is None:
+                        if output_tmp_file is None:
                             # Open the destination file
-                            filepath_noext, _ = os.path.splitext(output_filepath)
-                            _, layer = os.path.split(filepath_noext)
-                            output_file = fiona.open(
-                                    output_filepath, 'w', 
-                                    driver=geofile_util.get_driver(output_filepath), 
+                            output_tmp_file = fiona.open(
+                                    output_tmp_filepath, 'w', 
+                                    driver=geofile_util.get_driver(output_tmp_filepath), 
                                     layer=layer, crs=geoms_gdf.crs, 
                                     schema=gpd.io.file.infer_schema(geoms_gdf))
                         
-                        output_file.writerecords(geoms_gdf.iterfeatures())
+                        output_tmp_file.writerecords(geoms_gdf.iterfeatures())
                         geoms_gdf = None
                         logger.info(f"{nb_files_done} of {nb_files} processed + saved ({(nb_files_done*100/nb_files):0.0f}%)")
                     except Exception as ex:
-                        raise Exception(f"Error saving gdf to {output_filepath}") from ex
-
-    except Exception as ex:
-        if output_file is not None:
-            output_file.close()
-            output_file = None
-        if os.path.exists(output_filepath):
-            os.rename(output_filepath, output_filepath + "_error")
-        raise Exception(f"Error creating file {output_filepath}") from ex
-    finally:
-        if output_file is not None:
+                        raise Exception(f"Error saving gdf to {output_tmp_filepath}") from ex
             
-            output_file.close()
-
+            # If we get here, file is created successfully, so rename to real output
+            output_tmp_file.close()
+            os.rename(output_tmp_filepath, output_filepath)
+    except Exception as ex:
+        if output_tmp_file is not None:
+            output_tmp_file.close()      
+        raise Exception(f"Error creating file {output_tmp_filepath}") from ex
+    
 def read_prediction_file(
         filepath: str,
         border_pixels_to_ignore: int = 0):
@@ -695,6 +333,368 @@ def read_prediction_file(
         return polygonize_pred_from_file(filepath, border_pixels_to_ignore)
     else:
         raise Exception(f"Unsupported extension: {ext_lower}")
+
+def to_binary_uint8(in_arr, thresshold_ok) -> np.array:
+    if in_arr.dtype != np.uint8:
+        raise Exception("Input should be dtype = uint8, not: {in_arr.dtype}")
+        
+    # First copy to new numpy array, otherwise input array is changed
+    out_arr = np.copy(in_arr)
+    out_arr[out_arr >= thresshold_ok] = 255
+    out_arr[out_arr < thresshold_ok] = 0
+    
+    return out_arr
+
+def postprocess_for_evaluation(
+        image_filepath: str,
+        image_crs: str,
+        image_transform,
+        image_pred_filepath: str,
+        image_pred_uint8_cleaned_bin: np.array,
+        output_dir: str,
+        input_image_dir: str = None,
+        input_mask_dir: str = None,
+        border_pixels_to_ignore: int = 0,
+        force: bool = False):
+    """
+    This function postprocesses a prediction to make it easy to evaluate 
+    visually if the result is OK by creating images of the different stages of 
+    the prediction logic by creating the following output:
+        - the input image
+        - the mask image as digitized in the train files (if available)
+        - the "raw" prediction image
+        - the "raw" polygonized prediction, as an image
+        - the simplified polygonized prediction, as an image
+
+    The filenames start with a prefix:
+        - if a mask is available, the % overlap between the result and the mask
+        - if no mask is available, the % of pixels that is white
+    
+    Args
+        
+    """
+    
+    logger.debug(f"Start postprocess for {image_pred_filepath}")
+
+    _, image_filename = os.path.split(image_filepath)
+    image_filename_noext, image_ext = os.path.splitext(image_filename)
+    all_black = False
+    try:      
+        
+        # If the image wasn't saved, it must have been all black
+        if image_pred_filepath is None:
+            all_black = True
+
+        # Make sure the output dir exists...
+        os.makedirs(output_dir, exist_ok=True)
+                
+        # Determine the prefix to use for the output filenames
+        pred_prefix_str = ''            
+        def jaccard_similarity(im1, im2):
+            if im1.shape != im2.shape:
+                message = f"Shape mismatch: input have different shape: im1: {im1.shape}, im2: {im2.shape}"
+                logger.critical(message)
+                raise ValueError(message)
+
+            intersection = np.logical_and(im1, im2)
+            union = np.logical_or(im1, im2)
+
+            sum_union = float(union.sum())
+            if sum_union == 0.0:
+                # If 0 positive pixels in union: perfect prediction, so 1
+                return 1
+            else:
+                sum_intersect = intersection.sum()
+                return sum_intersect/sum_union
+
+        # If there is a mask dir specified... use the groundtruth mask
+        if input_mask_dir and os.path.exists(input_mask_dir):
+            # Read mask file and get all needed info from it...
+            mask_filepath = image_filepath.replace(input_image_dir, input_mask_dir)
+            # Check if this file exists, if not, look for similar files
+            if not os.path.exists(mask_filepath):
+                mask_filepath_noext = os.path.splitext(mask_filepath)[0]
+                files = glob.glob(mask_filepath_noext + '*')
+                if len(files) == 1:
+                    mask_filepath = files[0]
+                else:
+                    message = f"Error finding mask file with {mask_filepath_noext + '*'}: {len(files)} mask(s) found"
+                    logger.error(message)
+                    raise Exception(message)
+
+            with rio.open(mask_filepath) as mask_ds:
+                # Read pixels
+                mask_arr = mask_ds.read(1)
+
+            # Make the pixels at the borders of the mask black so they are 
+            # ignored in the comparison
+            if border_pixels_to_ignore and border_pixels_to_ignore > 0:
+                mask_arr[0:border_pixels_to_ignore,:] = 0    # Left border
+                mask_arr[-border_pixels_to_ignore:,:] = 0    # Right border
+                mask_arr[:,0:border_pixels_to_ignore] = 0    # Top border
+                mask_arr[:,-border_pixels_to_ignore:] = 0    # Bottom border
+                
+            #similarity = jaccard_similarity(mask_arr, image_pred)
+            # Use accuracy as similarity... is more practical than jaccard
+            similarity = np.equal(mask_arr, image_pred_uint8_cleaned_bin
+                                    ).sum()/image_pred_uint8_cleaned_bin.size
+            pred_prefix_str = f"{similarity:0.3f}_"
+            
+            # Copy mask file if the file doesn't exist yet
+            mask_copy_dest_filepath = f"{output_dir}{os.sep}{pred_prefix_str}{image_filename_noext}_mask.tif"
+            if not os.path.exists(mask_copy_dest_filepath):
+                shutil.copyfile(mask_filepath, mask_copy_dest_filepath)
+
+        else:
+            # If all_black, no need to calculate again
+            if all_black: 
+                pct_black = 1
+            else:
+                # Calculate percentage black pixels
+                pct_black = 1 - ((image_pred_uint8_cleaned_bin.sum()/250)
+                                    /image_pred_uint8_cleaned_bin.size)
+            
+            # If the result after segmentation is all black, set all_black
+            if pct_black == 1:
+                # Force the prefix to be really high so it is clear they are entirely black
+                pred_prefix_str = "1.001_"
+                all_black = True
+            else:
+                pred_prefix_str = f"{pct_black:0.3f}_"
+
+            # If there are few white pixels, don't save it,
+            # because we are in evaluetion mode anyway...
+            #if similarity >= 0.95:
+                #continue
+        
+        # Copy the input image if it doesn't exist yet in output path
+        output_basefilepath = f"{output_dir}{os.sep}{pred_prefix_str}{image_filename_noext}"
+        image_dest_filepath = f"{output_basefilepath}{image_ext}"
+        if not os.path.exists(image_dest_filepath):
+            shutil.copyfile(image_filepath, image_dest_filepath)
+
+        # Rename the prediction file so it also contains the prefix,... 
+        if image_pred_filepath is not None:
+            image_dest_filepath = f"{output_basefilepath}_pred{image_ext}"
+            if not os.path.exists(image_dest_filepath):
+                shutil.move(image_pred_filepath, image_dest_filepath)
+
+        # If all_black, we are ready now
+        if all_black:
+            logger.debug("All black prediction, no use proceding")
+            return 
+        
+        polygonize_pred_for_evaluation(
+                image_pred_uint8_bin=image_pred_uint8_cleaned_bin,
+                image_crs=image_crs,
+                image_transform=image_transform,
+                output_basefilepath=output_basefilepath)
+    
+    except Exception as ex:
+        message = f"Exception postprocessing prediction for {image_filepath}\n: file {image_pred_filepath}!!!"
+        raise Exception(message) from ex
+
+def polygonize_pred_for_evaluation(
+        image_pred_uint8_bin,
+        image_crs: str,
+        image_transform,
+        output_basefilepath: str):
+
+    # Polygonize result
+    try:
+        # Returns a list of tupples with (geometry, value)
+        polygonized_records = list(rio_features.shapes(
+                image_pred_uint8_bin, mask=image_pred_uint8_bin, transform=image_transform))
+        
+        # If nothing found, we can return
+        if len(polygonized_records) == 0:
+            logger.debug("This prediction didn't result in any polygons")
+            return
+
+        # Convert shapes to geopandas geodataframe 
+        geoms = []
+        for geom, _ in polygonized_records:
+            geoms.append(sh.geometry.shape(geom))   
+        geoms_gdf = gpd.GeoDataFrame(geoms, columns=['geometry'])
+        geoms_gdf.crs = image_crs
+
+        image_shape = image_pred_uint8_bin.shape
+        image_width = image_shape[0]
+        image_height = image_shape[1]
+
+        # For easier evaluation, write the cleaned version as raster
+        # Write the standard cleaned output to file
+        logger.debug("Save binary prediction")
+        image_pred_cleaned_filepath = f"{output_basefilepath}_pred_bin.tif"
+        with rio.open(image_pred_cleaned_filepath, 'w', driver='GTiff', 
+                        compress='lzw',
+                        height=image_height, width=image_width, 
+                        count=1, dtype=rio.uint8, 
+                        crs=image_crs, transform=image_transform) as dst:
+            dst.write(image_pred_uint8_bin, 1)
+        
+        # If the input image contained a tranform, also create an image 
+        # based on the simplified vectors
+        if(image_transform[0] != 0 
+            and len(geoms) > 0):
+            # Simplify geoms
+            geoms_simpl = []
+            geoms_simpl_vis = []
+            for geom in geoms:
+                # The simplify of shapely uses the deuter-pecker algo
+                # preserve_topology is slower bu makes sure no polygons are removed
+                geom_simpl = geom.simplify(0.5, preserve_topology=True)
+                if not geom_simpl.is_empty:
+                    geoms_simpl.append(geom_simpl)
+            
+            # Write simplified wkt result to raster for comparing. 
+            if len(geoms_simpl) > 0:
+                # TODO: doesn't support multiple classes
+                logger.debug('Before writing simpl rasterized file')
+                image_pred_simpl_filepath = f"{output_basefilepath}_pred_cleaned_simpl.tif"
+                with rio.open(image_pred_simpl_filepath, 'w', driver='GTiff', compress='lzw',
+                                height=image_height, width=image_width, 
+                                count=1, dtype=rio.uint8, crs=image_crs, transform=image_transform) as dst:
+                    # this is where we create a generator of geom, value pairs to use in rasterizing
+                    logger.debug('Before rasterize')
+                    burned = rio_features.rasterize(
+                            shapes=geoms_simpl, 
+                            out_shape=(image_height, image_width),
+                            fill=0, default_value=255, dtype=rio.uint8,
+                            transform=image_transform)
+                    dst.write(burned, 1)
+            
+            # Write simplified wkt result to raster for comparing. Use the same
+            if len(geoms_simpl_vis) > 0:
+                # file profile as created before for writing the raw prediction result
+                # TODO: doesn't support multiple classes
+                logger.debug('Before writing simpl with visvangali algo rasterized file')
+                image_pred_simpl_filepath = f"{output_basefilepath}_pred_cleaned_simpl_vis.tif"
+                with rio.open(image_pred_simpl_filepath, 'w', driver='GTiff', compress='lzw',
+                                height=image_height, width=image_width, 
+                                count=1, dtype=rio.uint8, crs=image_crs, transform=image_transform) as dst:
+                    # this is where we create a generator of geom, value pairs to use in rasterizing
+                    logger.debug('Before rasterize')
+                    burned = rio_features.rasterize(
+                            shapes=geoms_simpl_vis, 
+                            out_shape=(image_height, image_width),
+                            fill=0, default_value=255, dtype=rio.uint8,
+                            transform=image_transform)
+                    dst.write(burned, 1)
+
+    except Exception as ex:
+        message = f"Exception while polygonizing to file {output_basefilepath}!"
+        raise Exception(message) from ex
+
+def polygonize_pred_from_file(
+        image_pred_filepath: str,
+        border_pixels_to_ignore: int = 0,
+        save_to_file: bool = False) -> gpd.geodataframe:
+
+    try:
+        with rio.open(image_pred_filepath) as image_ds:
+            # Read geo info
+            image_crs = image_ds.profile['crs']
+            image_transform = image_ds.transform
+            
+            # Read pixels and change from (channels, width, height) to 
+            # (width, height, channels) and normalize to values between 0 and 1
+            image_data = image_ds.read()
+    
+         # Create binary version
+        #image_data = rio_plot.reshape_as_image(image_data)
+        image_pred_uint8_bin = to_binary_uint8(image_data, 125)
+
+        output_basefilepath = None
+        if save_to_file is True:
+            output_basefilepath, _ = os.path.splitext(image_pred_filepath)   
+        return polygonize_pred(
+                image_pred_uint8_bin=image_pred_uint8_bin,
+                image_crs=image_crs,
+                image_transform=image_transform,
+                image_pred_filepath=image_pred_filepath,
+                output_basefilepath=output_basefilepath,
+                border_pixels_to_ignore=border_pixels_to_ignore)
+
+    except Exception as ex:
+        raise Exception(f"Error in polygonize_pred_from_file on {image_pred_filepath}") from ex
+
+def polygonize_pred(
+        image_pred_uint8_bin,
+        image_crs: str,
+        image_transform,
+        image_pred_filepath: str = None,
+        output_basefilepath: str = None,
+        border_pixels_to_ignore: int = 0) -> gpd.geodataframe:
+
+    # Polygonize result
+    try:
+        # Returns a list of tupples with (geometry, value)
+        polygonized_records = list(rio_features.shapes(
+                image_pred_uint8_bin, mask=image_pred_uint8_bin, transform=image_transform))
+
+        # If nothing found, we can return
+        if len(polygonized_records) == 0:
+            logger.warn(f"Prediction didn't result in any polygons: {image_pred_filepath}")
+            return None
+
+        # Convert shapes to geopandas geodataframe 
+        geoms = []
+        for geom, _ in polygonized_records:
+            geoms.append(sh.geometry.shape(geom))   
+        geoms_gdf = gpd.GeoDataFrame(geoms, columns=['geometry'])
+        geoms_gdf.crs = image_crs
+
+        # Apply a minimal simplify to the geometries based on the pixel size
+        pixel_sizex = image_transform[0]
+        pixel_sizey = -image_transform[4]
+        min_pixel_size = min(pixel_sizex, pixel_sizey)
+        # Calculate the tolerance as half the diagonal of the square formed 
+        # by the min pixel size, rounded up in centimeter 
+        simplify_tolerance = math.ceil(math.sqrt(pow(min_pixel_size, 2)/2)*100)/100
+        geoms_gdf.geometry = geoms_gdf.geometry.simplify(simplify_tolerance)
+        
+        # Fix + remove empty geom rows
+        geoms_gdf['geometry'] = geoms_gdf.geometry.apply(lambda geom: vector_util.fix(geom))
+        geoms_gdf.dropna(subset=['geometry'], inplace=True)
+        geoms_gdf = geoms_gdf.reset_index(drop=True).explode()
+
+        # Calculate the bounds of the image in projected coordinates
+        image_shape = image_pred_uint8_bin.shape
+        image_width = image_shape[0]
+        image_height = image_shape[1]
+        image_bounds = rio.transform.array_bounds(
+                image_height, image_width, image_transform)
+        x_pixsize = get_pixelsize_x(image_transform)
+        y_pixsize = get_pixelsize_y(image_transform)
+        border_bounds = (image_bounds[0]+border_pixels_to_ignore*x_pixsize,
+                            image_bounds[1]+border_pixels_to_ignore*y_pixsize,
+                            image_bounds[2]-border_pixels_to_ignore*x_pixsize,
+                            image_bounds[3]-border_pixels_to_ignore*y_pixsize)
+        
+        # Now we can calculate the "onborder" property
+        geoms_gdf = vector_util.calc_onborder(geoms_gdf, border_bounds)
+
+        # Write the geoms to file
+        if output_basefilepath is not None:
+            geom_filepath = f"{output_basefilepath}_pred_cleaned_2.geojson"
+            geofile_util.to_file(geoms_gdf, geom_filepath)
+        
+        return geoms_gdf
+            
+    except Exception as ex:
+        message = f"Exception while polygonizing to file {output_basefilepath}"
+        raise Exception(message) from ex
+
+#-------------------------------------------------------------
+# Helpers for working with Affine objects...                    
+#-------------------------------------------------------------
+
+def get_pixelsize_x(transform):
+    return transform[0]
+    
+def get_pixelsize_y(transform):
+    return -transform[4]
 
 #-------------------------------------------------------------
 # If the script is ran directly...

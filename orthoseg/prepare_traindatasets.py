@@ -216,13 +216,96 @@ def prepare_traindatasets(
 
     return output_dir, dataversion_new
 
-def _create_mask(input_vector_label_list,
-                 input_image_filepath: str,
-                 output_mask_filepath: str,
-                 output_imagecopy_filepath: str = None,
-                 burn_value: int = 255,
-                 minimum_pct_labeled: float = 0.0,
-                 force: bool = False) -> bool:
+def create_masks_for_images(
+        input_vector_label_filepath: str,
+        input_image_dir: str,
+        output_basedir: str,
+        image_subdir: str = 'image',
+        mask_subdir: str = 'mask',
+        burn_value: int = 255,
+        force: bool = False):
+
+    # Check if the input file exists, if not, return
+    if not os.path.exists(input_vector_label_filepath):
+        message = f"Input file doesn't exist, so do nothing and return: {input_vector_label_filepath}"
+        raise Exception(message)
+    # Check if the input file exists, if not, return
+    if not os.path.exists(input_image_dir):
+        message = f"Input image dir doesn't exist, so do nothing and return: {input_image_dir}"
+        raise Exception(message)
+    
+    # Determine the current data version based on existing output data dir(s), but ignore dirs ending on _ERROR
+    output_dirs = glob.glob(f"{output_basedir}_*")
+    output_dirs = [output_dir for output_dir in output_dirs if output_dir.endswith('_BUSY') is False]
+    if len(output_dirs) == 0:
+        dataversion_new = 1
+    else:
+        # Get the output dir with the highest version (=first if sorted desc)
+        output_dir_mostrecent = sorted(output_dirs, reverse=True)[0]
+        output_subdir_mostrecent = os.path.basename(output_dir_mostrecent)
+        dataversion_mostrecent = int(output_subdir_mostrecent.split('_')[1])
+        dataversion_new = dataversion_mostrecent + 1
+        
+        # If the input vector label file didn't change since previous run 
+        # dataset can be reused
+        output_vector_mostrecent_filepath = os.path.join(
+                output_dir_mostrecent, os.path.basename(input_vector_label_filepath))
+        if(os.path.exists(output_vector_mostrecent_filepath)
+           and geofile_util.cmp(input_vector_label_filepath, 
+                                  output_vector_mostrecent_filepath)):
+            logger.info(f"RETURN: input vector label file isn't changed since last prepare_traindatasets, so no need to recreate")
+            return output_dir_mostrecent, dataversion_mostrecent
+                
+    # Create the output dir's if they don't exist yet...
+    output_dir = f"{output_basedir}_{dataversion_new:02d}"
+    output_tmp_dir = f"{output_basedir}_{dataversion_new:02d}_BUSY"
+    output_tmp_image_dir = os.path.join(output_tmp_dir, image_subdir)
+    output_tmp_mask_dir = os.path.join(output_tmp_dir, mask_subdir)
+
+    # Prepare the output dir...
+    if os.path.exists(output_tmp_dir):
+        shutil.rmtree(output_tmp_dir)
+    for dir in [output_tmp_dir, output_tmp_mask_dir, output_tmp_image_dir]:
+        if dir and not os.path.exists(dir):
+            os.makedirs(dir)
+
+    # Copy the vector file(s) to the dest dir so we keep knowing which file was
+    # used to create the dataset
+    geofile_util.copy(input_vector_label_filepath, output_tmp_dir)
+    
+    # Open vector layer
+    logger.debug(f"Open vector file {input_vector_label_filepath}")
+    input_label_gdf = gpd.read_file(input_vector_label_filepath)
+
+    # Create list with only the input labels that are positive examples, as 
+    # are the only ones that will need to be burned in the mask
+    labels_to_burn_gdf = input_label_gdf[input_label_gdf['burninmask'] == 1]
+    
+    # Loop trough input images
+    input_image_filepaths = glob.glob(f"{input_image_dir}{os.sep}*.tif")
+    logger.info(f"process {len(input_image_filepaths)} input images")
+    for input_image_filepath in input_image_filepaths:
+        _, input_image_filename = os.path.split(input_image_filepath)
+        
+        image_filepath = os.path.join(output_tmp_image_dir, input_image_filename)
+        shutil.copyfile(input_image_filepath, image_filepath)
+
+        mask_filepath = os.path.join(output_tmp_mask_dir, input_image_filename)
+        _create_mask(
+                input_vector_label_list=labels_to_burn_gdf.geometry,
+                input_image_filepath=image_filepath,
+                output_mask_filepath=mask_filepath,
+                burn_value=burn_value,
+                force=force)
+
+def _create_mask(
+        input_vector_label_list,
+        input_image_filepath: str,
+        output_mask_filepath: str,
+        output_imagecopy_filepath: str = None,
+        burn_value: int = 255,
+        minimum_pct_labeled: float = 0.0,
+        force: bool = False) -> bool:
     # TODO: only supports one class at the moment.
 
     # If file exists already and force is False... stop.
