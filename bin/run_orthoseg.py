@@ -26,16 +26,31 @@ from orthoseg.helpers import log_helper
 import argparse
 
 def orthoseg_argstr(argstr):
-    #args = list(filter(None, argstr.split(' ')))
     args = shlex.split(argstr)
     orthoseg_args(args)
 
 def orthoseg_args(args):
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--action", type=str, help="The action you want to perform")
-    parser.add_argument("--subject", type=str, help="The subject to perform the action on")
+
+    ##### Interprete arguments #####
+    parser = argparse.ArgumentParser(add_help=False)
+
+    # Required arguments
+    required = parser.add_argument_group('Required arguments')
+    required.add_argument("--action", type=str, required=True,
+            help="The action you want to perform")
+    required.add_argument("--subject", type=str, required=True,
+            help="The subject to perform the action on")
+    
+    # Optional arguments
+    optional = parser.add_argument_group('Optional arguments')
+    # Add back help 
+    optional.add_argument('-h', '--help', action='help', default=argparse.SUPPRESS,
+            help='Show this help message and exit')
+
+    # Interprete arguments
     args = parser.parse_args(args)
 
+    ##### Run! #####
     orthoseg(action=args.action, subject=args.subject)
 
 def orthoseg(
@@ -74,8 +89,6 @@ def orthoseg(
         elif(action == 'postprocess'):
             import orthoseg.run_postprocess as postp
             postp.postprocess_predictions(config_filepaths=config_filepaths)
-        elif(action == 'test'):
-            return 'TEST OK'
         else:
             raise Exception(f"Unsupported action: {action}")
     except Exception as ex:
