@@ -127,6 +127,8 @@ def predict_dir(
     # Loop through all files to process them...
     curr_batch_image_infos = []
     nb_processed = 0
+    start_time = None
+    start_time_batch_read = None
     image_filepaths_sorted = sorted(image_filepaths)
     with open(images_error_log_filepath, "a+") as image_errorlog_file, \
          open(images_done_log_filepath, "a+") as image_donelog_file, \
@@ -154,7 +156,7 @@ def predict_dir(
             output_dir, _ = os.path.split(output_pred_filepath)
             
             # Init start time after first batch is ready, as it is really slow
-            if nb_processed == 0 and start_time_batch_read is not None:
+            if start_time is None and start_time_batch_read is not None:
                 start_time = datetime.datetime.now()
             nb_processed += 1
             
@@ -182,19 +184,22 @@ def predict_dir(
                 read_results = pool.map(read_image,            # Function 
                                         read_arg_filepaths,    # Arg 1-list
                                         read_arg_projections)  # Arg 2-list
+                curr_batch_image_list = [] 
                 for j, read_result in enumerate(read_results):
                     curr_batch_image_infos_ext.append(
                             {'input_image_filepath': curr_batch_image_infos[j]['input_image_filepath'],
                              'output_pred_filepath': curr_batch_image_infos[j]['output_pred_filepath'],
                              'output_dir': curr_batch_image_infos[j]['output_dir'],
                              'image_crs': read_result['image_crs'],
-                             'image_transform': read_result['image_transform'],
-                             'image_data': read_result['image_data']})
+                             'image_transform': read_result['image_transform']})
+                    curr_batch_image_list.append(read_result['image_data']) 
 
                 # Predict!
+                curr_batch_image_arr = np.stack(curr_batch_image_list)
                 logger.debug(f"Start prediction for {nb_images_in_batch} images")
-                images = [info.get('image_data') for info in curr_batch_image_infos_ext]
-                curr_batch_image_pred_arr = model.predict_on_batch(np.asarray(images))
+                #images = [info.get('image_data') for info in curr_batch_image_infos_ext]
+                #image_array = np.array(images, copy=False)
+                curr_batch_image_pred_arr = model.predict_on_batch(curr_batch_image_arr)
                 
                 # Postprocess predictions
                 # Remark: trying to parallelize this doesn't seem to help at all!
@@ -224,15 +229,16 @@ def predict_dir(
                 logger.debug("Post-processing ready")
 
                 # Log the progress and prediction speed
-                time_passed_s = (datetime.datetime.now()-start_time).total_seconds()
-                time_passed_lastbatch_s = (datetime.datetime.now()-start_time_batch_read).total_seconds()
-                if time_passed_s > 0 and time_passed_lastbatch_s > 0:
-                    nb_per_hour = (nb_processed/time_passed_s) * 3600
-                    nb_per_hour_lastbatch = (nb_images_in_batch/time_passed_lastbatch_s) * 3600
-                    hours_to_go = (int)((nb_todo - i)/nb_per_hour)
-                    min_to_go = (int)((((nb_todo - i)/nb_per_hour)%1)*60)
-                    print(f"\r{hours_to_go}:{min_to_go} left for {nb_todo-i} todo at {nb_per_hour:0.0f}/h ({nb_per_hour_lastbatch:0.0f}/h last batch) in ...{input_image_dir[-30:]}",
-                          end='', flush=True)
+                if start_time is not None:
+                    time_passed_s = (datetime.datetime.now()-start_time).total_seconds()
+                    time_passed_lastbatch_s = (datetime.datetime.now()-start_time_batch_read).total_seconds()
+                    if time_passed_s > 0 and time_passed_lastbatch_s > 0:
+                        nb_per_hour = (nb_processed/time_passed_s) * 3600
+                        nb_per_hour_lastbatch = (nb_images_in_batch/time_passed_lastbatch_s) * 3600
+                        hours_to_go = (int)((nb_todo - i)/nb_per_hour)
+                        min_to_go = (int)((((nb_todo - i)/nb_per_hour)%1)*60)
+                        print(f"\r{hours_to_go}:{min_to_go} left for {nb_todo-i} todo at {nb_per_hour:0.0f}/h ({nb_per_hour_lastbatch:0.0f}/h last batch) in ...{input_image_dir[-30:]}",
+                            end='', flush=True)
                 
                 # Reset variable for next batch
                 curr_batch_image_infos = []
