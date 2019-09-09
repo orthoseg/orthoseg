@@ -41,8 +41,8 @@ def prepare_traindatasets(
         output_basedir: str,
         image_subdir: str = "image",
         mask_subdir: str = "mask",
-        image_srs_pixel_x_size: int = 0.25,
-        image_srs_pixel_y_size: int = 0.25,
+        image_pixel_x_size: int = 0.25,
+        image_pixel_y_size: int = 0.25,
         image_pixel_width: int = 512,
         image_pixel_height: int = 512,
         max_samples: int = 5000,
@@ -122,8 +122,8 @@ def prepare_traindatasets(
         img_srs = input_label_gdf.crs['init']
             
         # Now loop over label polygons to create the training/validation data
-        image_srs_width = math.fabs(image_pixel_width*image_srs_pixel_x_size)   # tile width in units of crs => 500 m
-        image_srs_height = math.fabs(image_pixel_height*image_srs_pixel_y_size) # tile height in units of crs => 500 m
+        image_srs_width = math.fabs(image_pixel_width*image_pixel_x_size)   # tile width in units of crs => 500 m
+        image_srs_height = math.fabs(image_pixel_height*image_pixel_y_size) # tile height in units of crs => 500 m
         
         # Create list with only the input labels that are positive examples, as 
         # are the only ones that will need to be burned in the mask
@@ -147,8 +147,8 @@ def prepare_traindatasets(
             # Make sure the image requested is of the correct size
             label_geom = label_tuple.geometry            
             geom_bounds = label_geom.bounds
-            xmin = geom_bounds[0]-(geom_bounds[0]%image_srs_pixel_x_size)-10
-            ymin = geom_bounds[1]-(geom_bounds[1]%image_srs_pixel_y_size)-10
+            xmin = geom_bounds[0]-(geom_bounds[0]%image_pixel_x_size)-10
+            ymin = geom_bounds[1]-(geom_bounds[1]%image_pixel_y_size)-10
             xmax = xmin + image_srs_width
             ymax = ymin + image_srs_height
             img_bbox = sh_geom.box(xmin, ymin, xmax, ymax)

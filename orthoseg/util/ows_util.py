@@ -49,6 +49,7 @@ logger.setLevel(logging.DEBUG)
 
 def get_images_for_grid(
         wms_server_url: str,
+        wms_version: str,
         wms_layernames: [str],
         srs: str,
         output_image_dir: str,
@@ -61,13 +62,13 @@ def get_images_for_grid(
         image_pixel_width: int = 1024,
         image_pixel_height: int = 1024,
         image_pixels_ignore_border: int = 0,
-        nb_concurrent_calls: int = 0,
+        nb_concurrent_calls: int = 1,
+        random_sleep: float = 0.0,        
         image_format: str = FORMAT_GEOTIFF,
         tiff_compress: str = 'lzw',
         transparent: str = False,
         wms_layerstyles: [str] = ['default'],
         pixels_overlap: int = 0,
-        random_sleep: float = 0.0,
         column_start: int = 0,
         nb_images_to_skip: int = None,
         max_nb_images: int = -1,
@@ -114,38 +115,34 @@ def get_images_for_grid(
             #roi_gdf.to_file("X:\\Monitoring\\OrthoSeg\\roi_gridded.shp")
             
     # Check if the image_gen_bounds are compatible with the grid...
-    error_message = ''
     if (image_gen_bounds[0]-grid_xmin)%srs_width != 0:
-        xmin_suggestion = image_gen_bounds[0] - ((image_gen_bounds[0]-grid_xmin)%srs_width)
-        error_message += f"\n\txmin {image_gen_bounds[0]} is not compatible with grid specified, {xmin_suggestion} is!"
+        xmin_new = image_gen_bounds[0] - ((image_gen_bounds[0]-grid_xmin)%srs_width)
+        logger.warning(f"xmin {image_gen_bounds[0]} in compatible with grid, {xmin_new} will be used")
+        image_gen_bounds = (xmin_new, image_gen_bounds[1], image_gen_bounds[2], image_gen_bounds[3])
     if (image_gen_bounds[1]-grid_ymin)%srs_height != 0:
-        ymin_suggestion = image_gen_bounds[1] - ((image_gen_bounds[1]-grid_ymin)%srs_height)
-        error_message += f"\n\tymin {image_gen_bounds[1]} is not compatible with grid specified, {ymin_suggestion} is!"
+        ymin_new = image_gen_bounds[1] - ((image_gen_bounds[1]-grid_ymin)%srs_height)
+        logger.warning(f"ymin {image_gen_bounds[1]} incompatible with grid, {ymin_new} will be used")
+        image_gen_bounds = (image_gen_bounds[0], ymin_new, image_gen_bounds[2], image_gen_bounds[3])
     if (image_gen_bounds[2]-grid_xmin)%srs_width != 0:
-        xmax_suggestion = image_gen_bounds[2] + srs_width - ((image_gen_bounds[2]-grid_xmin)%srs_width)
-        error_message += f"\n\txmax {image_gen_bounds[2]} is not compatible with grid specified, {xmax_suggestion} is!"
+        xmax_new = image_gen_bounds[2] + srs_width - ((image_gen_bounds[2]-grid_xmin)%srs_width)
+        logger.warning(f"xmax {image_gen_bounds[2]} incompatible with grid, {xmax_new} will be used")
+        image_gen_bounds = (image_gen_bounds[0], image_gen_bounds[1], xmax_new, image_gen_bounds[3])
     if (image_gen_bounds[3]-grid_ymin)%srs_height != 0:
-        ymax_suggestion = image_gen_bounds[3] + srs_height - ((image_gen_bounds[3]-grid_ymin)%srs_height)
-        error_message += f"\n\tymax {image_gen_bounds[3]} is not compatible with grid specified, {ymax_suggestion } is!"
+        ymax_new = image_gen_bounds[3] + srs_height - ((image_gen_bounds[3]-grid_ymin)%srs_height)
+        logger.warning(f"ymax {image_gen_bounds[3]} incompatible with grid, {ymax_new} will be used")
+        image_gen_bounds = (image_gen_bounds[0], image_gen_bounds[1], image_gen_bounds[2], ymax_new)
 
-    # If there was an error, stop!
-    if error_message != '':
-        logger.critical(error_message)
-        raise Exception(error_message)
-
+    # Calculate width and height...
     dx = math.fabs(image_gen_bounds[0] - image_gen_bounds[2]) # area width in units of crs
     dy = math.fabs(image_gen_bounds[1] - image_gen_bounds[3]) # area height in units of crs
-
     cols = int(math.ceil(dx / srs_width)) + 1
     rows = int(math.ceil(dy / srs_height)) + 1
-
-    print(f"Number rows: {rows}, number columns: {cols}")
 
     # Inits to start getting images 
     if not os.path.exists(output_image_dir):
         os.makedirs(output_image_dir)
     auth = owslib.util.Authentication()
-    wms = owslib.wms.WebMapService(wms_server_url, version='1.3.0', auth=auth)
+    wms = owslib.wms.WebMapService(wms_server_url, version=wms_version, auth=auth)
 
     with futures.ThreadPoolExecutor(nb_concurrent_calls) as pool:
 
@@ -481,12 +478,8 @@ def getmap_to_file(
 
                 # Copy appropriate info from source file
                 image_profile_gtiff.update(
-#                        driver=rio.profiles.DefaultGTiffProfile.driver,
-                        count=image_profile_orig['count'],
-                        width=size[0],
-                        height=size[1],
-                        nodata=image_profile_orig['nodata'],
-                        dtype=image_profile_orig['dtype'])
+                        count=image_profile_orig['count'], width=size[0], height=size[1],
+                        nodata=image_profile_orig['nodata'], dtype=image_profile_orig['dtype'])
                 image_profile = image_profile_gtiff
             else:
                 image_profile = image_profile_orig

@@ -59,8 +59,11 @@ def load_images(
     
     predict_datasource_code = conf.predict['image_datasource_code']
     wms_server_url = conf.image_datasources[predict_datasource_code]['wms_server_url']
+    wms_version = conf.image_datasources[predict_datasource_code]['wms_version']
     wms_layernames = conf.image_datasources[predict_datasource_code]['wms_layernames']
     wms_layerstyles = conf.image_datasources[predict_datasource_code]['wms_layerstyles']
+    nb_concurrent_calls = conf.image_datasources[predict_datasource_code]['nb_concurrent_calls']
+    random_sleep = conf.image_datasources[predict_datasource_code]['random_sleep']
     projection = conf.image_datasources[predict_datasource_code]['projection']
     bbox = conf.image_datasources[predict_datasource_code]['bbox']
     grid_xmin = conf.image_datasources[predict_datasource_code]['grid_xmin']
@@ -68,6 +71,7 @@ def load_images(
     image_pixels_ignore_border = conf.image_datasources[predict_datasource_code]['image_pixels_ignore_border']
     ows_util.get_images_for_grid(
             wms_server_url=wms_server_url,
+            wms_version=wms_version,
             wms_layernames=wms_layernames,
             wms_layerstyles=wms_layerstyles,
             srs=projection,
@@ -81,7 +85,8 @@ def load_images(
             image_pixel_width=image_pixel_width,
             image_pixel_height=image_pixel_height,
             image_pixels_ignore_border=image_pixels_ignore_border,
-            nb_concurrent_calls=6,
+            nb_concurrent_calls=nb_concurrent_calls,
+            random_sleep=random_sleep,
             image_format=image_format,
             pixels_overlap=image_pixels_overlap,
             column_start=column_start,

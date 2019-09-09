@@ -60,7 +60,7 @@ def run_training_session(config_filepaths: []):
     # Get the image datasource section to use for training
     train_image_datasource_code = conf.train['image_datasource_code']
     train_projection = conf.image_datasources[train_image_datasource_code]['projection']
-    
+        
     # First the "train" training dataset
     force_model_traindata_version = conf.model.getint('force_model_traindata_version')
     if force_model_traindata_version > -1:
@@ -74,7 +74,11 @@ def run_training_session(config_filepaths: []):
                 default_image_datasource_code=train_image_datasource_code,
                 output_basedir=conf.dirs['training_train_basedir'],
                 image_subdir=conf.dirs['image_subdir'],
-                mask_subdir=conf.dirs['mask_subdir'])
+                mask_subdir=conf.dirs['mask_subdir'],
+                image_pixel_x_size=conf.train.getfloat('image_pixel_x_size'),
+                image_pixel_y_size=conf.train.getfloat('image_pixel_y_size'),
+                image_pixel_width=conf.train.getint('image_pixel_width'),
+                image_pixel_height=conf.train.getint('image_pixel_height'))
     logger.info(f"Traindata dir to use is {traindata_dir}, with traindata_version: {traindata_version}")
 
     # Now the "validation" training dataset
@@ -84,7 +88,11 @@ def run_training_session(config_filepaths: []):
             default_image_datasource_code=train_image_datasource_code,
             output_basedir=conf.dirs['training_validation_basedir'],
             image_subdir=conf.dirs['image_subdir'],
-            mask_subdir=conf.dirs['mask_subdir'])
+            mask_subdir=conf.dirs['mask_subdir'],
+            image_pixel_x_size=conf.train.getfloat('image_pixel_x_size'),
+            image_pixel_y_size=conf.train.getfloat('image_pixel_y_size'),
+            image_pixel_width=conf.train.getint('image_pixel_width'),
+            image_pixel_height=conf.train.getint('image_pixel_height'))
 
     # Now the "test" training dataset
     if os.path.exists(conf.files['input_testlabels_filepath']):
@@ -94,7 +102,11 @@ def run_training_session(config_filepaths: []):
                 default_image_datasource_code=train_image_datasource_code,
                 output_basedir=conf.dirs['training_test_basedir'],
                 image_subdir=conf.dirs['image_subdir'],
-                mask_subdir=conf.dirs['mask_subdir'])
+                mask_subdir=conf.dirs['mask_subdir'],
+                image_pixel_x_size=conf.train.getfloat('image_pixel_x_size'),
+                image_pixel_y_size=conf.train.getfloat('image_pixel_y_size'),
+                image_pixel_width=conf.train.getint('image_pixel_width'),
+                image_pixel_height=conf.train.getint('image_pixel_height'))
     else:
         testdata_dir = None
         logger.warn(f"Testlabels input file doesn't exist: {conf.files['input_testlabels_filepath']}")

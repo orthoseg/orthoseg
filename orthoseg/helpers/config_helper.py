@@ -55,6 +55,12 @@ def read_config(config_filepaths: []):
             wms_layerstyles = config[section].getlist('wms_layerstyles')
             image_datasources[image_datasource_code]['wms_layerstyles'] = wms_layerstyles
 
+            # Geve default values to some other properties of a server
+            nb_concurrent_calls = config[section].getint('nb_concurrent_calls', 6)
+            image_datasources[image_datasource_code]['nb_concurrent_calls'] = nb_concurrent_calls
+            random_sleep = config[section].getint('random_sleep', 6)
+            image_datasources[image_datasource_code]['random_sleep'] = random_sleep
+            
             # Check if a bbox is specified
             bbox_tuple = None
             if config.has_option(section, 'bbox'):
