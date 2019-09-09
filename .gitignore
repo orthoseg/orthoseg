@@ -5,4 +5,4 @@ tmp/
 local_overrule.ini
 */__pycache__/
 .vscode/*
-bin/run_job_config.csv
+bin/run_tasks_config.csv

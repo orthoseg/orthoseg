@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Process the jobs as scheduled in the run_jobs_config file.
+Process the tasks as configured in the run_tasks_config.csv file.
 """
 
 from email.message import EmailMessage
@@ -26,9 +26,9 @@ def run_tasks():
     global logger
     logger = logging.getLogger()
 
-    # Prepare the path to the job dir,...
+    # Prepare the path to the dir where the config can be found,...
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    run_config_filepath = os.path.join(script_dir, "run_job_config.csv")
+    run_config_filepath = os.path.join(script_dir, "run_tasks_config.csv")
 
     # Read the tasks that need to be ran in the run_tasks file
     run_config_df = read_run_tasks_config(run_config_filepath)
