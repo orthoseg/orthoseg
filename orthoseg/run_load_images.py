@@ -69,6 +69,8 @@ def load_images(
     grid_xmin = conf.image_datasources[predict_datasource_code]['grid_xmin']
     grid_ymin = conf.image_datasources[predict_datasource_code]['grid_ymin']
     image_pixels_ignore_border = conf.image_datasources[predict_datasource_code]['image_pixels_ignore_border']
+    roi_filepath = conf.image_datasources[predict_datasource_code]['roi_filepath']
+
     ows_util.get_images_for_grid(
             wms_server_url=wms_server_url,
             wms_version=wms_version,
@@ -77,7 +79,7 @@ def load_images(
             srs=projection,
             output_image_dir=output_image_dir,
             image_gen_bounds=bbox,
-            image_gen_roi_filepath=conf.files['roi_filepath'],
+            image_gen_roi_filepath=roi_filepath,
             grid_xmin=grid_xmin,
             grid_ymin=grid_ymin,
             image_srs_pixel_x_size=image_pixel_x_size,
