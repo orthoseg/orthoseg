@@ -394,6 +394,7 @@ def getmap_to_file(
 
     # Retry 10 times...
     nb_retries = 0
+    time_sleep = 0
     while True:
         try:
             logger.debug(f"Start call GetMap for bbox {bbox}")
@@ -434,10 +435,11 @@ def getmap_to_file(
             break
 
         except Exception as ex:
-            # Retry 10 times...
+            # Retry 10 times... and increase sleep time every time
             if nb_retries < 10:
                 nb_retries += 1
-                time.sleep(10)
+                time_sleep += 5                
+                time.sleep(time_sleep)
                 continue
             else:
                 message = f"Retried 10 times and didn't work, with layers: {layers}, styles: {styles}"
