@@ -38,8 +38,8 @@ def orthoseg_args(args):
     required = parser.add_argument_group('Required arguments')
     required.add_argument("--action", type=str, required=True,
             help="The action you want to perform")
-    required.add_argument("--subject", type=str, required=True,
-            help="The subject to perform the action on")
+    required.add_argument("--config", type=str, required=True,
+            help="The config to perform the action with")
     
     # Optional arguments
     optional = parser.add_argument_group('Optional arguments')
@@ -51,11 +51,11 @@ def orthoseg_args(args):
     args = parser.parse_args(args)
 
     ##### Run! #####
-    orthoseg(action=args.action, subject=args.subject)
+    orthoseg(action=args.action, config=args.config)
 
 def orthoseg(
         action: str,
-        subject: str):
+        config: str):
 
     # Prepare the path to the job dir,...
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -63,8 +63,8 @@ def orthoseg(
     config_dir = os.path.join(base_dir, "config")
 
     # Get needed config + load it
-    print(f"Start {action} on {subject}")
-    config_filepaths = get_needed_config_files(config_dir=config_dir, subject=subject)
+    print(f"Start {action} on {config}")
+    config_filepaths = get_needed_config_files(config_dir=config_dir, config=config)
     conf.read_config(config_filepaths)
     
     # Main initialisation of the logging
@@ -92,13 +92,13 @@ def orthoseg(
         else:
             raise Exception(f"Unsupported action: {action}")
     except Exception as ex:
-        message = f"OrthoSeg ERROR in action {action} on {subject}"
+        message = f"OrthoSeg ERROR in action {action} on {config}"
         logger.exception(message)
         raise Exception(message) from ex
 
 def get_needed_config_files(
         config_dir: str,
-        subject: str = None) -> []:
+        config: str = None) -> []:
 
     # General settings need to be first in list
     config_filepaths = [os.path.join(config_dir, 'general.ini')]
@@ -112,8 +112,11 @@ def get_needed_config_files(
         raise Exception(f"Unsupported os.name: {os.name}")
 
     # Specific settings for the subject if one is specified
-    if(subject is not None):
-        config_filepaths.append(os.path.join(config_dir, f"{subject}.ini"))
+    if(config is not None):
+        config_filepath = os.path.join(config_dir, f"{config}.ini")
+        if not os.path.exists(config_filepath):
+            raise Exception(f"Config file specified does not exist: {config_filepath}")
+        config_filepaths.append(config_filepath)
 
     # Local overrule settings
     config_filepaths.append(os.path.join(config_dir, 'local_overrule.ini'))
