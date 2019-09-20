@@ -43,11 +43,16 @@ def run_tasks():
             # Remark: this path will depend on the python environment the task 
             # needs to run in
             python_path = r"C:\Tools\anaconda3\envs\orthoseg4\python.exe"
-            os.system(f"{python_path} {run_info.command} {run_info.argumentstring}")
-            sendmail(f"Completed task {run_info.command} {run_info.argumentstring}")
+            fullcommand = f"{python_path} {run_info.command} {run_info.argumentstring}"
+            returncode = os.system(fullcommand)
+
+            if returncode == 0:
+                sendmail(f"Completed task {run_info.command} {run_info.argumentstring}")
+            else:
+                raise Exception(f"Error: returncode: {returncode} returned for {fullcommand}")
         except Exception as ex:
             message = f"ERROR in task {run_info.command} {run_info.argumentstring}"
-            sendmail(message)
+            sendmail(subject=message, body=f"Exception: {ex}")
             raise Exception(message) from ex
 
 def read_run_tasks_config(filepath):
@@ -86,7 +91,7 @@ def sendmail(
             msg.set_payload(body)
 
         # Send the email
-        server = smtplib.SMTP('ALV-MAIL-P1.DG3.be')
+        server = smtplib.SMTP('mail.dg3.be')
         #server.login("MrDoe", "PASSWORD")
         server.send_message(msg)
         server.quit()
