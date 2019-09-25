@@ -18,11 +18,12 @@ import orthoseg.helpers.log as log_helper
 def test_postprocess_vectors():
     
     # Read the configuration
-    scriptdir = os.path.dirname(os.path.abspath(__file__))
-    segment_config_filepaths=[os.path.join(scriptdir, 'general_test.ini'), 
-                              os.path.join(scriptdir, 'sealedsurfaces_test.ini'), 
-                              os.path.join(scriptdir, 'local_overrule_test.ini')]
-    conf.read_config(segment_config_filepaths)
+    config_dir = os.path.dirname(os.path.abspath(__file__))
+    config_filepaths=[os.path.join(config_dir, 'general_test.ini'), 
+                              os.path.join(config_dir, 'sealedsurfaces_test.ini'), 
+                              os.path.join(config_dir, 'local_overrule_test.ini')]
+    layer_config_filepath = os.path.join(config_dir, 'image_layers.ini')
+    conf.read_config(config_filepaths, layer_config_filepath)
 
     # Init logger
     global logger
@@ -32,7 +33,7 @@ def test_postprocess_vectors():
     # Input and output dir
     input_dir = (conf.dirs['predict_image_output_basedir'] 
                  + "_sealedsurfaces_16_inceptionresnetv2+unet_348")
-    output_vector_name = f"{conf.general['segment_subject']}_{conf.predict['image_datasource_code']}_16"
+    output_vector_name = f"{conf.general['segment_subject']}_16_{conf.predict['image_layer']}"
     output_dir = os.path.join(
             conf.dirs['output_vector_dir'], output_vector_name)
     output_filepath = os.path.join(

@@ -39,8 +39,8 @@ def prepare_traindatasets(
         labellocations_path: str,
         labeldata_path: str,
         label_names_to_burn: str,
-        image_datasources: dict,
-        default_image_datasource_code: str,
+        image_layers: dict,
+        default_image_layer: str,
         training_dir: str,
         image_pixel_x_size: int = 0.25,
         image_pixel_y_size: int = 0.25,
@@ -201,30 +201,30 @@ def prepare_traindatasets(
                             {'geometry': img_bbox}, ignore_index=True)
 
                 # If an image layer is specified, use that layer
-                image_datasource_code = default_image_datasource_code
+                image_layer = default_image_layer
                 if 'image_layer' in label_tuple._fields:
                     if(getattr(label_tuple, 'image_layer') is not None 
                     and getattr(label_tuple, 'image_layer') != ''):
-                        image_datasource_code = getattr(label_tuple, 'image_layer')
+                        image_layer = getattr(label_tuple, 'image_layer')
 
                 # If the wms to be used hasn't been initialised yet
-                if image_datasource_code not in wms_servers:
-                    wms_servers[image_datasource_code] = owslib.wms.WebMapService(
-                            url=image_datasources[image_datasource_code]['wms_server_url'], 
-                            version=image_datasources[image_datasource_code]['wms_version'])
+                if image_layer not in wms_servers:
+                    wms_servers[image_layer] = owslib.wms.WebMapService(
+                            url=image_layers[image_layer]['wms_server_url'], 
+                            version=image_layers[image_layer]['wms_version'])
                                                 
                 # Now really get the image
                 logger.debug(f"Get image for coordinates {img_bbox.bounds}")
                 image_filepath = ows_util.getmap_to_file(
-                        wms=wms_servers[image_datasource_code],
-                        layers=image_datasources[image_datasource_code]['wms_layernames'],
-                        styles=image_datasources[image_datasource_code]['wms_layerstyles'],
+                        wms=wms_servers[image_layer],
+                        layers=image_layers[image_layer]['wms_layernames'],
+                        styles=image_layers[image_layer]['wms_layerstyles'],
                         output_dir=output_tmp_image_dir,
                         srs=img_srs,
                         bbox=img_bbox.bounds,
                         size=(image_pixel_width, image_pixel_height),
                         image_format=ows_util.FORMAT_JPEG,
-                        image_pixels_ignore_border=image_datasources[image_datasource_code]['image_pixels_ignore_border'],
+                        image_pixels_ignore_border=image_layers[image_layer]['image_pixels_ignore_border'],
                         transparent=False)
 
                 # Create a mask corresponding with the image file
@@ -286,7 +286,7 @@ def convert_traindata_v1tov2(
     if 'image' not in list(label_validation_gdf.columns):
         label_validation_gdf['image'] = None
     label_gdf = gpd.GeoDataFrame(
-            pd.concat([label_train_gdf, label_validation_gdf], ignore_index=True), 
+            pd.concat([label_train_gdf, label_validation_gdf], ignore_index=True, sort=True), 
             crs=label_train_gdf.crs)
 
     # If test labels exist as well... read and add them as well
@@ -296,15 +296,15 @@ def convert_traindata_v1tov2(
         if 'image' not in list(label_test_gdf.columns):
             label_test_gdf['image'] = None
         label_gdf = gpd.GeoDataFrame(
-                pd.concat([label_gdf, label_test_gdf], ignore_index=True), 
+                pd.concat([label_gdf, label_test_gdf], ignore_index=True, sort=True), 
                 crs=label_gdf.crs)
 
     # Now convert to the new format
     label_gdf['label_name'] = subject
-    label_gdf.rename(columns={'desc': 'description', 'image': 'image_layer'})
+    label_gdf.rename(columns={'desc': 'description', 'image': 'image_layer'}, inplace=True)
 
     labellocations_gdf = label_gdf[label_gdf['usebounds'] == 1]
-    labellocations_gdf.drop(columns=['usebounds', 'burninmask'])
+    labellocations_gdf.drop(columns=['usebounds', 'burninmask'], inplace=True)
 
     def get_bbox_translated(geom):
         # The location geoms must be replaced by the relevant bbox 
@@ -320,7 +320,7 @@ def convert_traindata_v1tov2(
     
     geofile_util.to_file(labellocations_gdf, labellocations_path)
     labeldata_gdf = label_gdf[label_gdf['burninmask'] == 1]
-    labellocations_gdf.drop(columns=['usebounds', 'burninmask', 'traindata_type'])
+    labeldata_gdf.drop(columns=['usebounds', 'burninmask', 'traindata_type'], inplace=True)
     geofile_util.to_file(labeldata_gdf, labeldata_path)
 
     # TODO: Move v1 files to archive dir

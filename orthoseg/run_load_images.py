@@ -15,16 +15,9 @@ from orthoseg.helpers import config_helper as conf
 from orthoseg.helpers import log_helper
 from orthoseg.util import ows_util
 
-def load_images(
-            config_filepaths: [str],
-            load_testsample_images: bool = False):
+def load_images(load_testsample_images: bool = False):
 
-    ##### Init #####
-    # Main initialisation of the logging
-    conf.read_config(config_filepaths)
-    logger = log_helper.main_log_init(conf.dirs['log_dir'], __name__)      
-    logger.info(f"Config used: \n{conf.pformat_config()}")
-   
+    ##### Init #####   
     # Use different setting depending if testsample or all images
     if load_testsample_images:
         output_image_dir=conf.dirs['predictsample_image_input_dir']
@@ -57,19 +50,19 @@ def load_images(
         column_start = 0
         nb_images_to_skip = 0
     
-    predict_datasource_code = conf.predict['image_datasource_code']
-    wms_server_url = conf.image_datasources[predict_datasource_code]['wms_server_url']
-    wms_version = conf.image_datasources[predict_datasource_code]['wms_version']
-    wms_layernames = conf.image_datasources[predict_datasource_code]['wms_layernames']
-    wms_layerstyles = conf.image_datasources[predict_datasource_code]['wms_layerstyles']
-    nb_concurrent_calls = conf.image_datasources[predict_datasource_code]['nb_concurrent_calls']
-    random_sleep = conf.image_datasources[predict_datasource_code]['random_sleep']
-    projection = conf.image_datasources[predict_datasource_code]['projection']
-    bbox = conf.image_datasources[predict_datasource_code]['bbox']
-    grid_xmin = conf.image_datasources[predict_datasource_code]['grid_xmin']
-    grid_ymin = conf.image_datasources[predict_datasource_code]['grid_ymin']
-    image_pixels_ignore_border = conf.image_datasources[predict_datasource_code]['image_pixels_ignore_border']
-    roi_filepath = conf.image_datasources[predict_datasource_code]['roi_filepath']
+    predict_layer = conf.predict['image_layer']
+    wms_server_url = conf.image_layers[predict_layer]['wms_server_url']
+    wms_version = conf.image_layers[predict_layer]['wms_version']
+    wms_layernames = conf.image_layers[predict_layer]['wms_layernames']
+    wms_layerstyles = conf.image_layers[predict_layer]['wms_layerstyles']
+    nb_concurrent_calls = conf.image_layers[predict_layer]['nb_concurrent_calls']
+    random_sleep = conf.image_layers[predict_layer]['random_sleep']
+    projection = conf.image_layers[predict_layer]['projection']
+    bbox = conf.image_layers[predict_layer]['bbox']
+    grid_xmin = conf.image_layers[predict_layer]['grid_xmin']
+    grid_ymin = conf.image_layers[predict_layer]['grid_ymin']
+    image_pixels_ignore_border = conf.image_layers[predict_layer]['image_pixels_ignore_border']
+    roi_filepath = conf.image_layers[predict_layer]['roi_filepath']
 
     ows_util.get_images_for_grid(
             wms_server_url=wms_server_url,

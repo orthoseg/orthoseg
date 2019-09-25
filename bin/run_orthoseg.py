@@ -65,7 +65,8 @@ def orthoseg(
     # Get needed config + load it
     print(f"Start {action} on {config}")
     config_filepaths = get_needed_config_files(config_dir=config_dir, config=config)
-    conf.read_config(config_filepaths)
+    layer_config_filepath = os.path.join(config_dir, 'image_layers.ini')
+    conf.read_config(config_filepaths, layer_config_filepath)
     
     # Main initialisation of the logging
     global logger
@@ -76,19 +77,19 @@ def orthoseg(
     try:
         if(action == 'train'):
             import orthoseg.run_train as train
-            train.run_training_session(config_filepaths=config_filepaths)
+            train.run_training_session()
         elif(action == 'predict'):
             import orthoseg.run_predict as pred
-            pred.run_prediction(config_filepaths=config_filepaths)
+            pred.run_prediction()
         elif(action == 'load_images'):
             import orthoseg.run_load_images as load_images
-            load_images.load_images(config_filepaths=config_filepaths)
+            load_images.load_images()
         elif(action == 'load_testsample_images'):
             import orthoseg.run_load_images as load_images
-            load_images.load_images(config_filepaths=config_filepaths, load_testsample_images=True)
+            load_images.load_images(load_testsample_images=True)
         elif(action == 'postprocess'):
             import orthoseg.run_postprocess as postp
-            postp.postprocess_predictions(config_filepaths=config_filepaths)
+            postp.postprocess_predictions()
         else:
             raise Exception(f"Unsupported action: {action}")
     except Exception as ex:

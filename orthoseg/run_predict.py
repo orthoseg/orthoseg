@@ -26,23 +26,13 @@ logger = logging.getLogger(__name__)
 # The real work
 #-------------------------------------------------------------
 
-def run_prediction(config_filepaths: str):
+def run_prediction():
     """
     Run a prediction of the input dir given.
-    
-    Args
-        config_filepaths: config files to use for the segmentation
     """
     
     # TODO: add something to delete old data, predictions???
-    '''
-    # Read the configuration
-    conf.read_config(config_filepaths)
-    
-    # Main initialisation of the logging
-    logger = log_helper.main_log_init(conf.dirs['log_dir'], __name__)      
-    logger.info(f"Config used: \n{conf.pformat_config()}")
-    '''
+
     # Create base filename of model to use
     # TODO: is force data version the most logical, or rather implement 
     #       force weights file or ?
@@ -100,14 +90,14 @@ def run_prediction(config_filepaths: str):
             logger.info("Train using single GPU or CPU")
 
     # Predict for entire dataset
-    image_datasource = conf.image_datasources[conf.predict['image_datasource_code']]
+    image_layer = conf.image_layers[conf.predict['image_layer']]
     predict_output_dir = f"{conf.dirs['predict_image_output_basedir']}_{predict_out_subdir}"
     segment_predict.predict_dir(
             model=model_for_predict,
             input_image_dir=conf.dirs['predict_image_input_dir'],
             output_base_dir=predict_output_dir,
             border_pixels_to_ignore=int(conf.predict['image_pixels_overlap']),
-            projection_if_missing=image_datasource['projection'],
+            projection_if_missing=image_layer['projection'],
             input_mask_dir=None,
             batch_size=batch_size,
             evaluate_mode=False)

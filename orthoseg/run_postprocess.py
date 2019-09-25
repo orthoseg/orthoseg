@@ -16,15 +16,9 @@ import orthoseg.postprocess_predictions as postp
 from orthoseg.helpers import config_helper as conf
 from orthoseg.helpers import log_helper
 
-def postprocess_predictions(
-        config_filepaths: [str]):
+def postprocess_predictions():
     
     ##### Init #####
-    # Main initialisation of the logging
-    conf.read_config(config_filepaths)
-    logger = log_helper.main_log_init(conf.dirs['log_dir'], __name__)      
-    logger.info(f"Config used: \n{conf.pformat_config()}")
-
     # Input dir = the "most recent" prediction result dir for this subject 
     prediction_basedir = f"{conf.dirs['predict_image_output_basedir']}_{conf.general['segment_subject']}_"
     prediction_dirs = sorted(glob.glob(f"{prediction_basedir}*{os.sep}"), reverse=True)
@@ -32,7 +26,7 @@ def postprocess_predictions(
 	
     # Format output dit, partly based on input dir
     train_version = input_dir.replace(prediction_basedir, "").split('_')[0]
-    output_vector_name = f"{conf.general['segment_subject']}_{conf.predict['image_datasource_code']}_{train_version}"
+    output_vector_name = f"{conf.general['segment_subject']}_{train_version}_{conf.predict['image_layer']}"
     output_dir = os.path.join(
             conf.dirs['output_vector_dir'], output_vector_name)
     output_filepath = os.path.join(
