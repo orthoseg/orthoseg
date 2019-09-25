@@ -64,61 +64,35 @@ def run_training_session(config_filepaths: []):
     # First the "train" training dataset
     force_model_traindata_version = conf.model.getint('force_model_traindata_version')
     if force_model_traindata_version > -1:
-        traindata_dir = f"{conf.dirs['training_train_basedir']}_{force_model_traindata_version:02d}"
-        traindata_version = force_model_traindata_version            
+        training_dir = f"{conf.dirs['training_train_basedir']}{os.sep}{force_model_traindata_version:02d}"
+        training_version = force_model_traindata_version
     else:
         logger.info("Prepare train, validation and test data")
-        traindata_dir, traindata_version = prep.prepare_traindatasets(
-                input_vector_label_filepath=conf.files['input_trainlabels_filepath'],
+        training_dir, training_version = prep.prepare_traindatasets(
+                labellocations_path=conf.files['labellocations_path'],
+                labeldata_path=conf.files['labeldata_path'],
+                label_names_to_burn=[segment_subject],
                 image_datasources=conf.image_datasources,
                 default_image_datasource_code=train_image_datasource_code,
-                output_basedir=conf.dirs['training_train_basedir'],
-                image_subdir=conf.dirs['image_subdir'],
-                mask_subdir=conf.dirs['mask_subdir'],
+                training_dir=conf.dirs['training_dir'],
                 image_pixel_x_size=conf.train.getfloat('image_pixel_x_size'),
                 image_pixel_y_size=conf.train.getfloat('image_pixel_y_size'),
                 image_pixel_width=conf.train.getint('image_pixel_width'),
                 image_pixel_height=conf.train.getint('image_pixel_height'))
-    logger.info(f"Traindata dir to use is {traindata_dir}, with traindata_version: {traindata_version}")
+    logger.info(f"Traindata dir to use is {training_dir}, with traindata_version: {training_version}")
 
-    # Now the "validation" training dataset
-    validationdata_dir, _ = prep.prepare_traindatasets(
-            input_vector_label_filepath=conf.files['input_validationlabels_filepath'],
-            image_datasources=conf.image_datasources,
-            default_image_datasource_code=train_image_datasource_code,
-            output_basedir=conf.dirs['training_validation_basedir'],
-            image_subdir=conf.dirs['image_subdir'],
-            mask_subdir=conf.dirs['mask_subdir'],
-            image_pixel_x_size=conf.train.getfloat('image_pixel_x_size'),
-            image_pixel_y_size=conf.train.getfloat('image_pixel_y_size'),
-            image_pixel_width=conf.train.getint('image_pixel_width'),
-            image_pixel_height=conf.train.getint('image_pixel_height'))
-
-    # Now the "test" training dataset
-    if os.path.exists(conf.files['input_testlabels_filepath']):
-        testdata_dir, _ = prep.prepare_traindatasets(
-                input_vector_label_filepath=conf.files['input_testlabels_filepath'],
-                image_datasources=conf.image_datasources,
-                default_image_datasource_code=train_image_datasource_code,
-                output_basedir=conf.dirs['training_test_basedir'],
-                image_subdir=conf.dirs['image_subdir'],
-                mask_subdir=conf.dirs['mask_subdir'],
-                image_pixel_x_size=conf.train.getfloat('image_pixel_x_size'),
-                image_pixel_y_size=conf.train.getfloat('image_pixel_y_size'),
-                image_pixel_width=conf.train.getint('image_pixel_width'),
-                image_pixel_height=conf.train.getint('image_pixel_height'))
-    else:
-        testdata_dir = None
-        logger.warn(f"Testlabels input file doesn't exist: {conf.files['input_testlabels_filepath']}")
+    traindata_dir = os.path.join(training_dir, 'train')
+    validationdata_dir = os.path.join(training_dir, 'validation')
+    testdata_dir = os.path.join(training_dir, 'test')
 
     # Create base filename of model to use
     model_base_filename = mh.format_model_base_filename(
-            conf.general['segment_subject'], traindata_version, conf.model['architecture'])
+            conf.general['segment_subject'], training_version, conf.model['architecture'])
     logger.debug(f"model_base_filename: {model_base_filename}")
     
     # Get the best model that already exists for this train dataset
-    best_model = mh.get_best_model(model_dir=conf.dirs['model_dir'],
-                                   model_base_filename=model_base_filename)
+    best_model = mh.get_best_model(
+            model_dir=conf.dirs['model_dir'], model_base_filename=model_base_filename)
 
     # Check if training is needed
     resume_train = conf.model.getboolean('resume_train')
@@ -165,20 +139,20 @@ def run_training_session(config_filepaths: []):
             # Predict training dataset
             segment_predict.predict_dir(
                     model=model,
-                    input_image_dir=os.path.join(traindata_dir, conf.dirs['image_subdir']),
+                    input_image_dir=os.path.join(traindata_dir, 'image'),
                     output_base_dir=os.path.join(traindata_dir, predict_out_subdir),
                     projection_if_missing=train_projection,
-                    input_mask_dir=os.path.join(traindata_dir, conf.dirs['mask_subdir']),
+                    input_mask_dir=os.path.join(traindata_dir, 'mask'),
                     batch_size=int(conf.train['batch_size_predict']), 
                     evaluate_mode=True)
                 
             # Predict validation dataset
             segment_predict.predict_dir(
                     model=model,
-                    input_image_dir=os.path.join(validationdata_dir, conf.dirs['image_subdir']),
+                    input_image_dir=os.path.join(validationdata_dir, 'image'),
                     output_base_dir=os.path.join(validationdata_dir, predict_out_subdir),
                     projection_if_missing=train_projection,
-                    input_mask_dir=os.path.join(validationdata_dir, conf.dirs['mask_subdir']),
+                    input_mask_dir=os.path.join(validationdata_dir, 'mask'),
                     batch_size=int(conf.train['batch_size_predict']), 
                     evaluate_mode=True)
             del model
@@ -191,8 +165,6 @@ def run_training_session(config_filepaths: []):
         segment_train.train(
                 traindata_dir=traindata_dir,
                 validationdata_dir=validationdata_dir,
-                image_subdir=conf.dirs['image_subdir'], 
-                mask_subdir=conf.dirs['mask_subdir'],
                 model_encoder=conf.model['encoder'], 
                 model_decoder=conf.model['decoder'],
                 model_save_dir=conf.dirs['model_dir'],
@@ -223,20 +195,20 @@ def run_training_session(config_filepaths: []):
     # Predict training dataset
     segment_predict.predict_dir(
             model=model,
-            input_image_dir=os.path.join(traindata_dir, conf.dirs['image_subdir']),
+            input_image_dir=os.path.join(traindata_dir, 'image'),
             output_base_dir=os.path.join(traindata_dir, predict_out_subdir),
             projection_if_missing=train_projection,
-            input_mask_dir=os.path.join(traindata_dir, conf.dirs['mask_subdir']),
+            input_mask_dir=os.path.join(traindata_dir, 'mask'),
             batch_size=int(conf.train['batch_size_predict']), 
             evaluate_mode=True)
     
     # Predict validation dataset
     segment_predict.predict_dir(
             model=model,
-            input_image_dir=os.path.join(validationdata_dir, conf.dirs['image_subdir']),
+            input_image_dir=os.path.join(validationdata_dir, 'image'),
             output_base_dir=os.path.join(validationdata_dir, predict_out_subdir),
             projection_if_missing=train_projection,
-            input_mask_dir=os.path.join(validationdata_dir, conf.dirs['mask_subdir']),
+            input_mask_dir=os.path.join(validationdata_dir, 'mask'),
             batch_size=int(conf.train['batch_size_predict']), 
             evaluate_mode=True)
 
@@ -244,10 +216,10 @@ def run_training_session(config_filepaths: []):
     if testdata_dir is not None and os.path.exists(testdata_dir):
         segment_predict.predict_dir(
                 model=model,
-                input_image_dir=os.path.join(testdata_dir, conf.dirs['image_subdir']),
+                input_image_dir=os.path.join(testdata_dir, 'image'),
                 output_base_dir=os.path.join(testdata_dir, predict_out_subdir),                        
                 projection_if_missing=train_projection,
-                input_mask_dir=os.path.join(testdata_dir, conf.dirs['mask_subdir']),
+                input_mask_dir=os.path.join(testdata_dir, 'mask'),
                 batch_size=int(conf.train['batch_size_predict']), 
                 evaluate_mode=True)
     
