@@ -7,7 +7,9 @@ import os
 import configparser
 import pprint
 
-def read_config(config_filepaths: []):
+def read_config(
+        config_filepaths: [],
+        layer_config_filepath: str):
         
     # Log config filepaths that don't exist...
     for config_filepath in config_filepaths:
@@ -41,57 +43,65 @@ def read_config(config_filepaths: []):
     global files
     files = config['files']
 
-    # Create a dictionary of the configured image datasources 
-    global image_datasources
-    image_datasources = {}
-    for section in config.sections():
-        if section.startswith('image_datasource_'):
-            image_datasource_code = section.replace('image_datasource_', '')
-            image_datasources[image_datasource_code] = dict(config[section])
-            
-            # The layer names and layer styles are lists
-            wms_layernames = config[section].getlist('wms_layernames')
-            image_datasources[image_datasource_code]['wms_layernames'] = wms_layernames
-            wms_layerstyles = config[section].getlist('wms_layerstyles')
-            image_datasources[image_datasource_code]['wms_layerstyles'] = wms_layerstyles
+    # Read the layer config
+    global layer_config
+    layer_config = configparser.ConfigParser(
+            interpolation=configparser.ExtendedInterpolation(),
+            converters={'list': lambda x: [i.strip() for i in x.split(',')],
+                        'listint': lambda x: [int(i.strip()) for i in x.split(',')]})
+    layer_config.read(layer_config_filepath)
+    global layer_config_filepath_used
+    layer_config_filepath_used = layer_config_filepath
 
-            # Give default values to some other properties of a server
-            nb_concurrent_calls = config[section].getint('nb_concurrent_calls', 6)
-            image_datasources[image_datasource_code]['nb_concurrent_calls'] = nb_concurrent_calls
-            random_sleep = config[section].getint('random_sleep', 6)
-            image_datasources[image_datasource_code]['random_sleep'] = random_sleep
+    global image_layers
+    image_layers = {}
+    for image_layer in layer_config.sections():
+        image_layers[image_layer] = dict(layer_config[image_layer])
+        
+        # The layer names and layer styles are lists
+        wms_layernames = layer_config[image_layer].getlist('wms_layernames')
+        image_layers[image_layer]['wms_layernames'] = wms_layernames
+        wms_layerstyles = layer_config[image_layer].getlist('wms_layerstyles')
+        image_layers[image_layer]['wms_layerstyles'] = wms_layerstyles
 
-            # Check if a region of interest is specified as file or bbox
-            roi_filepath = config[section].get('roi_filepath', None)
-            image_datasources[image_datasource_code]['roi_filepath'] = roi_filepath
-            bbox_tuple = None
-            if config.has_option(section, 'bbox'):
-                bbox_list = config[section].getlist('bbox')
-                bbox_tuple = (float(bbox_list[0]), float(bbox_list[1]), 
-                              float(bbox_list[2]), float(bbox_list[3]))
-                image_datasources[image_datasource_code]['bbox'] = bbox_tuple
-            image_datasources[image_datasource_code]['bbox'] = bbox_tuple
+        # Give default values to some other properties of a server
+        nb_concurrent_calls = layer_config[image_layer].getint('nb_concurrent_calls', 6)
+        image_layers[image_layer]['nb_concurrent_calls'] = nb_concurrent_calls
+        random_sleep = layer_config[image_layer].getint('random_sleep', 6)
+        image_layers[image_layer]['random_sleep'] = random_sleep
 
-            # Check if the grid xmin and xmax are specified            
-            grid_xmin = 0
-            if config.has_option(section, 'grid_xmin'):
-                grid_xmin = config[section].getfloat('grid_xmin')                
-            image_datasources[image_datasource_code]['grid_xmin'] = grid_xmin
-            grid_ymin = 0
-            if config.has_option(section, 'grid_ymin'):
-                grid_ymin = config[section].getfloat('grid_ymin')
-            image_datasources[image_datasource_code]['grid_ymin'] = grid_ymin
+        # Check if a region of interest is specified as file or bbox
+        roi_filepath = layer_config[image_layer].get('roi_filepath', None)
+        image_layers[image_layer]['roi_filepath'] = roi_filepath
+        bbox_tuple = None
+        if layer_config.has_option(image_layer, 'bbox'):
+            bbox_list = layer_config[image_layer].getlist('bbox')
+            bbox_tuple = (float(bbox_list[0]), float(bbox_list[1]), 
+                            float(bbox_list[2]), float(bbox_list[3]))
+            image_layers[image_layer]['bbox'] = bbox_tuple
+        image_layers[image_layer]['bbox'] = bbox_tuple
 
-            # Check if a image_pixels_ignore_border is specified
-            image_pixels_ignore_border = 0
-            if config.has_option(section, 'image_pixels_ignore_border'):
-                image_pixels_ignore_border = config[section].getint('image_pixels_ignore_border')
-            image_datasources[image_datasource_code]['image_pixels_ignore_border'] = image_pixels_ignore_border                                
+        # Check if the grid xmin and xmax are specified            
+        grid_xmin = 0
+        if layer_config.has_option(image_layer, 'grid_xmin'):
+            grid_xmin = layer_config[image_layer].getfloat('grid_xmin')                
+        image_layers[image_layer]['grid_xmin'] = grid_xmin
+        grid_ymin = 0
+        if layer_config.has_option(image_layer, 'grid_ymin'):
+            grid_ymin = layer_config[image_layer].getfloat('grid_ymin')
+        image_layers[image_layer]['grid_ymin'] = grid_ymin
+
+        # Check if a image_pixels_ignore_border is specified
+        image_pixels_ignore_border = layer_config[image_layer].getint('image_pixels_ignore_border', 0)
+        image_layers[image_layer]['image_pixels_ignore_border'] = image_pixels_ignore_border                                
             
 def pformat_config():
     message = f"Config files used: {pprint.pformat(config_filepaths_used)} \n"
+    message += f"Layer config file used: {layer_config_filepath_used} \n"
     message += "Config info listing:\n"
     message += pprint.pformat({section: dict(config[section]) for section in config.sections()})
+    message += "Layer config info listing:\n"
+    message += pprint.pformat(image_layers)
     return message
     
 def as_dict():
