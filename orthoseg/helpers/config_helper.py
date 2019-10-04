@@ -3,8 +3,9 @@
 Module with specific helper functions to manage the configuration of orthoseg.
 """
 
-import os
 import configparser
+import json
+import os
 import pprint
 
 def read_config(
@@ -21,7 +22,8 @@ def read_config(
     config = configparser.ConfigParser(
             interpolation=configparser.ExtendedInterpolation(),
             converters={'list': lambda x: [i.strip() for i in x.split(',')],
-                        'listint': lambda x: [int(i.strip()) for i in x.split(',')]})
+                        'listint': lambda x: [int(i.strip()) for i in x.split(',')],
+                        'dict': lambda x: json.loads(x)})
 
     config.read(config_filepaths)
     global config_filepaths_used

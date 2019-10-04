@@ -11,6 +11,7 @@ import keras as kr
 
 from orthoseg.helpers import config_helper as conf
 from orthoseg.helpers import log_helper
+import orthoseg.model.model_factory as mf
 import orthoseg.model.model_helper as mh
 import orthoseg.prepare_traindatasets as prep
 from orthoseg import segment_predict
@@ -50,7 +51,12 @@ def run_training_session():
     # Get the image layer section to use for training
     train_image_layer = conf.train['image_layer']
     train_projection = conf.image_layers[train_image_layer]['projection']
-        
+    label_names_burn_values = conf.train.getdict('label_names_burn_values')
+    nb_classes = len(label_names_burn_values)
+    # If more than 1 class... add a class for the background!
+    if nb_classes > 1:
+        nb_classes += 1
+
     # First the "train" training dataset
     force_model_traindata_version = conf.model.getint('force_model_traindata_version')
     if force_model_traindata_version > -1:
@@ -61,7 +67,7 @@ def run_training_session():
         training_dir, training_version = prep.prepare_traindatasets(
                 labellocations_path=conf.files['labellocations_path'],
                 labeldata_path=conf.files['labeldata_path'],
-                label_names_to_burn=[segment_subject],
+                label_names_burn_values=label_names_burn_values,
                 image_layers=conf.image_layers,
                 default_image_layer=train_image_layer,
                 training_dir=conf.dirs['training_dir'],
@@ -114,6 +120,7 @@ def run_training_session():
         best_model_curr = mh.get_best_model(model_dir=conf.dirs['model_dir'])
         if best_model_curr is not None:
             # Load prediction model...
+            '''
             model_json_filepath = conf.files['model_json_filepath']
             logger.info(f"Load model from {model_json_filepath}")
             with open(model_json_filepath, 'r') as src:
@@ -122,9 +129,13 @@ def run_training_session():
             logger.info(f"Load weights from {best_model_curr['filepath']}")                
             model.load_weights(best_model_curr['filepath'])
             logger.info("Model weights loaded")
+            '''
+            logger.info(f"Load model + weights from {best_model_curr['filepath']}")    
+            model = mf.load_model(best_model_curr['filepath'])            
+            logger.info("Loaded model + weights")
 
             # Prepare output subdir to be used for predictions
-            predict_out_subdir = os.path.splitext(best_model_curr['filename'])[0]
+            predict_out_subdir, _ = os.path.splitext(best_model_curr['filename'])
             
             # Predict training dataset
             segment_predict.predict_dir(
@@ -159,17 +170,24 @@ def run_training_session():
                 model_decoder=conf.model['decoder'],
                 model_save_dir=conf.dirs['model_dir'],
                 model_save_base_filename=model_base_filename,
+                image_augment_dict=conf.train.getdict('image_augmentations'), 
+                mask_augment_dict=conf.train.getdict('mask_augmentations'), 
                 model_preload_filepath=model_preload_filepath,
-                batch_size=int(conf.train['batch_size_fit']), 
-                nb_epoch=int(conf.train['max_epoch'])) 
+                nb_classes=nb_classes,
+                nb_channels=conf.model.getint('nb_channels'),
+                image_width=conf.train.getint('image_pixel_width'),
+                image_height=conf.train.getint('image_pixel_height'),
+                batch_size=conf.train.getint('batch_size_fit'), 
+                nb_epoch=conf.train.getint('max_epoch')) 
     
     # If we trained, get the new best model
     if train_needed is True:
-        best_model = mh.get_best_model(model_dir=conf.dirs['model_dir'],
-                                       model_base_filename=model_base_filename)
+        best_model = mh.get_best_model(
+                model_dir=conf.dirs['model_dir'], model_base_filename=model_base_filename)
     logger.info(f"PREDICT test data with best model: {best_model['filename']}")
     
     # Load prediction model...
+    '''
     model_json_filepath = conf.files['model_json_filepath']
     logger.info(f"Load model from {model_json_filepath}")
     with open(model_json_filepath, 'r') as src:
@@ -177,10 +195,14 @@ def run_training_session():
         model = kr.models.model_from_json(model_json)
     logger.info(f"Load weights from {best_model['filepath']}")                
     model.load_weights(best_model['filepath'])
-    logger.info("Model weights loaded")
-
+    logger.info("Loaded model weights")
+    '''
+    logger.info(f"Load model + weights from {best_model['filepath']}")    
+    model = mf.load_model(best_model['filepath'])            
+    logger.info("Loaded model + weights")
+    
     # Prepare output subdir to be used for predictions
-    predict_out_subdir = os.path.splitext(best_model['filename'])[0]
+    predict_out_subdir, _ = os.path.splitext(best_model['filename'])
     
     # Predict training dataset
     segment_predict.predict_dir(

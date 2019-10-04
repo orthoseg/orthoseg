@@ -8,9 +8,11 @@ import os
 
 #os.environ["CUDA_VISIBLE_DEVICES"] = "-1" # Disable using GPU
 import keras as kr
+import tensorflow as tf
 
 from orthoseg.helpers import config_helper as conf
 from orthoseg.helpers import log_helper
+import orthoseg.model.model_factory as mf
 import orthoseg.model.model_helper as mh
 import orthoseg.postprocess_predictions as postp
 from orthoseg import segment_predict
@@ -48,8 +50,8 @@ def run_prediction():
             conf.model['architecture'])
 
     # Get the best model that already exists for this train dataset
-    best_model = mh.get_best_model(model_dir=conf.dirs['model_dir'],
-                                   model_base_filename=model_base_filename)
+    best_model = mh.get_best_model(
+            model_dir=conf.dirs['model_dir'], model_base_filename=model_base_filename)
     
     # Check if a model was found
     if best_model is None:
@@ -64,13 +66,33 @@ def run_prediction():
     predict_out_subdir = f"{best_model['segment_subject']}_{best_model['train_data_version']}_{best_model['model_architecture']}_{best_model['epoch']}"
     
     # Load prediction model...
+    '''
     logger.info(f"Load model from {conf.files['model_json_filepath']}")
     with open(conf.files['model_json_filepath'], 'r') as src:
         model_json = src.read()
         model = kr.models.model_from_json(model_json)
     logger.info(f"Load weights from {model_weights_filepath}")                
     model.load_weights(model_weights_filepath)
-    logger.info("Model weights loaded")
+    logger.info("Model weights loaded")    
+    '''
+    logger.info(f"Load model + weights from {best_model['filepath']}")    
+    model = mf.load_model(best_model['filepath'])            
+    logger.info("Loaded model + weights")
+    '''
+    logger.info("Now save again as savedmodel")
+    savedmodel_dir, _ = os.path.splitext(best_model['filepath'])
+    tf.saved_model.save(model, savedmodel_dir)
+    del model
+    from tf.python.compiler.tensorrt import trt_convert as trt
+    converter = trt.TrtGraphConverter(
+            input_saved_model_dir=savedmodel_dir,
+            is_dynamic_op=True,
+            precision_mode='FP16')
+    converter.convert()
+    savedmodel_optim_dir=f"{savedmodel_dir}_optim"
+    converter.save(savedmodel_optim_dir)
+    model = tf.keras.models.load_model(savedmodel_optim_dir)
+    '''
 
     # Prepare the model for predicting
     nb_gpu = len(kr.backend.tensorflow_backend._get_available_gpus())

@@ -116,12 +116,18 @@ def parse_model_filename(filepath) -> dict:
 
     # Now extract fields...
     segment_subject = param_values[0]
-    train_data_version = param_values[1]
+    train_data_version = int(param_values[1])
     model_architecture = param_values[2]
-    acc_combined = float(param_values[3])
-    acc_train = float(param_values[4])
-    acc_val = float(param_values[5])
-    epoch = int(param_values[6])
+    if(len(param_values) > 3):
+        acc_combined = float(param_values[3])
+        acc_train = float(param_values[4])
+        acc_val = float(param_values[5])
+        epoch = int(param_values[6])
+    else:
+        acc_combined = 0.0
+        acc_train = 0.0
+        acc_val = 0.0
+        epoch = 0
     
     return {'filepath': filepath,
             'filename': filename,
@@ -163,6 +169,9 @@ def get_best_model(model_dir: str,
     """
     Get the properties of the model with the highest combined accuracy for the highest 
     traindata version in the dir.
+
+    Remark: regardless of the monitor function used when training, the accuracies
+    are always better if higher!
     
     Args
         model_dir: dir containing the models
@@ -179,21 +188,81 @@ def get_best_model(model_dir: str,
         if max_data_version == -1:
             return None
         model_info_df = model_info_df.loc[model_info_df['train_data_version'] == max_data_version]
+        model_info_df = model_info_df.reset_index()
         
     if len(model_info_df) > 0:
         return model_info_df.loc[model_info_df['acc_combined'].values.argmax()]
-    else :
+    else:
         return None
     
+class ModelCheckpointExt(kr.callbacks.Callback):
+    
+    def __init__(self, 
+                 model_save_dir: str, 
+                 model_save_base_filename: str,
+                 monitor_metric_mode: str,
+                 monitor_metric_train: str,
+                 monitor_metric_validation: str,
+                 save_best_only: bool = False,
+                 save_weights_only: bool = False,
+                 model_template_for_save = None,
+                 verbose: bool = True,
+                 only_report: bool = False):
+        """[summary]
+        
+        Args:
+            model_save_dir (str): [description]
+            model_save_base_filename (str): [description]
+            monitor_metric_mode (str): use 'min' if the accuracy metrics should be 
+                    as low as possible, 'max' if a higher values is better. 
+            monitor_metric_train (str): The metric to monitor for train accuracy
+            monitor_metric_validation (str): The metric to monitor for validation accuracy
+            verbose (bool, optional): [description]. Defaults to True.
+            only_report (bool, optional): [description]. Defaults to False.
+        """
+        monitor_metric_mode_values = ['min', 'max']
+        if(monitor_metric_mode not in monitor_metric_mode_values):
+            raise Exception(f"Invalid value for mode: {monitor_metric_mode}, should be one of {monitor_metric_mode_values}")
+
+        self.model_save_dir = model_save_dir
+        self.model_save_base_filename = model_save_base_filename
+        self.monitor_metric_train = monitor_metric_train
+        self.monitor_metric_validation = monitor_metric_validation
+        self.monitor_metric_mode = monitor_metric_mode
+        self.save_best_only = save_best_only
+        self.save_weights_only = save_weights_only
+        self.model_template_for_save = model_template_for_save
+        self.verbose = verbose
+        self.only_report = only_report
+        
+    def on_epoch_end(self, epoch, logs={}):
+        logger.debug("Start in callback on_epoch_begin")
+        
+        save_and_clean_models(
+                model_save_dir=self.model_save_dir,
+                model_save_base_filename=self.model_save_base_filename,
+                monitor_metric_mode=self.monitor_metric_mode,
+                new_model=self.model,
+                new_model_monitor_train=logs.get(self.monitor_metric_train),
+                new_model_monitor_val=logs.get(self.monitor_metric_validation),
+                new_model_epoch=epoch,
+                save_best_only=self.save_best_only,          
+                save_weights_only=self.save_weights_only,
+                model_template_for_save=self.model_template_for_save,      
+                verbose=self.verbose,
+                only_report=self.only_report)
+        
 def save_and_clean_models(
         model_save_dir: str,
         model_save_base_filename: str,
-        new_model_acc_train: float = None,
-        new_model_acc_val: float = None,
+        monitor_metric_mode: str,
+        new_model = None,        
+        new_model_monitor_train: float = None,
+        new_model_monitor_val: float = None,
         new_model_epoch: int = None,
-        new_model = None,
-        model_template_for_save = None,
+        save_best_only: bool = False,
         save_weights_only: bool = False,
+        model_template_for_save = None, 
         verbose: bool = True,
         debug: bool = False,
         only_report: bool = False):
@@ -204,16 +273,26 @@ def save_and_clean_models(
     Args
         model_save_dir: dir containing the models
         model_save_base_filename: base filename that will be used
-        new_model_acc_train: optional: the accuracy on the train dataset
-        new_model_acc_val: optional: the accuracy on the validation dataset
+        model_monitor_metric_mode (str): use 'min' if the monitored metrics should be 
+                as low as possible, 'max' if a higher values is better. 
+        new_model: optional, the keras model object that will be saved
+        new_model_monitor_train: optional: the monitored metric on the train dataset
+        new_model_monitor_val: optional: the monitored metric on the validation dataset
         new_model_epoch: optional: the epoch in the training
         new_model: optional, the keras model object that will be saved
+        save_best_only: optional: only keep the best model
+        save_weights_only: optional: only save weights
         model_template_for_save: optional, if using multi-GPU training, pass
-            the original model here to use this as template for saving
+            the original model here to use this as template for saving        
         verbose: report the best model after save and cleanup
         debug: write debug logging
         only_report: optional: only report which models would be cleaned up
     """
+    # Check validaty of input
+    monitor_metric_mode_values = ['min', 'max']
+    if(monitor_metric_mode not in monitor_metric_mode_values):
+        raise Exception(f"Invalid value for mode: {monitor_metric_mode}, should be one of {monitor_metric_mode_values}")
+
     # Get a list of all existing models
     model_info_df = get_models(model_dir=model_save_dir,
                                model_base_filename=model_save_base_filename)
@@ -222,16 +301,26 @@ def save_and_clean_models(
     new_model_filepath = None
     if new_model is not None:            
         # Calculate combined accuracy
-        new_model_acc_combined = (new_model_acc_train+new_model_acc_val)/2
+        new_model_monitor_combined = (new_model_monitor_train+new_model_monitor_val)/2
         
         # Build save filepath
+        # Remark: accuracy values should always be as high as possible, so 
+        # recalculate values if monitor_metric_mode is 'min'
+        if monitor_metric_mode == 'max':
+            new_model_acc_combined = new_model_monitor_combined
+            new_model_acc_train = new_model_monitor_train
+            new_model_acc_val = new_model_monitor_val
+        else:
+            new_model_acc_combined = 1-new_model_monitor_combined
+            new_model_acc_train = 1-new_model_monitor_train
+            new_model_acc_val = 1-new_model_monitor_val
+        
         new_model_filename = format_model_filename2(
                 model_base_filename=model_save_base_filename,
                 acc_combined=new_model_acc_combined,
                 acc_train=new_model_acc_train, acc_val=new_model_acc_val, 
                 epoch=new_model_epoch)
-        new_model_filepath = os.path.join(model_save_dir, 
-                                          new_model_filename)
+        new_model_filepath = os.path.join(model_save_dir, new_model_filename)
         
         # Append model to the retrieved models...
         model_info_df = model_info_df.append({'filepath': new_model_filepath,
@@ -241,21 +330,53 @@ def save_and_clean_models(
                                               'acc_val': new_model_acc_val,
                                               'epoch': new_model_epoch}, 
                                              ignore_index=True)
-                            
-    # For each model found, check if there is one with ALL parameters 
-    # higher than itself. If one is found: delete model
+
+    # Loop through all existing models
     # Remark: the list is sorted before iterating it, this way the logging
-    # on sorted from "worst to best"
+    # is sorted from "worst to best"
     model_info_sorted_df = model_info_df.sort_values(by='acc_combined')
-    for index, model_info in model_info_sorted_df.iterrows():
-        better_ones_df = model_info_df[
-                (model_info_df['filepath'] != model_info['filepath']) 
-                & (model_info_df['acc_combined'] >= model_info['acc_combined']) 
-                & (model_info_df['acc_train'] >= model_info['acc_train'])
-                & (model_info_df['acc_val'] >= model_info['acc_val'])] 
-        
-        # If one or more better ones are found, no use in keeping it...
-        if len(better_ones_df) > 0:
+    for _, model_info in model_info_sorted_df.iterrows():
+       
+        # If only the best needs to be kept, check only on acc_combined...
+        keep_model = True
+        if save_best_only:
+            better_ones_df = model_info_df[
+                    (model_info_df['filepath'] != model_info['filepath']) 
+                     & (model_info_df['acc_combined'] >= model_info['acc_combined'])]
+            if len(better_ones_df) > 0:
+                keep_model = False
+        else:
+            # If not only best to be kept, check if there is a model with ALL 
+            # parameters higher than itself, if so: no use in keeping it.
+            better_ones_df = model_info_df[
+                    (model_info_df['filepath'] != model_info['filepath']) 
+                     & (model_info_df['acc_combined'] >= model_info['acc_combined']) 
+                     & (model_info_df['acc_train'] >= model_info['acc_train'])
+                     & (model_info_df['acc_val'] >= model_info['acc_val'])]
+            if len(better_ones_df) > 0:
+                keep_model = False
+
+        # If model is (relatively) ok, keep it
+        if keep_model is True:
+            logger.debug(f"KEEP {model_info['filename']}")
+
+            # If it is the new model that needs to be kept, keep it or save to disk
+            if(new_model_filepath is not None 
+               and only_report is not True
+               and model_info['filepath'] == new_model_filepath
+               and not os.path.exists(new_model_filepath)):
+                if save_weights_only:
+                    if model_template_for_save is not None:
+                        model_template_for_save.save_weights(new_model_filepath)
+                    else:                    
+                        new_model.save_weights(new_model_filepath)
+                else:
+                    if model_template_for_save is not None:
+                        model_template_for_save.save(new_model_filepath)
+                    else:                    
+                        new_model.save(new_model_filepath)
+        else:     
+            # Bad model... can be removed (or not saved)       
             if only_report is True:
                 logger.debug(f"DELETE {model_info['filename']}")
             elif os.path.exists(model_info['filepath']):
@@ -264,95 +385,12 @@ def save_and_clean_models(
                 
             if debug is True:
                 print(f"Better one(s) found for{model_info['filename']}:")
-                for index, better_one in better_ones_df.iterrows():
+                for _, better_one in better_ones_df.iterrows():
                     print(f"  {better_one['filename']}")
-        else:
-            # No better one found, so keep it
-            logger.debug(f"KEEP {model_info['filename']}")
-
-            # If it is the new model that needs to be kept, save to disk
-            if(new_model_filepath is not None 
-               and only_report is not True
-               and model_info['filepath'] == new_model_filepath
-               and not os.path.exists(new_model_filepath)):
-                if save_weights_only:
-                    if model_template_for_save is not None:
-                        model_template_for_save.save_weights(new_model_filepath)
-                    else:
-                        new_model.save_weights(new_model_filepath)
-                else:
-                    if model_template_for_save is not None:
-                        model_template_for_save.save(new_model_filepath)
-                    else:
-                        new_model.save(new_model_filepath)
 
     if verbose is True or debug is True:
         best_model = get_best_model(model_save_dir, model_save_base_filename)
         print(f"BEST MODEL: acc_combined: {best_model['acc_combined']}, acc_train: {best_model['acc_train']}, acc_val: {best_model['acc_val']}, epoch: {best_model['epoch']}")
-            
-class ModelCheckpointExt(kr.callbacks.Callback):
-    
-    def __init__(
-                self, 
-                model_save_dir: str, 
-                model_save_base_filename: str,
-                acc_metric_train: str,
-                acc_metric_validation: str,
-                model_template_for_save = None,
-                save_weights_only: bool = False,
-                verbose: bool = True,
-                only_report: bool = False):
-        self.model_save_dir = model_save_dir
-        self.model_save_base_filename = model_save_base_filename
-        self.acc_metric_train = acc_metric_train
-        self.acc_metric_validation = acc_metric_validation
-        self.model_template_for_save = model_template_for_save
-        self.save_weights_only = save_weights_only
-        self.verbose = verbose
-        self.only_report = only_report
-        
-    def on_epoch_end(self, epoch, logs={}):
-        save_and_clean_models(
-                model_save_dir=self.model_save_dir,
-                model_save_base_filename=self.model_save_base_filename,
-                new_model_acc_train=logs.get(self.acc_metric_train),
-                new_model_acc_val=logs.get(self.acc_metric_validation),
-                new_model_epoch=epoch,
-                new_model=self.model,
-                model_template_for_save=self.model_template_for_save,
-                save_weights_only=self.save_weights_only,
-                verbose=self.verbose,
-                only_report=self.only_report)
-        
+
 if __name__ == '__main__':
-    
-    #raise Exception("Not implemented")
-
-    # General inits
-    segment_subject = 'greenhouses'
-    base_dir = "X:\\PerPersoon\\PIEROG\\Taken\\2018\\2018-08-12_AutoSegmentation"        
-    traindata_version = 17
-    model_architecture = "inceptionresnetv2+linknet"
-    
-    project_dir = os.path.join(base_dir, segment_subject)
-    
-    # Init logging
-    import log_helper
-    log_dir = os.path.join(project_dir, "log")
-    logger = log_helper.main_log_init(log_dir, __name__)
-
-    '''
-    print(get_models(model_dir="",
-                     model_basename=""))
-    '''
-    # Test the clean_models function (without new model)
-    # Build save dir and model base filename 
-    model_save_dir = os.path.join(project_dir, "models")
-    model_save_base_filename = format_model_base_filename(
-            segment_subject, traindata_version, model_architecture)
-    
-    # Clean the models (only report)
-    save_and_clean_models(model_save_dir=model_save_dir,
-                          model_save_base_filename=model_save_base_filename,
-                          only_report=True)
-    
+    raise Exception("Not implemented")

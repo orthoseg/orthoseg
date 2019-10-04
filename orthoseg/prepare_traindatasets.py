@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 def prepare_traindatasets(
         labellocations_path: str,
         labeldata_path: str,
-        label_names_to_burn: str,
+        label_names_burn_values: dict,
         image_layers: dict,
         default_image_layer: str,
         training_dir: str,
@@ -47,7 +47,6 @@ def prepare_traindatasets(
         image_pixel_width: int = 512,
         image_pixel_height: int = 512,
         max_samples: int = 5000,
-        burn_value: int = 255,
         output_filelist_csv: str = '',
         output_keep_nested_dirs: bool = False,
         force: bool = False):
@@ -150,8 +149,12 @@ def prepare_traindatasets(
     img_srs = labellocations_gdf.crs['init']
     
     # Create list with only the input labels that need to be burned in the mask
-    labels_to_burn_gdf = labeldata_gdf[labeldata_gdf['label_name'].isin(label_names_to_burn)]
-
+    labels_to_burn_gdf = labeldata_gdf.loc[labeldata_gdf['label_name'].isin(label_names_burn_values)]
+    labels_to_burn_gdf['burn_value'] = 0
+    for label_name in label_names_burn_values:
+        labels_to_burn_gdf.loc[(labels_to_burn_gdf['label_name'] == label_name),
+                               'burn_value'] = label_names_burn_values[label_name]
+        
     # Prepare the different traindata types
     for traindata_type in ['train', 'validation', 'test']:
                    
@@ -168,7 +171,8 @@ def prepare_traindatasets(
         try:
 
             # Get the label locations for this traindata type
-            labels_to_use_for_bounds_gdf = labellocations_gdf[labellocations_gdf['traindata_type'] == traindata_type]
+            labels_to_use_for_bounds_gdf = (
+                    labellocations_gdf[labellocations_gdf['traindata_type'] == traindata_type])
             
             # Loop trough all locations labels to get an image for each of them
             nb_todo = len(labels_to_use_for_bounds_gdf)
@@ -180,7 +184,7 @@ def prepare_traindatasets(
             wms_servers = {}
             for i, label_tuple in enumerate(labels_to_use_for_bounds_gdf.itertuples()):
                 
-                # TODO: now just the top-left part of the labeled polygon is taken
+                # TODO: update the polygon if it doesn't match the size of the image...
                 # as a start... ideally make sure we use it entirely for cases with
                 # no abundance of data
                 # Make sure the image requested is of the correct size
@@ -223,7 +227,8 @@ def prepare_traindatasets(
                         srs=img_srs,
                         bbox=img_bbox.bounds,
                         size=(image_pixel_width, image_pixel_height),
-                        image_format=ows_util.FORMAT_JPEG,
+                        image_format=ows_util.FORMAT_PNG,
+                        #image_format_save=ows_util.FORMAT_TIFF,
                         image_pixels_ignore_border=image_layers[image_layer]['image_pixels_ignore_border'],
                         transparent=False)
 
@@ -231,11 +236,15 @@ def prepare_traindatasets(
                 # image_filepath can be None if file existed already, so check if not None...
                 if image_filepath:
                     mask_filepath = image_filepath.replace(output_tmp_image_dir, output_tmp_mask_dir)
+                    # Mask should not be in a lossy format!
+                    mask_filepath = mask_filepath.replace('.jpg', '.png')
+                    logger.info(mask_filepath)
+                    nb_classes = len(label_names_burn_values) + 1
                     _create_mask(
-                            input_vector_label_list=labels_to_burn_gdf.geometry,
                             input_image_filepath=image_filepath,
                             output_mask_filepath=mask_filepath,
-                            burn_value=burn_value,
+                            labels_to_burn_gdf=labels_to_burn_gdf,
+                            nb_classes=nb_classes,
                             force=force)
                 
                 # Log the progress and prediction speed
@@ -246,7 +255,7 @@ def prepare_traindatasets(
                     hours_to_go = (int)((nb_todo - i)/processed_per_hour)
                     min_to_go = (int)((((nb_todo - i)/processed_per_hour)%1)*60)
                     print(f"\r{hours_to_go}:{min_to_go} left for {nb_todo-i} of {nb_todo} at {processed_per_hour:0.0f}/h", 
-                        end="", flush=True)
+                          end="", flush=True)
         except Exception as ex:
             message = "Error preparing dataset!"
             raise Exception(message) from ex
@@ -402,16 +411,17 @@ def create_masks_for_images(
 
         mask_filepath = os.path.join(output_tmp_mask_dir, input_image_filename)
         _create_mask(
-                input_vector_label_list=labels_to_burn_gdf.geometry,
                 input_image_filepath=image_filepath,
                 output_mask_filepath=mask_filepath,
+                input_vector_label_list=labels_to_burn_gdf.geometry,
                 burn_value=burn_value,
                 force=force)
 
 def _create_mask(
-        input_vector_label_list,
         input_image_filepath: str,
         output_mask_filepath: str,
+        labels_to_burn_gdf: gpd.geodataframe,
+        nb_classes: int = 1,
         output_imagecopy_filepath: str = None,
         burn_value: int = 255,
         minimum_pct_labeled: float = 0.0,
@@ -424,54 +434,51 @@ def _create_mask(
         logger.debug(f"Output file already exist, and force is False, return: {output_mask_filepath}")
         return
 
+    logger.info(f"Create mask to {output_mask_filepath}")
+
     # Create a mask corresponding with the image file
     # First read the properties of the input image to copy them for the output
     logger.debug("Create mask and write to file")
     with rio.open(input_image_filepath) as image_ds:
-        image_output_profile = image_ds.profile
+        image_input_profile = image_ds.profile
         image_transform_affine = image_ds.transform
 
-    # Use meta attributes of the source image, but set band count to 1,
-    # dtype to uint8 and specify LZW compression.
-    image_output_profile.update(dtype=rio.uint8, count=1, compress='lzw', nodata=0)
-
-    # Depending on the output type, set some extra field in the profile
+    # Prepare the file profile for the mask depending on output type
     output_ext_lower = os.path.splitext(output_mask_filepath)[1].lower()
     if output_ext_lower == '.tif':
-        image_output_profile.update(compress='lzw')
-    elif output_ext_lower in ('.jpg', '.jpeg'):
-        # Remark: I cannot get rid of the warning about sharing, no matter what
-        image_output_profile["sharing"] = None
-        if "tiled" in image_output_profile:
-            del image_output_profile["tiled"]
-        if "compress" in image_output_profile:
-            del image_output_profile["compress"]
-        if "interleave" in image_output_profile:
-            del image_output_profile["interleave"]
-        if "photometric" in image_output_profile:
-            del image_output_profile["photometric"]
+        image_output_profile = rio.profiles.DefaultGTiffProfile(
+                count=1, transform=image_transform_affine, crs=image_input_profile['crs'])
+    if output_ext_lower == '.png':
+        image_output_profile = rio.profiles.Profile(driver='PNG', count=1)
+    else:
+        raise Exception(f"Unsupported mask extension (should be a lossless format!): {output_ext_lower}")
+    image_output_profile.update(
+            width=image_input_profile['width'], height=image_input_profile['height'], 
+            dtype=rio.uint8)
 
-    # this is where we create a generator of geom, value pairs to use in rasterizing
-    burned = rio_features.rasterize(shapes=input_vector_label_list, fill=0,
-            default_value=burn_value, transform=image_transform_affine,
+    # Burn the vectors in a mask
+    burn_shapes = ((geom, value) 
+            for geom, value in zip(labels_to_burn_gdf.geometry, labels_to_burn_gdf.burn_value))
+
+    mask_arr = rio_features.rasterize(
+            shapes=burn_shapes, transform=image_transform_affine,
+            dtype=rio.uint8, fill=0, 
             out_shape=(image_output_profile['width'], image_output_profile['height']))
 
-    # Check of the mask meets the requirements to be written...
-    nb_pixels = np.size(burned, 0) * np.size(burned, 1)
-    nb_pixels_data = nb_pixels - np.sum(burned == 0)  #np.count_nonnan(image == NoData_value)
-    logger.debug(f"nb_pixels: {nb_pixels}, nb_pixels_data: {nb_pixels_data}, pct data: {nb_pixels_data / nb_pixels}")
+    # Check if the mask meets the requirements to be written...
+    if minimum_pct_labeled > 0:
+        nb_pixels = np.size(mask_arr, 0) * np.size(mask_arr, 1)
+        nb_pixels_data = nb_pixels - np.sum(mask_arr == 0)  #np.count_nonnan(image == NoData_value)
+        logger.debug(f"nb_pixels: {nb_pixels}, nb_pixels_data: {nb_pixels_data}, pct data: {nb_pixels_data / nb_pixels}")
 
-    if (nb_pixels_data / nb_pixels >= minimum_pct_labeled):
-        # Write the labeled mask
-        with rio.open(output_mask_filepath, 'w', **image_output_profile) as mask_ds:
-            mask_ds.write(burned, 1)
+        if (nb_pixels_data / nb_pixels < minimum_pct_labeled):
+            return False
 
-        # Copy the original image if wanted...
-        if output_imagecopy_filepath:
-            shutil.copyfile(input_image_filepath, output_imagecopy_filepath)
-        return True
-    else:
-        return False
+    # Write the labeled mask
+    with rio.open(output_mask_filepath, 'w', **image_output_profile) as mask_ds:
+        mask_ds.write(mask_arr, 1)
+        
+    return True
 
 if __name__ == "__main__":
     raise Exception('Not implemented!')

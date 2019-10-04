@@ -26,11 +26,11 @@ logger = logging.getLogger(__name__)
 # The real work
 #-------------------------------------------------------------
 
-def get_model(input_width=256, input_height=256, n_channels=3, n_classes=1,
+def get_model(input_width=256, input_height=256, nb_channels=3, nb_classes=1,
               loss_mode='binary_crossentropy', learning_rate=0.0001,
               init_model_weights: bool = False, pretrained_weights_filepath: str = None):
 
-    inputs = kr.layers.Input((input_width, input_height, n_channels))
+    inputs = kr.layers.Input((input_width, input_height, nb_channels))
     conv1 = kr.layers.Conv2D(64, 3, activation='relu', padding='same', kernel_initializer='he_normal', name="block1_conv1")(inputs)
     conv1 = kr.layers.Conv2D(64, 3, activation='relu', padding='same', kernel_initializer='he_normal', name="block1_conv2")(conv1)
     pool1 = kr.layers.MaxPooling2D(pool_size=(2, 2))(conv1)
@@ -69,7 +69,7 @@ def get_model(input_width=256, input_height=256, n_channels=3, n_classes=1,
     conv9 = kr.layers.Conv2D(64, 3, activation='relu', padding='same', kernel_initializer='he_normal')(merge9)
     conv9 = kr.layers.Conv2D(64, 3, activation='relu', padding='same', kernel_initializer='he_normal')(conv9)
     conv9 = kr.layers.Conv2D(2, 3, activation='relu', padding='same', kernel_initializer='he_normal')(conv9)
-    conv10 = kr.layers.Conv2D(n_classes, 1, activation='sigmoid')(conv9)
+    conv10 = kr.layers.Conv2D(nb_classes, 1, activation='sigmoid')(conv9)
 
     model = kr.models.Model(inputs=inputs, outputs=conv10)
 
@@ -95,7 +95,7 @@ def get_model(input_width=256, input_height=256, n_channels=3, n_classes=1,
 
         '''
         # Create empty array with the dimensions of the first convolution layer
-        conv1_weights = np.zeros((3, 3, n_channels, 64), dtype="float32")
+        conv1_weights = np.zeros((3, 3, nb_channels, 64), dtype="float32")
         conv1_weights[:, :, :3, :] = vgg.get_layer("block1_conv1").get_weights()[0][:, :, :, :]
         bias = vgg.get_layer("block1_conv1").get_weights()[1]
         model.get_layer('block1_conv1').set_weights((conv1_weights, bias))
@@ -106,7 +106,7 @@ def get_model(input_width=256, input_height=256, n_channels=3, n_classes=1,
 
         # Copy the weigths first to a new array to have flexibility in nb
         # channels of unet compared to the vgg16
-        block1_conv1_weights = np.zeros((3, 3, n_channels, 64), dtype="float32")
+        block1_conv1_weights = np.zeros((3, 3, nb_channels, 64), dtype="float32")
         block1_conv1_weights[:, :, :3, :] = vgg.get_layer("block1_conv1").get_weights()[0][:, :, :, :]
         bias = vgg.get_layer("block1_conv1").get_weights()[1]
         model.get_layer('block1_conv1').set_weights((block1_conv1_weights, bias))
@@ -141,11 +141,11 @@ def get_model(input_width=256, input_height=256, n_channels=3, n_classes=1,
                                 'dice_coef_loss_bce': dice_coef_loss_bce})
         
         model = get_unet(input_width=input_width, input_height=input_height,
-                                 n_channels=n_channels, n_classes=n_classes, loss_mode=loss_mode,
+                                 nb_channels=nb_channels, nb_classes=nb_classes, loss_mode=loss_mode,
                                  init_with_vgg16=False, pretrained_weights_filepath=None)
 
         model_preload = get_unet(input_width=input_width, input_height=input_height,
-                                 n_channels=n_channels, n_classes=n_classes, loss_mode=loss_mode,
+                                 nb_channels=nb_channels, nb_classes=nb_classes, loss_mode=loss_mode,
                                  init_with_vgg16=False, pretrained_weights_filepath=None)
         logger.info(f"Preload weights from {pretrained_weights_filepath}")
         model_preload.load_weights(pretrained_weights_filepath)

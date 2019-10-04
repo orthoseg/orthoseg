@@ -40,14 +40,18 @@ def train(
         model_decoder: str,
         model_save_dir: str,
         model_save_base_filename: str,
+        image_augment_dict: dict, 
+        mask_augment_dict: dict, 
+        model_preload_filepath: str = None,
+        nb_classes: int = 1,
+        nb_channels: int = 3,
         image_width: int = 512,
         image_height: int = 512,
         image_subdir: str = "image",
         mask_subdir: str = "mask",
-        model_preload_filepath: str = None,
         batch_size: int = 32,
         nb_epoch: int = 100,
-        augmented_subdir: str = None):
+        save_augmented_subdir: str = None):
     """
     Create a new or load an existing neural network and train it using 
     data from the train and validation directories specified.
@@ -68,6 +72,8 @@ def train(
         model_decoder: decoder of the neural network to use
         model_save_dir: dir where (intermediate) best models will be saved
         model_save_base_filename: base filename to use when saving models
+        image_augment_dict: augmentation  
+        mask_augment_dict:  
         image_width: width the input images will be rescaled to for training
         image_height: height the input images will be rescaled to for training
         image_subdir: subdir where the images can be found in traindata_dir and validationdata_dir
@@ -78,56 +84,40 @@ def train(
                 choosen depending on the neural network architecture
                 and available memory on you GPU.
         nb_epoch: maximum number of epochs to train
-    """
-    
+    """     
     # These are the augmentations that will be applied to the input training images/masks
     # Remark: fill_mode + cval are defined as they are so missing pixels after eg. rotation
     #         are filled with 0, and so the mask will take care that they are +- ignored.
-    data_gen_train_args = dict(rotation_range=90.0,
-                               fill_mode='constant',
-                               cval=0,
-                               rescale=1./255,
-                               width_shift_range=0.05,
-                               height_shift_range=0.05,
-                               shear_range=0.0,
-                               zoom_range=0.1,
-                               horizontal_flip=True,
-                               vertical_flip=True,
-                               brightness_range=(0.95,1.05),)
 
     # Create the train generator
-    traindata_augmented_dir = None
-    if augmented_subdir is not None:
-        traindata_augmented_dir = os.path.join(traindata_dir, augmented_subdir)
-        if not os.path.exists(traindata_augmented_dir):
-            os.makedirs(traindata_augmented_dir)
-            
+    #save_augmented_subdir = 'augmented'            
     train_gen = create_train_generator(
             input_data_dir=traindata_dir,
-            image_subdir=image_subdir, mask_subdir=mask_subdir,
-            aug_dict=data_gen_train_args, batch_size=batch_size,
-            target_size=(image_width, image_height),
-            class_mode=None,
-            save_to_dir=traindata_augmented_dir)
+            image_subdir=image_subdir, 
+            mask_subdir=mask_subdir,
+            image_augment_dict=image_augment_dict, 
+            mask_augment_dict=mask_augment_dict, 
+            batch_size=batch_size,
+            target_size=(image_width, image_height), nb_classes=nb_classes,
+            save_to_subdir=save_augmented_subdir, seed=2)
 
-    # If there is a validation data dir specified, create extra generator
-    if validationdata_dir:
-        data_gen_validation_args = dict(rescale=1./255)
-        validation_gen = create_train_generator(
-                input_data_dir=validationdata_dir,
-                image_subdir=image_subdir, mask_subdir=mask_subdir,
-                aug_dict=data_gen_validation_args, batch_size=batch_size,
-                target_size=(image_width, image_height),
-                class_mode=None,
-                save_to_dir=None)
-    else:
-        validation_gen = None
+    # Create validation generator
+    validation_augment_dict = dict(rescale=1./255)
+    validation_gen = create_train_generator(
+            input_data_dir=validationdata_dir,
+            image_subdir=image_subdir, 
+            mask_subdir=mask_subdir,
+            image_augment_dict=validation_augment_dict,
+            mask_augment_dict=validation_augment_dict, 
+            batch_size=batch_size,
+            target_size=(image_width, image_height), nb_classes=nb_classes,
+            save_to_subdir=save_augmented_subdir, seed=3)
 
     # Get the max epoch number from the log file if it exists...
     start_epoch = 0
     start_learning_rate = 1e-4  # Best set to 0.0001 to start (1e-3 is not ok)
     csv_log_filepath = f"{model_save_dir}{os.sep}{model_save_base_filename}" + '_log.csv'
-    if os.path.exists(csv_log_filepath):
+    if os.path.exists(csv_log_filepath) and os.path.getsize(csv_log_filepath) > 0:
         logger.info(f"train_log csv exists: {csv_log_filepath}")
         if not model_preload_filepath:
             message = f"STOP: log file exists but preload model file not specified!!!"
@@ -143,11 +133,16 @@ def train(
     # Create a model
     model_json_filename = f"{model_encoder}+{model_decoder}.json"
     model_json_filepath = os.path.join(model_save_dir, model_json_filename)
+    if nb_classes > 1:
+        model_activation = 'softmax'
+    else:
+        model_activation = 'sigmoid'
     if not model_preload_filepath:
         # If no existing model provided, create it from scratch
         # Get the model we want to use
         model = mf.get_model(
-                encoder=model_encoder, decoder=model_decoder, n_channels=3, n_classes=1)
+                encoder=model_encoder, decoder=model_decoder, 
+                nb_channels=nb_channels, nb_classes=nb_classes, activation=model_activation)
         
         # Save the model architecture to json if it doesn't exist yet
         if not os.path.exists(model_save_dir):
@@ -199,13 +194,17 @@ def train(
     # If we started a model from scratch, compile it to prepare for training 
     if not model_preload_filepath:
         optimizer = kr.optimizers.Adam(lr=start_learning_rate)
-        loss = 'binary_crossentropy'   
+        if model_activation == 'softmax':
+            #loss = 'categorical_crossentropy' 
+            loss = 'sparse_categorical_crossentropy' 
+        else:
+            loss = 'binary_crossentropy'   
         model_for_train = mf.compile_model(model=model_for_train, optimizer=optimizer, loss=loss)
     
     # Define some callbacks for the training
     # Reduce the learning rate if the loss doesn't improve anymore
     reduce_lr = kr.callbacks.ReduceLROnPlateau(
-            monitor='loss', factor=0.2, patience=20, min_lr=1e-20)
+            monitor='loss', factor=0.2, patience=20, min_lr=1e-20, verbose=True)
 
     # Custom callback that saves the best models using both train and 
     # validation metric
@@ -218,8 +217,10 @@ def train(
     model_checkpoint_saver = mh.ModelCheckpointExt(
             model_save_dir=model_save_dir, 
             model_save_base_filename=model_save_base_filename,
-            acc_metric_train='jaccard_coef_round',
-            acc_metric_validation='val_jaccard_coef_round',
+            monitor_metric_train='loss',
+            monitor_metric_validation='val_loss',
+            monitor_metric_mode='min',
+            save_best_only=True,
             model_template_for_save=model_template_for_save)
 
     # Callbacks for logging
@@ -230,7 +231,7 @@ def train(
 
     # Stop if no more improvement
     early_stopping = kr.callbacks.EarlyStopping(
-            monitor='jaccard_coef_round', patience=200, restore_best_weights=False)
+            monitor='val_loss', patience=200, restore_best_weights=False)
     
     # Prepare the parameters to pass to fit...
     # Supported filetypes to train/validate on
@@ -240,12 +241,11 @@ def train(
     #train_dataset_size = len(glob.glob(f"{traindata_dir}{os.sep}{image_subdir}{os.sep}*.*"))
     train_dataset_size = 0
     for input_ext_cur in input_ext:
-        train_dataset_size += len(glob.glob(f"{traindata_dir}{os.sep}{image_subdir}{os.sep}*{input_ext_cur}"))
-
+        train_dataset_size += len(glob.glob(f"{traindata_dir}{os.sep}{image_subdir}{os.sep}**{os.sep}*{input_ext_cur}", recursive=True))
     #validation_dataset_size = len(glob.glob(f"{validationdata_dir}{os.sep}{image_subdir}{os.sep}*.*"))
     validation_dataset_size = 0    
     for input_ext_cur in input_ext:
-        validation_dataset_size += len(glob.glob(f"{validationdata_dir}{os.sep}{image_subdir}{os.sep}*{input_ext_cur}"))
+        validation_dataset_size += len(glob.glob(f"{validationdata_dir}{os.sep}{image_subdir}{os.sep}**{os.sep}*{input_ext_cur}", recursive=True))
     
     # Calculate the number of steps within an epoch
     # Remark: number of steps per epoch should be at least 1, even if nb samples < batch size...
@@ -271,13 +271,21 @@ def train(
         #K.clear_session()
         kr.backend.clear_session()
 
-def create_train_generator(input_data_dir, image_subdir, mask_subdir,
-                           aug_dict, batch_size=32,
-                           image_color_mode="rgb", mask_color_mode="grayscale",
-                           save_to_dir=None, 
-                           image_save_prefix="image", mask_save_prefix="mask",
-                           flag_multi_class=False, num_class=2,
-                           target_size=(256,256), seed=1, class_mode=None):
+def create_train_generator(
+        input_data_dir, 
+        image_subdir, 
+        mask_subdir,
+        image_augment_dict, 
+        mask_augment_dict, 
+        batch_size=32,
+        image_color_mode="rgb", 
+        mask_color_mode="grayscale",
+        save_to_subdir=None, 
+        image_save_prefix='image', 
+        mask_save_prefix='mask',
+        nb_classes=1,
+        target_size=(256,256), 
+        seed=1):
     """
     Creates a generator to generate and augment train images. The augmentations
     specified in aug_dict will be applied. For the augmentations that can be 
@@ -290,32 +298,69 @@ def create_train_generator(input_data_dir, image_subdir, mask_subdir,
                the transformation for image and mask is the same
              * set save_to_dir = "your path" to check results of the generator
     """
-    
-    image_datagen = kr.preprocessing.image.ImageDataGenerator(**aug_dict)
-    mask_datagen = kr.preprocessing.image.ImageDataGenerator(**aug_dict)
-    image_generator = image_datagen.flow_from_directory(
-        directory=input_data_dir,
-        classes=[image_subdir],
-        class_mode=class_mode,
-        color_mode=image_color_mode,
-        target_size=target_size,
-        batch_size=batch_size,
-        save_to_dir=save_to_dir,
-        save_prefix=image_save_prefix,
-        seed=seed)
-    mask_generator = mask_datagen.flow_from_directory(
-        directory=input_data_dir,
-        classes=[mask_subdir],
-        class_mode=class_mode,
-        color_mode=mask_color_mode,
-        target_size=target_size,
-        batch_size=batch_size,
-        save_to_dir=save_to_dir,
-        save_prefix=mask_save_prefix,
-        seed=seed)
-    train_generator = zip(image_generator, mask_generator)
-    return train_generator
+    image_datagen = kr.preprocessing.image.ImageDataGenerator(**image_augment_dict)
+    mask_datagen = kr.preprocessing.image.ImageDataGenerator(**mask_augment_dict)
 
+    save_to_dir = None
+    if save_to_subdir is not None:
+        save_to_dir = os.path.join(input_data_dir, save_to_subdir)
+        if not os.path.exists(save_to_dir):
+            os.makedirs(save_to_dir)
+
+    image_generator = image_datagen.flow_from_directory(
+            directory=input_data_dir,
+            classes=[image_subdir],
+            class_mode=None,
+            color_mode=image_color_mode,
+            target_size=target_size,
+            batch_size=batch_size,
+            save_to_dir=save_to_dir,
+            save_prefix=image_save_prefix,
+            seed=seed)
+
+    mask_generator = mask_datagen.flow_from_directory(
+            directory=input_data_dir,
+            classes=[mask_subdir],
+            class_mode=None,
+            color_mode=mask_color_mode,
+            target_size=target_size,
+            batch_size=batch_size,
+            save_to_dir=save_to_dir,
+            save_prefix=mask_save_prefix,
+            seed=seed)
+
+    train_generator = zip(image_generator, mask_generator)
+
+    for image, mask in train_generator:
+
+        # Rename files in save dir to make compare between image and mask easy    
+        if save_to_dir is not None:
+            def rename_prefix_to_suffix(save_dir: str, save_prefix: str):
+                """ Rename file so the filename prefix is moved to being a suffix  """
+                glob_search = f"{save_dir}{os.sep}{save_prefix}_*.png"
+                paths = glob.glob(glob_search)
+                for path in paths:
+                    dir, filename = os.path.split(path)
+                    filename_noext, ext = os.path.splitext(filename)
+                    rename_filename_noext = f"{filename_noext.replace(save_prefix + '_', '')}_{save_prefix}"
+                    for index in range(1, 999):
+                        rename_path = f"{dir}{os.sep}{rename_filename_noext}_{index}{ext}"
+                        # If the path to rename to exists already, add an index to keep file name unique
+                        if not os.path.exists(rename_path):
+                            os.rename(path, rename_path)
+                            break                           
+                        else:
+                            continue
+                        raise Exception(f"No new filename found for {path}")
+
+            rename_prefix_to_suffix(save_to_dir, mask_save_prefix)
+            rename_prefix_to_suffix(save_to_dir, image_save_prefix)
+
+        # If loss is categorical_crossentropy -> one-hot encode masks
+        #if False:
+        #    mask = kr.utils.to_categorical(mask, nb_classes)
+        yield (image, mask)    
+    
 # If the script is ran directly...
 if __name__ == '__main__':
     raise Exception("Not implemented")

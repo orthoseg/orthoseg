@@ -40,6 +40,7 @@ def run_tasks():
 
         # Now start the appropriate task 
         try:
+            # TODO: make the running script cancellable!
             # Remark: this path will depend on the python environment the task 
             # needs to run in
             python_path = r"C:\Tools\anaconda3\envs\orthoseg4\python.exe"

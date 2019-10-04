@@ -17,7 +17,7 @@ import sys
 # TODO: on windows, the init of this doensn't seem to work properly... should be solved somewhere else?
 if os.name == 'nt':
     os.environ["GDAL_DATA"] = r"C:\Tools\anaconda3\envs\orthoseg4\Library\share\gdal"
-
+    os.environ['PROJ_LIB'] = r"C:\Tools\anaconda3\envs\orthoseg4\Library\share\proj"
 import pandas as pd
 
 from orthoseg.helpers import config_helper as conf 

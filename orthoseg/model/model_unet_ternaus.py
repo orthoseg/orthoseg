@@ -35,8 +35,8 @@ from keras.models import model_from_json
 '''
 img_rows = 112          # -> renamed to input_height
 img_cols = 112          # -> renamed to input_width
-num_channels = 16       # -> renamed to n_channels
-num_mask_channels = 1   # -> renamed to n_classes
+num_channels = 16       # -> renamed to nb_channels
+num_mask_channels = 1   # -> renamed to nb_classes
 '''
 
 smooth = 1e-12
@@ -65,11 +65,11 @@ def jaccard_coef_loss(y_true, y_pred):
     return -K.log(jaccard_coef(y_true, y_pred)) + binary_crossentropy(y_pred, y_true)
 
 
-def get_model(input_width=256, input_height=256, n_channels=3, n_classes=1,
+def get_model(input_width=256, input_height=256, nb_channels=3, nb_classes=1,
               loss_mode='binary_crossentropy', learning_rate=1e-4,
               init_model_weights: bool = False, pretrained_weights_filepath: str = None):
     
-    inputs = kr.layers.Input((input_width, input_height, n_channels))
+    inputs = kr.layers.Input((input_width, input_height, nb_channels))
     conv1 = kr.layers.Conv2D(32, 3, activation='relu', padding='same', kernel_initializer='he_uniform')(inputs)
     conv1 = kr.layers.normalization.BatchNormalization(axis=-1)(conv1)
     #conv1 = keras.layers.advanced_activations.ELU()(conv1)
@@ -147,7 +147,7 @@ def get_model(input_width=256, input_height=256, n_channels=3, n_classes=1,
     #conv9 = keras.layers.advanced_activations.ELU()(conv9)
     
     # TODO: crop9 vervangen door conv9 als batnormalisation terug aan
-    conv10 = kr.layers.Conv2D(n_classes, 1, activation='sigmoid')(conv9)
+    conv10 = kr.layers.Conv2D(nb_classes, 1, activation='sigmoid')(conv9)
 
     model = kr.models.Model(inputs=inputs, outputs=conv10)
     

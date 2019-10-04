@@ -100,7 +100,7 @@ def predict_dir(
 
     # Get list of all image files to process...
     image_filepaths = []
-    input_ext = ['.tif', '.jpg']
+    input_ext = ['.png', '.tif', '.jpg']
     for input_ext_cur in input_ext:
         image_filepaths.extend(glob.glob(f"{input_image_dir}{os.sep}**{os.sep}*{input_ext_cur}", recursive=True))
     nb_todo = len(image_filepaths)
@@ -223,7 +223,7 @@ def predict_dir(
                     except:
                         logger.exception(f"Error postprocessing pred for {image_info['input_image_filepath']}")
     
-                        # Write line to file with done files...
+                        # Write line to file with error files...
                         image_errorlog_file.write(
                                 os.path.basename(image_info['input_image_filepath']) + '\n')
                 logger.debug("Post-processing ready")
@@ -531,22 +531,36 @@ def clean_and_save_prediction(
         border_pixels_to_ignore,
         evaluate_mode,
         force) -> bool:
-    # Clean and save prediction
-    image_pred_uint8_cleaned = clean_prediction(
-            image_pred_arr=image_pred_arr, 
-            border_pixels_to_ignore=border_pixels_to_ignore)
-    if image_pred_uint8_cleaned is not None:
-        save_prediction(
-                image_image_filepath=image_image_filepath,
-                image_crs=image_crs,
-                image_transform=image_transform,
-                output_dir=output_dir,
-                image_pred_uint8_cleaned=image_pred_uint8_cleaned,
-                input_image_dir=input_image_dir,
-                input_mask_dir=input_mask_dir,
-                border_pixels_to_ignore=border_pixels_to_ignore,
-                evaluate_mode=evaluate_mode,
-                force=force)
+
+    # If nb. channels in prediction > 1, skip the first as it is the background
+    image_pred_shape = image_pred_arr.shape
+    nb_channels = image_pred_shape[2]
+    if nb_channels > 1:
+        channel_start = 1
+    else:
+        channel_start = 0
+
+    for channel in range(channel_start, nb_channels):
+        # TODO add proper support for multiple channels!
+        image_pred_curr_arr = image_pred_arr[:,:,channel]
+
+        # Clean prediction
+        image_pred_uint8_cleaned_curr = clean_prediction(
+                image_pred_arr=image_pred_curr_arr, 
+                border_pixels_to_ignore=border_pixels_to_ignore)
+        if image_pred_uint8_cleaned_curr is not None:
+            save_prediction(
+                    image_image_filepath=image_image_filepath,
+                    image_crs=image_crs,
+                    image_transform=image_transform,
+                    output_dir=output_dir,
+                    image_pred_uint8_cleaned=image_pred_uint8_cleaned_curr,
+                    input_image_dir=input_image_dir,
+                    input_mask_dir=input_mask_dir,
+                    output_suffix=f"_{channel}",
+                    border_pixels_to_ignore=border_pixels_to_ignore,
+                    evaluate_mode=evaluate_mode,
+                    force=force)
 
     return True
 
@@ -558,9 +572,11 @@ def save_prediction(
         image_pred_uint8_cleaned,
         input_image_dir,
         input_mask_dir,
+        output_suffix,
         border_pixels_to_ignore,
         evaluate_mode,
         force) -> bool:
+
     # Save prediction
     image_pred_filepath = save_prediction_uint8(
             image_filepath=image_image_filepath,
@@ -568,6 +584,7 @@ def save_prediction(
             image_crs=image_crs,
             image_transform=image_transform,
             output_dir=output_dir,
+            output_suffix=output_suffix,
             force=force)
 
     # Postprocess for evaluation
@@ -591,24 +608,25 @@ def clean_prediction(
         image_pred_arr: np.array,
         border_pixels_to_ignore: int = 0) -> np.array:
 
-    # Check the number of channels of the output prediction
-    image_pred_shape = image_pred_arr.shape
-    n_channels = image_pred_shape[2]
-    if n_channels > 1:
-        raise Exception(f"Not implemented: processing prediction output with multiple channels: {n_channels}")    
-
     # Input should be float32
     if image_pred_arr.dtype != np.float32:
         raise Exception(f"image prediction is of the wrong type: {image_pred_arr.dtype}") 
     
+    # Reshape from 3 to 2 dims if necessary (width, height, nb_channels).
+    # Check the number of channels of the output prediction
+    image_pred_shape = image_pred_arr.shape
+    if len(image_pred_shape) > 2:
+        n_channels = image_pred_shape[2]
+        if n_channels > 1:
+            raise Exception("Invalid input, should be one channel!")
+        # Reshape array from 3 dims (width, height, nb_channels) to 2.
+        image_pred_uint8 = image_pred_uint8.reshape((image_pred_shape[0], image_pred_shape[1]))   
+
     # Convert to uint8
     image_pred_uint8 = (image_pred_arr * 10).astype(np.uint8)
     image_pred_uint8 = image_pred_uint8 * 25
     #image_pred_uint8 = (image_pred_arr * 255).astype(np.uint8)
     
-    # Reshape array from 4 dims (image_id, width, height, nb_channels) to 2.
-    image_pred_uint8 = image_pred_uint8.reshape((image_pred_shape[0], image_pred_shape[1]))
-
     # Make the pixels at the borders of the prediction black so they are ignored
     image_pred_uint8_cropped = image_pred_uint8
     if border_pixels_to_ignore and border_pixels_to_ignore > 0:
@@ -618,11 +636,13 @@ def clean_prediction(
         image_pred_uint8_cropped[:,-border_pixels_to_ignore:] = 0    # Bottom border
 
     # Check if the result is entirely black... if so, don't save
+    '''
     thresshold = 125
     if not np.any(image_pred_uint8_cropped >= thresshold):
-        logger.debug('Prediction is entirely black!')
+        logger.info('Prediction is entirely black!')
         return None
-
+    '''
+    
     return image_pred_uint8_cropped
 
 def save_prediction_uint8(
@@ -631,6 +651,7 @@ def save_prediction_uint8(
         image_crs: str,
         image_transform,
         output_dir: str,
+        output_suffix: str = '',
         border_pixels_to_ignore: int = None,
         force: bool = False) -> str:
 
@@ -648,7 +669,7 @@ def save_prediction_uint8(
     # Prepare the filepath for the output
     _, image_filename = os.path.split(image_filepath)
     image_filename_noext, _ = os.path.splitext(image_filename)
-    output_filepath = f"{output_dir}{os.sep}{image_filename_noext}_pred.tif"
+    output_filepath = f"{output_dir}{os.sep}{image_filename_noext}{output_suffix}_pred.tif"
                         
     # Write prediction to file
     logger.debug("Save +- original prediction")

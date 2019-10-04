@@ -65,6 +65,7 @@ def get_images_for_grid(
         nb_concurrent_calls: int = 1,
         random_sleep: float = 0.0,        
         image_format: str = FORMAT_GEOTIFF,
+        image_format_save: str = None,
         tiff_compress: str = 'lzw',
         transparent: str = False,
         wms_layerstyles: [str] = ['default'],
@@ -74,6 +75,10 @@ def get_images_for_grid(
         max_nb_images: int = -1,
         force: bool = False):
     
+    ##### Init #####
+    if image_format_save is None:
+        image_format_save = image_format
+
     srs_width = math.fabs(image_pixel_width*image_srs_pixel_x_size)   # tile width in units of crs => 500 m
     srs_height = math.fabs(image_pixel_height*image_srs_pixel_y_size) # tile height in units of crs => 500 m
     is_srs_projected = rio.crs.CRS.from_string(srs).is_projected
@@ -175,7 +180,7 @@ def get_images_for_grid(
                 
             logger.info(f"Start processing column {col}")
             for row in range(0, rows):
-                nb_processed += 1            
+                nb_processed += 1
                 
                 # To be able to quickly get images spread over the roi...
                 if(nb_images_to_skip
@@ -183,7 +188,7 @@ def get_images_for_grid(
                     #logger.debug(f"Skip this image, because {nb_processed}%{nb_images_to_skip} is not 0")
                     continue
     
-                # Calculate y bounds            
+                # Calculate y bounds
                 image_ymin = row * srs_height + image_gen_bounds[1]
                 image_ymax = (row + 1) * srs_height + image_gen_bounds[1]
     
@@ -273,6 +278,7 @@ def get_images_for_grid(
                             bbox_list,
                             size_list,
                             it.repeat(image_format),
+                            it.repeat(image_format_save),
                             output_filename_list,
                             it.repeat(transparent),
                             it.repeat(tiff_compress),
@@ -283,27 +289,6 @@ def get_images_for_grid(
                             
                     for _ in read_results:
                         nb_downloaded += 1
-    
-                    '''
-                    # Now really get the image
-                    res = getmap_to_file(
-                            wms=wms,
-                            layers=wms_layernames,
-                            output_dir=output_dir,
-                            srs=srs,
-                            bbox=(image_xmin, image_ymin, image_xmax, image_ymax),
-                            size=(image_pixel_width+2*pixels_overlap, 
-                                  image_pixel_height+2*pixels_overlap),
-                            image_format=image_format,
-                            output_filename=output_filename,
-                            transparent=transparent,
-                            tiff_compress=tiff_compress,
-                            layers_styles=wms_server_layers_styles,
-                            random_sleep=random_sleep,
-                            force=force)
-                    if(res is not None):
-                        nb_downloaded += 1
-                    '''
                     
                     # Progress
                     logger.debug(f"Process image {nb_processed} out of {cols*rows}: {nb_processed/(cols*rows):.2f} %")
@@ -349,6 +334,7 @@ def getmap_to_file(
         bbox,
         size,
         image_format: str = FORMAT_GEOTIFF,
+        image_format_save: str = None,
         output_filename: str = None,
         transparent: bool = False,
         tiff_compress: str = 'lzw',
@@ -362,27 +348,17 @@ def getmap_to_file(
         random_sleep: sleep a random time between 0 and this amount of seconds
                       between requests tot the WMS server
     """
+    ##### Init #####
+    # If no seperate save format is specified, use the standard image_format
+    if image_format_save is None:
+        image_format_save = image_format
 
     # If there isn't a filename supplied, create one...
     if output_filename is None:
-        # Choose image extension based on format
-        if image_format == FORMAT_GEOTIFF:
-            image_ext = FORMAT_GEOTIFF_EXT
-        elif image_format == FORMAT_TIFF:
-            image_ext = FORMAT_TIFF_EXT
-        elif image_format == FORMAT_JPEG:
-            image_ext = FORMAT_JPEG_EXT
-        elif image_format == FORMAT_PNG:
-            image_ext = FORMAT_PNG_EXT
-        else:
-            raise Exception(f"image format {image_format} is not implemented!")
-
-        # Use different file names for projected vs geographic SRS
-        is_srs_projected = rio.crs.CRS.from_string(srs).is_projected
-        if is_srs_projected:
-            output_filename = f"{bbox[0]:06.0f}_{bbox[1]:06.0f}_{bbox[2]:06.0f}_{bbox[3]:06.0f}_{size[0]}_{size[1]}{image_ext}"
-        else:
-            output_filename = f"{bbox[0]:09.4f}_{bbox[1]:09.4f}_{bbox[2]:09.4f}_{bbox[3]:09.4f}_{size[0]}_{size[1]}{image_ext}"
+        output_filename = create_filename(
+                srs=srs, 
+                bbox=bbox, size=size, 
+                image_format=image_format_save)
 
     # Create full output filepath
     output_filepath = os.path.join(output_dir, output_filename)
@@ -390,8 +366,11 @@ def getmap_to_file(
     # If force is false and file exists already, stop...
     if force == False and os.path.exists(output_filepath):
         logger.debug(f"File already exists, skip: {output_filepath}")
-        return None #output_filepath
+        return None
 
+    logger.info(f"Get image to {output_filepath}")
+
+    ##### Get image #####
     # Retry 10 times...
     nb_retries = 0
     time_sleep = 0
@@ -446,14 +425,17 @@ def getmap_to_file(
                 logger.error(message)
                 raise Exception(message) from ex
 
+    ##### Save image to file #####
     # Write image to file...
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
     with open(output_filepath, 'wb') as image_file:
         image_file.write(response.read())
 
+    ##### Make the output image complient with image_format_save #####
+
     # If geotiff is asked, check if the the coordinates are embedded...
-    if image_format == FORMAT_GEOTIFF:
+    if image_format_save == FORMAT_GEOTIFF:
         # Read output image to check if coördinates are there
         with rio.open(output_filepath) as image_ds:
             image_profile_orig = image_ds.profile
@@ -516,22 +498,14 @@ def getmap_to_file(
                 image_file.write(image_data)
 
     else:
-        # For file formats that doesn't support coordinates, we add a worldfile
+        # For file formats that doesn't support coordinates, we add a worldfile       
         srs_pixel_x_size = (bbox[2]-bbox[0])/size[0]
         srs_pixel_y_size = (bbox[1]-bbox[3])/size[1]
 
-        path_noext, ext = os.path.splitext(output_filepath)
-        if ext.lower() == FORMAT_TIFF_EXT:
-            output_worldfile_filepath = f"{path_noext}{FORMAT_TIFF_EXT_WORLD}"
-        elif ext.lower() == FORMAT_JPEG_EXT:
-            output_worldfile_filepath = f"{path_noext}{FORMAT_JPEG_EXT_WORLD}"
-        elif ext.lower() == FORMAT_PNG_EXT:
-            output_worldfile_filepath = f"{path_noext}{FORMAT_PNG_EXT_WORLD}"
-        else:
-            error_message = "Error: extension not supported to create world file: {ext.lower()}"
-            logger.critical(error_message)
-            raise Exception(error_message)
-
+        path_noext, _ = os.path.splitext(output_filepath)
+        ext_world = get_world_ext_for_image_format(image_format_save)
+        output_worldfile_filepath = f"{path_noext}{ext_world}"
+        
         with open(output_worldfile_filepath, 'w') as wld_file:
             wld_file.write(f"{srs_pixel_x_size}")
             wld_file.write("\n0.000")
@@ -540,17 +514,44 @@ def getmap_to_file(
             wld_file.write(f"\n{bbox[0]}")
             wld_file.write(f"\n{bbox[3]}")
         
-        # If an ignore border was asked, cut it off...
-        if image_pixels_ignore_border > 0:
-            with rio.open(output_filepath) as image_ds:
-                image_profile = image_ds.profile
-                image_data = image_ds.read(window=rio.windows.Window(
-                        image_pixels_ignore_border, image_pixels_ignore_border, 
-                        size[0], size[1]))
+        # If the image format to save is different, or if a border needs to be ignored
+        if(image_format != image_format_save 
+           or image_pixels_ignore_border > 0):
 
-            image_profile.update(width=size[0], height=size[1])
-            with rio.open(output_filepath, 'w', **image_profile) as image_file:
-                image_file.write(image_data)       
+            # Read image 
+            with rio.open(output_filepath) as image_ds:
+                image_profile_orig = image_ds.profile
+                image_transform_affine = image_ds.transform
+
+                # If border needs to be ignored, only read data we are interested in
+                if image_pixels_ignore_border == 0:
+                    image_data = image_ds.read()
+                else:
+                    image_data = image_ds.read(window=rio.windows.Window(
+                            image_pixels_ignore_border, image_pixels_ignore_border, 
+                            size[0], size[1]))
+            
+            # If same save format, reuse profile
+            if image_format == image_format_save:
+                image_profile_output = image_profile_orig
+                if image_pixels_ignore_border != 0:
+                    image_profile_output.update(width=size[0], height=size[1])
+            else:
+                if image_format_save == FORMAT_TIFF:
+                    driver = 'GTiff'
+                    compress=tiff_compress
+                else:
+                    raise Exception(f"Unsupported image_format_save: {image_format_save}")
+                image_profile_output = rio.profiles.Profile(
+                        width=size[0], height=size[1], count=image_profile_orig['count'],
+                        nodata=image_profile_orig['nodata'], dtype=image_profile_orig['dtype'],
+                        compress=compress, driver=driver)
+
+            # Write to output
+            with rio.open(output_filepath, 'w', **image_profile_output) as image_file:
+                image_file.write(image_data)               
+
+            #raise Exception(f"Different save format not supported between {image_format} and {image_format_save}")
 
     return output_filepath
 
@@ -559,17 +560,8 @@ def create_filename(srs: str,
                     size,
                     image_format: str):
     
-    # Choose image extension based on format
-    if image_format == FORMAT_GEOTIFF:
-        image_ext = FORMAT_GEOTIFF_EXT
-    elif image_format == FORMAT_TIFF:
-        image_ext = FORMAT_TIFF_EXT
-    elif image_format == FORMAT_JPEG:
-        image_ext = FORMAT_JPEG_EXT
-    elif image_format == FORMAT_PNG:
-        image_ext = FORMAT_PNG_EXT
-    else:
-        raise Exception(f"image format {image_format} is not implemented!")
+    # Get image extension based on format
+    image_ext = get_ext_for_image_format(image_format)
 
     # Use different file names for projected vs geographic SRS
     is_srs_projected = rio.crs.CRS.from_string(srs).is_projected
@@ -579,3 +571,29 @@ def create_filename(srs: str,
         output_filename = f"{bbox[0]:09.4f}_{bbox[1]:09.4f}_{bbox[2]:09.4f}_{bbox[3]:09.4f}_{size[0]}_{size[1]}{image_ext}"
 
     return output_filename
+
+def get_ext_for_image_format(image_format: str) -> str:
+    # Choose image extension based on format
+    if image_format == FORMAT_GEOTIFF:
+        return FORMAT_GEOTIFF_EXT
+    elif image_format == FORMAT_TIFF:
+        return FORMAT_TIFF_EXT
+    elif image_format == FORMAT_JPEG:
+        return FORMAT_JPEG_EXT
+    elif image_format == FORMAT_PNG:
+        return FORMAT_PNG_EXT
+    else:
+        raise Exception(f"get_ext_for_image_format for image format {image_format} is not implemented!")
+
+def get_world_ext_for_image_format(image_format: str) -> str:
+    # Choose image extension based on format
+    if image_format == FORMAT_GEOTIFF:
+        return FORMAT_GEOTIFF_EXT_WORLD
+    elif image_format == FORMAT_TIFF:
+        return FORMAT_TIFF_EXT_WORLD
+    elif image_format == FORMAT_JPEG:
+        return FORMAT_JPEG_EXT_WORLD
+    elif image_format == FORMAT_PNG:
+        return FORMAT_PNG_EXT_WORLD
+    else:
+        raise Exception(f"get_world_ext_for_image_format for image format {image_format} is not implemented!")
