@@ -368,7 +368,7 @@ def getmap_to_file(
         logger.debug(f"File already exists, skip: {output_filepath}")
         return None
 
-    logger.info(f"Get image to {output_filepath}")
+    logger.debug(f"Get image to {output_filepath}")
 
     ##### Get image #####
     # Retry 10 times...
@@ -609,6 +609,12 @@ def get_cleaned_write_profile(profile: dict) -> dict:
         profile_cleaned = {}
         for profile_key in profile:
             if profile_key not in ['tiled', 'compress', 'interleave', 'photometric']:
+                profile_cleaned[profile_key] = profile[profile_key]
+    elif profile['driver'] == 'PNG':
+        # Don't copy profile keys to cleaned version that are not supported for JPEG
+        profile_cleaned = {}
+        for profile_key in profile:
+            if profile_key not in ['tiled', 'interleave']:
                 profile_cleaned[profile_key] = profile[profile_key]
     else:
         profile_cleaned = profile.copy()
