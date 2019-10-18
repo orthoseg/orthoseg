@@ -432,7 +432,7 @@ def getmap_to_file(
     with open(output_filepath, 'wb') as image_file:
         image_file.write(response.read())
 
-    ##### Make the output image complient with image_format_save #####
+    ##### Make the output image compliant with image_format_save #####
 
     # If geotiff is asked, check if the the coordinates are embedded...
     if image_format_save == FORMAT_GEOTIFF:
@@ -493,7 +493,8 @@ def getmap_to_file(
                                 0 , srs_pixel_y_size, bbox[3]),
                     crs=srs)
 
-            logger.debug(f"image_profile that will be used: {image_profile}")
+            # Delete output file, and write again
+            os.remove(output_filepath)
             with rio.open(output_filepath, 'w', **image_profile) as image_file:
                 image_file.write(image_data)
 
@@ -547,7 +548,9 @@ def getmap_to_file(
                         nodata=image_profile_orig['nodata'], dtype=image_profile_orig['dtype'],
                         compress=compress, driver=driver)
 
-            # Write to output
+            # Delete output file, and write again
+            os.remove(output_filepath)
+            image_profile_output = get_cleaned_write_profile(image_profile_output)
             with rio.open(output_filepath, 'w', **image_profile_output) as image_file:
                 image_file.write(image_data)               
 
@@ -597,3 +600,17 @@ def get_world_ext_for_image_format(image_format: str) -> str:
         return FORMAT_PNG_EXT_WORLD
     else:
         raise Exception(f"get_world_ext_for_image_format for image format {image_format} is not implemented!")
+
+def get_cleaned_write_profile(profile: dict) -> dict:
+
+    # Depending on the driver, different profile keys are supported    
+    if profile['driver'] == 'JPEG':
+        # Don't copy profile keys to cleaned version that are not supported for JPEG
+        profile_cleaned = {}
+        for profile_key in profile:
+            if profile_key not in ['tiled', 'compress', 'interleave', 'photometric']:
+                profile_cleaned[profile_key] = profile[profile_key]
+    else:
+        profile_cleaned = profile.copy()
+
+    return profile_cleaned
