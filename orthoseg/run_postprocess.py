@@ -24,9 +24,9 @@ def postprocess_predictions():
     prediction_dirs = sorted(glob.glob(f"{prediction_basedir}*{os.sep}"), reverse=True)
     input_dir = prediction_dirs[0]
 	
-    # Format output dit, partly based on input dir
+    # Format output dir, partly based on input dir
     train_version = input_dir.replace(prediction_basedir, "").split('_')[0]
-    output_vector_name = f"{conf.general['segment_subject']}_{train_version}_{conf.predict['image_layer']}"
+    output_vector_name = f"{conf.general['segment_subject']}_{train_version:02}_{conf.predict['image_layer']}"
     output_dir = os.path.join(
             conf.dirs['output_vector_dir'], output_vector_name)
     output_filepath = os.path.join(
