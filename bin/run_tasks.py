@@ -46,11 +46,14 @@ def run_tasks():
             python_path = r"C:\Tools\anaconda3\envs\orthoseg4\python.exe"
             fullcommand = f"{python_path} {run_info.command} {run_info.argumentstring}"
             returncode = os.system(fullcommand)
-
             if returncode == 0:
                 sendmail(f"Completed task {run_info.command} {run_info.argumentstring}")
             else:
                 raise Exception(f"Error: returncode: {returncode} returned for {fullcommand}")
+            """
+            import run_orthoseg 
+            run_orthoseg.orthoseg(config='topobuildings_1904', action='load_images')
+            """
         except Exception as ex:
             message = f"ERROR in task {run_info.command} {run_info.argumentstring}"
             sendmail(subject=message, body=f"Exception: {ex}")
