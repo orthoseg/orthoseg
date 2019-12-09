@@ -50,7 +50,9 @@ def run_training_session():
     
     # If the training data doesn't exist yet, create it
     # Get the image layer section to use for training
-    train_image_layer = conf.train['image_layer']
+    label_files = conf.train.getdict('label_files_json')
+    first_label_file = list(label_files)[0]
+    train_image_layer = label_files[first_label_file]['image_layer']
     train_projection = conf.image_layers[train_image_layer]['projection']
     label_names_burn_values = conf.train.getdict('label_names_burn_values')
     nb_classes = len(label_names_burn_values)
@@ -67,10 +69,9 @@ def run_training_session():
         logger.info("Prepare train, validation and test data")
         training_dir, training_version = prep.prepare_traindatasets(
                 labellocations_path=conf.files['labellocations_path'],
-                labeldata_path=conf.files['labeldata_path'],
+                label_files=label_files,
                 label_names_burn_values=label_names_burn_values,
                 image_layers=conf.image_layers,
-                default_image_layer=train_image_layer,
                 training_dir=conf.dirs['training_dir'],
                 image_pixel_x_size=conf.train.getfloat('image_pixel_x_size'),
                 image_pixel_y_size=conf.train.getfloat('image_pixel_y_size'),

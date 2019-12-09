@@ -36,11 +36,9 @@ logger = logging.getLogger(__name__)
 #-------------------------------------------------------------
 
 def prepare_traindatasets(
-        labellocations_path: str,
-        labeldata_path: str,
+        label_files: dict,
         label_names_burn_values: dict,
         image_layers: dict,
-        default_image_layer: str,
         training_dir: str,
         image_pixel_x_size: int = 0.25,
         image_pixel_y_size: int = 0.25,
@@ -62,27 +60,28 @@ def prepare_traindatasets(
             dataversion: a version number for the dataset created/found
 
     Args
-        labellocations_path: path to the file with label locations to generate images for
-        labeldata_path: path to file with label data to use for mask images
+        label_files: paths to the files with label data and locations to generate images for
         wms_server_url: WMS server where the images can be fetched from
         wms_layername: layername on the WMS server to use
         output_basedir: the base dir where the train dataset needs to be written to 
 
     """
-    # If the input train data files don't exist
     image_srs_width = math.fabs(image_pixel_width*image_pixel_x_size)   # tile width in units of crs => 500 m
     image_srs_height = math.fabs(image_pixel_height*image_pixel_y_size) # tile height in units of crs => 500 m
-    if(not os.path.exists(labellocations_path)
-       or not os.path.exists(labeldata_path)):
+
+    # If the input train data files don't exist
+    first_label_file = list(label_files)[0]
+    if(not os.path.exists(label_files[first_label_file]['locations_path'])
+       or not os.path.exists(label_files[first_label_file]['data_path'])):
         # Check if input files in exist in v1, and if so, convert to v2
         convert_ok = convert_traindata_v1tov2(
-                labellocations_path, labeldata_path, 
+                label_files[first_label_file]['locations_path'], label_files[first_label_file]['data_path'], 
                 image_pixel_x_size, image_pixel_y_size,
                 image_srs_width, image_srs_height)
 
         # Apparently there wasn't anything to convert, so stop
         if not convert_ok:
-            message = f"Stop: input file(s) don't exist: {labellocations_path} and/or {labeldata_path}"
+            message = f"Stop: input file(s) don't exist: {label_files[first_label_file]['locations_path']} and/or {label_files[first_label_file]['data_path']}"
             raise Exception(message)
 
     # Determine the current data version based on existing output data dir(s),
@@ -109,20 +108,25 @@ def prepare_traindatasets(
         logger.info(output_dir_mostrecent)
         dataversion_mostrecent = int(os.path.basename(output_dir_mostrecent))
         
-        # If the input files didn't change since previous run 
-        # dataset can be reused
-        labellocations_output_mostrecent_path = os.path.join(
-                output_dir_mostrecent, os.path.basename(labellocations_path))
-        labeldata_output_mostrecent_path = os.path.join(
-                output_dir_mostrecent, os.path.basename(labeldata_path))                    
-        if(os.path.exists(labellocations_output_mostrecent_path)
-            and os.path.exists(labeldata_output_mostrecent_path)
-            and geofile_util.cmp(labellocations_path, 
-                                labellocations_output_mostrecent_path)
-            and geofile_util.cmp(labeldata_path, 
-                                labeldata_output_mostrecent_path)):
-            logger.info(f"RETURN: input label files didn't change since last prepare_traindatasets, so no need to recreate")
-            
+        # If none of the input files changed since previous run, reuse dataset
+        reuse = False
+        for label_file_key in label_files:
+            label_file = label_files[label_file_key]
+            reuse = True
+            labellocations_output_mostrecent_path = os.path.join(
+                    output_dir_mostrecent, os.path.basename(label_file['locations_path']))
+            labeldata_output_mostrecent_path = os.path.join(
+                    output_dir_mostrecent, os.path.basename(label_file['data_path']))                    
+            if( not (os.path.exists(labellocations_output_mostrecent_path)
+                and os.path.exists(labeldata_output_mostrecent_path)
+                and geofile_util.cmp(label_file['locations_path'], 
+                                     labellocations_output_mostrecent_path)
+                and geofile_util.cmp(label_file['data_path'], 
+                                     labeldata_output_mostrecent_path))):
+                logger.info(f"RETURN: input label file(s) changed since last prepare_traindatasets, recreate")
+                reuse = False
+                break
+        if reuse == True:
             return (output_dir_mostrecent, dataversion_mostrecent)
         else:
             dataversion_new = dataversion_mostrecent + 1
@@ -133,17 +137,44 @@ def prepare_traindatasets(
         shutil.rmtree(output_tmp_basedir)
     if not os.path.exists(output_tmp_basedir):
         os.makedirs(output_tmp_basedir)
-    
-    # Copy the vector files to the dest dir so we keep knowing which file was
-    # used to create the dataset
-    geofile_util.copy(labellocations_path, output_tmp_basedir)
-    geofile_util.copy(labeldata_path, output_tmp_basedir)
-    
-    # Read data
-    logger.debug(f"Open vector file {labellocations_path}")
-    labellocations_gdf = geofile_util.read_file(labellocations_path)
-    logger.debug(f"Open vector file {labeldata_path}")
-    labeldata_gdf = geofile_util.read_file(labeldata_path)
+
+    # Process all input files
+    labellocations_gdf = None
+    labeldata_gdf = None
+    logger.info(label_files)
+    for label_file_key in label_files:
+        label_file = label_files[label_file_key]
+
+        # Copy the vector files to the dest dir so we keep knowing which files 
+        # were used to create the dataset
+        geofile_util.copy(label_file['locations_path'], output_tmp_basedir)
+        geofile_util.copy(label_file['data_path'], output_tmp_basedir)
+
+        # Read label data and append to general dataframes
+        logger.debug(f"Read label locations from {label_file['locations_path']}")
+        file_labellocations_gdf = geofile_util.read_file(label_file['locations_path'])
+        if file_labellocations_gdf is not None and len(file_labellocations_gdf) > 0:
+            file_labellocations_gdf['image_layer'] = label_file['image_layer']
+            if labellocations_gdf is None:
+                labellocations_gdf = file_labellocations_gdf
+            else:
+                labellocations_gdf = gpd.GeoDataFrame(
+                        pd.concat([labellocations_gdf, file_labellocations_gdf], ignore_index=True),
+                        crs=file_labellocations_gdf.crs)
+        else:
+            logger.warn(f"No label locations data found in {label_file['locations_path']}")
+        logger.debug(f"Read label data from {label_file['data_path']}")
+        file_labeldata_gdf = geofile_util.read_file(label_file['data_path'])
+        if file_labeldata_gdf is not None and len(file_labeldata_gdf) > 0:
+            file_labeldata_gdf['image_layer'] = label_file['image_layer']
+            if labeldata_gdf is None:
+                labeldata_gdf = file_labeldata_gdf
+            else:
+                labeldata_gdf = gpd.GeoDataFrame(
+                        pd.concat([labeldata_gdf, file_labeldata_gdf], ignore_index=True),
+                        crs=file_labeldata_gdf.crs)
+        else:
+            logger.warn(f"No label data found in {label_file['data_path']}")
 
     # Get the srs to use from the input vectors...
     img_srs = labellocations_gdf.crs['init']
@@ -177,7 +208,7 @@ def prepare_traindatasets(
             # Loop trough all locations labels to get an image for each of them
             nb_todo = len(labels_to_use_for_bounds_gdf)
             nb_processed = 0
-            logger.info(f"Get images for {nb_todo} {traindata_type} labels in {labellocations_path}")
+            logger.info(f"Get images for {nb_todo} {traindata_type} labels")
             created_images_gdf = gpd.GeoDataFrame()
             created_images_gdf['geometry'] = None
             start_time = datetime.datetime.now()
@@ -195,21 +226,7 @@ def prepare_traindatasets(
                 xmax = xmin + image_srs_width
                 ymax = ymin + image_srs_height
                 img_bbox = sh_geom.box(xmin, ymin, xmax, ymax)
-                
-                # Skip the bbox if it overlaps with any already created images. 
-                if created_images_gdf.intersects(img_bbox).any():
-                    logger.debug(f"Bounds overlap with already created image, skip: {img_bbox}")
-                    continue
-                else:
-                    created_images_gdf = created_images_gdf.append(
-                            {'geometry': img_bbox}, ignore_index=True)
-
-                # If an image layer is specified, use that layer
-                image_layer = default_image_layer
-                if 'image_layer' in label_tuple._fields:
-                    if(getattr(label_tuple, 'image_layer') is not None 
-                    and getattr(label_tuple, 'image_layer') != ''):
-                        image_layer = getattr(label_tuple, 'image_layer')
+                image_layer = getattr(label_tuple, 'image_layer')
 
                 # If the wms to be used hasn't been initialised yet
                 if image_layer not in wms_servers:
