@@ -63,12 +63,11 @@ def run_training_session():
     # First the "train" training dataset
     force_model_traindata_version = conf.model.getint('force_model_traindata_version')
     if force_model_traindata_version > -1:
-        training_dir = f"{conf.dirs['training_train_basedir']}{os.sep}{force_model_traindata_version:02d}"
+        training_dir = f"{conf.dirs['training_train_basedir']}/{force_model_traindata_version:02d}"
         training_version = force_model_traindata_version
     else:
         logger.info("Prepare train, validation and test data")
         training_dir, training_version = prep.prepare_traindatasets(
-                labellocations_path=conf.files['labellocations_path'],
                 label_files=label_files,
                 label_names_burn_values=label_names_burn_values,
                 image_layers=conf.image_layers,

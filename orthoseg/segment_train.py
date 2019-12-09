@@ -127,7 +127,7 @@ def train(
     # Get the max epoch number from the log file if it exists...
     start_epoch = 0
     start_learning_rate = 1e-4  # Best set to 0.0001 to start (1e-3 is not ok)
-    csv_log_filepath = f"{model_save_dir}{os.sep}{model_save_base_filename}" + '_log.csv'
+    csv_log_filepath = f"{model_save_dir}/{model_save_base_filename}" + '_log.csv'
     if os.path.exists(csv_log_filepath) and os.path.getsize(csv_log_filepath) > 0:
         logger.info(f"train_log csv exists: {csv_log_filepath}")
         if not model_preload_filepath:
@@ -242,7 +242,7 @@ def train(
             model_template_for_save=model_template_for_save)
 
     # Callbacks for logging
-    tensorboard_log_dir = f"{model_save_dir}{os.sep}{model_save_base_filename}_tensorboard_log"
+    tensorboard_log_dir = f"{model_save_dir}/{model_save_base_filename}_tensorboard_log"
     tensorboard_logger = kr.callbacks.TensorBoard(log_dir=tensorboard_log_dir)
     csv_logger = kr.callbacks.CSVLogger(
             csv_log_filepath, append=True, separator=';')
@@ -256,14 +256,14 @@ def train(
     input_ext = ['.tif', '.jpg', '.png']
 
     # Calculate the size of the input datasets
-    #train_dataset_size = len(glob.glob(f"{traindata_dir}{os.sep}{image_subdir}{os.sep}*.*"))
+    #train_dataset_size = len(glob.glob(f"{traindata_dir}/{image_subdir}/*.*"))
     train_dataset_size = 0
     for input_ext_cur in input_ext:
-        train_dataset_size += len(glob.glob(f"{traindata_dir}{os.sep}{image_subdir}{os.sep}**{os.sep}*{input_ext_cur}", recursive=True))
-    #validation_dataset_size = len(glob.glob(f"{validationdata_dir}{os.sep}{image_subdir}{os.sep}*.*"))
+        train_dataset_size += len(glob.glob(f"{traindata_dir}/{image_subdir}/**/*{input_ext_cur}", recursive=True))
+    #validation_dataset_size = len(glob.glob(f"{validationdata_dir}/{image_subdir}/*.*"))
     validation_dataset_size = 0    
     for input_ext_cur in input_ext:
-        validation_dataset_size += len(glob.glob(f"{validationdata_dir}{os.sep}{image_subdir}{os.sep}**{os.sep}*{input_ext_cur}", recursive=True))
+        validation_dataset_size += len(glob.glob(f"{validationdata_dir}/{image_subdir}/**/*{input_ext_cur}", recursive=True))
     
     # Calculate the number of steps within an epoch
     # Remark: number of steps per epoch should be at least 1, even if nb samples < batch size...
@@ -281,7 +281,8 @@ def train(
                 validation_steps=validation_steps_per_epoch,       # Number of items in validation/batch_size
                 callbacks=[model_checkpoint_saver, 
                            reduce_lr, early_stopping,
-                           tensorboard_logger, csv_logger],
+                           #tensorboard_logger,                    # TODO: Gives an error (on windows) since I changed using / instead of os.sep
+                           csv_logger],
                 #class_weight={'0': 1, '1': 10, '2': 2},
                 initial_epoch=start_epoch)
     finally:        
@@ -356,14 +357,14 @@ def create_train_generator(
         if save_to_dir is not None:
             def rename_prefix_to_suffix(save_dir: str, save_prefix: str):
                 """ Rename file so the filename prefix is moved to being a suffix  """
-                glob_search = f"{save_dir}{os.sep}{save_prefix}_*.png"
+                glob_search = f"{save_dir}/{save_prefix}_*.png"
                 paths = glob.glob(glob_search)
                 for path in paths:
                     dir, filename = os.path.split(path)
                     filename_noext, ext = os.path.splitext(filename)
                     rename_filename_noext = f"{filename_noext.replace(save_prefix + '_', '')}_{save_prefix}"
                     for index in range(1, 999):
-                        rename_path = f"{dir}{os.sep}{rename_filename_noext}_{index}{ext}"
+                        rename_path = f"{dir}/{rename_filename_noext}_{index}{ext}"
                         # If the path to rename to exists already, add an index to keep file name unique
                         if not os.path.exists(rename_path):
                             os.rename(path, rename_path)

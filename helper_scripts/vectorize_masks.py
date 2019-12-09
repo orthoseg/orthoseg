@@ -28,7 +28,7 @@ def vectorize_masks(input_image_dir: str,
     image_filepaths = []
     input_ext = ['.tif', '.jpg']
     for input_ext_cur in input_ext:
-        image_filepaths.extend(glob.glob(f"{input_image_dir}{os.sep}**{os.sep}*{input_ext_cur}", recursive=True))
+        image_filepaths.extend(glob.glob(f"{input_image_dir}/**/*{input_ext_cur}", recursive=True))
     nb_files = len(image_filepaths)
     logger.info(f"Found {nb_files} {input_ext} masks to vectorize in {input_image_dir}")
 

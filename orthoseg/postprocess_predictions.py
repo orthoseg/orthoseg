@@ -234,7 +234,7 @@ def polygonize_prediction_files(
 
     # Get list of all files to process...
     logger.info(f"List all files to be merged in {input_dir}")
-    in_filepaths = glob.glob(f"{input_dir}{os.sep}**{os.sep}*_pred*{input_ext}", recursive=True)
+    in_filepaths = glob.glob(f"{input_dir}/**/*_pred*{input_ext}", recursive=True)
 
     # Check if files were found...
     if len(in_filepaths) == 0:
@@ -444,7 +444,7 @@ def postprocess_for_evaluation(
             pred_prefix_str = f"{similarity:0.3f}_"
             
             # Copy mask file if the file doesn't exist yet
-            mask_copy_dest_filepath = f"{output_dir}{os.sep}{pred_prefix_str}{image_filename_noext}_mask.tif"
+            mask_copy_dest_filepath = f"{output_dir}/{pred_prefix_str}{image_filename_noext}_mask{mask_ext}"
             if not os.path.exists(mask_copy_dest_filepath):
                 shutil.copyfile(mask_filepath, mask_copy_dest_filepath)
 
@@ -471,7 +471,7 @@ def postprocess_for_evaluation(
                 #continue
         
         # Copy the input image if it doesn't exist yet in output path
-        output_basefilepath = f"{output_dir}{os.sep}{pred_prefix_str}{image_filename_noext}"
+        output_basefilepath = f"{output_dir}/{pred_prefix_str}{image_filename_noext}{output_suffix}"
         image_dest_filepath = f"{output_basefilepath}{image_ext}"
         if not os.path.exists(image_dest_filepath):
             shutil.copyfile(image_filepath, image_dest_filepath)

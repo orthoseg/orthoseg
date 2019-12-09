@@ -103,7 +103,7 @@ def predict_dir(
     image_filepaths = []
     input_ext = ['.png', '.tif', '.jpg']
     for input_ext_cur in input_ext:
-        image_filepaths.extend(glob.glob(f"{input_image_dir}{os.sep}**{os.sep}*{input_ext_cur}", recursive=True))
+        image_filepaths.extend(glob.glob(f"{input_image_dir}/**/*{input_ext_cur}", recursive=True))
     nb_todo = len(image_filepaths)
     logger.info(f"Found {nb_todo} {input_ext} images to predict on in {input_image_dir}")
     
@@ -671,7 +671,7 @@ def save_prediction_uint8(
     # Prepare the filepath for the output
     _, image_filename = os.path.split(image_filepath)
     image_filename_noext, _ = os.path.splitext(image_filename)
-    output_filepath = f"{output_dir}{os.sep}{image_filename_noext}{output_suffix}_pred.tif"
+    output_filepath = f"{output_dir}/{image_filename_noext}{output_suffix}_pred.tif"
                         
     # Write prediction to file
     logger.debug("Save +- original prediction")

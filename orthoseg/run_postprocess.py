@@ -19,7 +19,7 @@ def postprocess_predictions():
     ##### Init #####
     # Input dir = the "most recent" prediction result dir for this subject 
     prediction_basedir = f"{conf.dirs['predict_image_output_basedir']}_{conf.general['segment_subject']}_"
-    prediction_dirs = sorted(glob.glob(f"{prediction_basedir}*{os.sep}"), reverse=True)
+    prediction_dirs = sorted(glob.glob(f"{prediction_basedir}*/"), reverse=True)
     input_dir = prediction_dirs[0]
 	
     # Format output dir, partly based on input dir

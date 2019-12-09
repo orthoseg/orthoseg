@@ -86,12 +86,12 @@ def prepare_traindatasets(
 
     # Determine the current data version based on existing output data dir(s),
     # but ignore dirs ending on _ERROR
-    output_dirs = glob.glob(f"{training_dir}{os.sep}[0-9]*{os.sep}")
-    output_dirs = [output_dir.rstrip(f"{os.sep}") for output_dir in output_dirs]
+    output_dirs = glob.glob(f"{training_dir}/[0-9]*/")
+    output_dirs = [output_dir.rstrip(f"/{os.sep}") for output_dir in output_dirs]
     output_dirs = [output_dir for output_dir in output_dirs if output_dir.endswith('_BUSY') is False]
     if len(output_dirs) == 0:
-        output_legacy_train_dirs = glob.glob(f"{training_dir}{os.sep}train_[0-9]*{os.sep}")
-        output_legacy_train_dirs = [output_dir.rstrip(f"{os.sep}") for output_dir in output_legacy_train_dirs]
+        output_legacy_train_dirs = glob.glob(f"{training_dir}/train_[0-9]*/")
+        output_legacy_train_dirs = [output_dir.rstrip(f"/{os.sep}") for output_dir in output_legacy_train_dirs]
         output_legacy_train_dirs = [output_dir for output_dir in output_legacy_train_dirs if output_dir.endswith('_BUSY') is False]
         if len(output_legacy_train_dirs) == 0:
             dataversion_new = 1
@@ -132,7 +132,7 @@ def prepare_traindatasets(
             dataversion_new = dataversion_mostrecent + 1
     
     # Prepare the output basedir...
-    output_tmp_basedir = f"{training_dir}{os.sep}{dataversion_new:02d}_BUSY"
+    output_tmp_basedir = f"{training_dir}/{dataversion_new:02d}_BUSY"
     if os.path.exists(output_tmp_basedir):
         shutil.rmtree(output_tmp_basedir)
     if not os.path.exists(output_tmp_basedir):
@@ -190,7 +190,7 @@ def prepare_traindatasets(
     for traindata_type in ['train', 'validation', 'test']:
                    
         # Create the output dir's if they don't exist yet...
-        output_tmp_dir = f"{output_tmp_basedir}{os.sep}{traindata_type}"
+        output_tmp_dir = f"{output_tmp_basedir}/{traindata_type}"
         output_tmp_image_dir = os.path.join(output_tmp_dir, 'image')
         output_tmp_mask_dir = os.path.join(output_tmp_dir, 'mask')
 
@@ -278,7 +278,7 @@ def prepare_traindatasets(
             raise Exception(message) from ex
 
     # If everything went fine, rename output_tmp_dir to the final output_dir
-    output_basedir = f"{training_dir}{os.sep}{dataversion_new:02d}"
+    output_basedir = f"{training_dir}/{dataversion_new:02d}"
     os.rename(output_tmp_basedir, output_basedir)
 
     return (output_basedir, dataversion_new)
@@ -419,7 +419,7 @@ def create_masks_for_images(
     labels_to_burn_gdf = input_label_gdf[input_label_gdf['burninmask'] == 1]
     
     # Loop trough input images
-    input_image_filepaths = glob.glob(f"{input_image_dir}{os.sep}*.tif")
+    input_image_filepaths = glob.glob(f"{input_image_dir}/*.tif")
     logger.info(f"process {len(input_image_filepaths)} input images")
     for input_image_filepath in input_image_filepaths:
         _, input_image_filename = os.path.split(input_image_filepath)

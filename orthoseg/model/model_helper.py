@@ -154,9 +154,9 @@ def get_models(model_dir: str,
 
     # glob search string    
     if model_base_filename is not None:
-        model_weight_filepaths = glob.glob(f"{model_dir}{os.sep}{model_base_filename}_*.hdf5")
+        model_weight_filepaths = glob.glob(f"{model_dir}/{model_base_filename}_*.hdf5")
     else:
-        model_weight_filepaths = glob.glob(f"{model_dir}{os.sep}*.hdf5")
+        model_weight_filepaths = glob.glob(f"{model_dir}/*.hdf5")
 
     # Loop through all models and extract necessary info...
     model_info_list = []
