@@ -132,7 +132,7 @@ def run_training_session():
             logger.info("Model weights loaded")
             '''
             logger.info(f"Load model + weights from {best_model_curr['filepath']}")    
-            model = mf.load_model(best_model_curr['filepath'])            
+            model = mf.load_model(best_model_curr['filepath'], compile=False)            
             logger.info("Loaded model + weights")
 
             # Prepare output subdir to be used for predictions
@@ -199,7 +199,7 @@ def run_training_session():
     logger.info("Loaded model weights")
     '''
     logger.info(f"Load model + weights from {best_model['filepath']}")    
-    model = mf.load_model(best_model['filepath'])            
+    model = mf.load_model(best_model['filepath'], compile=False)            
     logger.info("Loaded model + weights")
     
     # Prepare output subdir to be used for predictions

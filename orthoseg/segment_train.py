@@ -46,6 +46,7 @@ def train(
         mask_augment_dict: dict, 
         model_preload_filepath: str = None,
         nb_classes: int = 1,
+        class_weights: [] = None,
         nb_channels: int = 3,
         image_width: int = 512,
         image_height: int = 512,
@@ -87,12 +88,18 @@ def train(
                 and available memory on you GPU.
         nb_epoch: maximum number of epochs to train
     """     
+    ##### Some checks on the input parameters #####
+    if(nb_classes > 1 
+       and class_weights is not None
+       and nb_classes != len(class_weights)):
+            raise Exception(f"The number of class weight ({class_weights}) should equal the number of classes ({nb_classes})!")
+
+    ##### Init #####
     # These are the augmentations that will be applied to the input training images/masks
     # Remark: fill_mode + cval are defined as they are so missing pixels after eg. rotation
     #         are filled with 0, and so the mask will take care that they are +- ignored.
 
     # Create the train generator
-    #save_augmented_subdir = 'augmented'            
     train_gen = create_train_generator(
             input_data_dir=traindata_dir,
             image_subdir=image_subdir, 
@@ -100,7 +107,8 @@ def train(
             image_augment_dict=image_augment_dict, 
             mask_augment_dict=mask_augment_dict, 
             batch_size=batch_size,
-            target_size=(image_width, image_height), nb_classes=nb_classes,
+            target_size=(image_width, image_height), 
+            nb_classes=nb_classes, 
             save_to_subdir=save_augmented_subdir, seed=2)
 
     # Create validation generator
@@ -112,7 +120,8 @@ def train(
             image_augment_dict=validation_augment_dict,
             mask_augment_dict=validation_augment_dict, 
             batch_size=batch_size,
-            target_size=(image_width, image_height), nb_classes=nb_classes,
+            target_size=(image_width, image_height), 
+            nb_classes=nb_classes, 
             save_to_subdir=save_augmented_subdir, seed=3)
 
     # Get the max epoch number from the log file if it exists...
@@ -197,11 +206,18 @@ def train(
     if not model_preload_filepath:
         optimizer = kr.optimizers.Adam(lr=start_learning_rate)
         if model_activation == 'softmax':
-            #loss = 'categorical_crossentropy' 
-            loss = 'sparse_categorical_crossentropy' 
+            #loss = 'categorical_crossentropy'
+            #loss = 'sparse_categorical_crossentropy' 
+            #loss = 'bcedice'
+            if class_weights is not None: 
+                loss = 'weighted_categorical_crossentropy'
+            else:
+                loss = 'categorical_crossentropy'
         else:
-            loss = 'binary_crossentropy'   
-        model_for_train = mf.compile_model(model=model_for_train, optimizer=optimizer, loss=loss)
+            loss = 'binary_crossentropy' 
+        logger.info(f"Compile model with loss: {loss}, class_weights: {class_weights}")
+        model_for_train = mf.compile_model(
+                model=model_for_train, optimizer=optimizer, loss=loss, class_weights=class_weights)
     
     # Define some callbacks for the training
     # Reduce the learning rate if the loss doesn't improve anymore
@@ -266,6 +282,7 @@ def train(
                 callbacks=[model_checkpoint_saver, 
                            reduce_lr, early_stopping,
                            tensorboard_logger, csv_logger],
+                #class_weight={'0': 1, '1': 10, '2': 2},
                 initial_epoch=start_epoch)
     finally:        
         # Release the memory from the GPU...
@@ -359,9 +376,9 @@ def create_train_generator(
             rename_prefix_to_suffix(save_to_dir, image_save_prefix)
 
         # If loss is categorical_crossentropy -> one-hot encode masks
-        #if False:
-        #    mask = kr.utils.to_categorical(mask, nb_classes)
-        yield (image, mask)    
+        if nb_classes > 1:
+            mask = kr.utils.to_categorical(mask, nb_classes)
+        yield (image, mask)
     
 # If the script is ran directly...
 if __name__ == '__main__':

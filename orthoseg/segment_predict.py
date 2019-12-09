@@ -599,6 +599,7 @@ def save_prediction(
                 image_pred_filepath=image_pred_filepath,
                 image_pred_uint8_cleaned_bin=image_pred_uint8_cleaned_bin,
                 output_dir=output_dir,
+                output_suffix=output_suffix,
                 input_image_dir=input_image_dir,
                 input_mask_dir=input_mask_dir,
                 border_pixels_to_ignore=border_pixels_to_ignore,

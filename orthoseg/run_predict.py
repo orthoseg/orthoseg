@@ -77,7 +77,7 @@ def run_prediction():
     logger.info("Model weights loaded")    
     '''
     logger.info(f"Load model + weights from {best_model['filepath']}")    
-    model = mf.load_model(best_model['filepath'])            
+    model = mf.load_model(best_model['filepath'], compile=False)            
     logger.info("Loaded model + weights")
     '''
     logger.info("Now save again as savedmodel")

@@ -335,6 +335,7 @@ def convert_traindata_v1tov2(
     # TODO: Move v1 files to archive dir
     return True
 
+''' Not maintained!
 def create_masks_for_images(
         input_vector_label_filepath: str,
         input_image_dir: str,
@@ -413,9 +414,9 @@ def create_masks_for_images(
         _create_mask(
                 input_image_filepath=image_filepath,
                 output_mask_filepath=mask_filepath,
-                input_vector_label_list=labels_to_burn_gdf.geometry,
-                burn_value=burn_value,
+                labels_to_burn_gdf=labels_to_burn_gdf,
                 force=force)
+'''
 
 def _create_mask(
         input_image_filepath: str,
@@ -423,10 +424,8 @@ def _create_mask(
         labels_to_burn_gdf: gpd.geodataframe,
         nb_classes: int = 1,
         output_imagecopy_filepath: str = None,
-        burn_value: int = 255,
         minimum_pct_labeled: float = 0.0,
         force: bool = False) -> bool:
-    # TODO: only supports one class at the moment.
 
     # If file exists already and force is False... stop.
     if(force is False
@@ -434,11 +433,9 @@ def _create_mask(
         logger.debug(f"Output file already exist, and force is False, return: {output_mask_filepath}")
         return
 
-    logger.info(f"Create mask to {output_mask_filepath}")
-
     # Create a mask corresponding with the image file
     # First read the properties of the input image to copy them for the output
-    logger.debug("Create mask and write to file")
+    logger.debug(f"Create mask to {output_mask_filepath}")
     with rio.open(input_image_filepath) as image_ds:
         image_input_profile = image_ds.profile
         image_transform_affine = image_ds.transform
@@ -475,6 +472,7 @@ def _create_mask(
             return False
 
     # Write the labeled mask
+    image_output_profile = ows_util.get_cleaned_write_profile(image_output_profile)
     with rio.open(output_mask_filepath, 'w', **image_output_profile) as mask_ds:
         mask_ds.write(mask_arr, 1)
         

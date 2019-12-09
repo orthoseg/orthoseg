@@ -290,14 +290,15 @@ def polygonize_prediction_files(
                 except Exception as ex:
                     logger.exception(f"Error reading {future_to_filepath[future]}")
                 finally:
-                    nb_geoms_ready_to_write = len(geoms_gdf)
+                    nb_geoms_ready_to_write = 0
+                    if geoms_gdf is not None:
+                        nb_geoms_ready_to_write = len(geoms_gdf)
                     if nb_files_done%100 == 0:
                         logger.debug(f"{nb_files_done} of {nb_files} processed ({(nb_files_done*100/nb_files):0.0f}%), {nb_geoms_ready_to_write} ready to write")
             
                 # If all files are treated or enough geoms are read, clean + write
-                if(geoms_gdf is not None 
-                    and nb_geoms_ready_to_write > 0
-                    and (nb_files_done == (nb_files-1)
+                if(nb_geoms_ready_to_write > 0
+                   and (nb_files_done == (nb_files-1)
                         or nb_geoms_ready_to_write > 10000)):
                     try:
                         # If output file isn't created yet, do so...
@@ -352,6 +353,7 @@ def postprocess_for_evaluation(
         image_pred_filepath: str,
         image_pred_uint8_cleaned_bin: np.array,
         output_dir: str,
+        output_suffix: str = None,
         input_image_dir: str = None,
         input_mask_dir: str = None,
         border_pixels_to_ignore: int = 0,
@@ -411,9 +413,10 @@ def postprocess_for_evaluation(
         if input_mask_dir and os.path.exists(input_mask_dir):
             # Read mask file and get all needed info from it...
             mask_filepath = image_filepath.replace(input_image_dir, input_mask_dir)
+            mask_filepath_noext, mask_ext = os.path.splitext(mask_filepath)
+                
             # Check if this file exists, if not, look for similar files
             if not os.path.exists(mask_filepath):
-                mask_filepath_noext = os.path.splitext(mask_filepath)[0]
                 files = glob.glob(mask_filepath_noext + '*')
                 if len(files) == 1:
                     mask_filepath = files[0]
@@ -437,7 +440,7 @@ def postprocess_for_evaluation(
             #similarity = jaccard_similarity(mask_arr, image_pred)
             # Use accuracy as similarity... is more practical than jaccard
             similarity = np.equal(mask_arr, image_pred_uint8_cleaned_bin
-                                    ).sum()/image_pred_uint8_cleaned_bin.size
+                                 ).sum()/image_pred_uint8_cleaned_bin.size
             pred_prefix_str = f"{similarity:0.3f}_"
             
             # Copy mask file if the file doesn't exist yet

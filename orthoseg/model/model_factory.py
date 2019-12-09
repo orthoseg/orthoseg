@@ -122,12 +122,14 @@ def compile_model(
         model,
         optimizer,
         loss: str,
-        metrics: [] = None):
+        metrics: [] = None,
+        sample_weight_mode: str = None,
+        class_weights: [] = None):
 
     # If no merics specified, use default ones
     if metrics is None:
         metrics = []
-        if loss == 'categorical_crossentropy':
+        if loss in ['categorical_crossentropy', 'weighted_categorical_crossentropy']:
             metrics.append('categorical_accuracy')
         elif loss == 'sparse_categorical_crossentropy':
             #metrics.append('sparse_categorical_accuracy')
@@ -146,14 +148,21 @@ def compile_model(
         loss_func = dice_coef_loss_bce
     elif loss == 'jaccard':
         loss_func = sm.losses.jaccard_loss
+    elif loss == 'weighted_categorical_crossentropy':
+        if class_weights is None: 
+            raise Exception(f"With loss == {loss}, class_weights cannot be None!")
+        loss_func = weighted_categorical_crossentropy(class_weights)
     else:
         loss_func = loss
 
-    model.compile(optimizer=optimizer, loss=loss_func, metrics=metrics)
+    model.compile(optimizer=optimizer, loss=loss_func, metrics=metrics,
+            sample_weight_mode=sample_weight_mode)
 
     return model
 
-def load_model(model_to_use_filepath: str):
+def load_model(
+        model_to_use_filepath: str, 
+        compile: bool = True):
     iou_score = sm.metrics.iou_score
     
     model = kr.models.load_model(
@@ -162,7 +171,9 @@ def load_model(model_to_use_filepath: str):
                             'jaccard_coef_flat': jaccard_coef_flat,
                             'jaccard_coef_round': jaccard_coef_round,
                             'dice_coef': dice_coef,
-                            'iou_score': iou_score})
+                            'iou_score': iou_score,
+                            'weighted_categorical_crossentropy': weighted_categorical_crossentropy},
+            compile=compile)
 
     return model
 
@@ -182,6 +193,30 @@ def check_image_size(
 #------------------------------------------
 # Loss functions
 #------------------------------------------
+
+def weighted_categorical_crossentropy(weights):
+    """ weighted_categorical_crossentropy
+
+        Args:
+            * weights<ktensor|nparray|list>: crossentropy weights
+        Returns:
+            * weighted categorical crossentropy function
+    """
+    if isinstance(weights,list) or isinstance(weights, np.ndarray):
+        weights=kr.backend.variable(weights)
+
+    def loss(target,output,from_logits=False):
+        if not from_logits:
+            output /= tf.reduce_sum(output,
+                                    len(output.get_shape()) - 1,
+                                    True)
+            _epsilon = tf.convert_to_tensor(kr.backend.epsilon(), dtype=output.dtype.base_dtype)
+            output = tf.clip_by_value(output, _epsilon, 1. - _epsilon)
+            weighted_losses = target * tf.log(output) * weights
+            return - tf.reduce_sum(weighted_losses,len(output.get_shape()) - 1)
+        else:
+            raise ValueError('WeightedCategoricalCrossentropy: not valid with logits')
+    return loss
 
 def dice_coef_loss(y_true, y_pred):
     return 1 - dice_coef(y_true, y_pred)
