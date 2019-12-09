@@ -7,7 +7,8 @@ import logging
 import os
 
 #os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-import keras as kr
+from tensorflow import keras as kr
+#import keras as kr
 
 from orthoseg.helpers import config_helper as conf
 from orthoseg.helpers import log_helper

@@ -41,9 +41,10 @@ def run_tasks():
         # Now start the appropriate task 
         try:
             # TODO: make the running script cancellable!
+            # TODO: doh!!!
             # Remark: this path will depend on the python environment the task 
             # needs to run in
-            python_path = r"C:\Tools\anaconda3\envs\orthoseg4\python.exe"
+            python_path = r"C:\Tools\anaconda3\envs\orthoseg\python.exe"
             fullcommand = f"{python_path} {run_info.command} {run_info.argumentstring}"
             returncode = os.system(fullcommand)
             if returncode == 0:

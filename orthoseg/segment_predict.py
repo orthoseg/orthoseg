@@ -11,7 +11,8 @@ import datetime
 import time
 import math
 
-import keras as kr
+from tensorflow import keras as kr
+#import keras as kr
 import numpy as np
 import pandas as pd
 import rasterio as rio

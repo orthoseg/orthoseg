@@ -7,7 +7,8 @@ import logging
 import os
 
 #os.environ["CUDA_VISIBLE_DEVICES"] = "-1" # Disable using GPU
-import keras as kr
+from tensorflow import keras as kr
+#import keras as kr
 import tensorflow as tf
 
 from orthoseg.helpers import config_helper as conf
@@ -95,7 +96,7 @@ def run_prediction():
     '''
 
     # Prepare the model for predicting
-    nb_gpu = len(kr.backend.tensorflow_backend._get_available_gpus())
+    nb_gpu = len(tf.config.experimental.list_physical_devices('GPU'))
     batch_size = conf.predict.getint('batch_size')
     # TODO: because of bug in tensorflow 1.14, multi GPU doesn't work (this way), 
     # so always use one

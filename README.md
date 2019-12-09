@@ -18,8 +18,7 @@ https://conda.io/docs/user-guide/install/index.html
 Once you have anaconda installed, you can open an anaconda terminal window, create a new conda
 environment + install needed dependencies like this:
 ```
-conda create --name orthoseg python=3.6 keras-gpu tensorflow-gpu pillow rasterio geopandas owslib
+conda create --name orthoseg tensorflow-gpu pillow rasterio geopandas owslib
 conda activate orthoseg
 pip install segmentation-models   # No conda package available
 ```
-Remark: at time of writing, keras doesn't support 3.7 yet.

@@ -11,7 +11,9 @@ import datetime
 import time
 import math
 
-import keras as kr
+import tensorflow as tf
+from tensorflow import keras as kr
+#import keras as kr
 
 import numpy as np
 import pandas as pd
@@ -174,7 +176,7 @@ def train(
         model = mf.load_model(model_preload_filepath)
 
     # Now prepare the model for training
-    nb_gpu = len(kr.backend.tensorflow_backend._get_available_gpus())
+    nb_gpu = len(tf.config.experimental.list_physical_devices('GPU'))
 
     # TODO: because of bug in tensorflow 1.14, multi GPU doesn't work (this way),
     # so always use standard model

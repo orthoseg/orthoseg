@@ -8,7 +8,8 @@ import glob
 import logging
 
 import pandas as pd 
-import keras as kr
+from tensorflow import keras as kr
+#import keras as kr
 
 #-------------------------------------------------------------
 # First define/init some general variables/constants

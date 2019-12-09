@@ -13,7 +13,8 @@ TODO: review code and cleanup due to introduction of model factory
 """
 
 import logging
-import keras as kr
+from tensorflow import keras as kr
+#import keras as kr
 import numpy as np
 
 #-------------------------------------------------------------

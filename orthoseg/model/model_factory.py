@@ -11,7 +11,10 @@ https://github.com/qubvel/segmentation_models
 
 import logging
 
-import keras as kr
+from tensorflow import keras as kr
+#import keras as kr
+import numpy as np
+import tensorflow as tf
 import segmentation_models as sm
 
 #-------------------------------------------------------------
