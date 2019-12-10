@@ -7,9 +7,9 @@ import logging
 import os
 
 #os.environ["CUDA_VISIBLE_DEVICES"] = "-1" # Disable using GPU
-from tensorflow import keras as kr
-#import keras as kr
 import tensorflow as tf
+from tensorflow import keras as kr
+#import keras as kr      
 
 from orthoseg.helpers import config_helper as conf
 from orthoseg.helpers import log_helper
@@ -76,24 +76,43 @@ def run_prediction():
     model.load_weights(model_weights_filepath)
     logger.info("Model weights loaded")    
     '''
-    logger.info(f"Load model + weights from {best_model['filepath']}")    
-    model = mf.load_model(best_model['filepath'], compile=False)            
-    logger.info("Loaded model + weights")
-    '''
-    logger.info("Now save again as savedmodel")
-    savedmodel_dir, _ = os.path.splitext(best_model['filepath'])
-    tf.saved_model.save(model, savedmodel_dir)
-    del model
-    from tf.python.compiler.tensorrt import trt_convert as trt
-    converter = trt.TrtGraphConverter(
-            input_saved_model_dir=savedmodel_dir,
-            is_dynamic_op=True,
-            precision_mode='FP16')
-    converter.convert()
-    savedmodel_optim_dir=f"{savedmodel_dir}_optim"
-    converter.save(savedmodel_optim_dir)
-    model = tf.keras.models.load_model(savedmodel_optim_dir)
-    '''
+    
+    # Try optimizing model with tensorrt
+    try:
+        # Try import
+        from tensorflow.python.compiler.tensorrt import trt_convert as trt
+
+        # Import didn't fail, so optimize model
+        logger.info('Tensorrt is available, so use optimized model')
+        savedmodel_dir, _ = os.path.splitext(best_model['filepath'])
+        savedmodel_optim_dir = f"{savedmodel_dir}_optim"
+        if not os.path.exists(savedmodel_optim_dir):
+            # If base model not yet in savedmodel format
+            if not os.path.exists(savedmodel_dir):
+                logger.info(f"SavedModel format not yet available, so load model + weights from {best_model['filepath']}")
+                model = mf.load_model(best_model['filepath'], compile=False)
+                # tensorflow expects a proper windows path on windows...
+                from pathlib import Path
+                savedmodel_dir = Path(os.path.splitext(best_model['filepath'])[0])
+                logger.info(f"Now save again as savedmodel to {savedmodel_dir}")
+                tf.saved_model.save(model, str(savedmodel_dir))
+                del model
+
+            # Now optimize model
+            logger.info(f"Optimize + save model to {savedmodel_optim_dir}")
+            converter = trt.TrtGraphConverterV2(
+                    input_saved_model_dir=savedmodel_dir,
+                    is_dynamic_op=True,
+                    precision_mode='FP16')
+            converter.convert()
+            converter.save(savedmodel_optim_dir)
+        
+        logger.info(f"Load optimized model + weights from {savedmodel_optim_dir}")
+        model = tf.keras.models.load_model(savedmodel_optim_dir)
+
+    except ImportError as e:
+        logger.info('Tensorrt is not available, so load unoptimized model')
+        model = mf.load_model(best_model['filepath'], compile=False)
 
     # Prepare the model for predicting
     nb_gpu = len(tf.config.experimental.list_physical_devices('GPU'))
@@ -102,15 +121,15 @@ def run_prediction():
     # so always use one
     if nb_gpu <= 1:
         model_for_predict = model
-        logger.info(f"Train using single GPU or CPU, with nb_gpu: {nb_gpu}")
+        logger.info(f"Predict using single GPU or CPU, with nb_gpu: {nb_gpu}")
     else:
         # If multiple GPU's available, create multi_gpu_model
         try:
             model_for_predict = kr.utils.multi_gpu_model(model, gpus=nb_gpu, cpu_relocation=True)
-            logger.info(f"Train using multiple GPUs: {nb_gpu}, batch size becomes: {batch_size*nb_gpu}")
+            logger.info(f"Predict using multiple GPUs: {nb_gpu}, batch size becomes: {batch_size*nb_gpu}")
             batch_size *= nb_gpu
         except ValueError:
-            logger.info("Train using single GPU or CPU")
+            logger.info("Predict using single GPU or CPU")
 
     # Predict for entire dataset
     image_layer = conf.image_layers[conf.predict['image_layer']]
