@@ -1,8 +1,5 @@
 # -*- coding: utf-8 -*-
 """
-Created on Sat Jan 12 13:05:32 2019
-
-@author: Pieter Roggemans
 """
 
 import shutil

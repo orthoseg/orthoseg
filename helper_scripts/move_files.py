@@ -1,8 +1,5 @@
 # -*- coding: utf-8 -*-
 """
-Created on Wed Sep 26 12:26:21 2018
-
-@author: pierog
 """
 
 import os

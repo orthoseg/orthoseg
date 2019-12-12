@@ -5,8 +5,6 @@ containing mask files.
 
 If you follow the normal procedure to build up your training, validation
 and testing datasets you don't need this!
-
-@author: Pieter Roggemans
 """
 
 import os
