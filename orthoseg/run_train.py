@@ -50,7 +50,7 @@ def run_training_session():
     
     # If the training data doesn't exist yet, create it
     # Get the image layer section to use for training
-    label_files = conf.train.getdict('label_files_json')
+    label_files = conf.train.getdict('label_datasources')
     first_label_file = list(label_files)[0]
     train_image_layer = label_files[first_label_file]['image_layer']
     train_projection = conf.image_layers[train_image_layer]['projection']
@@ -131,33 +131,36 @@ def run_training_session():
             model.load_weights(best_model_curr['filepath'])
             logger.info("Model weights loaded")
             '''
-            logger.info(f"Load model + weights from {best_model_curr['filepath']}")    
-            model = mf.load_model(best_model_curr['filepath'], compile=False)            
-            logger.info("Loaded model + weights")
+            try:
+                logger.info(f"Load model + weights from {best_model_curr['filepath']}")    
+                model = mf.load_model(best_model_curr['filepath'], compile=False)            
+                logger.info("Loaded model + weights")
 
-            # Prepare output subdir to be used for predictions
-            predict_out_subdir, _ = os.path.splitext(best_model_curr['filename'])
-            
-            # Predict training dataset
-            segment_predict.predict_dir(
-                    model=model,
-                    input_image_dir=os.path.join(traindata_dir, 'image'),
-                    output_base_dir=os.path.join(traindata_dir, predict_out_subdir),
-                    projection_if_missing=train_projection,
-                    input_mask_dir=os.path.join(traindata_dir, 'mask'),
-                    batch_size=int(conf.train['batch_size_predict']), 
-                    evaluate_mode=True)
+                # Prepare output subdir to be used for predictions
+                predict_out_subdir, _ = os.path.splitext(best_model_curr['filename'])
                 
-            # Predict validation dataset
-            segment_predict.predict_dir(
-                    model=model,
-                    input_image_dir=os.path.join(validationdata_dir, 'image'),
-                    output_base_dir=os.path.join(validationdata_dir, predict_out_subdir),
-                    projection_if_missing=train_projection,
-                    input_mask_dir=os.path.join(validationdata_dir, 'mask'),
-                    batch_size=int(conf.train['batch_size_predict']), 
-                    evaluate_mode=True)
-            del model
+                # Predict training dataset
+                segment_predict.predict_dir(
+                        model=model,
+                        input_image_dir=os.path.join(traindata_dir, 'image'),
+                        output_base_dir=os.path.join(traindata_dir, predict_out_subdir),
+                        projection_if_missing=train_projection,
+                        input_mask_dir=os.path.join(traindata_dir, 'mask'),
+                        batch_size=int(conf.train['batch_size_predict']), 
+                        evaluate_mode=True)
+                    
+                # Predict validation dataset
+                segment_predict.predict_dir(
+                        model=model,
+                        input_image_dir=os.path.join(validationdata_dir, 'image'),
+                        output_base_dir=os.path.join(validationdata_dir, predict_out_subdir),
+                        projection_if_missing=train_projection,
+                        input_mask_dir=os.path.join(validationdata_dir, 'mask'),
+                        batch_size=int(conf.train['batch_size_predict']), 
+                        evaluate_mode=True)
+                del model
+            except Exception as ex:
+                logger.warn(f"Exception trying to predict with old model: {ex}")
         
         # Now we can really start training
         logger.info('Start training')
