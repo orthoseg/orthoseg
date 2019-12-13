@@ -203,7 +203,8 @@ def get_images_for_grid(
                         bbox=(image_xmin, image_ymin, image_xmax, image_ymax),
                         size=(image_pixel_width+2*pixels_overlap, 
                               image_pixel_height+2*pixels_overlap),
-                        image_format=image_format)
+                        image_format=image_format,
+                        layername='_'.join(wms_layernames))
                 output_filepath = os.path.join(output_dir, output_filename)
                 if not force and os.path.exists(output_filepath):
                     nb_ignore_in_progress += 1
@@ -358,7 +359,8 @@ def getmap_to_file(
         output_filename = create_filename(
                 srs=srs, 
                 bbox=bbox, size=size, 
-                image_format=image_format_save)
+                image_format=image_format_save,
+                layername='_'.join(layers))
 
     # Create full output filepath
     output_filepath = os.path.join(output_dir, output_filename)
@@ -561,7 +563,8 @@ def getmap_to_file(
 def create_filename(srs: str,
                     bbox,
                     size,
-                    image_format: str):
+                    image_format: str,
+                    layername: str):
     
     # Get image extension based on format
     image_ext = get_ext_for_image_format(image_format)
@@ -569,9 +572,9 @@ def create_filename(srs: str,
     # Use different file names for projected vs geographic SRS
     is_srs_projected = rio.crs.CRS.from_string(srs).is_projected
     if is_srs_projected:
-        output_filename = f"{bbox[0]:06.0f}_{bbox[1]:06.0f}_{bbox[2]:06.0f}_{bbox[3]:06.0f}_{size[0]}_{size[1]}{image_ext}"
+        output_filename = f"{bbox[0]:06.0f}_{bbox[1]:06.0f}_{bbox[2]:06.0f}_{bbox[3]:06.0f}_{size[0]}_{size[1]}_{layername}{image_ext}"
     else:
-        output_filename = f"{bbox[0]:09.4f}_{bbox[1]:09.4f}_{bbox[2]:09.4f}_{bbox[3]:09.4f}_{size[0]}_{size[1]}{image_ext}"
+        output_filename = f"{bbox[0]:09.4f}_{bbox[1]:09.4f}_{bbox[2]:09.4f}_{bbox[3]:09.4f}_{size[0]}_{size[1]}_{layername}{image_ext}"
 
     return output_filename
 
