@@ -273,7 +273,7 @@ def train(
     # Start training
     logger.info(f"Start training with batch_size: {batch_size}, train_dataset_size: {train_dataset_size}, train_steps_per_epoch: {train_steps_per_epoch}, validation_dataset_size: {validation_dataset_size}, validation_steps_per_epoch: {validation_steps_per_epoch}")
     try:        
-        model_for_train.fit_generator(
+        model_for_train.fit(
                 train_gen, 
                 steps_per_epoch=train_steps_per_epoch, 
                 epochs=nb_epoch,
