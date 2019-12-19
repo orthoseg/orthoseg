@@ -150,8 +150,9 @@ def train(
         model_activation = 'softmax'
     else:
         model_activation = 'sigmoid'
+    
+    # If no existing model provided, create it from scratch
     if not model_preload_filepath:
-        # If no existing model provided, create it from scratch
         # Get the model we want to use
         model = mf.get_model(
                 encoder=model_encoder, decoder=model_decoder, 
@@ -183,8 +184,9 @@ def train(
         logger.info("Model weights loaded")
         '''
         # Load the existing model
+        # Remark: compiling during load crashes, so compile 'manually'
         logger.info(f"Load model from {model_preload_filepath}")
-        model = mf.load_model(model_preload_filepath)
+        model = mf.load_model(model_preload_filepath, compile=False)
 
     # Now prepare the model for training
     nb_gpu = len(tf.config.experimental.list_physical_devices('GPU'))
@@ -204,23 +206,22 @@ def train(
             logger.info("Train using single GPU or CPU")
             model_for_train = model
 
-    # If we started a model from scratch, compile it to prepare for training 
-    if not model_preload_filepath:
-        optimizer = kr.optimizers.Adam(lr=start_learning_rate)
-        if model_activation == 'softmax':
-            #loss = 'categorical_crossentropy'
-            #loss = 'sparse_categorical_crossentropy' 
-            #loss = 'bcedice'
-            if class_weights is not None: 
-                loss = 'weighted_categorical_crossentropy'
-            else:
-                loss = 'categorical_crossentropy'
+    # If we started a model from scratch, compile it to prepare for training
+    # Remark: compile shouldn't be done explicitly when using a preload model, 
+    #         but compiling during load crashes, so for now always compile.
+    #if not model_preload_filepath:
+    optimizer = kr.optimizers.Adam(lr=start_learning_rate)
+    if model_activation == 'softmax':
+        if class_weights is not None: 
+            loss = 'weighted_categorical_crossentropy'
         else:
-            loss = 'binary_crossentropy' 
-        logger.info(f"Compile model with loss: {loss}, class_weights: {class_weights}")
-        model_for_train = mf.compile_model(
-                model=model_for_train, optimizer=optimizer, loss=loss, class_weights=class_weights)
-    
+            loss = 'categorical_crossentropy'
+    else:
+        loss = 'binary_crossentropy' 
+    logger.info(f"Compile model with loss: {loss}, class_weights: {class_weights}")
+    model_for_train = mf.compile_model(
+            model=model_for_train, optimizer=optimizer, loss=loss, class_weights=class_weights)
+
     # Define some callbacks for the training
     # Reduce the learning rate if the loss doesn't improve anymore
     reduce_lr = kr.callbacks.ReduceLROnPlateau(
