@@ -43,7 +43,7 @@ def train(
         model_save_dir: str,
         model_save_base_filename: str,
         image_augment_dict: dict, 
-        mask_augment_dict: dict, 
+        mask_augment_dict: dict,
         model_preload_filepath: str = None,
         nb_classes: int = 1,
         class_weights: [] = None,
@@ -122,7 +122,9 @@ def train(
             batch_size=batch_size,
             target_size=(image_width, image_height), 
             nb_classes=nb_classes, 
-            save_to_subdir=save_augmented_subdir, seed=3)
+            save_to_subdir=save_augmented_subdir,
+            shuffle=False, 
+            seed=3)
 
     # Get the max epoch number from the log file if it exists...
     start_epoch = 0
@@ -285,27 +287,29 @@ def train(
                            csv_logger],
                 #class_weight={'0': 1, '1': 10, '2': 2},
                 initial_epoch=start_epoch)
-    finally:        
+        
+    finally:
         # Release the memory from the GPU...
         #from keras import backend as K
         #K.clear_session()
         kr.backend.clear_session()
 
 def create_train_generator(
-        input_data_dir, 
-        image_subdir, 
-        mask_subdir,
-        image_augment_dict, 
-        mask_augment_dict, 
-        batch_size=32,
-        image_color_mode="rgb", 
-        mask_color_mode="grayscale",
-        save_to_subdir=None, 
-        image_save_prefix='image', 
-        mask_save_prefix='mask',
-        nb_classes=1,
-        target_size=(256,256), 
-        seed=1):
+        input_data_dir: str, 
+        image_subdir: str, 
+        mask_subdir: str,
+        image_augment_dict: dict, 
+        mask_augment_dict: dict, 
+        batch_size: int = 32,
+        image_color_mode: str = "rgb", 
+        mask_color_mode: str = "grayscale",
+        save_to_subdir: bool = None, 
+        image_save_prefix: str = 'image', 
+        mask_save_prefix: str = 'mask',
+        nb_classes: int = 1,
+        target_size: (int, int) = (256,256), 
+        shuffle: bool = True,
+        seed: int = 1):
     """
     Creates a generator to generate and augment train images. The augmentations
     specified in aug_dict will be applied. For the augmentations that can be 
@@ -336,6 +340,7 @@ def create_train_generator(
             batch_size=batch_size,
             save_to_dir=save_to_dir,
             save_prefix=image_save_prefix,
+            shuffle=shuffle,
             seed=seed)
 
     mask_generator = mask_datagen.flow_from_directory(
@@ -347,6 +352,7 @@ def create_train_generator(
             batch_size=batch_size,
             save_to_dir=save_to_dir,
             save_prefix=mask_save_prefix,
+            shuffle=shuffle,
             seed=seed)
 
     train_generator = zip(image_generator, mask_generator)
