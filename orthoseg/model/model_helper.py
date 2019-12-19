@@ -6,6 +6,7 @@ Module with helper functions regarding (keras) models.
 import logging
 from pathlib import Path
 import shutil
+from typing import Optional
 
 import pandas as pd 
 from tensorflow import keras as kr
@@ -223,14 +224,14 @@ def get_best_model(
     if model_base_filename is None:
         max_data_version = get_max_data_version(model_dir)
         if max_data_version == -1:
-            return None
+            return {}
         model_info_df = model_info_df.loc[model_info_df['train_data_version'] == max_data_version]
         model_info_df = model_info_df.reset_index()
         
     if len(model_info_df) > 0:
         return model_info_df.loc[model_info_df['acc_combined'].values.argmax()]
     else:
-        return None
+        return {}
     
 class ModelCheckpointExt(kr.callbacks.Callback):
     
@@ -307,9 +308,9 @@ def save_and_clean_models(
         model_save_base_filename: str,
         monitor_metric_mode: str,
         new_model = None,        
-        new_model_monitor_train: float = None,
-        new_model_monitor_val: float = None,
-        new_model_epoch: int = None,
+        new_model_monitor_train: Optional[float] = None,
+        new_model_monitor_val: Optional[float] = None,
+        new_model_epoch: Optional[int] = None,
         save_format: str = 'tf',
         save_best_only: bool = False,
         save_weights_only: bool = False,
@@ -355,7 +356,12 @@ def save_and_clean_models(
 
     # If there is a new model passed as param, add it to the list
     new_model_Path = None
-    if new_model is not None:            
+    if new_model is not None:
+        if(new_model_monitor_train is None
+           or new_model_monitor_val is None
+           or new_model_epoch is None):
+           raise Exception("If new_model is not None, new_model_monitor_... parameters cannot be None either")
+
         # Calculate combined accuracy
         new_model_monitor_combined = (new_model_monitor_train+new_model_monitor_val)/2
         
@@ -454,7 +460,8 @@ def save_and_clean_models(
 
     if verbose is True or debug is True:
         best_model = get_best_model(model_save_dir, model_save_base_filename)
-        print(f"BEST MODEL: acc_combined: {best_model['acc_combined']}, acc_train: {best_model['acc_train']}, acc_val: {best_model['acc_val']}, epoch: {best_model['epoch']}")
+        if best_model is True:
+            print(f"BEST MODEL: acc_combined: {best_model['acc_combined']}, acc_train: {best_model['acc_train']}, acc_val: {best_model['acc_val']}, epoch: {best_model['epoch']}")
 
 if __name__ == '__main__':
     raise Exception("Not implemented")

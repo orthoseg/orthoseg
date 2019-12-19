@@ -55,7 +55,7 @@ def run_prediction():
             model_dir=conf.dirs['model_dir'], model_base_filename=model_base_filename)
     
     # Check if a model was found
-    if best_model is None:
+    if best_model is False:
         message = f"No model found in model_dir: {conf.dirs['model_dir']} for model_base_filename: {model_base_filename}"
         logger.critical(message)
         raise Exception(message)
@@ -130,6 +130,7 @@ def run_prediction():
             batch_size *= nb_gpu
         except ValueError:
             logger.info("Predict using single GPU or CPU")
+            model_for_predict = model
 
     # Predict for entire dataset
     image_layer = conf.image_layers[conf.predict['image_layer']]

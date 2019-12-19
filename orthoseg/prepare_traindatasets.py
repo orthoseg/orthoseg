@@ -10,6 +10,7 @@ import shutil
 import glob
 import math
 import datetime
+from typing import Optional
 
 import fiona
 import pandas as pd
@@ -40,8 +41,8 @@ def prepare_traindatasets(
         label_names_burn_values: dict,
         image_layers: dict,
         training_dir: str,
-        image_pixel_x_size: int = 0.25,
-        image_pixel_y_size: int = 0.25,
+        image_pixel_x_size: float = 0.25,
+        image_pixel_y_size: float = 0.25,
         image_pixel_width: int = 512,
         image_pixel_height: int = 512,
         max_samples: int = 5000,
@@ -163,7 +164,7 @@ def prepare_traindatasets(
     img_srs = labellocations_gdf.crs['init']
     
     # Create list with only the input labels that need to be burned in the mask
-    if 'label_name' in labeldata_gdf.columns:
+    if labeldata_gdf is not None and 'label_name' in labeldata_gdf.columns:
         # If thare is a column 'label_name', filter on the labels provided
         labels_to_burn_gdf = labeldata_gdf.loc[labeldata_gdf['label_name'].isin(label_names_burn_values)]
         labels_to_burn_gdf['burn_value'] = 0
@@ -364,7 +365,7 @@ def _create_mask(
         nb_classes: int = 1,
         output_imagecopy_filepath: str = None,
         minimum_pct_labeled: float = 0.0,
-        force: bool = False) -> bool:
+        force: bool = False) -> Optional[bool]:
 
     # If file exists already and force is False... stop.
     if(force is False

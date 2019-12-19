@@ -3,22 +3,17 @@
 Module with high-level operations to segment images.
 """
 
-from concurrent import futures
 import logging
 import os
 import glob
-import datetime
-import time
+from typing import Tuple
 import math
 
 import tensorflow as tf
 from tensorflow import keras as kr
 #import keras as kr
 
-import numpy as np
 import pandas as pd
-import rasterio as rio
-import rasterio.plot as rio_plot
 
 import orthoseg.model.model_factory as mf
 import orthoseg.model.model_helper as mh
@@ -46,7 +41,7 @@ def train(
         mask_augment_dict: dict,
         model_preload_filepath: str = None,
         nb_classes: int = 1,
-        class_weights: [] = None,
+        class_weights: list = None,
         nb_channels: int = 3,
         image_width: int = 512,
         image_height: int = 512,
@@ -109,7 +104,8 @@ def train(
             batch_size=batch_size,
             target_size=(image_width, image_height), 
             nb_classes=nb_classes, 
-            save_to_subdir=save_augmented_subdir, seed=2)
+            save_to_subdir=save_augmented_subdir, 
+            seed=2)
 
     # Create validation generator
     validation_augment_dict = dict(rescale=1./255)
@@ -305,11 +301,11 @@ def create_train_generator(
         batch_size: int = 32,
         image_color_mode: str = "rgb", 
         mask_color_mode: str = "grayscale",
-        save_to_subdir: bool = None, 
+        save_to_subdir: str = None, 
         image_save_prefix: str = 'image', 
         mask_save_prefix: str = 'mask',
         nb_classes: int = 1,
-        target_size: (int, int) = (256,256), 
+        target_size: Tuple[int, int] = (256,256), 
         shuffle: bool = True,
         seed: int = 1):
     """

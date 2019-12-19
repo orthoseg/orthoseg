@@ -95,14 +95,14 @@ def run_training_session():
     resume_train = conf.model.getboolean('resume_train')
     if resume_train is False:
         # If no (best) model found, training needed!
-        if best_model is None:
+        if best_model is False:
             train_needed = True
         else:
             logger.info("JUST PREDICT, without training: preload_existing_model is false and model found")
             train_needed = False
     else:
         # We want to preload an existing model and models were found
-        if best_model is not None:            
+        if best_model is False:
             logger.info(f"PRELOAD model and continue TRAINING it: {best_model['filename']}")
             train_needed = True
         else:
@@ -119,7 +119,7 @@ def run_training_session():
 
         # Get the current best model that already exists for this subject
         best_model_curr = mh.get_best_model(model_dir=conf.dirs['model_dir'])
-        if best_model_curr is not None:
+        if best_model_curr is True:
             # Load prediction model...
             '''
             model_json_filepath = conf.files['model_json_filepath']
@@ -165,7 +165,7 @@ def run_training_session():
         # Now we can really start training
         logger.info('Start training')
         model_preload_filepath = None
-        if best_model is not None:
+        if best_model is True:
             model_preload_filepath = best_model['filepath']
         elif conf.train.getboolean('preload_with_previous_traindata'):
             model_preload_filepath = best_model_curr['filepath']
