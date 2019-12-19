@@ -241,6 +241,7 @@ def train(
             monitor_metric_train='loss',
             monitor_metric_validation='val_loss',
             monitor_metric_mode='min',
+            save_format='h5',
             save_best_only=True,
             model_template_for_save=model_template_for_save)
 
