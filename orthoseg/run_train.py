@@ -167,6 +167,8 @@ def run_training_session():
         model_preload_filepath = None
         if best_model is not None:
             model_preload_filepath = best_model['filepath']
+        elif conf.train.getboolean('preload_with_previous_traindata'):
+            model_preload_filepath = best_model_curr['filepath']
         segment_train.train(
                 traindata_dir=traindata_dir,
                 validationdata_dir=validationdata_dir,
