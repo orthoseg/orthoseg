@@ -5,21 +5,21 @@ Module with functions for post-processing prediction masks towards polygons.
 
 from concurrent import futures
 import logging
-import os
-import glob
 import math
 import multiprocessing
+import os
+from pathlib import Path
 import shutil
-import time
+from typing import Optional
 
 import fiona
+import geopandas as gpd
 import numpy as np
+import pandas as pd
 import rasterio as rio
 import rasterio.features as rio_features
 import rasterio.plot as rio_plot
 import shapely as sh
-import geopandas as gpd
-import pandas as pd
 
 from orthoseg.util import geofile_util
 from orthoseg.util import vector_util
@@ -41,8 +41,8 @@ logger = logging.getLogger(__name__)
 #-------------------------------------------------------------
 
 def postprocess_predictions(
-        input_dir: str,
-        output_filepath: str,
+        input_dir: Path,
+        output_filepath: Path,
         input_ext: str,
         border_pixels_to_ignore: int = 0,
         evaluate_mode: bool = False,
@@ -69,21 +69,20 @@ def postprocess_predictions(
     ##### Init #####
     # Prepare output dir
     eval_suffix = ""
+    output_dir = output_filepath.parent
     if evaluate_mode:
         eval_suffix = "_eval"
-    output_dir, output_filename = os.path.split(output_filepath)
-    output_dir = f"{output_dir}{eval_suffix}"
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+        output_dir = output_dir.parent / (output_dir.name + eval_suffix)
+    if not output_dir.exists():
+        output_dir.mkdir(parents=True)
 
     # Prepare output driver
-    output_basefilename_noext, output_ext = os.path.splitext(output_filename)
-    output_ext = output_ext.lower()
+    output_basefilename_noext = output_filepath.stem
+    output_ext = output_filepath.suffix.lower()
     
     # Polygonize all prediction files if orig file doesn't exist yet
-    geoms_orig_filepath = os.path.join(
-            output_dir, f"{output_basefilename_noext}{output_ext}")    
-    if not os.path.exists(geoms_orig_filepath):
+    geoms_orig_filepath = output_dir / f"{output_basefilename_noext}{output_ext}"
+    if not geoms_orig_filepath.exists():
         try:
             polygonize_prediction_files(
                     input_dir=input_dir,
@@ -105,8 +104,7 @@ def postprocess_predictions(
     geoms_gdf = geofile_util.read_file(geoms_orig_filepath)
 
     # Union the data, optimized using the available onborder column
-    geoms_union_filepath = os.path.join(
-            output_dir, f"{output_basefilename_noext}_union{output_ext}")
+    geoms_union_filepath = output_dir / f"{output_basefilename_noext}_union{output_ext}"
     geoms_union_gdf = vector_util.unary_union_with_onborder(
             input_gdf=geoms_gdf,
             input_filepath=geoms_orig_filepath,
@@ -115,10 +113,9 @@ def postprocess_predictions(
             force=force)
 
     # Retain only geoms > 5m²
-    geoms_gt5m2_filepath = os.path.join(
-            output_dir, f"{output_basefilename_noext}_union_gt5m2{output_ext}")
+    geoms_gt5m2_filepath = output_dir / f"{output_basefilename_noext}_union_gt5m2{output_ext}"
     geoms_gt5m2_gdf = None
-    if force or not os.path.exists(geoms_gt5m2_filepath):
+    if force or not geoms_gt5m2_filepath.exists():
         if geoms_union_gdf is None:
             geoms_union_gdf = geofile_util.read_file(geoms_union_filepath)
         geoms_gt5m2_gdf = geoms_union_gdf.loc[(geoms_union_gdf.geometry.area > 5)]
@@ -136,10 +133,9 @@ def postprocess_predictions(
 
     # Simplify with standard shapely algo 
     # -> if preserve_topology False, this is Ramer-Douglas-Peucker, otherwise ?
-    geoms_simpl_shap_filepath = os.path.join(
-            output_dir, f"{output_basefilename_noext}_simpl_shap{output_ext}")
+    geoms_simpl_shap_filepath = output_dir / f"{output_basefilename_noext}_simpl_shap{output_ext}"
     geoms_simpl_shap_gdf = None
-    if force or not os.path.exists(geoms_simpl_shap_filepath):
+    if force or not geoms_simpl_shap_filepath.exists():
         logger.info("Simplify with default shapely algo")
         # If input geoms not yet in memory, read from file
         if geoms_gt5m2_gdf is None:
@@ -171,9 +167,9 @@ def postprocess_predictions(
         logger.info(f"Result written to {geoms_simpl_shap_filepath}")
         
     # Apply negative buffer on result
-    geoms_simpl_shap_m1m_filepath = os.path.join(
-            output_dir, f"{output_basefilename_noext}_simpl_shap_m1.5m_3{output_ext}")    
-    if force or not os.path.exists(geoms_simpl_shap_m1m_filepath):
+    geoms_simpl_shap_m1m_filepath = (
+            output_dir / f"{output_basefilename_noext}_simpl_shap_m1.5m_3{output_ext}")
+    if force or not geoms_simpl_shap_m1m_filepath.exists():
         logger.info("Apply negative buffer")
         # If input geoms not yet in memory, read from file
         if geoms_simpl_shap_gdf is None:
@@ -201,8 +197,8 @@ def postprocess_predictions(
         logger.info(f"Result written to {geoms_simpl_shap_m1m_filepath}")
 
 def polygonize_prediction_files(
-            input_dir: str,
-            output_filepath: str,
+            input_dir: Path,
+            output_filepath: Path,
             input_ext: str,
             border_pixels_to_ignore: int = 0,
             apply_on_border_distance: float = None,
@@ -223,33 +219,32 @@ def polygonize_prediction_files(
     """
     ##### Init #####
     # Check if we need to do anything anyway
-    if not force and os.path.exists(output_filepath):
+    if not force and output_filepath.exists():
         logger.info(f"Force is false and output file exists already, skip: {output_filepath}")
         return None
 
     # Make sure the output dir exists
-    output_dir = os.path.split(output_filepath)[0]
-    if not os.path.exists(output_dir):
-        os.mkdir(output_dir)
+    output_dir = output_filepath.parent
+    if not output_dir.exists():
+        output_dir.mkdir()
 
     # Get list of all files to process...
     logger.info(f"List all files to be merged in {input_dir}")
-    in_filepaths = glob.glob(f"{input_dir}/**/*_pred*{input_ext}", recursive=True)
+    in_filepaths = input_dir.rglob(f"*_pred*{input_ext}")
 
     # Check if files were found...
-    if len(in_filepaths) == 0:
+    nb_files = len(list(in_filepaths))
+    if nb_files == 0:
         logger.warn("No files found to process... so return")
         raise RuntimeWarning("NOFILESFOUND")
-
-    logger.info(f"Found {len(in_filepaths)} files to process")
+    logger.info(f"Found {nb_files} files to process")
 
     # First write to tmp output file so it is clear if the file was ready or not
-    output_filepath_noext, output_ext = os.path.splitext(output_filepath)
-    _, layer = os.path.split(output_filepath_noext)
-    output_tmp_filepath = f"{output_filepath_noext}_BUSY{output_ext}"
+    layer = output_filepath.stem
+    output_tmp_filepath = output_filepath.parent / f"{output_filepath.stem}_BUSY{output_filepath.suffix}"
     output_tmp_file = None
-    if os.path.exists(output_tmp_filepath):
-        os.remove(output_tmp_filepath)
+    if output_tmp_filepath.exists():
+        output_tmp_filepath.unlink()
 
     # Loop through all files to be processed...
     try:       
@@ -325,7 +320,7 @@ def polygonize_prediction_files(
         raise Exception(f"Error creating file {output_tmp_filepath}") from ex
     
 def read_prediction_file(
-        filepath: str,
+        filepath: Path,
         border_pixels_to_ignore: int = 0):
     ext_lower = os.path.splitext(filepath)[1].lower()
     if ext_lower == '.geojson':
@@ -347,15 +342,15 @@ def to_binary_uint8(in_arr, thresshold_ok) -> np.array:
     return out_arr
 
 def postprocess_for_evaluation(
-        image_filepath: str,
+        image_filepath: Path,
         image_crs: str,
         image_transform,
-        image_pred_filepath: str,
+        image_pred_filepath: Path,
         image_pred_uint8_cleaned_bin: np.array,
-        output_dir: str,
+        output_dir: Path,
         output_suffix: str = None,
-        input_image_dir: str = None,
-        input_mask_dir: str = None,
+        input_image_dir: Optional[Path] = None,
+        input_mask_dir: Optional[Path] = None,
         border_pixels_to_ignore: int = 0,
         force: bool = False):
     """
@@ -377,9 +372,6 @@ def postprocess_for_evaluation(
     """
     
     logger.debug(f"Start postprocess for {image_pred_filepath}")
-
-    _, image_filename = os.path.split(image_filepath)
-    image_filename_noext, image_ext = os.path.splitext(image_filename)
     all_black = False
     try:      
         
@@ -388,7 +380,7 @@ def postprocess_for_evaluation(
             all_black = True
 
         # Make sure the output dir exists...
-        os.makedirs(output_dir, exist_ok=True)
+        output_dir.mkdir(parents=True, exist_ok=True)
                 
         # Determine the prefix to use for the output filenames
         pred_prefix_str = ''            
@@ -410,18 +402,18 @@ def postprocess_for_evaluation(
                 return sum_intersect/sum_union
 
         # If there is a mask dir specified... use the groundtruth mask
-        if input_mask_dir and os.path.exists(input_mask_dir):
+        if input_mask_dir is not None and input_mask_dir.exists():
             # Read mask file and get all needed info from it...
-            mask_filepath = image_filepath.replace(input_image_dir, input_mask_dir)
-            mask_filepath_noext, mask_ext = os.path.splitext(mask_filepath)
+            mask_filepath = Path(str(image_filepath).
+                    replace(str(input_image_dir), str(input_mask_dir)))
                 
             # Check if this file exists, if not, look for similar files
-            if not os.path.exists(mask_filepath):
-                files = glob.glob(mask_filepath_noext + '*')
+            if not mask_filepath.exists():
+                files = list(mask_filepath.parent.glob(mask_filepath.stem + '*'))
                 if len(files) == 1:
                     mask_filepath = files[0]
                 else:
-                    message = f"Error finding mask file with {mask_filepath_noext + '*'}: {len(files)} mask(s) found"
+                    message = f"Error finding mask file with {mask_filepath.stem + '*'}: {len(files)} mask(s) found"
                     logger.error(message)
                     raise Exception(message)
 
@@ -444,8 +436,9 @@ def postprocess_for_evaluation(
             pred_prefix_str = f"{similarity:0.3f}_"
             
             # Copy mask file if the file doesn't exist yet
-            mask_copy_dest_filepath = f"{output_dir}/{pred_prefix_str}{image_filename_noext}_mask{mask_ext}"
-            if not os.path.exists(mask_copy_dest_filepath):
+            mask_copy_dest_filepath = (output_dir / 
+                    f"{pred_prefix_str}{image_filepath.stem}_mask{mask_filepath.suffix}")
+            if not mask_copy_dest_filepath.exists():
                 shutil.copyfile(mask_filepath, mask_copy_dest_filepath)
 
         else:
@@ -471,15 +464,15 @@ def postprocess_for_evaluation(
                 #continue
         
         # Copy the input image if it doesn't exist yet in output path
-        output_basefilepath = f"{output_dir}/{pred_prefix_str}{image_filename_noext}{output_suffix}"
-        image_dest_filepath = f"{output_basefilepath}{image_ext}"
-        if not os.path.exists(image_dest_filepath):
+        output_basefilepath = output_dir / f"{pred_prefix_str}{image_filepath.stem}{output_suffix}"
+        image_dest_filepath = output_basefilepath.with_suffix(image_filepath.suffix)
+        if not image_dest_filepath.exists():
             shutil.copyfile(image_filepath, image_dest_filepath)
 
         # Rename the prediction file so it also contains the prefix,... 
         if image_pred_filepath is not None:
-            image_dest_filepath = f"{output_basefilepath}_pred{image_ext}"
-            if not os.path.exists(image_dest_filepath):
+            image_dest_filepath = Path(f"{str(output_basefilepath)}_pred{image_filepath.suffix}")
+            if not image_dest_filepath.exists():
                 shutil.move(image_pred_filepath, image_dest_filepath)
 
         # If all_black, we are ready now
@@ -501,7 +494,7 @@ def polygonize_pred_for_evaluation(
         image_pred_uint8_bin,
         image_crs: str,
         image_transform,
-        output_basefilepath: str):
+        output_basefilepath: Path):
 
     # Polygonize result
     try:
@@ -528,7 +521,7 @@ def polygonize_pred_for_evaluation(
         # For easier evaluation, write the cleaned version as raster
         # Write the standard cleaned output to file
         logger.debug("Save binary prediction")
-        image_pred_cleaned_filepath = f"{output_basefilepath}_pred_bin.tif"
+        image_pred_cleaned_filepath = Path(f"{str(output_basefilepath)}_pred_bin.tif")
         with rio.open(image_pred_cleaned_filepath, 'w', driver='GTiff', 
                         compress='lzw',
                         height=image_height, width=image_width, 
@@ -554,7 +547,7 @@ def polygonize_pred_for_evaluation(
             if len(geoms_simpl) > 0:
                 # TODO: doesn't support multiple classes
                 logger.debug('Before writing simpl rasterized file')
-                image_pred_simpl_filepath = f"{output_basefilepath}_pred_cleaned_simpl.tif"
+                image_pred_simpl_filepath = f"{str(output_basefilepath)}_pred_cleaned_simpl.tif"
                 with rio.open(image_pred_simpl_filepath, 'w', driver='GTiff', compress='lzw',
                                 height=image_height, width=image_width, 
                                 count=1, dtype=rio.uint8, crs=image_crs, transform=image_transform) as dst:
@@ -572,7 +565,7 @@ def polygonize_pred_for_evaluation(
                 # file profile as created before for writing the raw prediction result
                 # TODO: doesn't support multiple classes
                 logger.debug('Before writing simpl with visvangali algo rasterized file')
-                image_pred_simpl_filepath = f"{output_basefilepath}_pred_cleaned_simpl_vis.tif"
+                image_pred_simpl_filepath = f"{str(output_basefilepath)}_pred_cleaned_simpl_vis.tif"
                 with rio.open(image_pred_simpl_filepath, 'w', driver='GTiff', compress='lzw',
                                 height=image_height, width=image_width, 
                                 count=1, dtype=rio.uint8, crs=image_crs, transform=image_transform) as dst:
@@ -590,7 +583,7 @@ def polygonize_pred_for_evaluation(
         raise Exception(message) from ex
 
 def polygonize_pred_from_file(
-        image_pred_filepath: str,
+        image_pred_filepath: Path,
         border_pixels_to_ignore: int = 0,
         save_to_file: bool = False) -> gpd.geodataframe:
 
@@ -610,7 +603,7 @@ def polygonize_pred_from_file(
 
         output_basefilepath = None
         if save_to_file is True:
-            output_basefilepath, _ = os.path.splitext(image_pred_filepath)   
+            output_basefilepath = image_pred_filepath.parent / image_pred_filepath.stem
         return polygonize_pred(
                 image_pred_uint8_bin=image_pred_uint8_bin,
                 image_crs=image_crs,
@@ -626,8 +619,8 @@ def polygonize_pred(
         image_pred_uint8_bin,
         image_crs: str,
         image_transform,
-        image_pred_filepath: str = None,
-        output_basefilepath: str = None,
+        image_pred_filepath: Optional[Path] = None,
+        output_basefilepath: Optional[Path] = None,
         border_pixels_to_ignore: int = 0) -> gpd.geodataframe:
 
     # Polygonize result
@@ -680,7 +673,7 @@ def polygonize_pred(
 
         # Write the geoms to file
         if output_basefilepath is not None:
-            geom_filepath = f"{output_basefilepath}_pred_cleaned_2.geojson"
+            geom_filepath = Path(f"{str(output_basefilepath)}_pred_cleaned_2.geojson")
             geofile_util.to_file(geoms_gdf, geom_filepath)
         
         return geoms_gdf

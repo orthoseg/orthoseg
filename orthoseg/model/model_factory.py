@@ -10,6 +10,7 @@ https://github.com/qubvel/segmentation_models
 """
 
 import logging
+from pathlib import Path
 
 from tensorflow import keras as kr
 #import keras as kr
@@ -72,15 +73,19 @@ def get_model(
         # These two unet variants are implemented in a seperate module
         if encoder.lower() == 'standard':
             import models.model_unet_standard as m
-            if init_weights_with:
+            if init_weights_with is not None:
                 init_weights = True
+            else:
+                init_weights = False
             return m.get_model(input_width=input_width, input_height=input_height,
                                nb_channels=nb_channels, nb_classes=nb_classes,
                                init_model_weights=init_weights)
         elif encoder.lower() == 'ternaus':
             import models.model_unet_ternaus as m
-            if init_weights_with:
+            if init_weights_with is not None:
                 init_weights = True
+            else:
+                init_weights = False                
             return m.get_model(input_width=input_width, input_height=input_height,
                                nb_channels=nb_channels, nb_classes=nb_classes,
                                init_model_weights=init_weights)
@@ -108,7 +113,8 @@ def get_model(
         #from segmentation_models.backbones import get_preprocessing
 
         # First check if input size is compatible with linknet 
-        check_image_size(decoder, input_width, input_height)
+        if input_width is not None and input_height is not None:
+            check_image_size(decoder, input_width, input_height)
             
         model = Linknet(backbone_name=encoder.lower(),
                         input_shape=(input_width, input_height, nb_channels),
@@ -122,9 +128,9 @@ def compile_model(
         model,
         optimizer,
         loss: str,
-        metrics: [] = None,
+        metrics: list = None,
         sample_weight_mode: str = None,
-        class_weights: [] = None):
+        class_weights: list = None):
 
     # If no merics specified, use default ones
     if metrics is None:
@@ -161,12 +167,12 @@ def compile_model(
     return model
 
 def load_model(
-        model_to_use_filepath: str, 
+        model_to_use_filepath: Path, 
         compile: bool = True):
     iou_score = sm.metrics.iou_score
     
     model = kr.models.load_model(
-            model_to_use_filepath,
+            str(model_to_use_filepath),
             custom_objects={'jaccard_coef': jaccard_coef,
                             'jaccard_coef_flat': jaccard_coef_flat,
                             'jaccard_coef_round': jaccard_coef_round,
@@ -212,7 +218,7 @@ def weighted_categorical_crossentropy(weights):
                                     True)
             _epsilon = tf.convert_to_tensor(kr.backend.epsilon(), dtype=output.dtype.base_dtype)
             output = tf.clip_by_value(output, _epsilon, 1. - _epsilon)
-            weighted_losses = target * tf.log(output) * weights
+            weighted_losses = target * tf.math.log(output) * weights
             return - tf.reduce_sum(weighted_losses,len(output.get_shape()) - 1)
         else:
             raise ValueError('WeightedCategoricalCrossentropy: not valid with logits')

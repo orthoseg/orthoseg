@@ -5,6 +5,7 @@ Script to convert label files from old version to new version.
 
 import math
 import os
+from pathlib import Path
 import sys
 
 import geopandas as gpd
@@ -18,19 +19,20 @@ from orthoseg.helpers import log_helper
 from orthoseg.util import geofile_util
 
 def convert_traindata_v1tov2(
-        labellocations_path: str, 
-        labeldata_path: str,
+        labellocations_path: Path, 
+        labeldata_path: Path,
         image_pixel_x_size: float,
         image_pixel_y_size: float,
         image_srs_width,
         image_srs_height) -> bool:
 
     # Prepare relevant file paths
-    label_dir, labellocations_filename = os.path.split(labellocations_path)
+    label_dir = labellocations_path.parent
+    labellocations_filename = labellocations_path.name
     subject = labellocations_filename.split('_')[0]
-    label_train_path = os.path.join(label_dir, f"{subject}_trainlabels.shp")
-    label_validation_path = os.path.join(label_dir, f"{subject}_validationlabels.shp")
-    label_test_path = os.path.join(label_dir, f"{subject}_testlabels.shp")
+    label_train_path = label_dir / f"{subject}_trainlabels.shp"
+    label_validation_path = label_dir / f"{subject}_validationlabels.shp"
+    label_test_path = label_dir / f"{subject}_testlabels.shp"
 
     # If the trainlabels file doesn't exist in the old format, stop
     if not os.path.exists(label_train_path) or not os.path.exists(label_validation_path):
@@ -92,23 +94,23 @@ if __name__ == "__main__":
     segment_subject = 'fruit'
 
     # Prepare the path to the config dir,...
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    base_dir, _ = os.path.split(script_dir)
-    config_dir = os.path.join(base_dir, "config")
-    layer_config_filepath = os.path.join(config_dir, 'image_layers.ini')
+    script_dir = Path(os.path.abspath(__file__)).parent
+    base_dir = script_dir.parent
+    config_dir = base_dir / "config"
+    layer_config_filepath = config_dir / 'image_layers.ini'
 
     # Read the config file
-    config_filepaths = [f"{config_dir}/general.ini",
-                        f"{config_dir}/{segment_subject}.ini",
-                        f"{config_dir}/local_overrule.ini"]
+    config_filepaths = [config_dir / 'general.ini',
+                        config_dir / f"{segment_subject}.ini",
+                        config_dir / 'local_overrule.ini']
     conf.read_config(config_filepaths, layer_config_filepath)
-    logger = log_helper.main_log_init(conf.dirs['log_dir'], __name__)      
+    logger = log_helper.main_log_init(conf.dirs.getpath('log_dir'), __name__)      
     logger.info(f"Config used: \n{conf.pformat_config()}")
 
     # Init needed variables
-    labels_dir = conf.dirs.get('input_labels_dir')
-    labellocations_path = f"{labels_dir}/{segment_subject}_labellocations.gpkg"
-    labeldata_path = f"{labels_dir}/{segment_subject}_labeldata.gpkg"
+    labels_dir = conf.dirs.getpath('input_labels_dir')
+    labellocations_path = labels_dir / f"{segment_subject}_labellocations.gpkg"
+    labeldata_path = labels_dir / f"{segment_subject}_labeldata.gpkg"
     image_pixel_x_size = conf.train.getfloat('image_pixel_x_size')
     image_pixel_y_size = conf.train.getfloat('image_pixel_y_size')
     image_pixel_width = conf.train.getint('image_pixel_width')

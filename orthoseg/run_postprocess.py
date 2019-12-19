@@ -35,7 +35,7 @@ def postprocess_predictions():
     # Format output dir, partly based on input dir
     train_version = int(input_dir.name.split('_')[3])    
     output_vector_name = f"{conf.general['segment_subject']}_{train_version:02}_{conf.predict['image_layer']}"
-    output_dir = Path(conf.dirs['output_vector_dir']) / output_vector_name
+    output_dir = conf.dirs.getpath('output_vector_dir') / output_vector_name
     output_filepath = output_dir / f"{output_vector_name}.gpkg"
     
     ##### Go! #####

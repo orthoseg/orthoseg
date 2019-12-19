@@ -3,23 +3,19 @@
 Process the jobs as scheduled in the run_jobs_config file.
 """
 
-import configparser
-from email.message import EmailMessage
-import glob 
+import argparse
 import os
-import smtplib
+from pathlib import Path
 import shlex
 import sys
-
-# Because orthoseg isn't installed as package + it is higher in dir hierarchy, add root to sys.path
-[sys.path.append(i) for i in ['.', '..']]
+from typing import List
 
 import pandas as pd
 
+# Because orthoseg isn't installed as package + it is higher in dir hierarchy, add root to sys.path
+[sys.path.append(i) for i in ['.', '..']]
 from orthoseg.helpers import config_helper as conf 
 from orthoseg.helpers import log_helper
-
-import argparse
 
 def orthoseg_argstr(argstr):
     args = shlex.split(argstr)
@@ -54,19 +50,20 @@ def orthoseg(
         config: str):
 
     # Prepare the path to the job dir,...
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    base_dir, _ = os.path.split(script_dir)
-    config_dir = os.path.join(base_dir, "config")
+    
+    script_dir = Path(os.path.abspath(__file__)).parent
+    base_dir = script_dir.parent
+    config_dir = base_dir / "config"
 
     # Get needed config + load it
     print(f"Start {action} on {config}")
     config_filepaths = get_needed_config_files(config_dir=config_dir, config=config)
-    layer_config_filepath = os.path.join(config_dir, 'image_layers.ini')
+    layer_config_filepath = config_dir / 'image_layers.ini'
     conf.read_config(config_filepaths, layer_config_filepath)
     
     # Main initialisation of the logging
     global logger
-    logger = log_helper.main_log_init(conf.dirs['log_training_dir'], __name__)      
+    logger = log_helper.main_log_init(conf.dirs.getpath('log_training_dir'), __name__)      
     logger.info(f"Config used: \n{conf.pformat_config()}")
 
     # Now start the appropriate action 
@@ -94,15 +91,15 @@ def orthoseg(
         raise Exception(message) from ex
 
 def get_needed_config_files(
-        config_dir: str,
-        config: str = None) -> []:
+        config_dir: Path,
+        config: str = None) -> List[Path]:
 
     # General settings need to be first in list
-    config_filepaths = [os.path.join(config_dir, 'general.ini')]
+    config_filepaths = [config_dir / 'general.ini']
 
     # Then specific settings depending on the OS
     if os.name == 'posix':
-        config_filepaths.append(os.path.join(config_dir, 'general_posix.ini'))
+        config_filepaths.append(config_dir / 'general_posix.ini')
     elif os.name == 'nt':
         None
     else: 
@@ -110,13 +107,13 @@ def get_needed_config_files(
 
     # Specific settings for the subject if one is specified
     if(config is not None):
-        config_filepath = os.path.join(config_dir, f"{config}.ini")
+        config_filepath = config_dir / f"{config}.ini"
         if not os.path.exists(config_filepath):
             raise Exception(f"Config file specified does not exist: {config_filepath}")
         config_filepaths.append(config_filepath)
 
     # Local overrule settings
-    config_filepaths.append(os.path.join(config_dir, 'local_overrule.ini'))
+    config_filepaths.append(config_dir / 'local_overrule.ini')
 
     return config_filepaths
 

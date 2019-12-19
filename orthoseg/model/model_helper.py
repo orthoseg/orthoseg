@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 # The real work
 #-------------------------------------------------------------
 
-def get_max_data_version(model_dir: str) -> int:
+def get_max_data_version(model_dir: Path) -> int:
     """
     Get the maximum data version a model exists for in the model_dir.
     
@@ -110,7 +110,7 @@ def format_model_filename2(
     else:
         return f"{model_base_filename}_{acc_combined:.5f}_{acc_train:.5f}_{acc_val:.5f}_{epoch}.hdf5"
 
-def parse_model_filename(filepath: str) -> dict:
+def parse_model_filename(filepath: Path) -> dict:
     """
     Parse a model_filename to a dict containing the properties of the model:
         * segment_subject: the segment subject
@@ -127,17 +127,16 @@ def parse_model_filename(filepath: str) -> dict:
     """
     
     # Prepare filepath to extract info
-    filepath_Path = Path(filepath)
-    if filepath_Path.is_dir():
+    if filepath.is_dir():
         # If it is a dir, it should end on _tf
-        if not filepath.endswith("_tf"):
+        if not filepath.name.endswith("_tf"):
             raise Exception(f"Not a valid path for a model: {filepath}")
 
         save_format = 'tf'
-        modelname = filepath_Path.name
+        modelname = filepath.name
     else:
-        modelname = filepath_Path.stem
-        if filepath_Path.suffix in ('.h5', '.hdf5'):
+        modelname = filepath.stem
+        if filepath.suffix in ('.h5', '.hdf5'):
             save_format = 'h5'
         else: 
             raise Exception(f"Not a valid path for a model: {filepath}")
@@ -170,7 +169,7 @@ def parse_model_filename(filepath: str) -> dict:
             'save_format': save_format}
 
 def get_models(
-        model_dir: str,
+        model_dir: Path,
         model_base_filename: str = None) -> pd.DataFrame:
     """
     Return the list of models in the model_dir passed. It is returned as a 
@@ -184,26 +183,25 @@ def get_models(
 
     # glob search string
     model_Paths = []
-    model_dir_Path = Path(model_dir)
     if model_base_filename is not None:
-        model_Paths.extend(model_dir_Path.glob(f"{model_base_filename}_*.hdf5"))
-        model_Paths.extend(model_dir_Path.glob(f"{model_base_filename}_*.h5"))
-        model_Paths.extend(model_dir_Path.glob(f"{model_base_filename}_*_tf"))
+        model_Paths.extend(model_dir.glob(f"{model_base_filename}_*.hdf5"))
+        model_Paths.extend(model_dir.glob(f"{model_base_filename}_*.h5"))
+        model_Paths.extend(model_dir.glob(f"{model_base_filename}_*_tf"))
     else:
-        model_Paths.extend(model_dir_Path.glob("*.hdf5"))
-        model_Paths.extend(model_dir_Path.glob("*.h5"))
-        model_Paths.extend(model_dir_Path.glob("*_tf"))
+        model_Paths.extend(model_dir.glob("*.hdf5"))
+        model_Paths.extend(model_dir.glob("*.h5"))
+        model_Paths.extend(model_dir.glob("*_tf"))
 
     # Loop through all models and extract necessary info...
     model_info_list = []
     for model_Path in model_Paths:
-        model_info_list.append(parse_model_filename(str(model_Path)))
+        model_info_list.append(parse_model_filename(model_Path))
     model_info_df = pd.DataFrame(model_info_list)
 
     return model_info_df
 
 def get_best_model(
-        model_dir: str,
+        model_dir: Path,
         model_base_filename: str = None) -> dict:
     """
     Get the properties of the model with the highest combined accuracy for the highest 
@@ -237,7 +235,7 @@ class ModelCheckpointExt(kr.callbacks.Callback):
     
     def __init__(
             self, 
-            model_save_dir: str, 
+            model_save_dir: Path, 
             model_save_base_filename: str,
             monitor_metric_mode: str,
             monitor_metric_train: str,
@@ -252,7 +250,7 @@ class ModelCheckpointExt(kr.callbacks.Callback):
         Constructor
         
         Args:
-            model_save_dir (str): [description]
+            model_save_dir (Path): [description]
             model_save_base_filename (str): [description]
             monitor_metric_mode (str): use 'min' if the accuracy metrics should be 
                     as low as possible, 'max' if a higher values is better. 
@@ -304,7 +302,7 @@ class ModelCheckpointExt(kr.callbacks.Callback):
                 only_report=self.only_report)
         
 def save_and_clean_models(
-        model_save_dir: str,
+        model_save_dir: Path,
         model_save_base_filename: str,
         monitor_metric_mode: str,
         new_model = None,        
@@ -323,23 +321,22 @@ def save_and_clean_models(
     if they are worse than the new or other existing models.
     
     Args
-        model_save_dir: dir containing the models
-        model_save_base_filename: base filename that will be used
+        model_save_dir (Path): dir containing the models
+        model_save_base_filename (str): base filename that will be used
         model_monitor_metric_mode (str): use 'min' if the monitored metrics should be 
                 as low as possible, 'max' if a higher values is better. 
         new_model: optional, the keras model object that will be saved
-        new_model_monitor_train: optional: the monitored metric on the train dataset
-        new_model_monitor_val: optional: the monitored metric on the validation dataset
-        new_model_epoch: optional: the epoch in the training
-        new_model: optional, the keras model object that will be saved
+        new_model_monitor_train (float, optional): the monitored metric on the train dataset
+        new_model_monitor_val (float, optional): the monitored metric on the validation dataset
+        new_model_epoch (int, optional): the epoch in the training
         save_format (str, optional): The format to save in: 'h5' (keras format) or 'tf' (tensorflow savedmodel). Defaults to 'tf'
-        save_best_only: optional: only keep the best model
-        save_weights_only: optional: only save weights
-        model_template_for_save: optional, if using multi-GPU training, pass
+        save_best_only (bool, optional): only keep the best model
+        save_weights_only (bool, optional): only save weights
+        model_template_for_save (optional): if using multi-GPU training, pass
             the original model here to use this as template for saving        
-        verbose: report the best model after save and cleanup
-        debug: write debug logging
-        only_report: optional: only report which models would be cleaned up
+        verbose (bool, optional): report the best model after save and cleanup
+        debug (bool, optional): write debug logging
+        only_report (bool, optional): only report which models would be cleaned up
     """
     # TODO: add option to specify minimum accuracy/iou score before saving to speed up, because saving takes quite some time! 
     # Check validaty of input

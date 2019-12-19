@@ -5,10 +5,9 @@ Script to load images from a WMS server.
 
 # Because orthoseg isn't installed as package + it is higher in dir hierarchy, add root to sys.path
 import sys
-sys.path.insert(0, '.')
 
+sys.path.insert(0, '.')
 from orthoseg.helpers import config_helper as conf
-from orthoseg.helpers import log_helper
 from orthoseg.util import ows_util
 
 def load_images(load_testsample_images: bool = False):
@@ -16,7 +15,7 @@ def load_images(load_testsample_images: bool = False):
     ##### Init #####   
     # Use different setting depending if testsample or all images
     if load_testsample_images:
-        output_image_dir=conf.dirs['predictsample_image_input_dir']
+        output_image_dir=conf.dirs.getpath('predictsample_image_input_dir')
 
         # Use the same image size as for the training, that is the most 
         # convenient to check the quality
@@ -32,7 +31,7 @@ def load_images(load_testsample_images: bool = False):
         nb_images_to_skip = 50
         
     else:
-        output_image_dir=conf.dirs['predict_image_input_dir']
+        output_image_dir=conf.dirs.getpath('predict_image_input_dir')
         
         # Get the image size for the predict
         image_pixel_width = conf.predict.getint('image_pixel_width')

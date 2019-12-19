@@ -4,10 +4,10 @@ Module with high-level operations to segment images.
 """
 
 import logging
-import os
-import glob
-from typing import Tuple
 import math
+import os
+from pathlib import Path
+from typing import Tuple, Optional
 
 import tensorflow as tf
 from tensorflow import keras as kr
@@ -31,15 +31,15 @@ logger = logging.getLogger(__name__)
 #-------------------------------------------------------------
 
 def train(
-        traindata_dir: str,
-        validationdata_dir: str,
+        traindata_dir: Path,
+        validationdata_dir: Path,
         model_encoder: str,
         model_decoder: str,
-        model_save_dir: str,
+        model_save_dir: Path,
         model_save_base_filename: str,
         image_augment_dict: dict, 
         mask_augment_dict: dict,
-        model_preload_filepath: str = None,
+        model_preload_filepath: Optional[Path] = None,
         nb_classes: int = 1,
         class_weights: list = None,
         nb_channels: int = 3,
@@ -125,8 +125,8 @@ def train(
     # Get the max epoch number from the log file if it exists...
     start_epoch = 0
     start_learning_rate = 1e-4  # Best set to 0.0001 to start (1e-3 is not ok)
-    csv_log_filepath = f"{model_save_dir}/{model_save_base_filename}" + '_log.csv'
-    if os.path.exists(csv_log_filepath) and os.path.getsize(csv_log_filepath) > 0:
+    csv_log_filepath = model_save_dir / (model_save_base_filename + '_log.csv')
+    if csv_log_filepath.exists() and os.path.getsize(csv_log_filepath) > 0:
         logger.info(f"train_log csv exists: {csv_log_filepath}")
         if not model_preload_filepath:
             message = f"STOP: log file exists but preload model file not specified!!!"
@@ -141,7 +141,7 @@ def train(
    
     # Create a model
     model_json_filename = f"{model_encoder}+{model_decoder}.json"
-    model_json_filepath = os.path.join(model_save_dir, model_json_filename)
+    model_json_filepath = model_save_dir / model_json_filename
     if nb_classes > 1:
         model_activation = 'softmax'
     else:
@@ -155,14 +155,14 @@ def train(
                 nb_channels=nb_channels, nb_classes=nb_classes, activation=model_activation)
         
         # Save the model architecture to json if it doesn't exist yet
-        if not os.path.exists(model_save_dir):
-            os.makedirs(model_save_dir)
-        if not os.path.exists(model_json_filepath):
-            with open(model_json_filepath, 'w') as dst:
+        if not model_save_dir.exists():
+            model_save_dir.mkdir(parents=True)
+        if not model_json_filepath.exists():
+            with model_json_filepath.open('w') as dst:
                 dst.write(model.to_json())
     else:
         # If a preload model is provided, load that if it exists...
-        if not os.path.exists(model_preload_filepath):
+        if not model_preload_filepath.exists():
             message = f"Error: preload model file doesn't exist: {model_preload_filepath}"
             logger.critical(message)
             raise Exception(message)
@@ -242,8 +242,8 @@ def train(
             model_template_for_save=model_template_for_save)
 
     # Callbacks for logging
-    tensorboard_log_dir = f"{model_save_dir}/{model_save_base_filename}_tensorboard_log"
-    tensorboard_logger = kr.callbacks.TensorBoard(log_dir=tensorboard_log_dir)
+    tensorboard_log_dir = model_save_dir / (model_save_base_filename + '_tensorboard_log')
+    tensorboard_logger = kr.callbacks.TensorBoard(log_dir=str(tensorboard_log_dir))
     csv_logger = kr.callbacks.CSVLogger(
             csv_log_filepath, append=True, separator=';')
 
@@ -259,11 +259,12 @@ def train(
     #train_dataset_size = len(glob.glob(f"{traindata_dir}/{image_subdir}/*.*"))
     train_dataset_size = 0
     for input_ext_cur in input_ext:
-        train_dataset_size += len(glob.glob(f"{traindata_dir}/{image_subdir}/**/*{input_ext_cur}", recursive=True))
-    #validation_dataset_size = len(glob.glob(f"{validationdata_dir}/{image_subdir}/*.*"))
+        traindata_image_dir = traindata_dir / image_subdir
+        train_dataset_size += len(list(traindata_image_dir.rglob('*' + input_ext_cur)))
     validation_dataset_size = 0    
     for input_ext_cur in input_ext:
-        validation_dataset_size += len(glob.glob(f"{validationdata_dir}/{image_subdir}/**/*{input_ext_cur}", recursive=True))
+        validationdata_image_dir =validationdata_dir / image_subdir
+        validation_dataset_size += len(list(validationdata_image_dir.rglob('*' + input_ext_cur)))
     
     # Calculate the number of steps within an epoch
     # Remark: number of steps per epoch should be at least 1, even if nb samples < batch size...
@@ -281,7 +282,7 @@ def train(
                 validation_steps=validation_steps_per_epoch,       # Number of items in validation/batch_size
                 callbacks=[model_checkpoint_saver, 
                            reduce_lr, early_stopping,
-                           #tensorboard_logger,                    # TODO: Gives an error (on windows) since I changed using / instead of os.sep
+                           tensorboard_logger,
                            csv_logger],
                 #class_weight={'0': 1, '1': 10, '2': 2},
                 initial_epoch=start_epoch)
@@ -293,7 +294,7 @@ def train(
         kr.backend.clear_session()
 
 def create_train_generator(
-        input_data_dir: str, 
+        input_data_dir: Path, 
         image_subdir: str, 
         mask_subdir: str,
         image_augment_dict: dict, 
@@ -325,9 +326,9 @@ def create_train_generator(
 
     save_to_dir = None
     if save_to_subdir is not None:
-        save_to_dir = os.path.join(input_data_dir, save_to_subdir)
-        if not os.path.exists(save_to_dir):
-            os.makedirs(save_to_dir)
+        save_to_dir = input_data_dir / save_to_subdir
+        if not save_to_dir.exists():
+            save_to_dir.mkdir(parents=True)
 
     image_generator = image_datagen.flow_from_directory(
             directory=input_data_dir,
@@ -359,19 +360,19 @@ def create_train_generator(
 
         # Rename files in save dir to make compare between image and mask easy    
         if save_to_dir is not None:
-            def rename_prefix_to_suffix(save_dir: str, save_prefix: str):
+            def rename_prefix_to_suffix(save_dir: Path, save_prefix: str):
                 """ Rename file so the filename prefix is moved to being a suffix  """
-                glob_search = f"{save_dir}/{save_prefix}_*.png"
-                paths = glob.glob(glob_search)
+                paths = save_dir.glob(f"{save_prefix}_*.png")
                 for path in paths:
-                    dir, filename = os.path.split(path)
-                    filename_noext, ext = os.path.splitext(filename)
+                    dir = path.parent
+                    filename_noext = path.stem
+                    ext = path.suffix
                     rename_filename_noext = f"{filename_noext.replace(save_prefix + '_', '')}_{save_prefix}"
                     for index in range(1, 999):
-                        rename_path = f"{dir}/{rename_filename_noext}_{index}{ext}"
+                        rename_path = dir / f"{rename_filename_noext}_{index}{ext}"
                         # If the path to rename to exists already, add an index to keep file name unique
-                        if not os.path.exists(rename_path):
-                            os.rename(path, rename_path)
+                        if not rename_path.exists():
+                            path.rename(rename_path)
                             break                           
                         else:
                             continue

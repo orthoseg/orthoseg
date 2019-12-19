@@ -5,13 +5,13 @@ Module to make it easy to start a training session.
 
 import logging
 import os
+from pathlib import Path
 
 #os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 from tensorflow import keras as kr
 #import keras as kr
 
 from orthoseg.helpers import config_helper as conf
-from orthoseg.helpers import log_helper
 import orthoseg.model.model_factory as mf
 import orthoseg.model.model_helper as mh
 import orthoseg.prepare_traindatasets as prep
@@ -44,13 +44,21 @@ def run_training_session():
         raise Exception(f"The segment_subject parameter should not contain '_', so this is invalid: {segment_subject}!!!") 
 
     # Create the output dir's if they don't exist yet...
-    for dir in [conf.dirs['project_dir'], conf.dirs['training_dir']]:
-        if dir and not os.path.exists(dir):
-            os.mkdir(dir)
+    for dir in [conf.dirs.getpath('project_dir'), conf.dirs.getpath('training_dir')]:
+        if dir and not dir.exists():
+            dir.mkdir()
     
     # If the training data doesn't exist yet, create it
-    # Get the image layer section to use for training
+    # Get the config needeed
+
+    # Get the label input info, and clean it so it is practical to use
     label_files = conf.train.getdict('label_datasources')
+    for label_file_key in label_files:
+        # Convert the str file paths to Path objects
+        label_files[label_file_key]['locations_path'] = Path(
+                label_files[label_file_key]['locations_path'])
+        label_files[label_file_key]['data_path'] = Path(
+                label_files[label_file_key]['data_path'])
     first_label_file = list(label_files)[0]
     train_image_layer = label_files[first_label_file]['image_layer']
     train_projection = conf.image_layers[train_image_layer]['projection']
@@ -63,7 +71,7 @@ def run_training_session():
     # First the "train" training dataset
     force_model_traindata_version = conf.model.getint('force_model_traindata_version')
     if force_model_traindata_version > -1:
-        training_dir = f"{conf.dirs['training_train_basedir']}/{force_model_traindata_version:02d}"
+        training_dir = conf.dirs.getpath('training_train_basedir') / f"{force_model_traindata_version:02d}"
         training_version = force_model_traindata_version
     else:
         logger.info("Prepare train, validation and test data")
@@ -71,16 +79,16 @@ def run_training_session():
                 label_files=label_files,
                 label_names_burn_values=label_names_burn_values,
                 image_layers=conf.image_layers,
-                training_dir=conf.dirs['training_dir'],
+                training_dir=conf.dirs.getpath('training_dir'),
                 image_pixel_x_size=conf.train.getfloat('image_pixel_x_size'),
                 image_pixel_y_size=conf.train.getfloat('image_pixel_y_size'),
                 image_pixel_width=conf.train.getint('image_pixel_width'),
                 image_pixel_height=conf.train.getint('image_pixel_height'))
     logger.info(f"Traindata dir to use is {training_dir}, with traindata_version: {training_version}")
 
-    traindata_dir = os.path.join(training_dir, 'train')
-    validationdata_dir = os.path.join(training_dir, 'validation')
-    testdata_dir = os.path.join(training_dir, 'test')
+    traindata_dir = training_dir / 'train'
+    validationdata_dir = training_dir / 'validation'
+    testdata_dir = training_dir / 'test'
 
     # Create base filename of model to use
     model_base_filename = mh.format_model_base_filename(
@@ -89,7 +97,7 @@ def run_training_session():
     
     # Get the best model that already exists for this train dataset
     best_model = mh.get_best_model(
-            model_dir=conf.dirs['model_dir'], model_base_filename=model_base_filename)
+            model_dir=conf.dirs.getpath('model_dir'), model_base_filename=model_base_filename)
 
     # Check if training is needed
     resume_train = conf.model.getboolean('resume_train')
@@ -118,7 +126,7 @@ def run_training_session():
         # in (new) added labels in the datasets.
 
         # Get the current best model that already exists for this subject
-        best_model_curr = mh.get_best_model(model_dir=conf.dirs['model_dir'])
+        best_model_curr = mh.get_best_model(model_dir=conf.dirs.getpath('model_dir'))
         if best_model_curr is True:
             # Load prediction model...
             '''
@@ -142,21 +150,21 @@ def run_training_session():
                 # Predict training dataset
                 segment_predict.predict_dir(
                         model=model,
-                        input_image_dir=os.path.join(traindata_dir, 'image'),
-                        output_base_dir=os.path.join(traindata_dir, predict_out_subdir),
+                        input_image_dir=traindata_dir / 'image',
+                        output_base_dir=traindata_dir / predict_out_subdir,
                         projection_if_missing=train_projection,
-                        input_mask_dir=os.path.join(traindata_dir, 'mask'),
-                        batch_size=int(conf.train['batch_size_predict']), 
+                        input_mask_dir=traindata_dir / 'mask',
+                        batch_size=conf.train.getint('batch_size_predict'), 
                         evaluate_mode=True)
                     
                 # Predict validation dataset
                 segment_predict.predict_dir(
                         model=model,
-                        input_image_dir=os.path.join(validationdata_dir, 'image'),
-                        output_base_dir=os.path.join(validationdata_dir, predict_out_subdir),
+                        input_image_dir=validationdata_dir / 'image',
+                        output_base_dir=validationdata_dir / predict_out_subdir,
                         projection_if_missing=train_projection,
-                        input_mask_dir=os.path.join(validationdata_dir, 'mask'),
-                        batch_size=int(conf.train['batch_size_predict']), 
+                        input_mask_dir=validationdata_dir / 'mask',
+                        batch_size=conf.train.getint('batch_size_predict'), 
                         evaluate_mode=True)
                 del model
             except Exception as ex:
@@ -174,7 +182,7 @@ def run_training_session():
                 validationdata_dir=validationdata_dir,
                 model_encoder=conf.model['encoder'], 
                 model_decoder=conf.model['decoder'],
-                model_save_dir=conf.dirs['model_dir'],
+                model_save_dir=conf.dirs.getpath('model_dir'),
                 model_save_base_filename=model_base_filename,
                 image_augment_dict=conf.train.getdict('image_augmentations'), 
                 mask_augment_dict=conf.train.getdict('mask_augmentations'), 
@@ -189,7 +197,7 @@ def run_training_session():
     # If we trained, get the new best model
     if train_needed is True:
         best_model = mh.get_best_model(
-                model_dir=conf.dirs['model_dir'], model_base_filename=model_base_filename)
+                model_dir=conf.dirs.getpath('model_dir'), model_base_filename=model_base_filename)
     logger.info(f"PREDICT test data with best model: {best_model['filename']}")
     
     # Load prediction model...
@@ -213,44 +221,44 @@ def run_training_session():
     # Predict training dataset
     segment_predict.predict_dir(
             model=model,
-            input_image_dir=os.path.join(traindata_dir, 'image'),
-            output_base_dir=os.path.join(traindata_dir, predict_out_subdir),
+            input_image_dir=traindata_dir / 'image',
+            output_base_dir=traindata_dir / predict_out_subdir,
             projection_if_missing=train_projection,
-            input_mask_dir=os.path.join(traindata_dir, 'mask'),
-            batch_size=int(conf.train['batch_size_predict']), 
+            input_mask_dir=traindata_dir / 'mask',
+            batch_size=conf.train.getint('batch_size_predict'), 
             evaluate_mode=True)
     
     # Predict validation dataset
     segment_predict.predict_dir(
             model=model,
-            input_image_dir=os.path.join(validationdata_dir, 'image'),
-            output_base_dir=os.path.join(validationdata_dir, predict_out_subdir),
+            input_image_dir=validationdata_dir / 'image',
+            output_base_dir=validationdata_dir / predict_out_subdir,
             projection_if_missing=train_projection,
-            input_mask_dir=os.path.join(validationdata_dir, 'mask'),
-            batch_size=int(conf.train['batch_size_predict']), 
+            input_mask_dir=validationdata_dir / 'mask',
+            batch_size=conf.train.getint('batch_size_predict'), 
             evaluate_mode=True)
 
     # Predict test dataset, if it exists
-    if testdata_dir is not None and os.path.exists(testdata_dir):
+    if testdata_dir is not None and testdata_dir.exists():
         segment_predict.predict_dir(
                 model=model,
-                input_image_dir=os.path.join(testdata_dir, 'image'),
-                output_base_dir=os.path.join(testdata_dir, predict_out_subdir),                        
+                input_image_dir=testdata_dir / 'image',
+                output_base_dir=testdata_dir / predict_out_subdir, 
                 projection_if_missing=train_projection,
-                input_mask_dir=os.path.join(testdata_dir, 'mask'),
-                batch_size=int(conf.train['batch_size_predict']), 
+                input_mask_dir=testdata_dir / 'mask',
+                batch_size=conf.train.getint('batch_size_predict'), 
                 evaluate_mode=True)
     
     # Predict extra test dataset with random images in the roi, to add to 
     # train and/or validation dataset if inaccuracies are found
     # -> this is very useful to find false positives to improve the datasets
-    if os.path.exists(conf.dirs['predictsample_image_input_dir']):
+    if conf.dirs.getpath('predictsample_image_input_dir').exists():
         segment_predict.predict_dir(
                 model=model,
-                input_image_dir=conf.dirs['predictsample_image_input_dir'],
-                output_base_dir=(conf.dirs['predictsample_image_output_basedir'] + predict_out_subdir),
+                input_image_dir=conf.dirs.getpath('predictsample_image_input_dir'),
+                output_base_dir=conf.dirs.getpath('predictsample_image_output_basedir') / predict_out_subdir,
                 projection_if_missing=train_projection,
-                batch_size=int(conf.train['batch_size_predict']), 
+                batch_size=conf.train.getint('batch_size_predict'), 
                 evaluate_mode=True)
     
     # Release the memory from the GPU... 
