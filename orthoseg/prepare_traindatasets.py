@@ -88,9 +88,7 @@ def prepare_traindatasets(
             dataversion_new = dataversion_mostrecent + 1
     else:
         # Get the output dir with the highest version (=first if sorted desc)
-        logger.info(output_dirs)
         output_dir_mostrecent = sorted(output_dirs, reverse=True)[0]
-        logger.info(output_dir_mostrecent)
         dataversion_mostrecent = int(os.path.basename(output_dir_mostrecent))
         
         # If none of the input files changed since previous run, reuse dataset
@@ -165,12 +163,20 @@ def prepare_traindatasets(
     img_srs = labellocations_gdf.crs['init']
     
     # Create list with only the input labels that need to be burned in the mask
-    labels_to_burn_gdf = labeldata_gdf.loc[labeldata_gdf['label_name'].isin(label_names_burn_values)]
-    labels_to_burn_gdf['burn_value'] = 0
-    for label_name in label_names_burn_values:
-        labels_to_burn_gdf.loc[(labels_to_burn_gdf['label_name'] == label_name),
-                               'burn_value'] = label_names_burn_values[label_name]
-        
+    if 'label_name' in labeldata_gdf.columns:
+        # If thare is a column 'label_name', filter on the labels provided
+        labels_to_burn_gdf = labeldata_gdf.loc[labeldata_gdf['label_name'].isin(label_names_burn_values)]
+        labels_to_burn_gdf['burn_value'] = 0
+        for label_name in label_names_burn_values:
+            labels_to_burn_gdf.loc[(labels_to_burn_gdf['label_name'] == label_name),
+                                   'burn_value'] = label_names_burn_values[label_name]
+        if len(labeldata_gdf) != len(labels_to_burn_gdf):
+            logger.warn(f"Number of labels to burn changed from {len(labeldata_gdf)} to {len(labels_to_burn_gdf)} with filter on label_names_burn_values: {label_names_burn_values}")
+    elif len(label_names_burn_values) <= 1:
+        labels_to_burn_gdf = labeldata_gdf
+    else:
+        raise Exception(f"Column 'label_name' is mandatory in labeldata if multiple label_names_burn_values specified: {label_names_burn_values}")
+                    
     # Prepare the different traindata types
     for traindata_type in ['train', 'validation', 'test']:
                    
