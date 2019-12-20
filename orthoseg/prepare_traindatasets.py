@@ -7,10 +7,10 @@ from __future__ import print_function
 import logging
 import os
 import shutil
-import glob
 import math
 import datetime
-from typing import Optional
+from pathlib import Path
+from typing import Optional, Tuple
 
 import fiona
 import pandas as pd
@@ -40,7 +40,7 @@ def prepare_traindatasets(
         label_files: dict,
         label_names_burn_values: dict,
         image_layers: dict,
-        training_dir: str,
+        training_dir: Path,
         image_pixel_x_size: float = 0.25,
         image_pixel_y_size: float = 0.25,
         image_pixel_width: int = 512,
@@ -48,7 +48,7 @@ def prepare_traindatasets(
         max_samples: int = 5000,
         output_filelist_csv: str = '',
         output_keep_nested_dirs: bool = False,
-        force: bool = False):
+        force: bool = False) -> Tuple[Path, int]:
     """
     This function prepares training data for the vector labels provided.
 
@@ -72,41 +72,36 @@ def prepare_traindatasets(
 
     # Determine the current data version based on existing output data dir(s),
     # but ignore dirs ending on _ERROR
-    output_dirs = glob.glob(f"{training_dir}/[0-9]*/")
-    output_dirs = [output_dir.rstrip(f"/{os.sep}") for output_dir in output_dirs]
-    output_dirs = [output_dir for output_dir in output_dirs if output_dir.endswith('_BUSY') is False]
+    output_dirs = training_dir.glob(f"[0-9]*/")
+    output_dirs = [output_dir for output_dir in output_dirs if output_dir.name.endswith('_BUSY') is False]
     if len(output_dirs) == 0:
-        output_legacy_train_dirs = glob.glob(f"{training_dir}/train_[0-9]*/")
-        output_legacy_train_dirs = [output_dir.rstrip(f"/{os.sep}") for output_dir in output_legacy_train_dirs]
-        output_legacy_train_dirs = [output_dir for output_dir in output_legacy_train_dirs if output_dir.endswith('_BUSY') is False]
+        output_legacy_train_dirs = training_dir.glob(f"train_[0-9]*/")
+        output_legacy_train_dirs = [output_dir for output_dir in output_legacy_train_dirs if output_dir.name.endswith('_BUSY') is False]
         if len(output_legacy_train_dirs) == 0:
             dataversion_new = 1
         else:
             # Get the output dir with the highest version (=first if sorted desc)
             output_legacy_dir_mostrecent = sorted(output_legacy_train_dirs, reverse=True)[0]
-            output_legacy_subdir_mostrecent = os.path.basename(output_legacy_dir_mostrecent)
-            dataversion_mostrecent = int(output_legacy_subdir_mostrecent.split('_')[1])
+            dataversion_mostrecent = int(output_legacy_dir_mostrecent.name.split('_')[1])
             dataversion_new = dataversion_mostrecent + 1
     else:
         # Get the output dir with the highest version (=first if sorted desc)
         output_dir_mostrecent = sorted(output_dirs, reverse=True)[0]
-        dataversion_mostrecent = int(os.path.basename(output_dir_mostrecent))
+        dataversion_mostrecent = int(output_dir_mostrecent.name)
         
         # If none of the input files changed since previous run, reuse dataset
         reuse = False
-        for label_file_key in label_files:
+        for label_file_key in label_files:                  
             label_file = label_files[label_file_key]
             reuse = True
-            labellocations_output_mostrecent_path = os.path.join(
-                    output_dir_mostrecent, os.path.basename(label_file['locations_path']))
-            labeldata_output_mostrecent_path = os.path.join(
-                    output_dir_mostrecent, os.path.basename(label_file['data_path']))                    
-            if( not (os.path.exists(labellocations_output_mostrecent_path)
-                and os.path.exists(labeldata_output_mostrecent_path)
-                and geofile_util.cmp(label_file['locations_path'], 
-                                     labellocations_output_mostrecent_path)
-                and geofile_util.cmp(label_file['data_path'], 
-                                     labeldata_output_mostrecent_path))):
+            labellocations_output_mostrecent_path = (
+                    output_dir_mostrecent / label_file['locations_path'].name)
+            labeldata_output_mostrecent_path = output_dir_mostrecent / label_file['data_path'].name
+            if(not (labellocations_output_mostrecent_path.exists()
+               and labeldata_output_mostrecent_path.exists()
+               and geofile_util.cmp(
+                        label_file['locations_path'], labellocations_output_mostrecent_path)
+               and geofile_util.cmp(label_file['data_path'], labeldata_output_mostrecent_path))):
                 logger.info(f"RETURN: input label file(s) changed since last prepare_traindatasets, recreate")
                 reuse = False
                 break
@@ -116,11 +111,11 @@ def prepare_traindatasets(
             dataversion_new = dataversion_mostrecent + 1
     
     # Prepare the output basedir...
-    output_tmp_basedir = f"{training_dir}/{dataversion_new:02d}_BUSY"
-    if os.path.exists(output_tmp_basedir):
+    output_tmp_basedir = training_dir / f"{dataversion_new:02d}_BUSY"
+    if output_tmp_basedir.exists():
         shutil.rmtree(output_tmp_basedir)
-    if not os.path.exists(output_tmp_basedir):
-        os.makedirs(output_tmp_basedir)
+    if not output_tmp_basedir.exists():
+        output_tmp_basedir.mkdir(parents=True)
 
     # Process all input files
     labellocations_gdf = None
@@ -161,7 +156,11 @@ def prepare_traindatasets(
             logger.warn(f"No label data found in {label_file['data_path']}")
 
     # Get the srs to use from the input vectors...
-    img_srs = labellocations_gdf.crs['init']
+    try:
+        img_srs = labellocations_gdf.crs['init']
+    except Exception as ex:
+        logger.exception(f"Error getting crs from labellocations, labellocations_gdf.crs: {labellocations_gdf.crs}")
+        raise ex
     
     # Create list with only the input labels that need to be burned in the mask
     if labeldata_gdf is not None and 'label_name' in labeldata_gdf.columns:
@@ -173,8 +172,9 @@ def prepare_traindatasets(
                                    'burn_value'] = label_names_burn_values[label_name]
         if len(labeldata_gdf) != len(labels_to_burn_gdf):
             logger.warn(f"Number of labels to burn changed from {len(labeldata_gdf)} to {len(labels_to_burn_gdf)} with filter on label_names_burn_values: {label_names_burn_values}")
-    elif len(label_names_burn_values) <= 1:
+    elif len(label_names_burn_values) == 1:
         labels_to_burn_gdf = labeldata_gdf
+        labels_to_burn_gdf['burn_value'] = label_names_burn_values[list(label_names_burn_values)[0]]
     else:
         raise Exception(f"Column 'label_name' is mandatory in labeldata if multiple label_names_burn_values specified: {label_names_burn_values}")
                     
@@ -182,14 +182,14 @@ def prepare_traindatasets(
     for traindata_type in ['train', 'validation', 'test']:
                    
         # Create the output dir's if they don't exist yet...
-        output_tmp_dir = f"{output_tmp_basedir}/{traindata_type}"
-        output_tmp_image_dir = os.path.join(output_tmp_dir, 'image')
-        output_tmp_mask_dir = os.path.join(output_tmp_dir, 'mask')
+        output_tmp_dir = output_tmp_basedir / traindata_type
+        output_tmp_image_dir = output_tmp_dir / 'image'
+        output_tmp_mask_dir = output_tmp_dir / 'mask'
 
         # Create output dirs...
         for dir in [output_tmp_dir, output_tmp_mask_dir, output_tmp_image_dir]:
-            if dir and not os.path.exists(dir):
-                os.makedirs(dir)
+            if dir and not dir.exists():
+                dir.mkdir(parents=True)
 
         try:
 
@@ -243,11 +243,11 @@ def prepare_traindatasets(
 
                 # Create a mask corresponding with the image file
                 # image_filepath can be None if file existed already, so check if not None...
-                if image_filepath:
-                    mask_filepath = image_filepath.replace(output_tmp_image_dir, output_tmp_mask_dir)
+                if image_filepath is not None:
                     # Mask should not be in a lossy format!
-                    mask_filepath = mask_filepath.replace('.jpg', '.png')
-                    logger.info(mask_filepath)
+                    mask_filepath = Path(str(image_filepath)
+                            .replace(str(output_tmp_image_dir), str(output_tmp_mask_dir))
+                            .replace('.jpg', '.png'))
                     nb_classes = len(label_names_burn_values) + 1
                     _create_mask(
                             input_image_filepath=image_filepath,
@@ -270,7 +270,7 @@ def prepare_traindatasets(
             raise Exception(message) from ex
 
     # If everything went fine, rename output_tmp_dir to the final output_dir
-    output_basedir = f"{training_dir}/{dataversion_new:02d}"
+    output_basedir = training_dir / f"{dataversion_new:02d}"
     os.rename(output_tmp_basedir, output_basedir)
 
     return (output_basedir, dataversion_new)
@@ -359,17 +359,17 @@ def create_masks_for_images(
 '''
 
 def _create_mask(
-        input_image_filepath: str,
-        output_mask_filepath: str,
+        input_image_filepath: Path,
+        output_mask_filepath: Path,
         labels_to_burn_gdf: gpd.geodataframe,
         nb_classes: int = 1,
-        output_imagecopy_filepath: str = None,
+        output_imagecopy_filepath: Optional[Path] = None,
         minimum_pct_labeled: float = 0.0,
         force: bool = False) -> Optional[bool]:
 
     # If file exists already and force is False... stop.
     if(force is False
-       and os.path.exists(output_mask_filepath)):
+       and output_mask_filepath.exists()):
         logger.debug(f"Output file already exist, and force is False, return: {output_mask_filepath}")
         return
 
@@ -381,7 +381,7 @@ def _create_mask(
         image_transform_affine = image_ds.transform
 
     # Prepare the file profile for the mask depending on output type
-    output_ext_lower = os.path.splitext(output_mask_filepath)[1].lower()
+    output_ext_lower = output_mask_filepath.suffix.lower()
     if output_ext_lower == '.tif':
         image_output_profile = rio.profiles.DefaultGTiffProfile(
                 count=1, transform=image_transform_affine, crs=image_input_profile['crs'])
@@ -413,7 +413,7 @@ def _create_mask(
 
     # Write the labeled mask
     image_output_profile = ows_util.get_cleaned_write_profile(image_output_profile)
-    with rio.open(output_mask_filepath, 'w', **image_output_profile) as mask_ds:
+    with rio.open(str(output_mask_filepath), 'w', **image_output_profile) as mask_ds:
         mask_ds.write(mask_arr, 1)
         
     return True

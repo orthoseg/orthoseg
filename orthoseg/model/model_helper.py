@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 # The real work
 #-------------------------------------------------------------
 
-def get_max_data_version(model_dir: str) -> int:
+def get_max_data_version(model_dir: Path) -> int:
     """
     Get the maximum data version a model exists for in the model_dir.
     
@@ -37,20 +37,21 @@ def get_max_data_version(model_dir: str) -> int:
     else:
         return -1
 
-def format_model_base_filename(
+def format_model_basefilename(
         segment_subject: str,
         train_data_version: int,
         model_architecture: str) -> str:
     """
-    Format the parameters into a model_base_filename.
+    Format the parameters into a model_filename.
     
     Args
         segment_subject: the segment subject
         train_data_version: the version of the data used to train the model
         model_architecture: the architecture of the model
     """
-    retval = f"{segment_subject}_{train_data_version:02}_{model_architecture}"
-    return retval
+    # Format file name
+    filename = f"{segment_subject}_{train_data_version:02}_{model_architecture}"
+    return filename
 
 def format_model_filename(
         segment_subject: str,
@@ -74,43 +75,22 @@ def format_model_filename(
         epoch: the epoch during training that reached these model weights
         save_format (str): the format to save in: 'h5' (keras format) or 'tf' (tensorflow savedmodel)
     """
-    base_filename = format_model_base_filename(
+    # Format file name
+    filename = format_model_basefilename(
             segment_subject=segment_subject,
-            train_data_version=train_data_version,
-            model_architecture=model_architecture)
-    filename = format_model_filename2(
-            model_base_filename=base_filename,
-            acc_train=acc_train,
-            acc_val=acc_val,
-            acc_combined=acc_combined,
-            epoch=epoch,
-            save_format=save_format)
+            model_architecture=model_architecture,
+            train_data_version=train_data_version)
+    filename += f"_{acc_combined:.5f}_{acc_train:.5f}_{acc_val:.5f}_{epoch}"
+
+    # Add suffix
+    if save_format == 'tf':
+        filename += "_tf"
+    else:
+        filename += ".hdf5"
+
     return filename
 
-def format_model_filename2(
-        model_base_filename: str,
-        acc_train: float,
-        acc_val: float,
-        acc_combined: float,
-        epoch: int,
-        save_format: str) -> str:
-    """
-    Format the parameters into a model_filename.
-    
-    Args
-        model_base_filename: the base filename of the model
-        acc_train: the accuracy reached for the training dataset
-        acc_val: the accuracy reached for the validation dataset
-        acc_combined: the average of the train and validation accuracy
-        epoch: the epoch during training that reached these model weights
-        save_format (str): the format to save in: 'h5' (keras format) or 'tf' (tensorflow savedmodel)
-    """
-    if save_format == 'tf':
-        return f"{model_base_filename}_{acc_combined:.5f}_{acc_train:.5f}_{acc_val:.5f}_{epoch}_tf"
-    else:
-        return f"{model_base_filename}_{acc_combined:.5f}_{acc_train:.5f}_{acc_val:.5f}_{epoch}.hdf5"
-
-def parse_model_filename(filepath: str) -> dict:
+def parse_model_filename(filepath: Path) -> Optional[dict]:
     """
     Parse a model_filename to a dict containing the properties of the model:
         * segment_subject: the segment subject
@@ -127,23 +107,25 @@ def parse_model_filename(filepath: str) -> dict:
     """
     
     # Prepare filepath to extract info
-    filepath_Path = Path(filepath)
-    if filepath_Path.is_dir():
+    if filepath.is_dir():
         # If it is a dir, it should end on _tf
-        if not filepath.endswith("_tf"):
-            raise Exception(f"Not a valid path for a model: {filepath}")
-
+        if not filepath.name.endswith("_tf"):
+            logger.warning(f"Not a valid path for a model, dir needs to end on _tf: {filepath}")
+            return None
         save_format = 'tf'
-        modelname = filepath_Path.name
+        modelname = filepath.name
     else:
-        modelname = filepath_Path.stem
-        if filepath_Path.suffix in ('.h5', '.hdf5'):
+        modelname = filepath.stem
+        if filepath.suffix in ('.h5', '.hdf5'):
             save_format = 'h5'
         else: 
-            raise Exception(f"Not a valid path for a model: {filepath}")
+            logger.warning(f"Not a valid path for a model, file should have .h5 of .hdf5 as suffix: {filepath}")
+            return None
         
     # Now extract fields...
     param_values = modelname.split("_")
+    if len(param_values) < 3:
+        logger.warning(f"Not a valid path for a model, split('_') should result in >= 3 fields: {filepath}")
     segment_subject = param_values[0]
     train_data_version = int(param_values[1])
     model_architecture = param_values[2]
@@ -153,6 +135,7 @@ def parse_model_filename(filepath: str) -> dict:
         acc_val = float(param_values[5])
         epoch = int(param_values[6])
     else:
+        logger.warning(f"No model accuracy information found in: {filepath}")
         acc_combined = 0.0
         acc_train = 0.0
         acc_val = 0.0
@@ -170,8 +153,10 @@ def parse_model_filename(filepath: str) -> dict:
             'save_format': save_format}
 
 def get_models(
-        model_dir: str,
-        model_base_filename: str = None) -> pd.DataFrame:
+        model_dir: Path,
+        segment_subject: str = None,
+        model_architecture: str = None,
+        train_data_version: int = None) -> pd.DataFrame:
     """
     Return the list of models in the model_dir passed. It is returned as a 
     dataframe with the columns as returned in parse_model_filename()
@@ -182,29 +167,36 @@ def get_models(
             base filename will be returned
     """
 
-    # glob search string
-    model_Paths = []
-    model_dir_Path = Path(model_dir)
-    if model_base_filename is not None:
-        model_Paths.extend(model_dir_Path.glob(f"{model_base_filename}_*.hdf5"))
-        model_Paths.extend(model_dir_Path.glob(f"{model_base_filename}_*.h5"))
-        model_Paths.extend(model_dir_Path.glob(f"{model_base_filename}_*_tf"))
-    else:
-        model_Paths.extend(model_dir_Path.glob("*.hdf5"))
-        model_Paths.extend(model_dir_Path.glob("*.h5"))
-        model_Paths.extend(model_dir_Path.glob("*_tf"))
+    # List models
+    model_paths = []
+    model_paths.extend(model_dir.glob('*.hdf5'))
+    model_paths.extend(model_dir.glob('*.h5'))
+    model_paths.extend(model_dir.glob('*_tf'))
 
     # Loop through all models and extract necessary info...
     model_info_list = []
-    for model_Path in model_Paths:
-        model_info_list.append(parse_model_filename(str(model_Path)))
+    for model_path in model_paths:
+        model_info = parse_model_filename(model_path)
+        if model_info is not None:
+            model_info_list.append(model_info)
     model_info_df = pd.DataFrame(model_info_list)
+
+    # Filter, if filters provided
+    if len(model_info_df) > 0:
+        if segment_subject is not None:
+            model_info_df = model_info_df.loc[model_info_df['segment_subject'] == segment_subject]
+        if model_architecture is not None:
+            model_info_df = model_info_df.loc[model_info_df['model_architecture'] == model_architecture]
+        if train_data_version is not None:
+            model_info_df = model_info_df.loc[model_info_df['train_data_version'] == train_data_version]
 
     return model_info_df
 
 def get_best_model(
-        model_dir: str,
-        model_base_filename: str = None) -> dict:
+        model_dir: Path,
+        segment_subject: str = None,
+        model_architecture: str = None,
+        train_data_version: int = None) -> Optional[dict]:
     """
     Get the properties of the model with the highest combined accuracy for the highest 
     traindata version in the dir.
@@ -214,31 +206,41 @@ def get_best_model(
     
     Args
         model_dir: dir containing the models
-        model_base_filename: optional, if passed, only the models with this 
-            base filename will be taken in account
+        segment_subject (str, optional): only models with this the segment subject 
+        model_architecture (str, optional): only models with this model architecture
+        train_data_version (str, optional): only models with this train data version
+
+    Returns
+        A dictionary with the info of the best model, or None if no model was found
     """
     # Get list of existing models for this train dataset
-    model_info_df = get_models(model_dir=model_dir, model_base_filename=model_base_filename)
+    model_info_df = get_models(
+            model_dir=model_dir,
+            segment_subject=segment_subject,
+            model_architecture=model_architecture,
+            train_data_version=train_data_version)
     
-    # If no model_base_filename provided, take highest data version
-    if model_base_filename is None:
+    # If no train_data_version provided, take highest data version
+    if train_data_version is None:
         max_data_version = get_max_data_version(model_dir)
         if max_data_version == -1:
-            return {}
+            return None
         model_info_df = model_info_df.loc[model_info_df['train_data_version'] == max_data_version]
         model_info_df = model_info_df.reset_index()
         
     if len(model_info_df) > 0:
         return model_info_df.loc[model_info_df['acc_combined'].values.argmax()]
     else:
-        return {}
+        return None
     
 class ModelCheckpointExt(kr.callbacks.Callback):
     
     def __init__(
             self, 
-            model_save_dir: str, 
-            model_save_base_filename: str,
+            model_save_dir: Path,
+            segment_subject: str,
+            model_architecture: str,
+            train_data_version: int,
             monitor_metric_mode: str,
             monitor_metric_train: str,
             monitor_metric_validation: str,
@@ -252,8 +254,10 @@ class ModelCheckpointExt(kr.callbacks.Callback):
         Constructor
         
         Args:
-            model_save_dir (str): [description]
-            model_save_base_filename (str): [description]
+            model_save_dir (Path): [description]
+            segment_subject (str): segment subject 
+            model_architecture (str): model architecture
+            train_data_version (int): train data version
             monitor_metric_mode (str): use 'min' if the accuracy metrics should be 
                     as low as possible, 'max' if a higher values is better. 
             monitor_metric_train (str): The metric to monitor for train accuracy
@@ -274,7 +278,9 @@ class ModelCheckpointExt(kr.callbacks.Callback):
             raise Exception(f"Invalid value for save_format: {save_format}, should be one of {save_format_values}")
         
         self.model_save_dir = model_save_dir
-        self.model_save_base_filename = model_save_base_filename
+        self.segment_subject = segment_subject
+        self.model_architecture = model_architecture
+        self.train_data_version = train_data_version
         self.monitor_metric_train = monitor_metric_train
         self.monitor_metric_validation = monitor_metric_validation
         self.monitor_metric_mode = monitor_metric_mode
@@ -290,7 +296,9 @@ class ModelCheckpointExt(kr.callbacks.Callback):
         
         save_and_clean_models(
                 model_save_dir=self.model_save_dir,
-                model_save_base_filename=self.model_save_base_filename,
+                segment_subject=self.segment_subject,
+                model_architecture=self.model_architecture,
+                train_data_version=self.train_data_version,
                 monitor_metric_mode=self.monitor_metric_mode,
                 new_model=self.model,
                 new_model_monitor_train=logs.get(self.monitor_metric_train),
@@ -304,8 +312,10 @@ class ModelCheckpointExt(kr.callbacks.Callback):
                 only_report=self.only_report)
         
 def save_and_clean_models(
-        model_save_dir: str,
-        model_save_base_filename: str,
+        model_save_dir: Path,
+        segment_subject: str,
+        model_architecture: str,
+        train_data_version: int,
         monitor_metric_mode: str,
         new_model = None,        
         new_model_monitor_train: Optional[float] = None,
@@ -323,23 +333,24 @@ def save_and_clean_models(
     if they are worse than the new or other existing models.
     
     Args
-        model_save_dir: dir containing the models
-        model_save_base_filename: base filename that will be used
+        model_save_dir (Path): dir containing the models
+        segment_subject (str): segment subject 
+        model_architecture (str): model architecture
+        train_data_version (int): train data version
         model_monitor_metric_mode (str): use 'min' if the monitored metrics should be 
                 as low as possible, 'max' if a higher values is better. 
-        new_model: optional, the keras model object that will be saved
-        new_model_monitor_train: optional: the monitored metric on the train dataset
-        new_model_monitor_val: optional: the monitored metric on the validation dataset
-        new_model_epoch: optional: the epoch in the training
-        new_model: optional, the keras model object that will be saved
+        new_model (optional): the keras model object that will be saved
+        new_model_monitor_train (float, optional): the monitored metric on the train dataset
+        new_model_monitor_val (float, optional): the monitored metric on the validation dataset
+        new_model_epoch (int, optional): the epoch in the training
         save_format (str, optional): The format to save in: 'h5' (keras format) or 'tf' (tensorflow savedmodel). Defaults to 'tf'
-        save_best_only: optional: only keep the best model
-        save_weights_only: optional: only save weights
-        model_template_for_save: optional, if using multi-GPU training, pass
+        save_best_only (bool, optional): only keep the best model
+        save_weights_only (bool, optional): only save weights
+        model_template_for_save (optional): if using multi-GPU training, pass
             the original model here to use this as template for saving        
-        verbose: report the best model after save and cleanup
-        debug: write debug logging
-        only_report: optional: only report which models would be cleaned up
+        verbose (bool, optional): report the best model after save and cleanup
+        debug (bool, optional): write debug logging
+        only_report (bool, optional): only report which models would be cleaned up
     """
     # TODO: add option to specify minimum accuracy/iou score before saving to speed up, because saving takes quite some time! 
     # Check validaty of input
@@ -351,17 +362,21 @@ def save_and_clean_models(
         raise Exception(f"Invalid value for save_format: {save_format}, should be one of {save_format_values}")
             
     # Get a list of all existing models
-    model_info_df = get_models(model_dir=model_save_dir, 
-                               model_base_filename=model_save_base_filename)
+    model_info_df = get_models(
+            model_dir=model_save_dir, 
+            segment_subject=segment_subject,
+            model_architecture=model_architecture,
+            train_data_version=train_data_version)
 
     # If there is a new model passed as param, add it to the list
-    new_model_Path = None
+    new_model_path = None
     if new_model is not None:
+        
         if(new_model_monitor_train is None
            or new_model_monitor_val is None
            or new_model_epoch is None):
-           raise Exception("If new_model is not None, new_model_monitor_... parameters cannot be None either")
-
+            logger.warn(f"If new_model is not None, new_model_monitor_... parameters cannot be None either???, new_model_monitor_train: {new_model_monitor_train}, new_model_monitor_val: {new_model_monitor_val}, new_model_epoch: {new_model_epoch}")
+        
         # Calculate combined accuracy
         new_model_monitor_combined = (new_model_monitor_train+new_model_monitor_val)/2
         
@@ -377,16 +392,18 @@ def save_and_clean_models(
             new_model_acc_train = 1-new_model_monitor_train
             new_model_acc_val = 1-new_model_monitor_val
         
-        new_model_filename = format_model_filename2(
-                model_base_filename=model_save_base_filename,
+        new_model_filename = format_model_filename(
+                segment_subject=segment_subject,
+                model_architecture=model_architecture,
+                train_data_version=train_data_version,
                 acc_combined=new_model_acc_combined,
                 acc_train=new_model_acc_train, acc_val=new_model_acc_val, 
                 epoch=new_model_epoch,
                 save_format=save_format)
-        new_model_Path = Path(model_save_dir) / new_model_filename
+        new_model_path = Path(model_save_dir) / new_model_filename
         
         # Append model to the retrieved models...
-        model_info_df = model_info_df.append({  'filepath': str(new_model_Path),
+        model_info_df = model_info_df.append({  'filepath': str(new_model_path),
                                                 'filename': new_model_filename,
                                                 'acc_combined': new_model_acc_combined,
                                                 'acc_train': new_model_acc_train,
@@ -426,22 +443,22 @@ def save_and_clean_models(
             logger.debug(f"KEEP {model_info['filename']}")
 
             # If it is the new model that needs to be kept, keep it or save to disk
-            if(new_model_Path is not None 
+            if(new_model_path is not None 
                and only_report is not True
-               and model_info['filepath'] == str(new_model_Path)
-               and not new_model_Path.exists()):
-                logger.info('Save model start')
+               and model_info['filepath'] == str(new_model_path)
+               and not new_model_path.exists()):
+                logger.debug('Save model start')
                 if save_weights_only:
                     if model_template_for_save is not None:
-                        model_template_for_save.save_weights(str(new_model_Path))
+                        model_template_for_save.save_weights(str(new_model_path))
                     else:                    
-                        new_model.save_weights(str(new_model_Path))
+                        new_model.save_weights(str(new_model_path))
                 else:
                     if model_template_for_save is not None:
-                        model_template_for_save.save(str(new_model_Path))
+                        model_template_for_save.save(str(new_model_path))
                     else:                    
-                        new_model.save(str(new_model_Path))
-                logger.info('Save model ready')
+                        new_model.save(str(new_model_path))
+                logger.debug('Save model ready')
         else:     
             # Bad model... can be removed (or not saved)
             if only_report is True:
@@ -459,8 +476,12 @@ def save_and_clean_models(
                     print(f"  {better_one['filename']}")
 
     if verbose is True or debug is True:
-        best_model = get_best_model(model_save_dir, model_save_base_filename)
-        if best_model is True:
+        best_model = get_best_model(
+                model_dir=model_save_dir,
+                segment_subject=segment_subject,
+                model_architecture=model_architecture,
+                train_data_version=train_data_version)
+        if best_model is not None:
             print(f"BEST MODEL: acc_combined: {best_model['acc_combined']}, acc_train: {best_model['acc_train']}, acc_val: {best_model['acc_val']}, epoch: {best_model['epoch']}")
 
 if __name__ == '__main__':

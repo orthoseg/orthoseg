@@ -3,14 +3,16 @@
 Module with generic usable utility functions to make some tasks using OWS services easier.
 """
 
-import logging
-import os
-import time
-import datetime
-import random
-import math
-import itertools as it
 import concurrent.futures as futures
+import datetime
+import itertools as it
+import logging
+import math
+import os
+from pathlib import Path
+import random
+import time
+from typing import List, Optional, Tuple
 
 import owslib
 import owslib.wms
@@ -50,15 +52,15 @@ logger.setLevel(logging.DEBUG)
 def get_images_for_grid(
         wms_server_url: str,
         wms_version: str,
-        wms_layernames: [str],
+        wms_layernames: List[str],
         srs: str,
-        output_image_dir: str,
-        image_gen_bounds: (float, float, float, float) = None,
-        image_gen_roi_filepath: str = None,
+        output_image_dir: Path,
+        image_gen_bounds: Tuple[float, float, float, float] = None,
+        image_gen_roi_filepath: Optional[Path] = None,
         grid_xmin: float = 0.0,
         grid_ymin: float = 0.0,
-        image_srs_pixel_x_size: int = 0.25,
-        image_srs_pixel_y_size: int = 0.25,
+        image_srs_pixel_x_size: float = 0.25,
+        image_srs_pixel_y_size: float = 0.25,
         image_pixel_width: int = 1024,
         image_pixel_height: int = 1024,
         image_pixels_ignore_border: int = 0,
@@ -67,8 +69,8 @@ def get_images_for_grid(
         image_format: str = FORMAT_GEOTIFF,
         image_format_save: str = None,
         tiff_compress: str = 'lzw',
-        transparent: str = False,
-        wms_layerstyles: [str] = ['default'],
+        transparent: bool = False,
+        wms_layerstyles: List[str] = ['default'],
         pixels_overlap: int = 0,
         column_start: int = 0,
         nb_images_to_skip: int = None,
@@ -85,10 +87,10 @@ def get_images_for_grid(
     
     # Read the region of interest file if provided
     roi_gdf = None
-    if image_gen_roi_filepath:
+    if image_gen_roi_filepath is not None:
         # Open vector layer
         logger.info(f"Open vector file {image_gen_roi_filepath}")
-        roi_gdf = gpd.read_file(image_gen_roi_filepath)
+        roi_gdf = gpd.read_file(str(image_gen_roi_filepath))
                 
         # If the generate_window wasn't specified, calculate the bounds
         # based on the roi (but make sure they fit the grid!)
@@ -144,8 +146,8 @@ def get_images_for_grid(
     rows = int(math.ceil(dy / srs_height)) + 1
 
     # Inits to start getting images 
-    if not os.path.exists(output_image_dir):
-        os.makedirs(output_image_dir)
+    if not output_image_dir.exists():
+        output_image_dir.mkdir(parents=True)
     auth = owslib.util.Authentication()
     wms = owslib.wms.WebMapService(wms_server_url, version=wms_version, auth=auth)
 
@@ -172,11 +174,11 @@ def get_images_for_grid(
                 
             # Put all the images of this column in a dir
             if is_srs_projected:
-                output_dir = os.path.join(output_image_dir, f"{image_xmin:06.0f}")
+                output_dir = output_image_dir / f"{image_xmin:06.0f}"
             else:
-                output_dir = os.path.join(output_image_dir, f"{image_xmin:09.4f}")
-            if not os.path.exists(output_dir):
-                os.mkdir(output_dir)
+                output_dir = output_image_dir / f"{image_xmin:09.4f}"
+            if not output_dir.exists():
+                output_dir.mkdir()
                 
             logger.info(f"Start processing column {col}")
             for row in range(0, rows):
@@ -205,8 +207,8 @@ def get_images_for_grid(
                               image_pixel_height+2*pixels_overlap),
                         image_format=image_format,
                         layername='_'.join(wms_layernames))
-                output_filepath = os.path.join(output_dir, output_filename)
-                if not force and os.path.exists(output_filepath):
+                output_filepath = output_dir / output_filename
+                if not force and output_filepath.exists():
                     nb_ignore_in_progress += 1
                     logger.debug("    -> image exists already, so skip")
                     continue
@@ -329,8 +331,8 @@ def get_images_for_grid(
                     
 def getmap_to_file(
         wms: owslib.wms.WebMapService,
-        layers: [str],
-        output_dir: str,
+        layers: List[str],
+        output_dir: Path,
         srs: str,
         bbox,
         size,
@@ -339,10 +341,10 @@ def getmap_to_file(
         output_filename: str = None,
         transparent: bool = False,
         tiff_compress: str = 'lzw',
-        styles: [str] = ['default'],
+        styles: List[str] = ['default'],
         random_sleep: float = 0.0,
         image_pixels_ignore_border: int = 0,
-        force: bool = False) -> str:
+        force: bool = False) -> Optional[Path]:
     """
 
     Args
@@ -363,10 +365,10 @@ def getmap_to_file(
                 layername='_'.join(layers))
 
     # Create full output filepath
-    output_filepath = os.path.join(output_dir, output_filename)
+    output_filepath = output_dir / output_filename
 
     # If force is false and file exists already, stop...
-    if force == False and os.path.exists(output_filepath):
+    if force == False and output_filepath.exists():
         logger.debug(f"File already exists, skip: {output_filepath}")
         return None
 
@@ -429,9 +431,9 @@ def getmap_to_file(
 
     ##### Save image to file #####
     # Write image to file...
-    if not os.path.exists(output_dir):
-        os.mkdir(output_dir)
-    with open(output_filepath, 'wb') as image_file:
+    if not output_dir.exists():
+        output_dir.mkdir()
+    with output_filepath.open('wb') as image_file:
         image_file.write(response.read())
 
     ##### Make the output image compliant with image_format_save #####
@@ -439,7 +441,7 @@ def getmap_to_file(
     # If geotiff is asked, check if the the coordinates are embedded...
     if image_format_save == FORMAT_GEOTIFF:
         # Read output image to check if coördinates are there
-        with rio.open(output_filepath) as image_ds:
+        with rio.open(str(output_filepath)) as image_ds:
             image_profile_orig = image_ds.profile
             image_transform_affine = image_ds.transform
 
@@ -469,9 +471,9 @@ def getmap_to_file(
                 image_profile = image_profile_gtiff
             else:
                 image_profile = image_profile_orig
-
+                
             # Set the asked compression
-            image_profile_gtiff.update(compress=tiff_compress)
+            image_profile.update(compress=tiff_compress)
 
             logger.debug(f"Map request bbox: {bbox_for_getmap}")
             logger.debug(f"Map request size: {size_for_getmap}")
@@ -496,8 +498,8 @@ def getmap_to_file(
                     crs=srs)
 
             # Delete output file, and write again
-            os.remove(output_filepath)
-            with rio.open(output_filepath, 'w', **image_profile) as image_file:
+            output_filepath.unlink()
+            with rio.open(str(output_filepath), 'w', **image_profile) as image_file:
                 image_file.write(image_data)
 
     else:
@@ -505,11 +507,11 @@ def getmap_to_file(
         srs_pixel_x_size = (bbox[2]-bbox[0])/size[0]
         srs_pixel_y_size = (bbox[1]-bbox[3])/size[1]
 
-        path_noext, _ = os.path.splitext(output_filepath)
+        path_noext = output_filepath.parent / output_filepath.stem
         ext_world = get_world_ext_for_image_format(image_format_save)
-        output_worldfile_filepath = f"{path_noext}{ext_world}"
+        output_worldfile_filepath = Path(str(path_noext) + ext_world)
         
-        with open(output_worldfile_filepath, 'w') as wld_file:
+        with output_worldfile_filepath.open('w') as wld_file:
             wld_file.write(f"{srs_pixel_x_size}")
             wld_file.write("\n0.000")
             wld_file.write("\n0.000")
@@ -522,7 +524,7 @@ def getmap_to_file(
            or image_pixels_ignore_border > 0):
 
             # Read image 
-            with rio.open(output_filepath) as image_ds:
+            with rio.open(str(output_filepath)) as image_ds:
                 image_profile_orig = image_ds.profile
                 image_transform_affine = image_ds.transform
 
@@ -551,9 +553,9 @@ def getmap_to_file(
                         compress=compress, driver=driver)
 
             # Delete output file, and write again
-            os.remove(output_filepath)
+            output_filepath.unlink()
             image_profile_output = get_cleaned_write_profile(image_profile_output)
-            with rio.open(output_filepath, 'w', **image_profile_output) as image_file:
+            with rio.open(str(output_filepath), 'w', **image_profile_output) as image_file:
                 image_file.write(image_data)               
 
             #raise Exception(f"Different save format not supported between {image_format} and {image_format_save}")

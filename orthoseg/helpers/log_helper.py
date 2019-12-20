@@ -4,14 +4,14 @@ Module with specific helper functions to manage the logging of orthoseg.
 """
 
 import logging
-import os
 import datetime
+from pathlib import Path
 
 #-------------------------------------------------------------
 # Init logging
 #-------------------------------------------------------------
 
-def main_log_init(log_dir: str,
+def main_log_init(log_dir: Path,
                   log_basefilename: str):
 
     # Check input parameters
@@ -19,8 +19,8 @@ def main_log_init(log_dir: str,
         raise Exception(f"Error: log_dir is mandatory!")
     
     # Make sure the log dir exists
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir, exist_ok=True)
+    if not log_dir.exists():
+        log_dir.mkdir(parents=True, exist_ok=True)
         
     # Get root logger
     logger = logging.getLogger('')
@@ -44,8 +44,8 @@ def main_log_init(log_dir: str,
                                       datefmt='%H:%M:%S')) 
     logger.addHandler(ch)
     
-    log_filepath = os.path.join(log_dir, f"{datetime.datetime.now():%Y-%m-%d_%H-%M-%S}_{log_basefilename}.log")
-    fh = logging.FileHandler(filename=log_filepath)
+    log_filepath = log_dir / f"{datetime.datetime.now():%Y-%m-%d_%H-%M-%S}_{log_basefilename}.log"
+    fh = logging.FileHandler(filename=str(log_filepath))
     fh.setLevel(logging.INFO)
     fh.setFormatter(logging.Formatter('%(asctime)s|%(levelname)s|%(name)s|%(message)s'))
     logger.addHandler(fh)

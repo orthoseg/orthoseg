@@ -8,7 +8,7 @@ and testing datasets you don't need this!
 """
 
 import os
-import glob
+from pathlib import Path
 
 import rasterio as rio
 import rasterio.features as rio_features
@@ -18,8 +18,8 @@ import geopandas as gpd
 
 import log_helper
 
-def vectorize_masks(input_image_dir: str,
-                    output_filepath: str,
+def vectorize_masks(input_image_dir: Path,
+                    output_filepath: Path,
                     projection_if_missing: str):
 
     # Get list of all image files to process...

@@ -4,16 +4,12 @@ Modile with generic Utility functions for vector manipulations.
 """
 
 import logging
-import os
-import glob
-import time
+from pathlib import Path
+from typing import Tuple
 
-import concurrent.futures as futures
-import fiona
 import geopandas as gpd
 import numpy as np
 import shapely.ops as sh_ops
-import shapely.geometry as sh_geom
 
 from orthoseg.util.vector import simplify_visval as simpl_vis
 from orthoseg.util.vector import simplify_rdp_plus as simpl_rdp_plus
@@ -29,24 +25,21 @@ logger = logging.getLogger(__name__)
 # The real work
 #-------------------------------------------------------------
     
-def read_file(filepath) -> []: 
-    with fiona.open(filepath, 'r') as in_file:
-        return list(in_file)
+def unary_union_with_onborder(
+        input_gdf: gpd.GeoDataFrame,
+        input_filepath: Path,
+        output_filepath: Path,
+        evaluate_mode: bool = False,
+        force: bool = False):
 
-def unary_union_with_onborder(input_gdf: gpd.GeoDataFrame,
-                              input_filepath: str,
-                              output_filepath: str,
-                              evaluate_mode: bool = False,
-                              force: bool = False):
-    
     # If output file already exists and force is False, return
-    if not force and os.path.exists(output_filepath):
+    if not force and output_filepath.exists():
         logger.info(f"Force is false and output file exists already, skip: {output_filepath}")
         return None
         
     # If the input geoms are not yet in memory, read them from file
     if input_gdf is None:
-        input_gdf = gpd.read_file(input_filepath)
+        input_gdf = geofile_util.read_file(input_filepath)
         
         if evaluate_mode:
             logger.info("Evaluate mode, so limit input to 1000 geoms")
@@ -88,7 +81,7 @@ def unary_union_with_onborder(input_gdf: gpd.GeoDataFrame,
     geofile_util.to_file(union_gdf, output_filepath)
     return union_gdf
             
-def extract_polygons(in_geom) -> []:
+def extract_polygons(in_geom) -> list:
     """
     Extracts all polygons from the input geom and returns them as a list.
     """
@@ -127,8 +120,9 @@ def fix(geometry):
         logger.error(f"Error fixing geometry {geometry}")
         return geometry
 
-def remove_inner_rings(geometry,
-                       min_area_to_keep: float = None):
+def remove_inner_rings(
+        geometry,
+        min_area_to_keep: float = None):
     
     # First check if the geom is None...
     if geometry is None:
@@ -171,10 +165,11 @@ def get_nb_coords(geometry) -> int:
     
     return nb_coords
     
-def simplify_visval(geometry, 
-                    threshold: int,
-                    preserve_topology: bool = False):
-    
+def simplify_visval(
+        geometry, 
+        threshold: int,
+        preserve_topology: bool = False):
+
     # Apply the simplification
     geom_simpl_np = simpl_vis.VWSimplifier(geometry.exterior.coords).from_threshold(threshold)
 
@@ -188,10 +183,11 @@ def simplify_visval(geometry,
         else:
             return None
 
-def simplify_rdp_plus(geometry, 
-                      epsilon: int,
-                      preserve_topology: bool = False):
-    
+def simplify_rdp_plus(
+        geometry, 
+        epsilon: int,
+        preserve_topology: bool = False):
+
     # Apply the simplification
     geom_simpl_coords = simpl_rdp_plus.rdp(geometry.exterior.coords, 
                                            epsilon=epsilon)
@@ -205,9 +201,10 @@ def simplify_rdp_plus(geometry,
         else:
             return None
         
-def calc_onborder(geoms_gdf: gpd.GeoDataFrame,
-                  border_bounds,
-                  onborder_column_name: str = "onborder"):
+def calc_onborder(
+        geoms_gdf: gpd.GeoDataFrame,
+        border_bounds: Tuple[float, float, float, float],
+        onborder_column_name: str = "onborder"):
     """
     Add/update a column to the GeoDataFrame with:
         * 0 if the polygon isn't on the border and 
@@ -299,12 +296,5 @@ def write_wkt(in_geoms,
             dst.write(f"{geom}\n")
 '''
 
-def main():
-    '''
-    grid_gdf = create_grid(xmin=0, ymin=0, xmax=300000, ymax=300000,
-                           cell_width=2000, cell_height=2000)
-    geofile_util.to_file(grid_gdf, "X:\\Monitoring\\OrthoSeg\\grid_2000.gpkg")
-    '''
-    
 if __name__ == '__main__':
-    main()
+    raise Exception("Not supported")

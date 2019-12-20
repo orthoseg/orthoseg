@@ -5,16 +5,17 @@ Module with specific helper functions to manage the configuration of orthoseg.
 
 import configparser
 import json
-import os
+from pathlib import Path
 import pprint
+from typing import List
 
 def read_config(
-        config_filepaths: [],
-        layer_config_filepath: str):
+        config_filepaths: List[Path],
+        layer_config_filepath: Path):
         
     # Log config filepaths that don't exist...
     for config_filepath in config_filepaths:
-        if not os.path.exists(config_filepath):
+        if not config_filepath.exists():
             print(f"config_filepath does not exist: {config_filepath}")
 
     # Read the configuration
@@ -23,7 +24,8 @@ def read_config(
             interpolation=configparser.ExtendedInterpolation(),
             converters={'list': lambda x: [i.strip() for i in x.split(',')],
                         'listint': lambda x: [int(i.strip()) for i in x.split(',')],
-                        'dict': lambda x: json.loads(x)})
+                        'dict': lambda x: json.loads(x),
+                        'path': lambda x: Path(x)})
 
     config.read(config_filepaths)
     global config_filepaths_used
@@ -50,7 +52,8 @@ def read_config(
     layer_config = configparser.ConfigParser(
             interpolation=configparser.ExtendedInterpolation(),
             converters={'list': lambda x: [i.strip() for i in x.split(',')],
-                        'listint': lambda x: [int(i.strip()) for i in x.split(',')]})
+                        'listint': lambda x: [int(i.strip()) for i in x.split(',')],
+                        'path': lambda x: Path(x)})
     layer_config.read(layer_config_filepath)
     global layer_config_filepath_used
     layer_config_filepath_used = layer_config_filepath
@@ -67,13 +70,13 @@ def read_config(
         image_layers[image_layer]['wms_layerstyles'] = wms_layerstyles
 
         # Give default values to some other properties of a server
-        nb_concurrent_calls = layer_config[image_layer].getint('nb_concurrent_calls', 6)
+        nb_concurrent_calls = layer_config[image_layer].getint('nb_concurrent_calls', fallback=6)
         image_layers[image_layer]['nb_concurrent_calls'] = nb_concurrent_calls
-        random_sleep = layer_config[image_layer].getint('random_sleep', 6)
+        random_sleep = layer_config[image_layer].getint('random_sleep', fallback=6)
         image_layers[image_layer]['random_sleep'] = random_sleep
 
         # Check if a region of interest is specified as file or bbox
-        roi_filepath = layer_config[image_layer].get('roi_filepath', None)
+        roi_filepath = layer_config[image_layer].getpath('roi_filepath', fallback=None)
         image_layers[image_layer]['roi_filepath'] = roi_filepath
         bbox_tuple = None
         if layer_config.has_option(image_layer, 'bbox'):
@@ -94,7 +97,8 @@ def read_config(
         image_layers[image_layer]['grid_ymin'] = grid_ymin
 
         # Check if a image_pixels_ignore_border is specified
-        image_pixels_ignore_border = layer_config[image_layer].getint('image_pixels_ignore_border', 0)
+        image_pixels_ignore_border = layer_config[image_layer].getint(
+                'image_pixels_ignore_border', fallback=0)
         image_layers[image_layer]['image_pixels_ignore_border'] = image_pixels_ignore_border                                
             
 def pformat_config():

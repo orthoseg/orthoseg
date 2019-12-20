@@ -25,17 +25,15 @@ def test_postprocess_vectors():
 
     # Init logger
     global logger
-    logger = log_helper.main_log_init(conf.dirs['log_dir'], __name__)
+    logger = log_helper.main_log_init(conf.dirs.path('log_dir'), __name__)
     logger.info(f"Config used: \n{conf.pformat_config()}")
 
     # Input and output dir
     input_dir = (conf.dirs['predict_image_output_basedir'] 
                  + "_sealedsurfaces_16_inceptionresnetv2+unet_348")
     output_vector_name = f"{conf.general['segment_subject']}_16_{conf.predict['image_layer']}"
-    output_dir = os.path.join(
-            conf.dirs['output_vector_dir'], output_vector_name)
-    output_filepath = os.path.join(
-            output_dir, f"{output_vector_name}.gpkg")
+    output_dir = conf.dirs.getpath('output_vector_dir' / output_vector_name
+    output_filepath = output_dir / f"{output_vector_name}.gpkg"
     
     postp.postprocess_vectors(input_dir=input_dir,
                               output_filepath=output_filepath,

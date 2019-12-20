@@ -4,12 +4,10 @@ Module with high-level operations to segment images.
 """
 
 from concurrent import futures
-import logging
-import os
-import glob
 import datetime
-import time
-import math
+import logging
+from pathlib import Path
+from typing import List, Optional
 
 from tensorflow import keras as kr
 #import keras as kr
@@ -35,11 +33,11 @@ logger = logging.getLogger(__name__)
 
 def predict_dir(
         model,
-        input_image_dir: str,
-        output_base_dir: str,         
+        input_image_dir: Path,
+        output_base_dir: Path,         
         border_pixels_to_ignore: int = 0,                
         projection_if_missing: str = None,
-        input_mask_dir: str = None,
+        input_mask_dir: Optional[Path] = None,
         batch_size: int = 16,                
         evaluate_mode: bool = False,
         force: bool = False):
@@ -84,7 +82,7 @@ def predict_dir(
     """
     
     # Check if input params are ok
-    if not os.path.exists(input_image_dir):
+    if not input_image_dir.exists():
         logger.warn(f"In predict_dir, but input_image_dir doesn't exist, so return: {input_image_dir}")
         return
 
@@ -92,34 +90,34 @@ def predict_dir(
 
     # If we are using evaluate mode, change the output dir...
     if evaluate_mode:
-        output_base_dir = output_base_dir + '_eval'
+        output_base_dir = Path(str(output_base_dir) + '_eval')
         
     # Create the output dir's if they don't exist yet...
     for dir in [output_base_dir]:
-        if not os.path.exists(dir):
-            os.mkdir(dir)
+        if not dir.exists():
+            dir.mkdir()
 
     # Get list of all image files to process...
-    image_filepaths = []
+    image_filepaths: List[Path] = []
     input_ext = ['.png', '.tif', '.jpg']
     for input_ext_cur in input_ext:
-        image_filepaths.extend(glob.glob(f"{input_image_dir}/**/*{input_ext_cur}", recursive=True))
+        image_filepaths.extend(input_image_dir.rglob('*' + input_ext_cur))
     nb_todo = len(image_filepaths)
     logger.info(f"Found {nb_todo} {input_ext} images to predict on in {input_image_dir}")
     
     # If force is false, get list of all existing predictions
     # Getting the list once is way faster than checking file per file later on!
-    images_done_log_filepath = os.path.join(output_base_dir, "images_done.txt")
-    images_error_log_filepath = os.path.join(output_base_dir, "images_error.txt")
+    images_done_log_filepath = output_base_dir / 'images_done.txt'
+    images_error_log_filepath = output_base_dir / 'images_error.txt'
+    image_done_filenames = set()
     if force is False:
         # First read the listing files if they exists
-        image_done_filenames = set()
-        if os.path.exists(images_done_log_filepath):
-            with open(images_done_log_filepath) as f:
+        if images_done_log_filepath.exists():
+            with images_done_log_filepath.open() as f:
                 for filename in f:
                     image_done_filenames.add(filename.rstrip())
-        if os.path.exists(images_error_log_filepath):                    
-            with open(images_error_log_filepath) as f:
+        if images_error_log_filepath.exists():                    
+            with images_error_log_filepath.open() as f:
                 for filename in f:
                     image_done_filenames.add(filename.rstrip())
         if len(image_done_filenames) > 0:
@@ -131,30 +129,28 @@ def predict_dir(
     start_time = None
     start_time_batch_read = None
     image_filepaths_sorted = sorted(image_filepaths)
-    with open(images_error_log_filepath, "a+") as image_errorlog_file, \
-         open(images_done_log_filepath, "a+") as image_donelog_file, \
+    with images_error_log_filepath.open('a+') as image_errorlog_file, \
+         images_done_log_filepath.open('a+') as image_donelog_file, \
          futures.ThreadPoolExecutor(batch_size) as pool:
         
         for i, image_filepath in enumerate(image_filepaths_sorted):
     
             # If force is false and prediction exists... skip
             if force is False:
-               filename = os.path.basename(image_filepath)
-               if filename in image_done_filenames:
-                   logger.debug(f"Predict for image has already been done before and force is False, so skip: {filename}")
+               if image_filepath.name in image_done_filenames:
+                   logger.debug(f"Predict for image has already been done before and force is False, so skip: {image_filepath.name}")
                    continue
                     
             # Prepare the filepath for the output
-            image_filepath_noext = os.path.splitext(image_filepath)[0]
             if evaluate_mode:
                 # In evaluate mode, put everyting in output base dir for easier 
                 # comparison
-                _, image_filename_noext = os.path.split(image_filepath_noext)
-                tmp_output_filepath = os.path.join(output_base_dir, image_filename_noext)
+                tmp_output_filepath = output_base_dir / image_filepath.stem
             else:
-                tmp_output_filepath = image_filepath_noext.replace(input_image_dir, output_base_dir)
-            output_pred_filepath = f"{tmp_output_filepath}_pred.tif"       
-            output_dir, _ = os.path.split(output_pred_filepath)
+                tmp_output_filepath = Path(str(image_filepath).replace(str(input_image_dir), str(output_base_dir)))
+                tmp_output_filepath = tmp_output_filepath.parent / tmp_output_filepath.stem
+            output_dir = tmp_output_filepath.parent
+            output_pred_filepath = output_dir / f"{tmp_output_filepath.stem}_pred.tif"
             
             # Init start time after first batch is ready, as it is really slow
             if start_time is None and start_time_batch_read is not None:
@@ -220,13 +216,12 @@ def predict_dir(
                                 force=force)
 
                         # Write line to file with done files...
-                        image_donelog_file.write(os.path.basename(image_info['input_image_filepath']) + '\n')
+                        image_donelog_file.write(image_info['input_image_filepath'].name + '\n')
                     except:
                         logger.exception(f"Error postprocessing pred for {image_info['input_image_filepath']}")
     
                         # Write line to file with error files...
-                        image_errorlog_file.write(
-                                os.path.basename(image_info['input_image_filepath']) + '\n')
+                        image_errorlog_file.write(image_info['input_image_filepath'].name + '\n')
                 logger.debug("Post-processing ready")
 
                 # Log the progress and prediction speed
@@ -238,7 +233,7 @@ def predict_dir(
                         nb_per_hour_lastbatch = (nb_images_in_batch/time_passed_lastbatch_s) * 3600
                         hours_to_go = (int)((nb_todo - i)/nb_per_hour)
                         min_to_go = (int)((((nb_todo - i)/nb_per_hour)%1)*60)
-                        print(f"\r{hours_to_go}:{min_to_go} left for {nb_todo-i} todo at {nb_per_hour:0.0f}/h ({nb_per_hour_lastbatch:0.0f}/h last batch) in ...{input_image_dir[-30:]}",
+                        print(f"\r{hours_to_go}:{min_to_go} left for {nb_todo-i} todo at {nb_per_hour:0.0f}/h ({nb_per_hour_lastbatch:0.0f}/h last batch) in ...{str(input_image_dir)[-30:]}",
                             end='', flush=True)
                 
                 # Reset variable for next batch
@@ -475,15 +470,15 @@ def predict_dir(
                 break
     """
 
-def read_image(image_filepath: str,
-               projection_if_missing: str = None):
+def read_image(image_filepath: Path,
+               projection_if_missing: str = None) -> dict:
 
     # Read input file
     # Because sometimes a read seems to fail, retry up to 3 times...
     retry_count = 0
     while True:
         try:
-            with rio.open(image_filepath) as image_ds:
+            with rio.open(str(image_filepath)) as image_ds:
                 # Read geo info
                 image_crs = image_ds.profile['crs']
                 image_transform = image_ds.transform
@@ -522,16 +517,16 @@ def read_image(image_filepath: str,
     return result
 
 def clean_and_save_prediction(
-        image_image_filepath,
-        image_crs,
-        image_transform,
-        output_dir,
-        image_pred_arr,
-        input_image_dir,
-        input_mask_dir,
-        border_pixels_to_ignore,
-        evaluate_mode,
-        force) -> bool:
+        image_image_filepath: Path,
+        image_crs: str,
+        image_transform: str,
+        output_dir: Path,
+        image_pred_arr: np.array,
+        input_image_dir: Optional[Path] = None,
+        input_mask_dir: Optional[Path] = None,
+        border_pixels_to_ignore: int = 0,
+        evaluate_mode: bool = False,
+        force: bool = False) -> bool:
 
     # If nb. channels in prediction > 1, skip the first as it is the background
     image_pred_shape = image_pred_arr.shape
@@ -566,17 +561,17 @@ def clean_and_save_prediction(
     return True
 
 def save_prediction(
-        image_image_filepath,
-        image_crs,
-        image_transform,
-        output_dir,
-        image_pred_uint8_cleaned,
-        input_image_dir,
-        input_mask_dir,
-        output_suffix,
-        border_pixels_to_ignore,
-        evaluate_mode,
-        force) -> bool:
+        image_image_filepath: Path,
+        image_crs: str,
+        image_transform: str,
+        output_dir: Path,
+        image_pred_uint8_cleaned: np.array,
+        input_image_dir: Optional[Path],
+        input_mask_dir: Optional[Path],
+        output_suffix: str,
+        border_pixels_to_ignore: int,
+        evaluate_mode: bool = False,
+        force: bool = False) -> bool:
 
     # Save prediction
     image_pred_filepath = save_prediction_uint8(
@@ -622,7 +617,7 @@ def clean_prediction(
         if n_channels > 1:
             raise Exception("Invalid input, should be one channel!")
         # Reshape array from 3 dims (width, height, nb_channels) to 2.
-        image_pred_uint8 = image_pred_uint8.reshape((image_pred_shape[0], image_pred_shape[1]))   
+        image_pred_uint8 = image_pred_arr.reshape((image_pred_shape[0], image_pred_shape[1]))   
 
     # Convert to uint8
     image_pred_uint8 = (image_pred_arr * 10).astype(np.uint8)
@@ -648,14 +643,14 @@ def clean_prediction(
     return image_pred_uint8_cropped
 
 def save_prediction_uint8(
-        image_filepath: str,
-        image_pred_uint8_cleaned,
+        image_filepath: Path,
+        image_pred_uint8_cleaned: np.array,
         image_crs: str,
-        image_transform,
-        output_dir: str,
+        image_transform: str,
+        output_dir: Path,
         output_suffix: str = '',
         border_pixels_to_ignore: int = None,
-        force: bool = False) -> str:
+        force: bool = False) -> Path:
 
     ##### Init #####
     # If no decent transform metadata, stop!
@@ -665,20 +660,16 @@ def save_prediction_uint8(
         raise Exception(message)
 
     # Make sure the output dir exists...
-    if not os.path.exists(output_dir):
-        os.mkdir(output_dir)
+    if not output_dir.exists():
+        output_dir.mkdir()
     
-    # Prepare the filepath for the output
-    _, image_filename = os.path.split(image_filepath)
-    image_filename_noext, _ = os.path.splitext(image_filename)
-    output_filepath = f"{output_dir}/{image_filename_noext}{output_suffix}_pred.tif"
-                        
     # Write prediction to file
+    output_filepath = output_dir / f"{image_filepath.stem}{output_suffix}_pred.tif"
     logger.debug("Save +- original prediction")
     image_shape = image_pred_uint8_cleaned.shape
     image_width = image_shape[0]
     image_height = image_shape[1]
-    with rio.open(output_filepath, 'w', driver='GTiff', tiled='no',
+    with rio.open(str(output_filepath), 'w', driver='GTiff', tiled='no',
                   compress='lzw', predictor=2, num_threads=4,
                   height=image_height, width=image_width, 
                   count=1, dtype=rio.uint8, crs=image_crs, transform=image_transform) as dst:
