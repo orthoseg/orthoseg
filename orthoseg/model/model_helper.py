@@ -202,7 +202,7 @@ def get_models(
 
 def get_best_model(
         model_dir: Path,
-        model_base_filename: str = None) -> dict:
+        model_base_filename: str = None) -> Optional[dict]:
     """
     Get the properties of the model with the highest combined accuracy for the highest 
     traindata version in the dir.
@@ -214,6 +214,8 @@ def get_best_model(
         model_dir: dir containing the models
         model_base_filename: optional, if passed, only the models with this 
             base filename will be taken in account
+    Returns
+        A dictionary with the info, or None if no model was found
     """
     # Get list of existing models for this train dataset
     model_info_df = get_models(model_dir=model_dir, model_base_filename=model_base_filename)
@@ -222,14 +224,14 @@ def get_best_model(
     if model_base_filename is None:
         max_data_version = get_max_data_version(model_dir)
         if max_data_version == -1:
-            return {}
+            return None
         model_info_df = model_info_df.loc[model_info_df['train_data_version'] == max_data_version]
         model_info_df = model_info_df.reset_index()
         
     if len(model_info_df) > 0:
         return model_info_df.loc[model_info_df['acc_combined'].values.argmax()]
     else:
-        return {}
+        return None
     
 class ModelCheckpointExt(kr.callbacks.Callback):
     
