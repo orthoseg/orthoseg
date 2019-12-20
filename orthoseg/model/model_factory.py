@@ -171,15 +171,24 @@ def load_model(
         compile: bool = True):
     iou_score = sm.metrics.iou_score
     
-    model = kr.models.load_model(
-            str(model_to_use_filepath),
-            custom_objects={'jaccard_coef': jaccard_coef,
-                            'jaccard_coef_flat': jaccard_coef_flat,
-                            'jaccard_coef_round': jaccard_coef_round,
-                            'dice_coef': dice_coef,
-                            'iou_score': iou_score,
-                            'weighted_categorical_crossentropy': weighted_categorical_crossentropy},
-            compile=compile)
+    # If it is a file with only weights
+    if model_to_use_filepath.stem.endswith('_weights'):
+        model_json_filename = model_to_use_filepath.stem.replace('_weights', '') + '.json'
+        model_json_filepath = model_to_use_filepath.parent / model_json_filename
+        with model_json_filepath.open('r') as src:
+            model_json = src.read()
+            model = kr.models.model_from_json(model_json)
+        model.load_weights(str(model_to_use_filepath))
+    else:
+        model = kr.models.load_model(
+                str(model_to_use_filepath),
+                custom_objects={'jaccard_coef': jaccard_coef,
+                                'jaccard_coef_flat': jaccard_coef_flat,
+                                'jaccard_coef_round': jaccard_coef_round,
+                                'dice_coef': dice_coef,
+                                'iou_score': iou_score,
+                                'weighted_categorical_crossentropy': weighted_categorical_crossentropy},
+                compile=compile)
 
     return model
 
