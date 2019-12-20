@@ -145,7 +145,7 @@ def predict_dir(
             if evaluate_mode:
                 # In evaluate mode, put everyting in output base dir for easier 
                 # comparison
-                tmp_output_filepath = output_base_dir.parent / image_filepath.stem
+                tmp_output_filepath = output_base_dir / image_filepath.stem
             else:
                 tmp_output_filepath = Path(str(image_filepath).replace(str(input_image_dir), str(output_base_dir)))
                 tmp_output_filepath = tmp_output_filepath.parent / tmp_output_filepath.stem

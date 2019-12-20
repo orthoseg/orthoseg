@@ -509,7 +509,7 @@ def getmap_to_file(
 
         path_noext = output_filepath.parent / output_filepath.stem
         ext_world = get_world_ext_for_image_format(image_format_save)
-        output_worldfile_filepath = path_noext.with_suffix(ext_world)
+        output_worldfile_filepath = Path(str(path_noext) + ext_world)
         
         with output_worldfile_filepath.open('w') as wld_file:
             wld_file.write(f"{srs_pixel_x_size}")

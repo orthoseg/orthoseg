@@ -465,7 +465,7 @@ def postprocess_for_evaluation(
         
         # Copy the input image if it doesn't exist yet in output path
         output_basefilepath = output_dir / f"{pred_prefix_str}{image_filepath.stem}{output_suffix}"
-        image_dest_filepath = output_basefilepath.with_suffix(image_filepath.suffix)
+        image_dest_filepath = Path(str(output_basefilepath) + image_filepath.suffix)
         if not image_dest_filepath.exists():
             shutil.copyfile(image_filepath, image_dest_filepath)
 
