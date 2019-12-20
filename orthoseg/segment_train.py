@@ -244,8 +244,7 @@ def train(
     # Callbacks for logging
     tensorboard_log_dir = model_save_dir / (model_save_base_filename + '_tensorboard_log')
     tensorboard_logger = kr.callbacks.TensorBoard(log_dir=str(tensorboard_log_dir))
-    csv_logger = kr.callbacks.CSVLogger(
-            csv_log_filepath, append=True, separator=';')
+    csv_logger = kr.callbacks.CSVLogger(str(csv_log_filepath), append=True, separator=';')
 
     # Stop if no more improvement
     early_stopping = kr.callbacks.EarlyStopping(
@@ -324,32 +323,37 @@ def create_train_generator(
     image_datagen = kr.preprocessing.image.ImageDataGenerator(**image_augment_dict)
     mask_datagen = kr.preprocessing.image.ImageDataGenerator(**mask_augment_dict)
 
+    # Format save_to_dir
+    # Remark: flow_from_directory doesn't support Path, so supply str immediately as well,
+    # otherwise, if str(Path) is used later on, it becomes 'None' instead of None !!!
     save_to_dir = None
+    save_to_dir_str = None
     if save_to_subdir is not None:
         save_to_dir = input_data_dir / save_to_subdir
         if not save_to_dir.exists():
             save_to_dir.mkdir(parents=True)
+        save_to_dir_str = str(save_to_dir)
 
     image_generator = image_datagen.flow_from_directory(
-            directory=input_data_dir,
+            directory=str(input_data_dir),
             classes=[image_subdir],
             class_mode=None,
             color_mode=image_color_mode,
             target_size=target_size,
             batch_size=batch_size,
-            save_to_dir=save_to_dir,
+            save_to_dir=save_to_dir_str,
             save_prefix=image_save_prefix,
             shuffle=shuffle,
             seed=seed)
 
     mask_generator = mask_datagen.flow_from_directory(
-            directory=input_data_dir,
+            directory=str(input_data_dir),
             classes=[mask_subdir],
             class_mode=None,
             color_mode=mask_color_mode,
             target_size=target_size,
             batch_size=batch_size,
-            save_to_dir=save_to_dir,
+            save_to_dir=save_to_dir_str,
             save_prefix=mask_save_prefix,
             shuffle=shuffle,
             seed=seed)
