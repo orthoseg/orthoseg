@@ -4,21 +4,19 @@ Process the tasks as configured in the run_tasks_config.csv file.
 """
 
 from email.message import EmailMessage
-import glob 
 import json
 import logging
 import logging.config
 import os
 import smtplib
-import sys
 
 import pandas as pd
-
-import run_orthoseg
 
 def run_tasks():
 
     ##### Init #####
+    run_local = True
+
     # Init logging
     with open('bin/run_tasks_logconfig.json', 'r') as log_config_file:
         log_config_dict = json.load(log_config_file)
@@ -39,26 +37,32 @@ def run_tasks():
             continue
 
         # Now start the appropriate task 
-        try:
-            # TODO: make the running script cancellable!
-            # TODO: doh!!!
-            # Remark: this path will depend on the python environment the task 
-            # needs to run in
-            python_path = r"C:\Tools\anaconda3\envs\orthoseg\python.exe"
-            fullcommand = f"{python_path} {run_info.command} {run_info.argumentstring}"
-            returncode = os.system(fullcommand)
-            if returncode == 0:
-                sendmail(f"Completed task {run_info.command} {run_info.argumentstring}")
+        if run_local:
+            # Run local (possible to debug,...)
+            if run_info.command == 'bin/run_orthoseg.py':
+                import run_orthoseg as run_orthoseg
+                run_orthoseg.orthoseg_argstr(run_info.argumentstring)
             else:
-                raise Exception(f"Error: returncode: {returncode} returned for {fullcommand}")
-            """
-            import run_orthoseg 
-            run_orthoseg.orthoseg(config='topobuildings_1904', action='load_images')
-            """
-        except Exception as ex:
-            message = f"ERROR in task {run_info.command} {run_info.argumentstring}"
-            sendmail(subject=message, body=f"Exception: {ex}")
-            raise Exception(message) from ex
+                raise Exception(f"Unknown command: {run_info.command}")
+        else:
+            # Run the tasks by command, potentially on remote machine(s)
+            try:
+                # TODO: make the running script cancellable!
+                # TODO: doh!!!
+                # Remark: this path will depend on the python environment the task 
+                # needs to run in
+                python_path = r"C:\Tools\anaconda3\envs\orthoseg\python.exe"
+                fullcommand = f"{python_path} {run_info.command} {run_info.argumentstring}"
+                returncode = os.system(fullcommand)
+                if returncode == 0:
+                    sendmail(f"Completed task {run_info.command} {run_info.argumentstring}")
+                else:
+                    raise Exception(f"Error: returncode: {returncode} returned for {fullcommand}")
+
+            except Exception as ex:
+                message = f"ERROR in task {run_info.command} {run_info.argumentstring}"
+                sendmail(subject=message, body=f"Exception: {ex}")
+                raise Exception(message) from ex
 
 def read_run_tasks_config(filepath):
     
