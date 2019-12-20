@@ -23,8 +23,8 @@ def convert_traindata_v1tov2(
         labeldata_path: Path,
         image_pixel_x_size: float,
         image_pixel_y_size: float,
-        image_srs_width,
-        image_srs_height) -> bool:
+        image_srs_width: float,
+        image_srs_height: float) -> bool:
 
     # Prepare relevant file paths
     label_dir = labellocations_path.parent
@@ -91,7 +91,7 @@ def convert_traindata_v1tov2(
 if __name__ == "__main__":
     
     # Local script config
-    segment_subject = 'fruit'
+    segment_subject = 'horsetracks'
 
     # Prepare the path to the config dir,...
     script_dir = Path(os.path.abspath(__file__)).parent
