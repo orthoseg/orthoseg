@@ -10,7 +10,7 @@ import shutil
 import math
 import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 import fiona
 import pandas as pd
@@ -48,7 +48,7 @@ def prepare_traindatasets(
         max_samples: int = 5000,
         output_filelist_csv: str = '',
         output_keep_nested_dirs: bool = False,
-        force: bool = False):
+        force: bool = False) -> Tuple[Path, int]:
     """
     This function prepares training data for the vector labels provided.
 
@@ -156,7 +156,11 @@ def prepare_traindatasets(
             logger.warn(f"No label data found in {label_file['data_path']}")
 
     # Get the srs to use from the input vectors...
-    img_srs = labellocations_gdf.crs['init']
+    try:
+        img_srs = labellocations_gdf.crs['init']
+    except Exception as ex:
+        logger.exception(f"Error getting crs from labellocations, labellocations_gdf.crs: {labellocations_gdf.crs}")
+        raise ex
     
     # Create list with only the input labels that need to be burned in the mask
     if labeldata_gdf is not None and 'label_name' in labeldata_gdf.columns:
@@ -168,8 +172,9 @@ def prepare_traindatasets(
                                    'burn_value'] = label_names_burn_values[label_name]
         if len(labeldata_gdf) != len(labels_to_burn_gdf):
             logger.warn(f"Number of labels to burn changed from {len(labeldata_gdf)} to {len(labels_to_burn_gdf)} with filter on label_names_burn_values: {label_names_burn_values}")
-    elif len(label_names_burn_values) <= 1:
+    elif len(label_names_burn_values) == 1:
         labels_to_burn_gdf = labeldata_gdf
+        labels_to_burn_gdf['burn_value'] = label_names_burn_values[list(label_names_burn_values)[0]]
     else:
         raise Exception(f"Column 'label_name' is mandatory in labeldata if multiple label_names_burn_values specified: {label_names_burn_values}")
                     
@@ -265,7 +270,7 @@ def prepare_traindatasets(
             raise Exception(message) from ex
 
     # If everything went fine, rename output_tmp_dir to the final output_dir
-    output_basedir = f"{training_dir}/{dataversion_new:02d}"
+    output_basedir = training_dir / f"{dataversion_new:02d}"
     os.rename(output_tmp_basedir, output_basedir)
 
     return (output_basedir, dataversion_new)
