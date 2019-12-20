@@ -72,10 +72,10 @@ def run_training_session():
     force_model_traindata_version = conf.model.getint('force_model_traindata_version')
     if force_model_traindata_version > -1:
         training_dir = conf.dirs.getpath('training_train_basedir') / f"{force_model_traindata_version:02d}"
-        training_version = force_model_traindata_version
+        train_data_version = force_model_traindata_version
     else:
         logger.info("Prepare train, validation and test data")
-        training_dir, training_version = prep.prepare_traindatasets(
+        training_dir, train_data_version = prep.prepare_traindatasets(
                 label_files=label_files,
                 label_names_burn_values=label_names_burn_values,
                 image_layers=conf.image_layers,
@@ -84,34 +84,32 @@ def run_training_session():
                 image_pixel_y_size=conf.train.getfloat('image_pixel_y_size'),
                 image_pixel_width=conf.train.getint('image_pixel_width'),
                 image_pixel_height=conf.train.getint('image_pixel_height'))
-    logger.info(f"Traindata dir to use is {training_dir}, with traindata_version: {training_version}")
+    logger.info(f"Traindata dir to use is {training_dir}, with traindata_version: {train_data_version}")
 
     traindata_dir = training_dir / 'train'
     validationdata_dir = training_dir / 'validation'
     testdata_dir = training_dir / 'test'
-
-    # Create base filename of model to use
-    model_base_filename = mh.format_model_base_filename(
-            conf.general['segment_subject'], training_version, conf.model['architecture'])
-    logger.debug(f"model_base_filename: {model_base_filename}")
     
     # Get the best model that already exists for this train dataset
-    best_model = mh.get_best_model(
-            model_dir=conf.dirs.getpath('model_dir'), model_base_filename=model_base_filename)
+    best_model_curr_train_version = mh.get_best_model(
+            model_dir=conf.dirs.getpath('model_dir'), 
+            segment_subject=conf.general['segment_subject'],
+            model_architecture=conf.model['architecture'],
+            train_data_version=train_data_version)
 
     # Check if training is needed
     resume_train = conf.model.getboolean('resume_train')
     if resume_train is False:
         # If no (best) model found, training needed!
-        if best_model is None:
+        if best_model_curr_train_version is None:
             train_needed = True
         else:
             logger.info("JUST PREDICT, without training: preload_existing_model is false and model found")
             train_needed = False
     else:
         # We want to preload an existing model and models were found
-        if best_model is None:
-            logger.info(f"PRELOAD model and continue TRAINING it: {best_model['filename']}")
+        if best_model_curr_train_version is None:
+            logger.info(f"PRELOAD model and continue TRAINING it: {best_model_curr_train_version['filename']}")
             train_needed = True
         else:
             message = "STOP: preload_existing_model is true but no model was found!"
@@ -126,15 +124,15 @@ def run_training_session():
         # in (new) added labels in the datasets.
 
         # Get the current best model that already exists for this subject
-        best_model_curr = mh.get_best_model(model_dir=conf.dirs.getpath('model_dir'))
-        if best_model_curr is not None:
+        best_recent_model = mh.get_best_model(model_dir=conf.dirs.getpath('model_dir'))
+        if best_recent_model is not None:
             try:
-                logger.info(f"Load model + weights from {best_model_curr['filepath']}")    
-                model = mf.load_model(best_model_curr['filepath'], compile=False)            
+                logger.info(f"Load model + weights from {best_recent_model['filepath']}")    
+                model = mf.load_model(best_recent_model['filepath'], compile=False)            
                 logger.info("Loaded model + weights")
 
                 # Prepare output subdir to be used for predictions
-                predict_out_subdir, _ = os.path.splitext(best_model_curr['filename'])
+                predict_out_subdir, _ = os.path.splitext(best_recent_model['filename'])
                 
                 # Predict training dataset
                 segment_predict.predict_dir(
@@ -161,18 +159,25 @@ def run_training_session():
         
         # Now we can really start training
         logger.info('Start training')
+
         model_preload_filepath = None
-        if best_model is not None:
-            model_preload_filepath = best_model['filepath']
+        if best_model_curr_train_version is not None:
+            model_preload_filepath = best_model_curr_train_version['filepath']
         elif conf.train.getboolean('preload_with_previous_traindata'):
-            model_preload_filepath = best_model_curr['filepath']
+            best_model_for_architecture = mh.get_best_model(
+                    model_dir=conf.dirs.getpath('model_dir'), 
+                    segment_subject=conf.general['segment_subject'],
+                    model_architecture=conf.model['architecture'],
+                    train_data_version=train_data_version)
+            if best_model_for_architecture is not None:
+                model_preload_filepath = best_model_for_architecture['filepath']
         segment_train.train(
                 traindata_dir=traindata_dir,
                 validationdata_dir=validationdata_dir,
-                model_encoder=conf.model['encoder'], 
-                model_decoder=conf.model['decoder'],
                 model_save_dir=conf.dirs.getpath('model_dir'),
-                model_save_base_filename=model_base_filename,
+                segment_subject=conf.general['segment_subject'],
+                train_data_version=train_data_version,                
+                model_architecture=conf.model['architecture'] + '+001',
                 image_augment_dict=conf.train.getdict('image_augmentations'), 
                 mask_augment_dict=conf.train.getdict('mask_augmentations'), 
                 model_preload_filepath=model_preload_filepath,
@@ -184,29 +189,22 @@ def run_training_session():
                 nb_epoch=conf.train.getint('max_epoch')) 
     
         # Now get the best model found during training
-        best_model = mh.get_best_model(
-                model_dir=conf.dirs.getpath('model_dir'), model_base_filename=model_base_filename)
+        best_model_curr_train_version = mh.get_best_model(
+                model_dir=conf.dirs.getpath('model_dir'),
+                segment_subject=conf.general['segment_subject'],
+                model_architecture=conf.model['architecture'],
+                train_data_version=train_data_version)
 
     # Now predict on the train,... data  
-    logger.info(f"PREDICT test data with best model: {best_model['filename']}")
+    logger.info(f"PREDICT test data with best model: {best_model_curr_train_version['filename']}")
     
     # Load prediction model...
-    '''
-    model_json_filepath = conf.files['model_json_filepath']
-    logger.info(f"Load model from {model_json_filepath}")
-    with open(model_json_filepath, 'r') as src:
-        model_json = src.read()
-        model = kr.models.model_from_json(model_json)
-    logger.info(f"Load weights from {best_model['filepath']}")                
-    model.load_weights(best_model['filepath'])
-    logger.info("Loaded model weights")
-    '''
-    logger.info(f"Load model + weights from {best_model['filepath']}")    
-    model = mf.load_model(best_model['filepath'], compile=False)            
+    logger.info(f"Load model + weights from {best_model_curr_train_version['filepath']}")    
+    model = mf.load_model(best_model_curr_train_version['filepath'], compile=False)            
     logger.info("Loaded model + weights")
     
     # Prepare output subdir to be used for predictions
-    predict_out_subdir, _ = os.path.splitext(best_model['filename'])
+    predict_out_subdir, _ = os.path.splitext(best_model_curr_train_version['filename'])
     
     # Predict training dataset
     segment_predict.predict_dir(

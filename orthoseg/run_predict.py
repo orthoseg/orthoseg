@@ -39,22 +39,21 @@ def run_prediction():
     #       force weights file or ?
     force_model_traindata_version = conf.model.getint('force_model_traindata_version')
     if force_model_traindata_version > -1:
-        model_traindata_version = force_model_traindata_version 
+        traindata_version = force_model_traindata_version 
     else:
-        model_traindata_version = mh.get_max_data_version(model_dir=conf.dirs.getpath('model_dir'))
+        traindata_version = mh.get_max_data_version(model_dir=conf.dirs.getpath('model_dir'))
         #logger.info(f"max model_traindata_version found: {model_traindata_version}")
     
-    model_base_filename = mh.format_model_base_filename(
-            conf.general['segment_subject'], model_traindata_version, 
-            conf.model['architecture'])
-
     # Get the best model that already exists for this train dataset
     best_model = mh.get_best_model(
-            model_dir=conf.dirs.getpath('model_dir'), model_base_filename=model_base_filename)
+            model_dir=conf.dirs.getpath('model_dir'), 
+            segment_subject=conf.general['segment_subject'],
+            model_architecture=conf.model['architecture'],
+            train_data_version=traindata_version)
     
     # Check if a model was found
     if best_model is False:
-        message = f"No model found in model_dir: {conf.dirs.getpath('model_dir')} for model_base_filename: {model_base_filename}"
+        message = f"No model found in model_dir: {conf.dirs.getpath('model_dir')} for traindata_version: {traindata_version}"
         logger.critical(message)
         raise Exception(message)
     else:    
@@ -63,17 +62,6 @@ def run_prediction():
     
     # Prepare output subdir to be used for predictions
     predict_out_subdir = f"{best_model['segment_subject']}_{best_model['train_data_version']}_{best_model['model_architecture']}_{best_model['epoch']}"
-    
-    # Load prediction model...
-    '''
-    logger.info(f"Load model from {conf.files['model_json_filepath']}")
-    with open(conf.files['model_json_filepath'], 'r') as src:
-        model_json = src.read()
-        model = kr.models.model_from_json(model_json)
-    logger.info(f"Load weights from {model_weights_filepath}")                
-    model.load_weights(model_weights_filepath)
-    logger.info("Model weights loaded")    
-    '''
     
     # Try optimizing model with tensorrt
     try:

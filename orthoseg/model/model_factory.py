@@ -35,8 +35,7 @@ x = preprocessing_fn(x)
 '''
 
 def get_model(
-        encoder: str,
-        decoder: str,
+        architecture: str,
         input_width: int = None,
         input_height: int = None,
         nb_channels: int = 3,
@@ -46,8 +45,7 @@ def get_model(
     """[summary]
 
     Arguments:
-        encoder {str} -- [description]
-        decoder {str} -- [description]
+        architecture
 
     Keyword Arguments:
         input_width {int} -- [description] (default: {None})
@@ -56,14 +54,16 @@ def get_model(
         nb_classes {int} -- [description] (default: {1})
         activation {str} -- [description] (default: {'sigmoid'init_weights_with:str='imagenet'})
 
-    Raises:
-        Exception: [description]
-        Exception: [description]
-        Exception: [description]
-
     Returns:
         [type] -- [description]
     """
+    # Check architecture
+    segment_architecture_parts = architecture.split('+')
+    if len(segment_architecture_parts) != 2:
+        raise Exception(f"Unsupported architecture: {architecture}")
+    encoder = segment_architecture_parts[0]
+    decoder = segment_architecture_parts[1]
+
     if decoder.lower() == 'deeplabv3plus':
         import models.model_deeplabv3plus as m
         return m.get_model(input_width=input_width, input_height=input_height,

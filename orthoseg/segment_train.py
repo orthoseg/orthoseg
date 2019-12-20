@@ -33,10 +33,10 @@ logger = logging.getLogger(__name__)
 def train(
         traindata_dir: Path,
         validationdata_dir: Path,
-        model_encoder: str,
-        model_decoder: str,
         model_save_dir: Path,
-        model_save_base_filename: str,
+        segment_subject: str,
+        train_data_version: int, 
+        model_architecture: str,
         image_augment_dict: dict, 
         mask_augment_dict: dict,
         model_preload_filepath: Optional[Path] = None,
@@ -69,7 +69,9 @@ def train(
         model_encoder: encoder of the neural network to use
         model_decoder: decoder of the neural network to use
         model_save_dir: dir where (intermediate) best models will be saved
-        model_save_base_filename: base filename to use when saving models
+        segment_subject (str): segment subject 
+        model_architecture (str): model architecture
+        train_data_version (int): train data version
         image_augment_dict: augmentation  
         mask_augment_dict:  
         image_width: width the input images will be rescaled to for training
@@ -125,6 +127,10 @@ def train(
     # Get the max epoch number from the log file if it exists...
     start_epoch = 0
     start_learning_rate = 1e-4  # Best set to 0.0001 to start (1e-3 is not ok)
+    model_save_base_filename = mh.format_model_basefilename(
+            segment_subject=segment_subject,
+            model_architecture=model_architecture,
+            train_data_version=train_data_version)
     csv_log_filepath = model_save_dir / (model_save_base_filename + '_log.csv')
     if csv_log_filepath.exists() and os.path.getsize(csv_log_filepath) > 0:
         logger.info(f"train_log csv exists: {csv_log_filepath}")
@@ -140,7 +146,7 @@ def train(
     logger.info(f"start_epoch: {start_epoch}, start_learning_rate: {start_learning_rate}")
    
     # Create a model
-    model_json_filename = f"{model_encoder}+{model_decoder}.json"
+    model_json_filename = f"{model_architecture}.json"
     model_json_filepath = model_save_dir / model_json_filename
     if nb_classes > 1:
         model_activation = 'softmax'
@@ -151,10 +157,10 @@ def train(
     if not model_preload_filepath:
         # Get the model we want to use
         model = mf.get_model(
-                encoder=model_encoder, decoder=model_decoder, 
-                nb_channels=nb_channels, nb_classes=nb_classes, activation=model_activation)
+                architecture=model_architecture, nb_channels=nb_channels, nb_classes=nb_classes, 
+                activation=model_activation)
         
-        # Save the model architecture to json if it doesn't exist yet
+        # Save the model architecture to json
         if not model_save_dir.exists():
             model_save_dir.mkdir(parents=True)
         if not model_json_filepath.exists():
@@ -167,18 +173,6 @@ def train(
             logger.critical(message)
             raise Exception(message)
         
-        '''
-        # First load the model from json file
-        logger.info(f"Load model from {model_json_filepath}")
-        with open(model_json_filepath, 'r') as src:
-            model_json = src.read()
-        model = kr.models.model_from_json(model_json)
-        
-        # Load the weights
-        logger.info(f"Load weights from {model_preload_filepath}")
-        model.load_weights(model_preload_filepath)
-        logger.info("Model weights loaded")
-        '''
         # Load the existing model
         # Remark: compiling during load crashes, so compile 'manually'
         logger.info(f"Load model from {model_preload_filepath}")
@@ -207,6 +201,7 @@ def train(
     #         but compiling during load crashes, so for now always compile.
     #if not model_preload_filepath:
     optimizer = kr.optimizers.Adam(lr=start_learning_rate)
+    # Softmax with > 1 classes
     if model_activation == 'softmax':
         if class_weights is not None: 
             loss = 'weighted_categorical_crossentropy'
@@ -233,7 +228,9 @@ def train(
         model_template_for_save = None
     model_checkpoint_saver = mh.ModelCheckpointExt(
             model_save_dir=model_save_dir, 
-            model_save_base_filename=model_save_base_filename,
+            segment_subject=segment_subject,
+            model_architecture=model_architecture,
+            train_data_version=train_data_version,
             monitor_metric_train='loss',
             monitor_metric_validation='val_loss',
             monitor_metric_mode='min',
@@ -272,6 +269,7 @@ def train(
     
     # Start training
     logger.info(f"Start training with batch_size: {batch_size}, train_dataset_size: {train_dataset_size}, train_steps_per_epoch: {train_steps_per_epoch}, validation_dataset_size: {validation_dataset_size}, validation_steps_per_epoch: {validation_steps_per_epoch}")
+
     try:        
         model_for_train.fit(
                 train_gen, 
@@ -377,7 +375,7 @@ def create_train_generator(
                         # If the path to rename to exists already, add an index to keep file name unique
                         if not rename_path.exists():
                             path.rename(rename_path)
-                            break                           
+                            break
                         else:
                             continue
                         raise Exception(f"No new filename found for {path}")
