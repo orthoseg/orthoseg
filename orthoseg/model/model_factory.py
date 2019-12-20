@@ -143,8 +143,10 @@ def compile_model(
         elif loss == 'binary_crossentropy':
             metrics.append('binary_accuracy')
 
-        iou_score = sm.metrics.iou_score
+        iou_score = sm.metrics.IOUScore()
         metrics.append(iou_score)
+        dice_score = sm.metrics.FScore()
+        metrics.append(dice_score)
         #metrics.append(jaccard_coef_round)
         # metrics=[jaccard_coef, jaccard_coef_flat,
         #          jaccard_coef_int, dice_coef, 'accuracy', 'binary_accuracy']
@@ -152,8 +154,10 @@ def compile_model(
     # Check loss function
     if loss == 'bcedice':
         loss_func = dice_coef_loss_bce
-    elif loss == 'jaccard':
-        loss_func = sm.losses.jaccard_loss
+    elif loss == 'dice_loss':
+        loss_func = sm.losses.DiceLoss()
+    elif loss == 'jaccard_loss':
+        loss_func = sm.losses.JaccardLoss()
     elif loss == 'weighted_categorical_crossentropy':
         if class_weights is None: 
             raise Exception(f"With loss == {loss}, class_weights cannot be None!")
@@ -169,8 +173,6 @@ def compile_model(
 def load_model(
         model_to_use_filepath: Path, 
         compile: bool = True):
-    iou_score = sm.metrics.iou_score
-    
     # If it is a file with only weights
     if model_to_use_filepath.stem.endswith('_weights'):
         model_json_filename = model_to_use_filepath.stem.replace('_weights', '') + '.json'
@@ -180,6 +182,8 @@ def load_model(
             model = kr.models.model_from_json(model_json)
         model.load_weights(str(model_to_use_filepath))
     else:
+        iou_score = sm.metrics.IOUScore()
+        dice_score = sm.metrics.FScore()
         model = kr.models.load_model(
                 str(model_to_use_filepath),
                 custom_objects={'jaccard_coef': jaccard_coef,
@@ -187,6 +191,7 @@ def load_model(
                                 'jaccard_coef_round': jaccard_coef_round,
                                 'dice_coef': dice_coef,
                                 'iou_score': iou_score,
+                                'dice_score': dice_score,
                                 'weighted_categorical_crossentropy': weighted_categorical_crossentropy},
                 compile=compile)
 
