@@ -96,6 +96,8 @@ def postprocess_predictions(
             if str(ex) == "NOFILESFOUND":
                 logger.warn("No prediction files found to merge")
                 return
+    else:
+        logger.info(f"Output file exists already, so continue postprocess: {geoms_orig_filepath}")
 
     # Check the size of the orig file: if too large, no use continuing!
     if os.path.getsize(geoms_orig_filepath) > (1024*1024*1024):
@@ -230,10 +232,10 @@ def polygonize_prediction_files(
 
     # Get list of all files to process...
     logger.info(f"List all files to be merged in {input_dir}")
-    in_filepaths = input_dir.rglob(f"*_pred*{input_ext}")
+    filepaths = sorted(list(input_dir.rglob(f"*_pred*{input_ext}")))
 
     # Check if files were found...
-    nb_files = len(list(in_filepaths))
+    nb_files = len(filepaths)
     if nb_files == 0:
         logger.warn("No files found to process... so return")
         raise RuntimeWarning("NOFILESFOUND")
@@ -249,13 +251,12 @@ def polygonize_prediction_files(
     # Loop through all files to be processed...
     try:       
         max_parallel = multiprocessing.cpu_count()
-        with futures.ProcessPoolExecutor(max_parallel) as read_pool:
+        with futures.ThreadPoolExecutor(max_parallel) as read_pool:
 
-            filepaths = sorted(in_filepaths)
-            nb_files = len(filepaths)
             future_to_filepath = {}
             geoms_gdf = None
             nb_files_done = 0
+            
             for filepath in filepaths:
                 # Read prediction file
                 future = read_pool.submit(
@@ -310,10 +311,11 @@ def polygonize_prediction_files(
                         logger.info(f"{nb_files_done} of {nb_files} processed + saved ({(nb_files_done*100/nb_files):0.0f}%)")
                     except Exception as ex:
                         raise Exception(f"Error saving gdf to {output_tmp_filepath}") from ex
-            
+
             # If we get here, file is created successfully, so rename to real output
-            output_tmp_file.close()
-            os.rename(output_tmp_filepath, output_filepath)
+            if output_tmp_file is not None:
+                output_tmp_file.close()
+                os.rename(output_tmp_filepath, output_filepath)
     except Exception as ex:
         if output_tmp_file is not None:
             output_tmp_file.close()      
@@ -322,7 +324,7 @@ def polygonize_prediction_files(
 def read_prediction_file(
         filepath: Path,
         border_pixels_to_ignore: int = 0):
-    ext_lower = os.path.splitext(filepath)[1].lower()
+    ext_lower = filepath.suffix.lower()
     if ext_lower == '.geojson':
         return geofile_util.read_file(filepath)
     elif ext_lower == '.tif':
