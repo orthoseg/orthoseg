@@ -33,9 +33,15 @@ def postprocess_predictions():
     input_dir = prediction_dirs[0]
 	
     # Format output dir, partly based on input dir
-    train_version = int(input_dir.name.split('_')[3])    
-    output_vector_name = f"{conf.general['segment_subject']}_{train_version:02}_{conf.predict['image_layer']}"
-    output_dir = conf.dirs.getpath('output_vector_dir') / output_vector_name
+    # Remove first 2 field from the input dir to get the model info
+    input_dir_splitted = input_dir.name.split('_')
+    model_info = []
+    for i, input_dir_field in enumerate(input_dir_splitted):
+        if i >= 2:
+            model_info.append(input_dir_field)
+    
+    output_dir = conf.dirs.getpath('output_vector_dir') / conf.predict['image_layer']
+    output_vector_name = f"{'_'.join(model_info)}_{conf.predict['image_layer']}"
     output_filepath = output_dir / f"{output_vector_name}.gpkg"
     
     ##### Go! #####
