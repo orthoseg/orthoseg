@@ -37,7 +37,7 @@ def run_prediction():
     # Create base filename of model to use
     # TODO: is force data version the most logical, or rather implement 
     #       force weights file or ?
-    force_model_traindata_version = conf.model.getint('force_model_traindata_version')
+    force_model_traindata_version = conf.train.getint('force_model_traindata_version')
     if force_model_traindata_version > -1:
         traindata_version = force_model_traindata_version 
     else:

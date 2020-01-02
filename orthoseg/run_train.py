@@ -69,7 +69,7 @@ def run_training_session():
         nb_classes += 1
 
     # First the "train" training dataset
-    force_model_traindata_version = conf.model.getint('force_model_traindata_version')
+    force_model_traindata_version = conf.train.getint('force_model_traindata_version')
     if force_model_traindata_version > -1:
         training_dir = conf.dirs.getpath('training_train_basedir') / f"{force_model_traindata_version:02d}"
         train_data_version = force_model_traindata_version
@@ -98,10 +98,12 @@ def run_training_session():
             train_data_version=train_data_version)
 
     # Check if training is needed
-    resume_train = conf.model.getboolean('resume_train')
+    resume_train = conf.train.getboolean('resume_train')
     if resume_train is False:
         # If no (best) model found, training needed!
         if best_model_curr_train_version is None:
+            train_needed = True
+        elif conf.train.getboolean('force_train') is True:
             train_needed = True
         else:
             logger.info("JUST PREDICT, without training: preload_existing_model is false and model found")
