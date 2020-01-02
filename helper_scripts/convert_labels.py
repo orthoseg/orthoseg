@@ -36,7 +36,7 @@ def convert_traindata_v1tov2(
 
     # If the trainlabels file doesn't exist in the old format, stop
     if not os.path.exists(label_train_path) or not os.path.exists(label_validation_path):
-        return False
+        raise Exception(f"Stop: input file(s) don't exist: {label_train_path} and/or {label_validation_path}")
 
     # Read train and validation labels
     label_train_gdf = geofile_util.read_file(label_train_path)
@@ -85,13 +85,10 @@ def convert_traindata_v1tov2(
     labeldata_gdf.drop(columns=['usebounds', 'burninmask', 'traindata_type'], inplace=True)
     geofile_util.to_file(labeldata_gdf, labeldata_path)
 
-    # TODO: Move v1 files to archive dir
-    return True
-
 if __name__ == "__main__":
     
     # Local script config
-    segment_subject = 'horsetracks'
+    segment_subject = 'waterbasins'
 
     # Prepare the path to the config dir,...
     script_dir = Path(os.path.abspath(__file__)).parent
@@ -119,16 +116,11 @@ if __name__ == "__main__":
     image_srs_height = math.fabs(image_pixel_height*image_pixel_y_size) # tile height in units of crs
     
     # Check if input files in exist in v1, and if so, convert to v2
-    convert_ok = convert_traindata_v1tov2(
+    convert_traindata_v1tov2(
             labellocations_path=labellocations_path,
             labeldata_path=labeldata_path,
             image_pixel_x_size=image_pixel_x_size,
             image_pixel_y_size=image_pixel_y_size,
             image_srs_width=image_srs_width,
             image_srs_height=image_srs_height)
-
-    # Apparently there wasn't anything to convert, so stop
-    if not convert_ok:
-        message = f"Stop: input file(s) don't exist: {labellocations_path} and/or {labeldata_path}"
-        raise Exception(message)
         
