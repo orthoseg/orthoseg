@@ -9,7 +9,6 @@ Based on code from:
 
 TODO: review code and cleanup due to introduction of model factory
 
-@author: Pieter Roggemans
 """
 
 import logging

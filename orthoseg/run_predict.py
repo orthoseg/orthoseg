@@ -37,7 +37,7 @@ def run_prediction():
     # Create base filename of model to use
     # TODO: is force data version the most logical, or rather implement 
     #       force weights file or ?
-    force_model_traindata_version = conf.model.getint('force_model_traindata_version')
+    force_model_traindata_version = conf.train.getint('force_model_traindata_version')
     if force_model_traindata_version > -1:
         traindata_version = force_model_traindata_version 
     else:
@@ -45,11 +45,14 @@ def run_prediction():
         #logger.info(f"max model_traindata_version found: {model_traindata_version}")
     
     # Get the best model that already exists for this train dataset
+    model_architecture = conf.model['architecture']
+    hyperparams_version = conf.train.getint('hyperparams_version')
     best_model = mh.get_best_model(
             model_dir=conf.dirs.getpath('model_dir'), 
             segment_subject=conf.general['segment_subject'],
-            model_architecture=conf.model['architecture'],
-            train_data_version=traindata_version)
+            traindata_version=traindata_version,            
+            model_architecture=model_architecture,
+            hyperparams_version=hyperparams_version)
     
     # Check if a model was found
     if best_model is False:
@@ -61,7 +64,7 @@ def run_prediction():
         logger.info(f"Best model found: {model_weights_filepath}")
     
     # Prepare output subdir to be used for predictions
-    predict_out_subdir = f"{best_model['segment_subject']}_{best_model['train_data_version']}_{best_model['model_architecture']}_{best_model['epoch']}"
+    predict_out_subdir = f"{best_model['basefilename']}_{best_model['epoch']}"
     
     # Try optimizing model with tensorrt
     try:

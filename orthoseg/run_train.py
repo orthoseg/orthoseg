@@ -69,13 +69,13 @@ def run_training_session():
         nb_classes += 1
 
     # First the "train" training dataset
-    force_model_traindata_version = conf.model.getint('force_model_traindata_version')
+    force_model_traindata_version = conf.train.getint('force_model_traindata_version')
     if force_model_traindata_version > -1:
         training_dir = conf.dirs.getpath('training_train_basedir') / f"{force_model_traindata_version:02d}"
-        train_data_version = force_model_traindata_version
+        traindata_version = force_model_traindata_version
     else:
         logger.info("Prepare train, validation and test data")
-        training_dir, train_data_version = prep.prepare_traindatasets(
+        training_dir, traindata_version = prep.prepare_traindatasets(
                 label_files=label_files,
                 label_names_burn_values=label_names_burn_values,
                 image_layers=conf.image_layers,
@@ -84,24 +84,31 @@ def run_training_session():
                 image_pixel_y_size=conf.train.getfloat('image_pixel_y_size'),
                 image_pixel_width=conf.train.getint('image_pixel_width'),
                 image_pixel_height=conf.train.getint('image_pixel_height'))
-    logger.info(f"Traindata dir to use is {training_dir}, with traindata_version: {train_data_version}")
+    logger.info(f"Traindata dir to use is {training_dir}, with traindata_version: {traindata_version}")
 
     traindata_dir = training_dir / 'train'
     validationdata_dir = training_dir / 'validation'
     testdata_dir = training_dir / 'test'
     
     # Get the best model that already exists for this train dataset
+    model_dir = conf.dirs.getpath('model_dir')
+    segment_subject = conf.general['segment_subject']
+    model_architecture = conf.model['architecture']
+    hyperparams_version = conf.train.getint('hyperparams_version')
     best_model_curr_train_version = mh.get_best_model(
-            model_dir=conf.dirs.getpath('model_dir'), 
-            segment_subject=conf.general['segment_subject'],
-            model_architecture=conf.model['architecture'],
-            train_data_version=train_data_version)
+            model_dir=model_dir, 
+            segment_subject=segment_subject,
+            traindata_version=traindata_version,
+            model_architecture=model_architecture,
+            hyperparams_version=hyperparams_version)
 
     # Check if training is needed
-    resume_train = conf.model.getboolean('resume_train')
+    resume_train = conf.train.getboolean('resume_train')
     if resume_train is False:
         # If no (best) model found, training needed!
         if best_model_curr_train_version is None:
+            train_needed = True
+        elif conf.train.getboolean('force_train') is True:
             train_needed = True
         else:
             logger.info("JUST PREDICT, without training: preload_existing_model is false and model found")
@@ -124,7 +131,7 @@ def run_training_session():
         # in (new) added labels in the datasets.
 
         # Get the current best model that already exists for this subject
-        best_recent_model = mh.get_best_model(model_dir=conf.dirs.getpath('model_dir'))
+        best_recent_model = mh.get_best_model(model_dir=model_dir)
         if best_recent_model is not None:
             try:
                 logger.info(f"Load model + weights from {best_recent_model['filepath']}")    
@@ -165,35 +172,40 @@ def run_training_session():
             model_preload_filepath = best_model_curr_train_version['filepath']
         elif conf.train.getboolean('preload_with_previous_traindata'):
             best_model_for_architecture = mh.get_best_model(
-                    model_dir=conf.dirs.getpath('model_dir'), 
-                    segment_subject=conf.general['segment_subject'],
-                    model_architecture=conf.model['architecture'],
-                    train_data_version=train_data_version)
+                    model_dir=model_dir, 
+                    segment_subject=segment_subject,
+                    model_architecture=model_architecture,
+                    traindata_version=traindata_version)
             if best_model_for_architecture is not None:
                 model_preload_filepath = best_model_for_architecture['filepath']
+        
+        hyperparams = mh.HyperParams(
+                image_augmentations=conf.train.getdict('image_augmentations'),
+                mask_augmentations=conf.train.getdict('mask_augmentations'),
+                hyperparams_version=hyperparams_version,
+                nb_classes=nb_classes,
+                batch_size=conf.train.getint('batch_size_fit'), 
+                nb_epoch=conf.train.getint('max_epoch'))
+                
         segment_train.train(
                 traindata_dir=traindata_dir,
                 validationdata_dir=validationdata_dir,
-                model_save_dir=conf.dirs.getpath('model_dir'),
-                segment_subject=conf.general['segment_subject'],
-                train_data_version=train_data_version,                
-                model_architecture=conf.model['architecture'] + '+001',
-                image_augment_dict=conf.train.getdict('image_augmentations'), 
-                mask_augment_dict=conf.train.getdict('mask_augmentations'), 
+                model_save_dir=model_dir,
+                segment_subject=segment_subject,
+                traindata_version=traindata_version,                
+                model_architecture=model_architecture,
+                hyperparams=hyperparams,
                 model_preload_filepath=model_preload_filepath,
-                nb_classes=nb_classes,
                 nb_channels=conf.model.getint('nb_channels'),
                 image_width=conf.train.getint('image_pixel_width'),
-                image_height=conf.train.getint('image_pixel_height'),
-                batch_size=conf.train.getint('batch_size_fit'), 
-                nb_epoch=conf.train.getint('max_epoch')) 
+                image_height=conf.train.getint('image_pixel_height')) 
     
         # Now get the best model found during training
         best_model_curr_train_version = mh.get_best_model(
-                model_dir=conf.dirs.getpath('model_dir'),
-                segment_subject=conf.general['segment_subject'],
-                model_architecture=conf.model['architecture'],
-                train_data_version=train_data_version)
+                model_dir=model_dir, 
+                segment_subject=segment_subject,
+                model_architecture=model_architecture,
+                traindata_version=traindata_version)
 
     # Now predict on the train,... data  
     logger.info(f"PREDICT test data with best model: {best_model_curr_train_version['filename']}")
@@ -248,18 +260,6 @@ def run_training_session():
                 projection_if_missing=train_projection,
                 batch_size=conf.train.getint('batch_size_predict'), 
                 evaluate_mode=True)
-    
-    # Release the memory from the GPU... 
-    # TODO: doesn't work!!!
-    kr.backend.clear_session()
-    del model
-    
-    import gc
-    for _ in range(20):
-        #print(gc.collect())
-        gc.collect()
-
-    # TODO: send email if training ready...
     
 if __name__ == '__main__':
     None

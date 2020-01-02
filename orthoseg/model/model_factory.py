@@ -11,9 +11,9 @@ https://github.com/qubvel/segmentation_models
 
 import logging
 from pathlib import Path
+from typing import List
 
 from tensorflow import keras as kr
-#import keras as kr
 import numpy as np
 import tensorflow as tf
 import segmentation_models as sm
@@ -41,25 +41,29 @@ def get_model(
         nb_channels: int = 3,
         nb_classes: int = 1,
         activation: str = 'sigmoid',
-        init_weights_with: str = 'imagenet'):
-    """[summary]
-
-    Arguments:
-        architecture
-
-    Keyword Arguments:
-        input_width {int} -- [description] (default: {None})
-        input_height {int} -- [description] (default: {None})
-        nb_channels {int} -- [description] (default: {3})
-        nb_classes {int} -- [description] (default: {1})
-        activation {str} -- [description] (default: {'sigmoid'init_weights_with:str='imagenet'})
-
+        init_weights_with: str = 'imagenet') -> kr.models.Model:
+    """
+    Get a model.
+    
+    Args:
+        architecture (str): Architecture of the network to create
+        input_width (int, optional): Width of the input images. Defaults to None.
+        input_height (int, optional): Height of the input images. Defaults to None.
+        nb_channels (int, optional): Nb of channels/bands of the input images. Defaults to 3.
+        nb_classes (int, optional): Nb of classes to be segmented to. Defaults to 1.
+        activation (Activation, optional): Activation function of last layer. Defaults to 'sigmoid'.
+        init_weights_with (str, optional): Weights to init the network with. Defaults to 'imagenet'.
+    
+    Raises:
+        Exception: [description]
+        Exception: [description]
+    
     Returns:
-        [type] -- [description]
+        [type]: [description]
     """
     # Check architecture
     segment_architecture_parts = architecture.split('+')
-    if len(segment_architecture_parts) != 2:
+    if len(segment_architecture_parts) < 2:
         raise Exception(f"Unsupported architecture: {architecture}")
     encoder = segment_architecture_parts[0]
     decoder = segment_architecture_parts[1]
@@ -125,35 +129,59 @@ def get_model(
         raise Exception(f"Unknown decoder architecture: {decoder}")
 
 def compile_model(
-        model,
-        optimizer,
+        model: kr.models.Model,
+        optimizer: str,
+        optimizer_params: dict,
         loss: str,
-        metrics: list = None,
+        metrics: List[str] = None,
         sample_weight_mode: str = None,
         class_weights: list = None):
+    """
+    Compile the model for training.
+    
+    Args:
+        model (kr.models.Model): The keras model to compile.
+        optimizer (str): The optimizer to use.
+        optimizer_params (dict): Paramters to use for optimizer.
+        loss (str): The loss function to use. One of:
+            * categorical_crossentropy
+            * weighted_categorical_crossentropy: class_weights should be specified!
+
+        metrics (List[Metric], optional): Metrics to use. Defaults to None. Possible values:
+            * 
+        sample_weight_mode (str, optional): Sample weight mode to use. Defaults to None.
+        class_weights (list, optional): Class weigths to use. Defaults to None.
+    """
 
     # If no merics specified, use default ones
+    metric_funcs: List[str] = []
     if metrics is None:
-        metrics = []
         if loss in ['categorical_crossentropy', 'weighted_categorical_crossentropy']:
-            metrics.append('categorical_accuracy')
+            metric_funcs.append('categorical_accuracy')
         elif loss == 'sparse_categorical_crossentropy':
             #metrics.append('sparse_categorical_accuracy')
             None
         elif loss == 'binary_crossentropy':
-            metrics.append('binary_accuracy')
+            metric_funcs.append('binary_accuracy')
 
-        iou_score = sm.metrics.iou_score
-        metrics.append(iou_score)
-        #metrics.append(jaccard_coef_round)
-        # metrics=[jaccard_coef, jaccard_coef_flat,
+        iou_score = sm.metrics.IOUScore()
+        metric_funcs.append(iou_score)
+        f1_score = sm.metrics.FScore()
+        metric_funcs.append(f1_score)
+        #metric_funcs.append(jaccard_coef_round)
+        # metric_funcs=[jaccard_coef, jaccard_coef_flat,
         #          jaccard_coef_int, dice_coef, 'accuracy', 'binary_accuracy']
+
+    else:
+        raise Exception("Specifying metrics not yet implemented")
 
     # Check loss function
     if loss == 'bcedice':
         loss_func = dice_coef_loss_bce
-    elif loss == 'jaccard':
-        loss_func = sm.losses.jaccard_loss
+    elif loss == 'dice_loss':
+        loss_func = sm.losses.DiceLoss()
+    elif loss == 'jaccard_loss':
+        loss_func = sm.losses.JaccardLoss()
     elif loss == 'weighted_categorical_crossentropy':
         if class_weights is None: 
             raise Exception(f"With loss == {loss}, class_weights cannot be None!")
@@ -161,7 +189,14 @@ def compile_model(
     else:
         loss_func = loss
 
-    model.compile(optimizer=optimizer, loss=loss_func, metrics=metrics,
+    # Create optimizer
+    if optimizer == 'adam':
+        optimizer_func = kr.optimizers.Adam(**optimizer_params)
+    else: 
+        raise Exception(f"Error creating optimizer: {optimizer}, with params {optimizer_params}")
+
+    logger.info(f"Compile model with optimizer: optimizer, loss: {loss}, class_weights: {class_weights}")
+    model.compile(optimizer=optimizer_func, loss=loss_func, metrics=metric_funcs,
             sample_weight_mode=sample_weight_mode)
 
     return model
@@ -169,8 +204,6 @@ def compile_model(
 def load_model(
         model_to_use_filepath: Path, 
         compile: bool = True):
-    iou_score = sm.metrics.iou_score
-    
     # If it is a file with only weights
     if model_to_use_filepath.stem.endswith('_weights'):
         model_json_filename = model_to_use_filepath.stem.replace('_weights', '') + '.json'
@@ -180,6 +213,8 @@ def load_model(
             model = kr.models.model_from_json(model_json)
         model.load_weights(str(model_to_use_filepath))
     else:
+        iou_score = sm.metrics.IOUScore()
+        f1_score = sm.metrics.FScore()
         model = kr.models.load_model(
                 str(model_to_use_filepath),
                 custom_objects={'jaccard_coef': jaccard_coef,
@@ -187,6 +222,7 @@ def load_model(
                                 'jaccard_coef_round': jaccard_coef_round,
                                 'dice_coef': dice_coef,
                                 'iou_score': iou_score,
+                                'f1_score': f1_score,
                                 'weighted_categorical_crossentropy': weighted_categorical_crossentropy},
                 compile=compile)
 

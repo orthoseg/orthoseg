@@ -107,7 +107,7 @@ def get_needed_config_files(
 
     # Specific settings for the subject if one is specified
     if(config is not None):
-        config_filepath = config_dir / f"{config}.ini"
+        config_filepath = config_dir / config
         if not os.path.exists(config_filepath):
             raise Exception(f"Config file specified does not exist: {config_filepath}")
         config_filepaths.append(config_filepath)
