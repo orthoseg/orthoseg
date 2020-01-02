@@ -59,7 +59,7 @@ def get_model(
     """
     # Check architecture
     segment_architecture_parts = architecture.split('+')
-    if len(segment_architecture_parts) != 2:
+    if len(segment_architecture_parts) < 2:
         raise Exception(f"Unsupported architecture: {architecture}")
     encoder = segment_architecture_parts[0]
     decoder = segment_architecture_parts[1]
@@ -145,8 +145,8 @@ def compile_model(
 
         iou_score = sm.metrics.IOUScore()
         metrics.append(iou_score)
-        dice_score = sm.metrics.FScore()
-        metrics.append(dice_score)
+        f1_score = sm.metrics.FScore()
+        metrics.append(f1_score)
         #metrics.append(jaccard_coef_round)
         # metrics=[jaccard_coef, jaccard_coef_flat,
         #          jaccard_coef_int, dice_coef, 'accuracy', 'binary_accuracy']
@@ -183,7 +183,7 @@ def load_model(
         model.load_weights(str(model_to_use_filepath))
     else:
         iou_score = sm.metrics.IOUScore()
-        dice_score = sm.metrics.FScore()
+        f1_score = sm.metrics.FScore()
         model = kr.models.load_model(
                 str(model_to_use_filepath),
                 custom_objects={'jaccard_coef': jaccard_coef,
@@ -191,7 +191,7 @@ def load_model(
                                 'jaccard_coef_round': jaccard_coef_round,
                                 'dice_coef': dice_coef,
                                 'iou_score': iou_score,
-                                'dice_score': dice_score,
+                                'f1_score': f1_score,
                                 'weighted_categorical_crossentropy': weighted_categorical_crossentropy},
                 compile=compile)
 

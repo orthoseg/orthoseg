@@ -3,6 +3,8 @@
 Module with high-level operations to segment images.
 """
 
+from enum import Enum
+import json
 import logging
 import math
 import os
@@ -30,25 +32,133 @@ logger = logging.getLogger(__name__)
 # The real work
 #-------------------------------------------------------------
 
+class HyperParams:
+    class Metric(Enum):
+        f1_score_train = 'f1-score'
+        f1_score_validation = 'val_f1-score'
+        binary_accuracy_train = 'binary_accuracy'
+        binary_accuracy_validation = 'val_binary_accuracy'
+
+    class Loss(Enum):
+        dice = 'dice_loss'
+        binary_crossentropy = 'binary_crossentropy'
+        categorical_crossentropy = 'categorical_crossentropy'
+        weighted_categorical_crossentropy = 'weighted_categorical_crossentropy'
+
+    class Activation(Enum):
+        softmax = 'softmax'
+        sigmoid = 'sigmoid'
+
+    def __init__(
+            self,
+            image_augmentations: dict, 
+            mask_augmentations: dict,                        
+            hyperparams_version: int = 0,
+            nb_classes: int = 1,
+            class_weights: list = None,
+            batch_size: int = 4,
+            optimizer: str = 'adam',
+            start_learning_rate: float = 0.0001,
+            model_activation: str = None,
+            loss_function: str = None,
+            monitor_metric_train: str = 'binary_accuracy',
+            monitor_metric_validation: str = 'val_binary_accuracy',
+            monitor_metric_mode: str = 'max',
+            save_format: str = 'h5',
+            save_best_only: bool = True,
+            nb_epoch: int = 1000,
+            earlystop_patience: int = 100,
+            earlystop_monitor_metric: str = None):
+        """[summary]
+        
+        Args:
+            image_augmentations (dict): [description]
+            mask_augmentations (dict): [description]
+            hyperparams_version (int, optional): version of the hyperparams. Defaults to 0.
+            nb_classes (int, optional): [description]. Defaults to 1.
+            class_weights (list, optional): [description]. Defaults to None.
+            batch_size (int, optional): batch size to use while training. This must be 
+                choosen depending on the neural network architecture
+                and available memory on you GPU. Defaults to 4.
+            optimizer (str, optional): [description]. Defaults to 'adam'.
+            start_learning_rate (float, optional): [description]. Defaults to 0.0001.
+            model_activation (str, optional): [description]. Defaults to None.
+            loss_function (str, optional): [description]. Defaults to None.
+            monitor_metric_train (str, optional): [description]. Defaults to 'binary_accuracy'.
+            monitor_metric_validation (str, optional): [description]. Defaults to 'val_binary_accuracy'.
+            monitor_metric_mode (str, optional): [description]. Defaults to 'max'.
+            save_format (str, optional): [description]. Defaults to 'h5'.
+            save_best_only (bool, optional): [description]. Defaults to True.
+            nb_epoch (int, optional): maximum number of epochs to train. Defaults to 1000.
+            earlystop_patience (int, optional): [description]. Defaults to 100.
+            earlystop_monitor_metric (str, optional): [description]. Defaults to None.
+        
+        Raises:
+            Exception: [description]
+        """
+        ##### Some checks on the input parameters #####
+        if(nb_classes > 1 
+           and class_weights is not None
+           and nb_classes != len(class_weights)):
+            raise Exception(f"The number of class weight ({class_weights}) should equal the number of classes ({nb_classes})!")
+
+        self.hyperparams_version = hyperparams_version
+        self.image_augmentations = image_augmentations
+        self.mask_augmentations = mask_augmentations
+        self.nb_classes = nb_classes
+        self.class_weights = class_weights
+        self.batch_size = batch_size    
+        
+        self.optimizer = optimizer
+        self.start_learning_rate = start_learning_rate  # Best set to 0.0001 to start (1e-3 is not ok)
+
+        if model_activation is not None: 
+            self.model_activation = model_activation
+        elif self.nb_classes > 1:
+            self.model_activation = 'softmax'
+        else:
+            self.model_activation = 'sigmoid'
+
+        # Softmax with > 1 classes
+        if self.model_activation == 'softmax':
+            if self.class_weights is not None: 
+                self.loss_function = 'weighted_categorical_crossentropy'
+            else:
+                self.loss_function = 'categorical_crossentropy'
+        else:
+            self.loss_function = 'binary_crossentropy'
+            #self.loss_function = 'dice_loss'
+
+        self.monitor_metric_train = monitor_metric_train
+        self.monitor_metric_validation = monitor_metric_validation
+        self.monitor_metric_mode = monitor_metric_mode
+        self.save_format = save_format
+        self.save_best_only = save_best_only
+        self.nb_epoch = nb_epoch
+        self.earlystop_patience = earlystop_patience
+        if earlystop_monitor_metric is not None:
+            self.earlystop_monitor_metric = earlystop_monitor_metric
+        else:
+            self.earlystop_monitor_metric = self.monitor_metric_train
+
+    def toJSON(self):
+        return json.dumps(self, default=lambda o: o.__dict__, 
+            sort_keys=True, indent=4)
+
 def train(
         traindata_dir: Path,
         validationdata_dir: Path,
         model_save_dir: Path,
         segment_subject: str,
-        train_data_version: int, 
+        traindata_version: int, 
         model_architecture: str,
-        image_augment_dict: dict, 
-        mask_augment_dict: dict,
+        hyperparams: HyperParams,
         model_preload_filepath: Optional[Path] = None,
-        nb_classes: int = 1,
-        class_weights: list = None,
         nb_channels: int = 3,
         image_width: int = 512,
         image_height: int = 512,
         image_subdir: str = "image",
         mask_subdir: str = "mask",
-        batch_size: int = 32,
-        nb_epoch: int = 100,
         save_augmented_subdir: str = None):
     """
     Create a new or load an existing neural network and train it using 
@@ -66,31 +176,18 @@ def train(
     Args
         traindata_dir: dir where the train data is located
         validationdata_dir: dir where the validation data is located
-        model_encoder: encoder of the neural network to use
-        model_decoder: decoder of the neural network to use
         model_save_dir: dir where (intermediate) best models will be saved
         segment_subject (str): segment subject 
+        traindata_version (int): train data version
         model_architecture (str): model architecture
-        train_data_version (int): train data version
-        image_augment_dict: augmentation  
-        mask_augment_dict:  
+        train_params: train_params
         image_width: width the input images will be rescaled to for training
         image_height: height the input images will be rescaled to for training
         image_subdir: subdir where the images can be found in traindata_dir and validationdata_dir
         mask_subdir: subdir where the corresponding masks can be found in traindata_dir and validationdata_dir
         model_preload_filepath: filepath to the model to continue training on, 
                 or None if you want to start from scratch
-        batch_size: batch size to use while training. This must be 
-                choosen depending on the neural network architecture
-                and available memory on you GPU.
-        nb_epoch: maximum number of epochs to train
     """     
-    ##### Some checks on the input parameters #####
-    if(nb_classes > 1 
-       and class_weights is not None
-       and nb_classes != len(class_weights)):
-            raise Exception(f"The number of class weight ({class_weights}) should equal the number of classes ({nb_classes})!")
-
     ##### Init #####
     # These are the augmentations that will be applied to the input training images/masks
     # Remark: fill_mode + cval are defined as they are so missing pixels after eg. rotation
@@ -101,36 +198,37 @@ def train(
             input_data_dir=traindata_dir,
             image_subdir=image_subdir, 
             mask_subdir=mask_subdir,
-            image_augment_dict=image_augment_dict, 
-            mask_augment_dict=mask_augment_dict, 
-            batch_size=batch_size,
+            image_augment_dict=hyperparams.image_augmentations, 
+            mask_augment_dict=hyperparams.mask_augmentations, 
+            batch_size=hyperparams.batch_size,
             target_size=(image_width, image_height), 
-            nb_classes=nb_classes, 
+            nb_classes=hyperparams.nb_classes, 
             save_to_subdir=save_augmented_subdir, 
             seed=2)
 
     # Create validation generator
-    validation_augment_dict = dict(rescale=1./255)
+    validation_augmentations = dict(rescale=hyperparams.image_augmentations['rescale'])
     validation_gen = create_train_generator(
             input_data_dir=validationdata_dir,
             image_subdir=image_subdir, 
             mask_subdir=mask_subdir,
-            image_augment_dict=validation_augment_dict,
-            mask_augment_dict=validation_augment_dict, 
-            batch_size=batch_size,
+            image_augment_dict=validation_augmentations,
+            mask_augment_dict=validation_augmentations, 
+            batch_size=hyperparams.batch_size,
             target_size=(image_width, image_height), 
-            nb_classes=nb_classes, 
+            nb_classes=hyperparams.nb_classes, 
             save_to_subdir=save_augmented_subdir,
             shuffle=False, 
             seed=3)
 
     # Get the max epoch number from the log file if it exists...
     start_epoch = 0
-    start_learning_rate = 1e-4  # Best set to 0.0001 to start (1e-3 is not ok)
+    start_learning_rate = hyperparams.start_learning_rate  
     model_save_base_filename = mh.format_model_basefilename(
             segment_subject=segment_subject,
+            traindata_version=traindata_version,
             model_architecture=model_architecture,
-            train_data_version=train_data_version)
+            hyperparams_version=hyperparams.hyperparams_version)
     csv_log_filepath = model_save_dir / (model_save_base_filename + '_log.csv')
     if csv_log_filepath.exists() and os.path.getsize(csv_log_filepath) > 0:
         logger.info(f"train_log csv exists: {csv_log_filepath}")
@@ -144,23 +242,18 @@ def train(
         start_epoch = train_log_csv['epoch'].max()
         start_learning_rate = train_log_csv['lr'].min()
     logger.info(f"start_epoch: {start_epoch}, start_learning_rate: {start_learning_rate}")
-   
-    # Create a model
-    model_json_filename = f"{model_architecture}.json"
-    model_json_filepath = model_save_dir / model_json_filename
-    if nb_classes > 1:
-        model_activation = 'softmax'
-    else:
-        model_activation = 'sigmoid'
-    
+       
     # If no existing model provided, create it from scratch
     if not model_preload_filepath:
         # Get the model we want to use
         model = mf.get_model(
-                architecture=model_architecture, nb_channels=nb_channels, nb_classes=nb_classes, 
-                activation=model_activation)
+                architecture=model_architecture, 
+                nb_channels=nb_channels, 
+                nb_classes=hyperparams.nb_classes, 
+                activation=hyperparams.model_activation)
         
         # Save the model architecture to json
+        model_json_filepath = model_save_dir / f"{model_save_base_filename}.json"
         if not model_save_dir.exists():
             model_save_dir.mkdir(parents=True)
         if not model_json_filepath.exists():
@@ -190,8 +283,8 @@ def train(
         # If multiple GPU's available, create multi_gpu_model
         try:
             model_for_train = kr.utils.multi_gpu_model(model, gpus=nb_gpu, cpu_relocation=True)
-            logger.info(f"Train using multiple GPUs: {nb_gpu}, batch size becomes: {batch_size*nb_gpu}")
-            batch_size *= nb_gpu
+            logger.info(f"Train using multiple GPUs: {nb_gpu}, batch size becomes: {hyperparams.batch_size*nb_gpu}")
+            hyperparams.batch_size *= nb_gpu
         except ValueError:
             logger.info("Train using single GPU or CPU")
             model_for_train = model
@@ -200,18 +293,15 @@ def train(
     # Remark: compile shouldn't be done explicitly when using a preload model, 
     #         but compiling during load crashes, so for now always compile.
     #if not model_preload_filepath:
-    optimizer = kr.optimizers.Adam(lr=start_learning_rate)
-    # Softmax with > 1 classes
-    if model_activation == 'softmax':
-        if class_weights is not None: 
-            loss = 'weighted_categorical_crossentropy'
-        else:
-            loss = 'categorical_crossentropy'
-    else:
-        loss = 'binary_crossentropy' 
-    logger.info(f"Compile model with loss: {loss}, class_weights: {class_weights}")
+    if hyperparams.optimizer == 'adam':
+        optimizer = kr.optimizers.Adam(lr=start_learning_rate)
+    else: 
+        raise Exception(f"Specified optimizer not implemented: {hyperparams.optimizer}")
+
+    logger.info(f"Compile model with loss: {hyperparams.loss_function}, class_weights: {hyperparams.class_weights}")
     model_for_train = mf.compile_model(
-            model=model_for_train, optimizer=optimizer, loss=loss, class_weights=class_weights)
+            model=model_for_train, optimizer=optimizer, loss=hyperparams.loss_function, 
+            class_weights=hyperparams.class_weights)
 
     # Define some callbacks for the training
     # Reduce the learning rate if the loss doesn't improve anymore
@@ -229,13 +319,14 @@ def train(
     model_checkpoint_saver = mh.ModelCheckpointExt(
             model_save_dir=model_save_dir, 
             segment_subject=segment_subject,
+            traindata_version=traindata_version,            
             model_architecture=model_architecture,
-            train_data_version=train_data_version,
-            monitor_metric_train='loss',
-            monitor_metric_validation='val_loss',
-            monitor_metric_mode='min',
-            save_format='h5',
-            save_best_only=True,
+            hyperparams_version=hyperparams.hyperparams_version,
+            monitor_metric_train=hyperparams.monitor_metric_train,
+            monitor_metric_validation=hyperparams.monitor_metric_validation,
+            monitor_metric_mode=hyperparams.monitor_metric_mode,
+            save_format=hyperparams.save_format,
+            save_best_only=hyperparams.save_best_only,
             model_template_for_save=model_template_for_save)
 
     # Callbacks for logging
@@ -245,7 +336,8 @@ def train(
 
     # Stop if no more improvement
     early_stopping = kr.callbacks.EarlyStopping(
-            monitor='val_loss', patience=200, restore_best_weights=False)
+            monitor=hyperparams.earlystop_monitor_metric, 
+            patience=hyperparams.earlystop_patience, restore_best_weights=False)
     
     # Prepare the parameters to pass to fit...
     # Supported filetypes to train/validate on
@@ -264,17 +356,19 @@ def train(
     
     # Calculate the number of steps within an epoch
     # Remark: number of steps per epoch should be at least 1, even if nb samples < batch size...
-    train_steps_per_epoch = math.ceil(train_dataset_size/batch_size)
-    validation_steps_per_epoch = math.ceil(validation_dataset_size/batch_size)
+    train_steps_per_epoch = math.ceil(train_dataset_size/hyperparams.batch_size)
+    validation_steps_per_epoch = math.ceil(validation_dataset_size/hyperparams.batch_size)
     
     # Start training
-    logger.info(f"Start training with batch_size: {batch_size}, train_dataset_size: {train_dataset_size}, train_steps_per_epoch: {train_steps_per_epoch}, validation_dataset_size: {validation_dataset_size}, validation_steps_per_epoch: {validation_steps_per_epoch}")
-
-    try:        
+    logger.info(f"Start training with batch_size: {hyperparams.batch_size}, train_dataset_size: {train_dataset_size}, train_steps_per_epoch: {train_steps_per_epoch}, validation_dataset_size: {validation_dataset_size}, validation_steps_per_epoch: {validation_steps_per_epoch}")
+    logger.info(f"{hyperparams.toJSON()}")
+    train_params_json_filepath = model_save_dir / f"{model_save_base_filename}_params.json"
+    train_params_json_filepath.write_text(hyperparams.toJSON())
+    try:
         model_for_train.fit(
                 train_gen, 
                 steps_per_epoch=train_steps_per_epoch, 
-                epochs=nb_epoch,
+                epochs=hyperparams.nb_epoch,
                 validation_data=validation_gen,
                 validation_steps=validation_steps_per_epoch,       # Number of items in validation/batch_size
                 callbacks=[model_checkpoint_saver, 
