@@ -3,6 +3,7 @@
 Module with helper functions regarding (keras) models.
 """
 
+import json
 import logging
 from pathlib import Path
 import shutil
@@ -10,7 +11,6 @@ from typing import Optional
 
 import pandas as pd 
 from tensorflow import keras as kr
-
 #-------------------------------------------------------------
 # First define/init some general variables/constants
 #-------------------------------------------------------------
@@ -22,6 +22,105 @@ logger = logging.getLogger(__name__)
 # The real work
 #-------------------------------------------------------------
 
+class HyperParams:
+    
+    def __init__(
+            self,
+            image_augmentations: dict, 
+            mask_augmentations: dict,                        
+            hyperparams_version: int = 0,
+            nb_classes: int = 1,
+            class_weights: list = None,
+            batch_size: int = 4,
+            optimizer: str = 'adam',
+            optimizer_params: dict = None,
+            model_activation: str = None,
+            loss_function: str = None,
+            monitor_metric: str = 'binary_accuracy',
+            monitor_metric_mode: str = 'max',
+            save_format: str = 'h5',
+            save_best_only: bool = True,
+            nb_epoch: int = 1000,
+            earlystop_patience: int = 100,
+            earlystop_monitor_metric: str = None):
+        """
+        Class containing the hyper parameters needed to perform a training.
+        
+        Args:
+            image_augmentations (dict): The augmentations to use on the input image during training.
+            mask_augmentations (dict): The augmentations to use on the input mask during training.
+            hyperparams_version (int, optional): version of the hyperparams. Defaults to 0.
+            nb_classes (int, optional): [description]. Defaults to 1.
+            class_weights (list, optional): [description]. Defaults to None.
+            batch_size (int, optional): batch size to use while training. This must be 
+                choosen depending on the neural network architecture
+                and available memory on you GPU. Defaults to 4.
+            optimizer (str, optional): Optimizer to use for training. Defaults to 'adam'.
+            optimizer_params (dict, optional): Optimizer params to use. Defaults to { 'learning_rate': 0.0001 }.
+            model_activation (Activation, optional): [description]. Defaults to None.
+            loss_function (str, optional): [description]. Defaults to None.
+            monitor_metric (str, optional): Metric to monitor. Defaults to 'binary_accuracy'.
+            monitor_metric_mode (str, optional): Mode of the mtric to monitor. Defaults to 'max'.
+            save_format (str, optional): [description]. Defaults to 'h5'.
+            save_best_only (bool, optional): [description]. Defaults to True.
+            nb_epoch (int, optional): maximum number of epochs to train. Defaults to 1000.
+            earlystop_patience (int, optional): [description]. Defaults to 100.
+            earlystop_monitor_metric (str, optional): [description]. Defaults to None.
+        
+        Raises:
+            Exception: [description]
+        """
+        ##### Some checks on the input parameters #####
+        if(nb_classes > 1 
+           and class_weights is not None
+           and nb_classes != len(class_weights)):
+            raise Exception(f"The number of class weight ({class_weights}) should equal the number of classes ({nb_classes})!")
+
+        self.hyperparams_version = hyperparams_version
+        self.image_augmentations = image_augmentations
+        self.mask_augmentations = mask_augmentations
+        self.nb_classes = nb_classes
+        self.class_weights = class_weights
+        self.batch_size = batch_size    
+        
+        self.optimizer = optimizer
+        if optimizer_params is None:
+            # Best set to 0.0001 to start (1e-3 is not ok)
+            self.optimizer_params = { 'learning_rate': 0.0001 } 
+        else:
+            self.optimizer_params = optimizer_params
+
+        if model_activation is not None: 
+            self.model_activation = model_activation
+        elif self.nb_classes > 1:
+            self.model_activation = 'softmax'
+        else:
+            self.model_activation = 'sigmoid'
+
+        # Softmax with > 1 classes
+        if self.model_activation == 'softmax':
+            if self.class_weights is not None: 
+                self.loss_function = 'weighted_categorical_crossentropy'
+            else:
+                self.loss_function = 'categorical_crossentropy'
+        else:
+            self.loss_function = 'binary_crossentropy'
+
+        self.monitor_metric = monitor_metric
+        self.monitor_metric_mode = monitor_metric_mode
+        self.save_format = save_format
+        self.save_best_only = save_best_only
+        self.nb_epoch = nb_epoch
+        self.earlystop_patience = earlystop_patience
+        if earlystop_monitor_metric is not None:
+            self.earlystop_monitor_metric = earlystop_monitor_metric
+        else:
+            self.earlystop_monitor_metric = self.monitor_metric
+
+    def toJSON(self):
+        return json.dumps(self, default=lambda o: o.__dict__, 
+            sort_keys=True, indent=4)
+            
 def get_max_data_version(model_dir: Path) -> int:
     """
     Get the maximum data version a model exists for in the model_dir.
@@ -78,7 +177,9 @@ def format_model_filename(
         acc_val: the accuracy reached for the validation dataset
         acc_combined: the average of the train and validation accuracy
         epoch: the epoch during training that reached these model weights
-        save_format (str): the format to save in: 'h5' (keras format) or 'tf' (tensorflow savedmodel)
+        save_format (str): the format to save in:
+            * keras format: 'h5'
+            * tensorflow savedmodel: 'tf'
     """
     # Format file name
     filename = format_model_basefilename(
@@ -107,7 +208,9 @@ def parse_model_filename(filepath: Path) -> Optional[dict]:
         * acc_val: the accuracy reached for the validation dataset
         * acc_combined: the average of the train and validation accuracy
         * epoch: the epoch during training that reached these model weights
-        * save_format: the save type of the model: 'h5' or 'tf'  
+        * save_format (str): the format to save in:
+            * keras format: 'h5'
+            * tensorflow savedmodel: 'tf'
     
     Args
         filepath: the filepath to the model file
@@ -274,10 +377,9 @@ class ModelCheckpointExt(kr.callbacks.Callback):
             traindata_version: int,
             model_architecture: str,
             hyperparams_version: int,
+            monitor_metric: str,
             monitor_metric_mode: str,
-            monitor_metric_train: str,
-            monitor_metric_validation: str,
-            save_format: str = 'tf',
+            save_format: str = 'h5',
             save_best_only: bool = False,
             save_weights_only: bool = False,
             model_template_for_save = None,
@@ -292,10 +394,9 @@ class ModelCheckpointExt(kr.callbacks.Callback):
             traindata_version (int): train data version
             model_architecture (str): model architecture
             hyperparams_version (int): version of the hyper parameters used
+            monitor_metric (str): The metric to monitor for accuracy
             monitor_metric_mode (str): use 'min' if the accuracy metrics should be 
                     as low as possible, 'max' if a higher values is better. 
-            monitor_metric_train (str): The metric to monitor for train accuracy
-            monitor_metric_validation (str): The metric to monitor for validation accuracy
             save_format (str, optional): The format to save in: 'h5' (keras format) or 'tf' (tensorflow savedmodel). Defaults to 'tf'
             save_best_only: optional: only keep the best model
             save_weights_only: optional: only save weights
@@ -316,8 +417,7 @@ class ModelCheckpointExt(kr.callbacks.Callback):
         self.traindata_version = traindata_version
         self.model_architecture = model_architecture
         self.hyperparams_version = hyperparams_version
-        self.monitor_metric_train = monitor_metric_train
-        self.monitor_metric_validation = monitor_metric_validation
+        self.monitor_metric = monitor_metric
         self.monitor_metric_mode = monitor_metric_mode
         self.save_format = save_format
         self.save_best_only = save_best_only
@@ -337,8 +437,8 @@ class ModelCheckpointExt(kr.callbacks.Callback):
                 hyperparams_version=self.hyperparams_version,
                 monitor_metric_mode=self.monitor_metric_mode,
                 new_model=self.model,
-                new_model_monitor_train=logs.get(self.monitor_metric_train),
-                new_model_monitor_val=logs.get(self.monitor_metric_validation),
+                new_model_monitor_train=logs.get(self.monitor_metric),
+                new_model_monitor_val=logs.get('val_' + self.monitor_metric),
                 new_model_epoch=epoch,
                 save_format=self.save_format,
                 save_best_only=self.save_best_only,          
@@ -358,7 +458,7 @@ def save_and_clean_models(
         new_model_monitor_train: Optional[float] = None,
         new_model_monitor_val: Optional[float] = None,
         new_model_epoch: Optional[int] = None,
-        save_format: str = 'tf',
+        save_format: str = 'h5',
         save_best_only: bool = False,
         save_weights_only: bool = False,
         model_template_for_save = None, 
@@ -375,13 +475,15 @@ def save_and_clean_models(
         traindata_version (int): train data version
         model_architecture (str): model architecture
         hyperparams_version (int): version of the train params
-        model_monitor_metric_mode (str): use 'min' if the monitored metrics should be 
+        model_monitor_metric_mode (MetricMode): use 'min' if the monitored metrics should be 
                 as low as possible, 'max' if a higher values is better. 
         new_model (optional): the keras model object that will be saved
         new_model_monitor_train (float, optional): the monitored metric on the train dataset
         new_model_monitor_val (float, optional): the monitored metric on the validation dataset
         new_model_epoch (int, optional): the epoch in the training
-        save_format (str, optional): The format to save in: 'h5' (keras format) or 'tf' (tensorflow savedmodel). Defaults to 'tf'
+        save_format (SaveFormat, optional): The format to save in (Defaults to h5): 
+            * h5: keras format
+            * tf: tensorflow savedmodel
         save_best_only (bool, optional): only keep the best model
         save_weights_only (bool, optional): only save weights
         model_template_for_save (optional): if using multi-GPU training, pass

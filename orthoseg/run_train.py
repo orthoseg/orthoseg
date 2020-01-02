@@ -179,7 +179,7 @@ def run_training_session():
             if best_model_for_architecture is not None:
                 model_preload_filepath = best_model_for_architecture['filepath']
         
-        hyperparams = segment_train.HyperParams(
+        hyperparams = mh.HyperParams(
                 image_augmentations=conf.train.getdict('image_augmentations'),
                 mask_augmentations=conf.train.getdict('mask_augmentations'),
                 hyperparams_version=hyperparams_version,
@@ -260,18 +260,6 @@ def run_training_session():
                 projection_if_missing=train_projection,
                 batch_size=conf.train.getint('batch_size_predict'), 
                 evaluate_mode=True)
-    
-    # Release the memory from the GPU... 
-    # TODO: doesn't work!!!
-    '''
-    kr.backend.clear_session()
-    del model
-    
-    import gc
-    for _ in range(20):
-        #print(gc.collect())
-        gc.collect()
-    '''
     
 if __name__ == '__main__':
     None

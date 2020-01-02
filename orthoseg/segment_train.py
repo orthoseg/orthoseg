@@ -3,8 +3,6 @@
 Module with high-level operations to segment images.
 """
 
-from enum import Enum
-import json
 import logging
 import math
 import os
@@ -19,7 +17,6 @@ import pandas as pd
 
 import orthoseg.model.model_factory as mf
 import orthoseg.model.model_helper as mh
-import orthoseg.postprocess_predictions as postp
 
 #-------------------------------------------------------------
 # First define/init some general variables/constants
@@ -32,119 +29,6 @@ logger = logging.getLogger(__name__)
 # The real work
 #-------------------------------------------------------------
 
-class HyperParams:
-    class Metric(Enum):
-        f1_score_train = 'f1-score'
-        f1_score_validation = 'val_f1-score'
-        binary_accuracy_train = 'binary_accuracy'
-        binary_accuracy_validation = 'val_binary_accuracy'
-
-    class Loss(Enum):
-        dice = 'dice_loss'
-        binary_crossentropy = 'binary_crossentropy'
-        categorical_crossentropy = 'categorical_crossentropy'
-        weighted_categorical_crossentropy = 'weighted_categorical_crossentropy'
-
-    class Activation(Enum):
-        softmax = 'softmax'
-        sigmoid = 'sigmoid'
-
-    def __init__(
-            self,
-            image_augmentations: dict, 
-            mask_augmentations: dict,                        
-            hyperparams_version: int = 0,
-            nb_classes: int = 1,
-            class_weights: list = None,
-            batch_size: int = 4,
-            optimizer: str = 'adam',
-            start_learning_rate: float = 0.0001,
-            model_activation: str = None,
-            loss_function: str = None,
-            monitor_metric_train: str = 'binary_accuracy',
-            monitor_metric_validation: str = 'val_binary_accuracy',
-            monitor_metric_mode: str = 'max',
-            save_format: str = 'h5',
-            save_best_only: bool = True,
-            nb_epoch: int = 1000,
-            earlystop_patience: int = 100,
-            earlystop_monitor_metric: str = None):
-        """[summary]
-        
-        Args:
-            image_augmentations (dict): [description]
-            mask_augmentations (dict): [description]
-            hyperparams_version (int, optional): version of the hyperparams. Defaults to 0.
-            nb_classes (int, optional): [description]. Defaults to 1.
-            class_weights (list, optional): [description]. Defaults to None.
-            batch_size (int, optional): batch size to use while training. This must be 
-                choosen depending on the neural network architecture
-                and available memory on you GPU. Defaults to 4.
-            optimizer (str, optional): [description]. Defaults to 'adam'.
-            start_learning_rate (float, optional): [description]. Defaults to 0.0001.
-            model_activation (str, optional): [description]. Defaults to None.
-            loss_function (str, optional): [description]. Defaults to None.
-            monitor_metric_train (str, optional): [description]. Defaults to 'binary_accuracy'.
-            monitor_metric_validation (str, optional): [description]. Defaults to 'val_binary_accuracy'.
-            monitor_metric_mode (str, optional): [description]. Defaults to 'max'.
-            save_format (str, optional): [description]. Defaults to 'h5'.
-            save_best_only (bool, optional): [description]. Defaults to True.
-            nb_epoch (int, optional): maximum number of epochs to train. Defaults to 1000.
-            earlystop_patience (int, optional): [description]. Defaults to 100.
-            earlystop_monitor_metric (str, optional): [description]. Defaults to None.
-        
-        Raises:
-            Exception: [description]
-        """
-        ##### Some checks on the input parameters #####
-        if(nb_classes > 1 
-           and class_weights is not None
-           and nb_classes != len(class_weights)):
-            raise Exception(f"The number of class weight ({class_weights}) should equal the number of classes ({nb_classes})!")
-
-        self.hyperparams_version = hyperparams_version
-        self.image_augmentations = image_augmentations
-        self.mask_augmentations = mask_augmentations
-        self.nb_classes = nb_classes
-        self.class_weights = class_weights
-        self.batch_size = batch_size    
-        
-        self.optimizer = optimizer
-        self.start_learning_rate = start_learning_rate  # Best set to 0.0001 to start (1e-3 is not ok)
-
-        if model_activation is not None: 
-            self.model_activation = model_activation
-        elif self.nb_classes > 1:
-            self.model_activation = 'softmax'
-        else:
-            self.model_activation = 'sigmoid'
-
-        # Softmax with > 1 classes
-        if self.model_activation == 'softmax':
-            if self.class_weights is not None: 
-                self.loss_function = 'weighted_categorical_crossentropy'
-            else:
-                self.loss_function = 'categorical_crossentropy'
-        else:
-            self.loss_function = 'binary_crossentropy'
-            #self.loss_function = 'dice_loss'
-
-        self.monitor_metric_train = monitor_metric_train
-        self.monitor_metric_validation = monitor_metric_validation
-        self.monitor_metric_mode = monitor_metric_mode
-        self.save_format = save_format
-        self.save_best_only = save_best_only
-        self.nb_epoch = nb_epoch
-        self.earlystop_patience = earlystop_patience
-        if earlystop_monitor_metric is not None:
-            self.earlystop_monitor_metric = earlystop_monitor_metric
-        else:
-            self.earlystop_monitor_metric = self.monitor_metric_train
-
-    def toJSON(self):
-        return json.dumps(self, default=lambda o: o.__dict__, 
-            sort_keys=True, indent=4)
-
 def train(
         traindata_dir: Path,
         validationdata_dir: Path,
@@ -152,7 +36,7 @@ def train(
         segment_subject: str,
         traindata_version: int, 
         model_architecture: str,
-        hyperparams: HyperParams,
+        hyperparams: mh.HyperParams,
         model_preload_filepath: Optional[Path] = None,
         nb_channels: int = 3,
         image_width: int = 512,
@@ -223,7 +107,6 @@ def train(
 
     # Get the max epoch number from the log file if it exists...
     start_epoch = 0
-    start_learning_rate = hyperparams.start_learning_rate  
     model_save_base_filename = mh.format_model_basefilename(
             segment_subject=segment_subject,
             traindata_version=traindata_version,
@@ -231,17 +114,16 @@ def train(
             hyperparams_version=hyperparams.hyperparams_version)
     csv_log_filepath = model_save_dir / (model_save_base_filename + '_log.csv')
     if csv_log_filepath.exists() and os.path.getsize(csv_log_filepath) > 0:
-        logger.info(f"train_log csv exists: {csv_log_filepath}")
         if not model_preload_filepath:
-            message = f"STOP: log file exists but preload model file not specified!!!"
+            message = f"STOP: log file exists but preload model file not specified!!!: {csv_log_filepath}"
             logger.critical(message)
             raise Exception(message)
         
         train_log_csv = pd.read_csv(csv_log_filepath, sep=';')
         logger.debug(f"train_log csv contents:\n{train_log_csv}")
         start_epoch = train_log_csv['epoch'].max()
-        start_learning_rate = train_log_csv['lr'].min()
-    logger.info(f"start_epoch: {start_epoch}, start_learning_rate: {start_learning_rate}")
+        hyperparams.optimizer_params['learning_rate'] = train_log_csv['lr'].min()
+    logger.info(f"start_epoch: {start_epoch}, learning_rate: {hyperparams.optimizer_params['learning_rate']}")
        
     # If no existing model provided, create it from scratch
     if not model_preload_filepath:
@@ -289,18 +171,11 @@ def train(
             logger.info("Train using single GPU or CPU")
             model_for_train = model
 
-    # If we started a model from scratch, compile it to prepare for training
-    # Remark: compile shouldn't be done explicitly when using a preload model, 
-    #         but compiling during load crashes, so for now always compile.
-    #if not model_preload_filepath:
-    if hyperparams.optimizer == 'adam':
-        optimizer = kr.optimizers.Adam(lr=start_learning_rate)
-    else: 
-        raise Exception(f"Specified optimizer not implemented: {hyperparams.optimizer}")
-
-    logger.info(f"Compile model with loss: {hyperparams.loss_function}, class_weights: {hyperparams.class_weights}")
     model_for_train = mf.compile_model(
-            model=model_for_train, optimizer=optimizer, loss=hyperparams.loss_function, 
+            model=model_for_train, 
+            optimizer=hyperparams.optimizer, 
+            optimizer_params=hyperparams.optimizer_params, 
+            loss=hyperparams.loss_function, 
             class_weights=hyperparams.class_weights)
 
     # Define some callbacks for the training
@@ -322,8 +197,7 @@ def train(
             traindata_version=traindata_version,            
             model_architecture=model_architecture,
             hyperparams_version=hyperparams.hyperparams_version,
-            monitor_metric_train=hyperparams.monitor_metric_train,
-            monitor_metric_validation=hyperparams.monitor_metric_validation,
+            monitor_metric=hyperparams.monitor_metric,
             monitor_metric_mode=hyperparams.monitor_metric_mode,
             save_format=hyperparams.save_format,
             save_best_only=hyperparams.save_best_only,
