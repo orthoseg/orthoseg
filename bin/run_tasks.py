@@ -36,19 +36,24 @@ def run_tasks():
         if(run_info.active == 0):
             continue
 
-        # Now start the appropriate task 
         if run_local:
             # Run local (possible to debug,...)
             if run_info.command == 'bin/run_orthoseg.py':
-                import run_orthoseg as run_orthoseg
-                run_orthoseg.orthoseg_argstr(run_info.argumentstring)
+                try:                 
+                    import run_orthoseg as run_orthoseg
+                    run_orthoseg.orthoseg_argstr(run_info.argumentstring)
+                    sendmail(f"Completed task {run_info.command} {run_info.argumentstring}")
+                except Exception as ex:
+                    message = f"ERROR in task {run_info.command} {run_info.argumentstring}"
+                    sendmail(subject=message, body=f"Exception: {ex}")
+                    raise Exception(message) from ex
             else:
                 raise Exception(f"Unknown command: {run_info.command}")
         else:
-            # Run the tasks by command, potentially on remote machine(s)
+            # Run the tasks by command
+            # TODO: support running on remote machine over ssh?
             try:
-                # TODO: make the running script cancellable!
-                # TODO: doh!!!
+                # TODO: make the running script cancellable?
                 # Remark: this path will depend on the python environment the task 
                 # needs to run in
                 python_path = r"C:\Tools\anaconda3\envs\orthoseg\python.exe"
@@ -92,6 +97,7 @@ def sendmail(
 
     try:
         # Create message
+        # TODO: email adress shouldn't be hardcoded... I suppose
         msg = EmailMessage()
         msg.add_header('from', 'pieter.roggemans@lv.vlaanderen.be')
         msg.add_header('to', 'pieter.roggemans@lv.vlaanderen.be')
