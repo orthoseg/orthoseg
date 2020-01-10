@@ -10,14 +10,10 @@ from pathlib import Path
 from typing import List, Optional
 
 from tensorflow import keras as kr
-#import keras as kr
 import numpy as np
-import pandas as pd
 import rasterio as rio
 import rasterio.plot as rio_plot
 
-import orthoseg.model.model_factory as mf
-import orthoseg.model.model_helper as mh
 import orthoseg.postprocess_predictions as postp
 
 #-------------------------------------------------------------
@@ -32,10 +28,11 @@ logger = logging.getLogger(__name__)
 #-------------------------------------------------------------
 
 def predict_dir(
-        model,
+        model: kr.models.Model,
         input_image_dir: Path,
         output_base_dir: Path,         
-        border_pixels_to_ignore: int = 0,                
+        border_pixels_to_ignore: int = 0,
+        min_pixelvalue_for_save: int = 127,
         projection_if_missing: str = None,
         input_mask_dir: Optional[Path] = None,
         batch_size: int = 16,                
@@ -68,12 +65,14 @@ def predict_dir(
         input_image_dir: dir where the input images are located
         output_base_dir: dir where the output will be put
         border_pixels_to_ignore: because the segmentation at the borders of the
-                                 input images images is not as good, you can
-                                 specify that x pixels need to be ignored
+                input images images is not as good, you can specify that x 
+                pixels need to be ignored
+        min_pixelvalue_for_save: the minimum pixel value that should be 
+                present in the prediction to save the prediction
         input_mask_dir: optional dir where the mask images are located
-        batch_size: batch size to use while predicting. This must be 
-                    choosen depending on the neural network architecture
-                    and available memory on you GPU.
+        batch_size: batch size to use while predicting. This must be choosen 
+                depending on the neural network architecture and available 
+                memory on you GPU.
         evaluate_mode: True to run in evaluate mode
         projection: Normally the projection should be in the raster file. If it 
                     is not, you can explicitly specify one.
@@ -212,6 +211,7 @@ def predict_dir(
                                 input_image_dir=input_image_dir,
                                 input_mask_dir=input_mask_dir,
                                 border_pixels_to_ignore=border_pixels_to_ignore,
+                                min_pixelvalue_for_save=min_pixelvalue_for_save,
                                 evaluate_mode=evaluate_mode,
                                 force=force)
 
@@ -470,8 +470,9 @@ def predict_dir(
                 break
     """
 
-def read_image(image_filepath: Path,
-               projection_if_missing: str = None) -> dict:
+def read_image(
+        image_filepath: Path,
+        projection_if_missing: str = None) -> dict:
 
     # Read input file
     # Because sometimes a read seems to fail, retry up to 3 times...
@@ -525,6 +526,7 @@ def clean_and_save_prediction(
         input_image_dir: Optional[Path] = None,
         input_mask_dir: Optional[Path] = None,
         border_pixels_to_ignore: int = 0,
+        min_pixelvalue_for_save: int = 127,
         evaluate_mode: bool = False,
         force: bool = False) -> bool:
 
@@ -544,7 +546,10 @@ def clean_and_save_prediction(
         image_pred_uint8_cleaned_curr = clean_prediction(
                 image_pred_arr=image_pred_curr_arr, 
                 border_pixels_to_ignore=border_pixels_to_ignore)
-        if image_pred_uint8_cleaned_curr is not None:
+        
+        # If the cleaned result contains useful values... save
+        if(min_pixelvalue_for_save == 0 
+           or np.any(image_pred_uint8_cleaned_curr >= min_pixelvalue_for_save)):
             save_prediction(
                     image_image_filepath=image_image_filepath,
                     image_crs=image_crs,
@@ -603,7 +608,22 @@ def save_prediction(
 
 def clean_prediction(
         image_pred_arr: np.array,
-        border_pixels_to_ignore: int = 0) -> np.array:
+        border_pixels_to_ignore: int = 0,
+        output_color_depth: str = 'binary') -> np.array:
+    """
+    Cleans a prediction result and returns a cleaned, uint8 array.
+    
+    Args:
+        image_pred_arr (np.array): The prediction as returned by keras.
+        border_pixels_to_ignore (int, optional): Border pixels to ignore. Defaults to 0.
+        output_color_depth (str, optional): Color depth desired. Defaults to '2'.
+            * binary: 0 or 255
+            * decimal: ten different values: 0, 25, 50,... 255
+            * full: 256 different values
+    
+    Returns:
+        np.array: The cleaned result.
+    """
 
     # Input should be float32
     if image_pred_arr.dtype != np.float32:
@@ -620,9 +640,17 @@ def clean_prediction(
         image_pred_uint8 = image_pred_arr.reshape((image_pred_shape[0], image_pred_shape[1]))   
 
     # Convert to uint8
-    image_pred_uint8 = (image_pred_arr * 10).astype(np.uint8)
-    image_pred_uint8 = image_pred_uint8 * 25
-    #image_pred_uint8 = (image_pred_arr * 255).astype(np.uint8)
+    if output_color_depth == 'binary':
+        image_pred_uint8 = (image_pred_arr * 255).astype(np.uint8)
+        image_pred_uint8[image_pred_uint8 >= 127] = 255
+        image_pred_uint8[image_pred_uint8 < 127] = 0
+    elif output_color_depth == 'full':
+        image_pred_uint8 = (image_pred_arr * 255).astype(np.uint8)
+    elif output_color_depth == 'decimal':
+        image_pred_uint8 = (image_pred_arr * 10).astype(np.uint8)
+        image_pred_uint8 = image_pred_uint8 * 25
+    else:
+        raise Exception(f"Unsupported output_color_depth: {output_color_depth}")
     
     # Make the pixels at the borders of the prediction black so they are ignored
     image_pred_uint8_cropped = image_pred_uint8
@@ -631,14 +659,6 @@ def clean_prediction(
         image_pred_uint8_cropped[-border_pixels_to_ignore:,:] = 0    # Right border
         image_pred_uint8_cropped[:,0:border_pixels_to_ignore] = 0    # Top border
         image_pred_uint8_cropped[:,-border_pixels_to_ignore:] = 0    # Bottom border
-
-    # Check if the result is entirely black... if so, don't save
-    '''
-    thresshold = 125
-    if not np.any(image_pred_uint8_cropped >= thresshold):
-        logger.info('Prediction is entirely black!')
-        return None
-    '''
     
     return image_pred_uint8_cropped
 
