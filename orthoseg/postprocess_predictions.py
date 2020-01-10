@@ -10,15 +10,17 @@ import multiprocessing
 import os
 from pathlib import Path
 import shutil
+import sys
 from typing import Optional
 
+# Evade having many info warnings about self intersections from shapely
+logging.getLogger('shapely.geos').setLevel(logging.WARNING)
 import fiona
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio as rio
 import rasterio.features as rio_features
-import rasterio.plot as rio_plot
 import shapely as sh
 
 from orthoseg.util import geofile_util
@@ -34,7 +36,6 @@ logger = logging.getLogger(__name__)
 #-------------------------------------------------------------
 # The real work
 #-------------------------------------------------------------
-
 
 #-------------------------------------------------------------
 # Postprocess to use on all vector outputs
@@ -225,6 +226,12 @@ def polygonize_prediction_files(
         logger.info(f"Force is false and output file exists already, skip: {output_filepath}")
         return None
 
+    # Check if we are in interactive mode, because otherwise the ProcessExecutor 
+    # hangs
+    if sys.__stdin__.isatty():
+        logger.warn(f"Running in interactive mode???")
+        #raise Exception("You cannot run this in interactive mode, because it doens't support multiprocessing.")
+
     # Make sure the output dir exists
     output_dir = output_filepath.parent
     if not output_dir.exists():
@@ -251,7 +258,7 @@ def polygonize_prediction_files(
     # Loop through all files to be processed...
     try:       
         max_parallel = multiprocessing.cpu_count()
-        with futures.ThreadPoolExecutor(max_parallel) as read_pool:
+        with futures.ProcessPoolExecutor(max_parallel) as read_pool:
 
             future_to_filepath = {}
             geoms_gdf = None
@@ -268,6 +275,7 @@ def polygonize_prediction_files(
             for future in futures.as_completed(future_to_filepath):
                 # Get result
                 nb_files_done += 1
+                #logger.info(f"Ready processing {future_to_filepath[future]}")
                 try:
                     geoms_file_gdf = future.result()
 
@@ -312,7 +320,7 @@ def polygonize_prediction_files(
                     except Exception as ex:
                         raise Exception(f"Error saving gdf to {output_tmp_filepath}") from ex
 
-            # If we get here, file is created successfully, so rename to real output
+            # If we get here, file is normally created successfully, so rename to real output
             if output_tmp_file is not None:
                 output_tmp_file.close()
                 os.rename(output_tmp_filepath, output_filepath)
@@ -323,7 +331,7 @@ def polygonize_prediction_files(
     
 def read_prediction_file(
         filepath: Path,
-        border_pixels_to_ignore: int = 0):
+        border_pixels_to_ignore: int = 0) -> gpd.geodataframe:
     ext_lower = filepath.suffix.lower()
     if ext_lower == '.geojson':
         return geofile_util.read_file(filepath)
@@ -332,7 +340,11 @@ def read_prediction_file(
     else:
         raise Exception(f"Unsupported extension: {ext_lower}")
 
-def to_binary_uint8(in_arr, thresshold_ok) -> np.array:
+def to_binary_uint8(
+        in_arr: np.array, 
+        thresshold_ok: int = 128) -> np.array:
+
+    # Check input parameters
     if in_arr.dtype != np.uint8:
         raise Exception("Input should be dtype = uint8, not: {in_arr.dtype}")
         
