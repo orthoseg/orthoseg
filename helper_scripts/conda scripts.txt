@@ -1,0 +1,3 @@
+Export environment
+------------------
+conda env export > c:\projects_github\orthoseg\orthoseg.yml
