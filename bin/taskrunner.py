@@ -18,7 +18,7 @@ def run_tasks():
     run_local = True
 
     # Init logging
-    with open('bin/run_tasks_logconfig.json', 'r') as log_config_file:
+    with open('bin/taskrunner_logconfig.json', 'r') as log_config_file:
         log_config_dict = json.load(log_config_file)
     logging.config.dictConfig(log_config_dict)
     global logger
@@ -26,7 +26,7 @@ def run_tasks():
 
     # Prepare the path to the dir where the config can be found,...
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    run_config_filepath = os.path.join(script_dir, "run_tasks_config.csv")
+    run_config_filepath = os.path.join(script_dir, "taskrunner_tasks.csv")
 
     # Read the tasks that need to be ran in the run_tasks file
     run_config_df = read_run_tasks_config(run_config_filepath)
