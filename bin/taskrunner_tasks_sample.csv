@@ -1,6 +1,0 @@
-command                 , active  , argumentstring
-bin/run_orthoseg.py     , 0       , --config footballfields.ini   --action load_images
-bin/run_orthoseg.py     , 0       , --config footballfields.ini   --action load_testsample_images
-bin/run_orthoseg.py     , 1       , --config footballfields.ini   --action train
-bin/run_orthoseg.py     , 1       , --config footballfields.ini   --action predict
-bin/run_orthoseg.py     , 1       , --config footballfields.ini   --action postprocess

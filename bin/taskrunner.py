@@ -12,67 +12,72 @@ import logging.config
 import os
 from pathlib import Path
 import smtplib
+from typing import List
 
 import pandas as pd
 
-def run_tasks(
-        tasks_filepath: Path,
-        config_filepath: Path,
-        logconfig_filepath: Path):
+def run_tasks(config_filepaths: List[Path]):
 
     ##### Init #####
-    run_local = True
+    # Read the taskrunner configuration
+    global global_config
+    global_config = configparser.ConfigParser(
+            interpolation=configparser.ExtendedInterpolation(),
+            converters={'list': lambda x: [i.strip() for i in x.split(',')],
+                        'listint': lambda x: [int(i.strip()) for i in x.split(',')],
+                        'dict': lambda x: json.loads(x),
+                        'path': lambda x: Path(x)})
+    global_config.read(config_filepaths)
 
     # Init logging
-    with open(logconfig_filepath, 'r') as log_config_file:
-        log_config_dict = json.load(log_config_file)
-    logging.config.dictConfig(log_config_dict)
+    logging.config.dictConfig(global_config['logging'].getdict('logconfig'))
     global logger
     logger = logging.getLogger()
 
-    # Read the taskrunner configuration
-    global config
-    config = configparser.ConfigParser()
-    config.read(config_filepath)
+    # Get the default config dir
+    config_dir = Path(global_config['dirs'].get('config_dir'))
 
     # Read the tasks that need to be ran in the run_tasks file
-    run_config_df = get_tasks(tasks_filepath)
+    tasks_filepath = global_config['files'].getpath('tasks_path')
+    tasks_df = get_tasks(tasks_filepath)
 
     # Loop over tasks to run
-    for run_info in run_config_df.itertuples(): 
-        if(run_info.active == 0):
+    run_local = global_config['general'].getboolean('run_local', fallback=True)
+    for task in tasks_df.itertuples(): 
+        if(task.active == 0):
             continue
 
         if run_local:
             # Run local (possible to debug,...)
-            if run_info.command == 'bin/run_orthoseg.py':
-                try:                 
-                    import run_orthoseg as run_orthoseg
-                    run_orthoseg.orthoseg_argstr(run_info.argumentstring)
-                    sendmail(f"Completed task {run_info.command} {run_info.argumentstring}")
-                except Exception as ex:
-                    message = f"ERROR in task {run_info.command} {run_info.argumentstring}"
-                    sendmail(subject=message, body=f"Exception: {ex}")
-                    raise Exception(message) from ex
-            else:
-                raise Exception(f"Unknown command: {run_info.command}")
+            try:                 
+                import run_orthoseg as run_orthoseg
+                run_orthoseg.orthoseg(
+                        config_dir=config_dir,
+                        config=task.config,
+                        action=task.action)
+                sendmail(f"Completed action {task.action} for config {task.config}")
+            except Exception as ex:
+                message = f"ERROR in task with action {task.action} for config {task.config}"
+                sendmail(subject=message, body=f"Exception: {ex}")
+                raise Exception(message) from ex
         else:
             # Run the tasks by command
             # TODO: support running on remote machine over ssh?
+            python_path = r"C:\Tools\anaconda3\envs\orthoseg\python.exe"
+            fullcommand = f"{python_path} run_orthoseg.py --config {task.config} --action {task.action}"
+                
             try:
                 # TODO: make the running script cancellable?
                 # Remark: this path will depend on the python environment the task 
                 # needs to run in
-                python_path = r"C:\Tools\anaconda3\envs\orthoseg\python.exe"
-                fullcommand = f"{python_path} {run_info.command} {run_info.argumentstring}"
                 returncode = os.system(fullcommand)
                 if returncode == 0:
-                    sendmail(f"Completed task {run_info.command} {run_info.argumentstring}")
+                    sendmail(f"Completed task with command {fullcommand}")
                 else:
                     raise Exception(f"Error: returncode: {returncode} returned for {fullcommand}")
 
             except Exception as ex:
-                message = f"ERROR in task {run_info.command} {run_info.argumentstring}"
+                message = f"ERROR in task task with command {fullcommand}"
                 sendmail(subject=message, body=f"Exception: {ex}")
                 raise Exception(message) from ex
 
@@ -90,7 +95,7 @@ def get_tasks(filepath: Path):
             tasks_df[column_stripped] = tasks_df[column_stripped].astype(str).str.strip()
 
     # Check mandatory columns
-    mandatory_columns = ['command', 'active', 'argumentstring']
+    mandatory_columns = ['active', 'config', 'action']
     missing_columns = set(mandatory_columns).difference(set(tasks_df.columns))
     if(len(missing_columns) > 0):
         raise Exception(f"Missing column(s) in {filepath}: {missing_columns}")
@@ -102,22 +107,21 @@ def sendmail(
         body: str = None,
         stop_on_error: bool = False):
 
-    mail_from = config['email'].get('from', None)
-    mail_to = config['email'].get('to', None)
-    mail_server = config['email'].get('server', None)
-    mail_server_username = config['email'].get('username', None)
-    mail_server_password = config['email'].get('password', None)
+    mail_from = global_config['email'].get('from', None)
+    mail_to = global_config['email'].get('to', None)
+    mail_server = global_config['email'].get('server', None)
+    mail_server_username = global_config['email'].get('username', None)
+    mail_server_password = global_config['email'].get('password', None)
 
     # If one of the necessary parameters not provided, log subject
     if(mail_from is None
        or mail_to is None
        or mail_server is None):
-        logger.info(f"Mail config not provided to send email with subject: {subject}")
+        logger.info(f"Mail global_config not provided to send email with subject: {subject}")
         return
 
     try:
         # Create message
-        # TODO: email adress shouldn't be hardcoded... I suppose
         msg = EmailMessage()
         msg.add_header('from', mail_from)
         msg.add_header('to', mail_to)
@@ -145,37 +149,27 @@ if __name__ == '__main__':
 
     # Optional arguments
     optional = parser.add_argument_group('Optional arguments')
-    optional.add_argument('-t', '--tasks_csv',
-            help='Specify the tasks csv filepath. If not provided, ./taskrunner_tasks.csv or ./taskrunner_tasks_sample.csv is assumed.')
     optional.add_argument('-c', '--configfile',
-            help='Specify the file to use  the config files. If not provided, ../config is assumed.')            
+            help='The config file to use. If not provided, taskrunner tries to use ./taskrunner.ini or ./taskrunner_sample.ini.')
     # Add back help         
     optional.add_argument('-h', '--help', action='help', default=argparse.SUPPRESS,
             help='Show this help message and exit')
-    
-    # Interprete arguments
     args = parser.parse_args()
-    tasks_csv=args.tasks_csv
 
-    # Prepare the path to the dir where the config can be found,...
+    # Determine config_filepaths
     script_dir = Path(os.path.dirname(os.path.abspath(__file__)))
+    config_defaults_filepath = script_dir / 'taskrunner_defaults.ini'
+    config_filepaths = [config_defaults_filepath]
+    if args.configfile is not None:
+        # config_filepath is provided, so use it as well
+        config_filepaths.append(Path(args.configfile))
+    else:
+        # If the default config file name exist, use it as well
+        config_filepath = script_dir / 'taskrunner.ini'
+        if config_filepath.exists():
+            config_filepaths.append(config_filepath)
+        else:
+            print("Only taskrunner_defaults.ini settings will be used. If you want to overrule settings, follow the guidelines specified in this file on how to do this.")
 
-    # If the tasks csv is not provided, fallback to default file names...
-    if tasks_csv is not None:
-        tasks_filepath = tasks_csv
-    else: 
-        tasks_filepath = script_dir / 'taskrunner_tasks.csv'
-
-    # If there doesn't exist a 'taskrunner_tasks.csv', we run in sample mode!
-    sample_suffix = ''
-    if not tasks_filepath.exists():
-        sample_suffix = '_sample'
-        tasks_filepath = script_dir / f"taskrunner_tasks{sample_suffix}.csv"
-
-    config_filepath = script_dir / f"taskrunner{sample_suffix}.ini"
-    logconfig_filepath = script_dir / f"taskrunner_logconfig{sample_suffix}.json"
-
-    run_tasks(
-            tasks_filepath=tasks_filepath,
-            config_filepath=config_filepath,
-            logconfig_filepath=logconfig_filepath)
+    # Run!
+    run_tasks(config_filepaths=config_filepaths)

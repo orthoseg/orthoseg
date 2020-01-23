@@ -28,10 +28,12 @@ def orthoseg_args(args):
 
     # Required arguments
     required = parser.add_argument_group('Required arguments')
-    required.add_argument("--action", type=str, required=True,
-            help="The action you want to perform")
+    required.add_argument("--config_dir", type=str, required=True,
+            help="The config to perform the action with")
     required.add_argument("--config", type=str, required=True,
             help="The config to perform the action with")
+    required.add_argument("--action", type=str, required=True,
+            help="The action you want to perform")
     
     # Optional arguments
     optional = parser.add_argument_group('Optional arguments')
@@ -43,17 +45,15 @@ def orthoseg_args(args):
     args = parser.parse_args(args)
 
     ##### Run! #####
-    orthoseg(action=args.action, config=args.config)
+    orthoseg(
+            config_dir=Path(args.config_dir),
+            action=args.action, 
+            config=args.config)
 
 def orthoseg(
+        config_dir: Path,
         action: str,
         config: str):
-
-    # Prepare the path to the job dir,...
-    
-    script_dir = Path(os.path.abspath(__file__)).parent
-    base_dir = script_dir.parent
-    config_dir = base_dir / "config"
 
     # Get needed config + load it
     print(f"Start {action} on {config}")
@@ -95,15 +95,7 @@ def get_needed_config_files(
         config: str = None) -> List[Path]:
 
     # General settings need to be first in list
-    config_filepaths = [config_dir / 'general.ini']
-
-    # Then specific settings depending on the OS
-    if os.name == 'posix':
-        config_filepaths.append(config_dir / 'general_posix.ini')
-    elif os.name == 'nt':
-        None
-    else: 
-        raise Exception(f"Unsupported os.name: {os.name}")
+    config_filepaths = [config_dir / '_project_defaults.ini']
 
     # Specific settings for the subject if one is specified
     if(config is not None):
