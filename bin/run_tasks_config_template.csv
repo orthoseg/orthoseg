@@ -1,9 +1,0 @@
-command                 , active  , argumentstring
-bin/run_orthoseg.py     , 0       , --subject fruit.ini            --action load_images
-bin/run_orthoseg.py     , 0       , --subject fruit.ini            --action load_testsample_images
-bin/run_orthoseg.py     , 0       , --subject fruit.ini            --action train
-bin/run_orthoseg.py     , 1       , --subject fruit.ini            --action predict
-bin/run_orthoseg.py     , 0       , --subject fruit.ini            --action postprocess
-bin/run_orthoseg.py     , 0       , --subject greenhouses.ini      --action train
-bin/run_orthoseg.py     , 0       , --subject greenhouses.ini      --action predict
-bin/run_orthoseg.py     , 0       , --subject greenhouses.ini      --action postprocess

@@ -105,7 +105,7 @@ if __name__ == "__main__":
     logger.info(f"Config used: \n{conf.pformat_config()}")
 
     # Init needed variables
-    labels_dir = conf.dirs.getpath('input_labels_dir')
+    labels_dir = conf.dirs.getpath('labels_dir')
     labellocations_path = labels_dir / f"{segment_subject}_labellocations.gpkg"
     labeldata_path = labels_dir / f"{segment_subject}_labeldata.gpkg"
     image_pixel_x_size = conf.train.getfloat('image_pixel_x_size')

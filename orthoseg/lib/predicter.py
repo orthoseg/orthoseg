@@ -14,7 +14,7 @@ import numpy as np
 import rasterio as rio
 import rasterio.plot as rio_plot
 
-import orthoseg.postprocess_predictions as postp
+import orthoseg.lib.postprocess_predictions as postp
 
 #-------------------------------------------------------------
 # First define/init some general variables/constants
