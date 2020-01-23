@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Process the tasks as configured in the tasks.csv file.
+Process the tasks as configured in a tasks csv file.
 """
 
 import argparse
@@ -50,6 +50,7 @@ def run_tasks(config_filepaths: List[Path]):
         if(task.active == 0):
             continue
 
+        logger.info(f"Start action {task.action} for config {task.config}")
         try:
             if(task.action == 'train'):
                 from orthoseg import train
@@ -72,9 +73,12 @@ def run_tasks(config_filepaths: List[Path]):
             else:
                 raise Exception(f"Unsupported action: {task.action}")
 
-            sendmail(f"Completed action {task.action} for config {task.config}")
+            message = f"Completed action {task.action} for config {task.config}"
+            logger.info(message)
+            sendmail(message)
         except Exception as ex:
             message = f"ERROR in task with action {task.action} for config {task.config}"
+            logger.error(message)
             sendmail(subject=message, body=f"Exception: {ex}")
             raise Exception(message) from ex
 

@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """
 Module with specific helper functions to manage the logging of orthoseg.
+
+TODO: maybe it is cleaner to replace most code here by a config dict?
 """
 
 import logging
