@@ -206,7 +206,7 @@ def get_images_for_grid(
                         size=(image_pixel_width+2*pixels_overlap, 
                               image_pixel_height+2*pixels_overlap),
                         image_format=image_format,
-                        layername='_'.join(wms_layernames))
+                        layername=None)
                 output_filepath = output_dir / output_filename
                 if not force and output_filepath.exists():
                     nb_ignore_in_progress += 1
@@ -344,7 +344,8 @@ def getmap_to_file(
         styles: List[str] = ['default'],
         random_sleep: float = 0.0,
         image_pixels_ignore_border: int = 0,
-        force: bool = False) -> Optional[Path]:
+        force: bool = False,
+        layername_in_filename: bool = False) -> Optional[Path]:
     """
 
     Args
@@ -358,11 +359,14 @@ def getmap_to_file(
 
     # If there isn't a filename supplied, create one...
     if output_filename is None:
+        layername = None
+        if layername_in_filename:
+            layername = '_'.join(layers)
         output_filename = create_filename(
                 srs=srs, 
                 bbox=bbox, size=size, 
                 image_format=image_format_save,
-                layername='_'.join(layers))
+                layername=layername)
 
     # Create full output filepath
     output_filepath = output_dir / output_filename
@@ -562,11 +566,12 @@ def getmap_to_file(
 
     return output_filepath
 
-def create_filename(srs: str,
-                    bbox,
-                    size,
-                    image_format: str,
-                    layername: str):
+def create_filename(
+        srs: str,
+        bbox,
+        size,
+        image_format: str,
+        layername: str = None):
     
     # Get image extension based on format
     image_ext = get_ext_for_image_format(image_format)
@@ -574,9 +579,16 @@ def create_filename(srs: str,
     # Use different file names for projected vs geographic SRS
     is_srs_projected = rio.crs.CRS.from_string(srs).is_projected
     if is_srs_projected:
-        output_filename = f"{bbox[0]:06.0f}_{bbox[1]:06.0f}_{bbox[2]:06.0f}_{bbox[3]:06.0f}_{size[0]}_{size[1]}_{layername}{image_ext}"
+        output_filename = f"{bbox[0]:06.0f}_{bbox[1]:06.0f}_{bbox[2]:06.0f}_{bbox[3]:06.0f}_{size[0]}_{size[1]}"
     else:
-        output_filename = f"{bbox[0]:09.4f}_{bbox[1]:09.4f}_{bbox[2]:09.4f}_{bbox[3]:09.4f}_{size[0]}_{size[1]}_{layername}{image_ext}"
+        output_filename = f"{bbox[0]:09.4f}_{bbox[1]:09.4f}_{bbox[2]:09.4f}_{bbox[3]:09.4f}_{size[0]}_{size[1]}"
+
+    # Add layername if it is not None    
+    if layername is not None:
+        output_filename += "_" + layername
+    
+    # Add extension
+    output_filename += image_ext
 
     return output_filename
 

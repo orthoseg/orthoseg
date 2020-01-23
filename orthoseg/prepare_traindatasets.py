@@ -239,7 +239,8 @@ def prepare_traindatasets(
                         image_format=ows_util.FORMAT_PNG,
                         #image_format_save=ows_util.FORMAT_TIFF,
                         image_pixels_ignore_border=image_layers[image_layer]['image_pixels_ignore_border'],
-                        transparent=False)
+                        transparent=False,
+                        layername_in_filename=True)
 
                 # Create a mask corresponding with the image file
                 # image_filepath can be None if file existed already, so check if not None...
