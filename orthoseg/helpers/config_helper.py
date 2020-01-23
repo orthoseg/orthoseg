@@ -121,3 +121,27 @@ def as_dict():
         for key, val in config.items(section):
             the_dict[section][key] = val
     return the_dict
+
+def get_needed_config_files(
+        config_dir: Path,
+        config_filename: str = None) -> List[Path]:
+
+    # General settings need to be first in list
+    config_filepaths = [config_dir / '_project_defaults.ini']
+
+    # Specific settings for the subject if one is specified
+    if(config_filename is not None):
+        config_filepath = config_dir / config_filename
+        if not config_filepath.exists():
+            raise Exception(f"Config file specified does not exist: {config_filepath}")
+        config_filepaths.append(config_filepath)
+
+    # Local overrule settings
+    config_filepaths.append(config_dir / 'local_overrule.ini')
+
+    return config_filepaths
+
+# If the script is ran directly...
+if __name__ == '__main__':
+    raise Exception("Not implemented")
+    

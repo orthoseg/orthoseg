@@ -3,34 +3,68 @@
 High-level API to run a segmentation.
 """
 
-import logging
+import argparse
 from pathlib import Path
+import shlex
+import sys
 
 #os.environ["CUDA_VISIBLE_DEVICES"] = "-1" # Disable using GPU
 import tensorflow as tf
-from tensorflow import keras as kr
-#import keras as kr      
+from tensorflow import keras as kr  
 
 from orthoseg.helpers import config_helper as conf
+from orthoseg.helpers import log_helper
+from orthoseg.lib import predicter
 import orthoseg.model.model_factory as mf
 import orthoseg.model.model_helper as mh
-from orthoseg import segment_predict
 
-#-------------------------------------------------------------
-# First define/init some general variables/constants
-#-------------------------------------------------------------
-# Get a logger...
-logger = logging.getLogger(__name__)
-#logger.setLevel(logging.DEBUG)
+def predict_argstr(argstr):
+    args = shlex.split(argstr)
+    predict_args(args)
 
-#-------------------------------------------------------------
-# The real work
-#-------------------------------------------------------------
+def predict_args(args):
 
-def run_prediction():
+    ##### Interprete arguments #####
+    parser = argparse.ArgumentParser(add_help=False)
+
+    # Required arguments
+    required = parser.add_argument_group('Required arguments')
+    required.add_argument("--config_dir", type=str, required=True,
+            help="The config dir to use")
+    required.add_argument("--config_filename", type=str, required=True,
+            help="The config file to use")
+    
+    # Optional arguments
+    optional = parser.add_argument_group('Optional arguments')
+    # Add back help 
+    optional.add_argument('-h', '--help', action='help', default=argparse.SUPPRESS,
+            help='Show this help message and exit')
+
+    # Interprete arguments
+    args = parser.parse_args(args)
+
+    ##### Run! #####
+    predict(config_dir=Path(args.config_dir),
+            config_filename=args.config_filename)
+
+def predict(     
+        config_dir: Path,
+        config_filename: str):
     """
     Run a prediction of the input dir given.
     """
+    ##### Init #####   
+    # Load config
+    config_filepaths = conf.get_needed_config_files(
+            config_dir=config_dir, 
+            config_filename=config_filename)
+    layer_config_filepath = config_dir / 'image_layers.ini'
+    conf.read_config(config_filepaths, layer_config_filepath)
+    
+    # Main initialisation of the logging
+    global logger
+    logger = log_helper.main_log_init(conf.dirs.getpath('log_training_dir'), __name__)      
+    logger.info(f"Config used: \n{conf.pformat_config()}")
     
     # TODO: add something to delete old data, predictions???
 
@@ -121,7 +155,7 @@ def run_prediction():
     # Predict for entire dataset
     image_layer = conf.image_layers[conf.predict['image_layer']]
     predict_output_dir = Path(f"{conf.dirs['predict_image_output_basedir']}_{predict_out_subdir}")
-    segment_predict.predict_dir(
+    predicter.predict_dir(
             model=model_for_predict,
             input_image_dir=conf.dirs.getpath('predict_image_input_dir'),
             output_base_dir=predict_output_dir,
@@ -133,5 +167,5 @@ def run_prediction():
 
 # If the script is ran directly...
 if __name__ == '__main__':
-    raise Exception("Not implemented")
+    predict_args(sys.argv[1:])
     

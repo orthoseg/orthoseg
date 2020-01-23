@@ -51,3 +51,8 @@ def main_log_init(log_dir: Path,
     logger.addHandler(fh)
     
     return logger
+
+# If the script is ran directly...
+if __name__ == '__main__':
+    raise Exception("Not implemented")
+    

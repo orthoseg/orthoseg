@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Process the tasks as configured in the run_tasks_config.csv file.
+Process the tasks as configured in the tasks.csv file.
 """
 
 import argparse
@@ -13,6 +13,10 @@ import os
 from pathlib import Path
 import smtplib
 from typing import List
+
+# Because orthoseg isn't installed as package + it is higher in dir hierarchy, add root to sys.path
+import sys
+sys.path.insert(0, '.')
 
 import pandas as pd
 
@@ -42,44 +46,37 @@ def run_tasks(config_filepaths: List[Path]):
     tasks_df = get_tasks(tasks_filepath)
 
     # Loop over tasks to run
-    run_local = global_config['general'].getboolean('run_local', fallback=True)
     for task in tasks_df.itertuples(): 
         if(task.active == 0):
             continue
 
-        if run_local:
-            # Run local (possible to debug,...)
-            try:                 
-                import run_orthoseg as run_orthoseg
-                run_orthoseg.orthoseg(
-                        config_dir=config_dir,
-                        config=task.config,
-                        action=task.action)
-                sendmail(f"Completed action {task.action} for config {task.config}")
-            except Exception as ex:
-                message = f"ERROR in task with action {task.action} for config {task.config}"
-                sendmail(subject=message, body=f"Exception: {ex}")
-                raise Exception(message) from ex
-        else:
-            # Run the tasks by command
-            # TODO: support running on remote machine over ssh?
-            python_path = r"C:\Tools\anaconda3\envs\orthoseg\python.exe"
-            fullcommand = f"{python_path} run_orthoseg.py --config {task.config} --action {task.action}"
-                
-            try:
-                # TODO: make the running script cancellable?
-                # Remark: this path will depend on the python environment the task 
-                # needs to run in
-                returncode = os.system(fullcommand)
-                if returncode == 0:
-                    sendmail(f"Completed task with command {fullcommand}")
-                else:
-                    raise Exception(f"Error: returncode: {returncode} returned for {fullcommand}")
+        try:
+            if(task.action == 'train'):
+                from orthoseg import train
+                train.train(config_dir=config_dir, config_filename=task.config)
+            elif(task.action == 'predict'):
+                from orthoseg import predict
+                predict.predict(config_dir=config_dir, config_filename=task.config)
+            elif(task.action == 'load_images'):
+                from orthoseg import load_images
+                load_images.load_images(config_dir=config_dir, config_filename=task.config)
+            elif(task.action == 'load_testsample_images'):
+                from orthoseg import load_images
+                load_images.load_images(
+                        config_dir=config_dir, 
+                        config_filename=task.config, 
+                        load_testsample_images=True)
+            elif(task.action == 'postprocess'):
+                from orthoseg import postprocess
+                postprocess.postprocess(config_dir=config_dir, config_filename=task.config)
+            else:
+                raise Exception(f"Unsupported action: {task.action}")
 
-            except Exception as ex:
-                message = f"ERROR in task task with command {fullcommand}"
-                sendmail(subject=message, body=f"Exception: {ex}")
-                raise Exception(message) from ex
+            sendmail(f"Completed action {task.action} for config {task.config}")
+        except Exception as ex:
+            message = f"ERROR in task with action {task.action} for config {task.config}"
+            sendmail(subject=message, body=f"Exception: {ex}")
+            raise Exception(message) from ex
 
 def get_tasks(filepath: Path):
     

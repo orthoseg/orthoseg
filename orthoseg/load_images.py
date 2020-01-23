@@ -3,16 +3,63 @@
 Script to load images from a WMS server.
 """
 
-# Because orthoseg isn't installed as package + it is higher in dir hierarchy, add root to sys.path
+import argparse
+from pathlib import Path
+import shlex
 import sys
 
-sys.path.insert(0, '.')
 from orthoseg.helpers import config_helper as conf
+from orthoseg.helpers import log_helper
 from orthoseg.util import ows_util
 
-def load_images(load_testsample_images: bool = False):
+def load_images_argstr(argstr):
+    args = shlex.split(argstr)
+    load_images_args(args)
+
+def load_images_args(args):
+
+    ##### Interprete arguments #####
+    parser = argparse.ArgumentParser(add_help=False)
+
+    # Required arguments
+    required = parser.add_argument_group('Required arguments')
+    required.add_argument("--config_dir", type=str, required=True,
+            help="The config dir to use")
+    required.add_argument("--config_filename", type=str, required=True,
+            help="The config file to use")
+    
+    # Optional arguments
+    optional = parser.add_argument_group('Optional arguments')
+    # Add back help 
+    optional.add_argument('-h', '--help', action='help', default=argparse.SUPPRESS,
+            help='Show this help message and exit')
+
+    # Interprete arguments
+    args = parser.parse_args(args)
+
+    ##### Run! #####
+    load_images(
+            config_dir=Path(args.config_dir),
+            config_filename=args.config_filename)
+
+def load_images(
+        config_dir: Path,
+        config_filename: str,
+        load_testsample_images: bool = False):
 
     ##### Init #####   
+    # Load config
+    config_filepaths = conf.get_needed_config_files(
+            config_dir=config_dir, 
+            config_filename=config_filename)
+    layer_config_filepath = config_dir / 'image_layers.ini'
+    conf.read_config(config_filepaths, layer_config_filepath)
+    
+    # Main initialisation of the logging
+    global logger
+    logger = log_helper.main_log_init(conf.dirs.getpath('log_training_dir'), __name__)      
+    logger.info(f"Config used: \n{conf.pformat_config()}")
+
     # Use different setting depending if testsample or all images
     if load_testsample_images:
         output_image_dir=conf.dirs.getpath('predictsample_image_input_dir')
@@ -83,4 +130,4 @@ def load_images(load_testsample_images: bool = False):
             nb_images_to_skip=nb_images_to_skip)
 
 if __name__ == '__main__':
-    raise Exception("Not implemented!")
+    load_images_args(sys.argv[1:])
