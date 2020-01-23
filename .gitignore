@@ -1,8 +1,12 @@
 *.pyc
-Old/
-tensorboard_logs/
 tmp/
 local_overrule.ini
 */__pycache__/
 .vscode/*
 bin/run_tasks_config.csv
+projects_sample/footballfields/models
+projects_sample/footballfields/output_vector
+projects_sample/footballfields/training
+bin/taskrunner.ini
+bin/taskrunner_sampleproject.ini
+orthoseg_code_ws.code-workspace
