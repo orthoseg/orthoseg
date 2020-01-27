@@ -9,7 +9,6 @@ from email.message import EmailMessage
 import json
 import logging
 import logging.config
-import os
 from pathlib import Path
 import smtplib
 from typing import List
@@ -37,9 +36,11 @@ def run_tasks(config_filepaths: List[Path]):
     logging.config.dictConfig(global_config['logging'].getdict('logconfig'))
     global logger
     logger = logging.getLogger()
-
+    logger.info(f"Config files used for taskrunner: {config_filepaths}")
+    
     # Get the default config dir
     config_dir = Path(global_config['dirs'].get('config_dir'))
+    stop_on_error = global_config['dirs'].getboolean('stop_on_error')
 
     # Read the tasks that need to be ran in the run_tasks file
     tasks_filepath = global_config['files'].getpath('tasks_path')
@@ -78,9 +79,10 @@ def run_tasks(config_filepaths: List[Path]):
             sendmail(message)
         except Exception as ex:
             message = f"ERROR in task with action {task.action} for config {task.config}"
-            logger.error(message)
+            logger.exception(message)
             sendmail(subject=message, body=f"Exception: {ex}")
-            raise Exception(message) from ex
+            if stop_on_error:
+                raise Exception(message) from ex
 
 def get_tasks(filepath: Path):
     
@@ -118,7 +120,7 @@ def sendmail(
     if(mail_from is None
        or mail_to is None
        or mail_server is None):
-        logger.info(f"Mail global_config not provided to send email with subject: {subject}")
+        logger.warning(f"Mail global_config not provided to send email with subject: {subject}")
         return
 
     try:
@@ -158,7 +160,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Determine config_filepaths
-    script_dir = Path(os.path.dirname(os.path.abspath(__file__)))
+    script_dir = Path(__file__).resolve().parent
     config_defaults_filepath = script_dir / 'taskrunner_defaults.ini'
     config_filepaths = [config_defaults_filepath]
     if args.configfile is not None:

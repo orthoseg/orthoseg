@@ -60,7 +60,10 @@ def postprocess(
 
     # Input dir = the "most recent" prediction result dir for this subject 
     prediction_basedir = Path(f"{conf.dirs['predict_image_output_basedir']}_{conf.general['segment_subject']}_")
-    prediction_dirs = sorted(prediction_basedir.parent.glob(f"{prediction_basedir.name}*/"), reverse=True)
+    searchstring = f"{prediction_basedir.name}*/"
+    prediction_dirs = sorted(prediction_basedir.parent.glob(searchstring), reverse=True)
+    if len(prediction_dirs) == 0:
+        raise Exception(f"STOP: No prediction dirs found with search string {searchstring}")        
     input_dir = prediction_dirs[0]
 	
     # Format output dir, partly based on input dir

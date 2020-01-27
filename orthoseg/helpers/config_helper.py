@@ -5,9 +5,21 @@ Module with specific helper functions to manage the configuration of orthoseg.
 
 import configparser
 import json
+import logging
 from pathlib import Path
 import pprint
 from typing import List
+
+#-------------------------------------------------------------
+# First define/init some general variables/constants
+#-------------------------------------------------------------
+# Get a logger...
+logger = logging.getLogger(__name__)
+#logger.setLevel(logging.DEBUG)
+
+#-------------------------------------------------------------
+# The real work
+#-------------------------------------------------------------
 
 def read_config(
         config_filepaths: List[Path],
@@ -16,7 +28,7 @@ def read_config(
     # Log config filepaths that don't exist...
     for config_filepath in config_filepaths:
         if not config_filepath.exists():
-            print(f"config_filepath does not exist: {config_filepath}")
+            logger.warning(f"config_filepath does not exist: {config_filepath}")
 
     # Read the configuration
     global config
@@ -126,8 +138,16 @@ def get_needed_config_files(
         config_dir: Path,
         config_filename: str = None) -> List[Path]:
 
-    # General settings need to be first in list
-    config_filepaths = [config_dir / '_project_defaults.ini']
+    # Default settings need to be first in list
+    script_dir = Path(__file__).resolve().parent
+    config_filepaths = [script_dir / 'project_defaults.ini']
+
+    # Overrule of the default setting in the config dir
+    path = config_dir / 'project_defaults.ini'
+    if path.exists():
+        config_filepaths.append(path)
+    else: 
+        print(f"No (optional) overrule config file found, so won't be used: {path}")
 
     # Specific settings for the subject if one is specified
     if(config_filename is not None):

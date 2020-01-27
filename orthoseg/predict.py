@@ -66,6 +66,11 @@ def predict(
     logger = log_helper.main_log_init(conf.dirs.getpath('log_training_dir'), __name__)      
     logger.info(f"Config used: \n{conf.pformat_config()}")
     
+    # Check if the input inmages dir exists
+    input_image_dir = conf.dirs.getpath('predict_image_input_dir')
+    if not input_image_dir.exists():
+        raise Exception(f"STOP: input image dir doesn't exist: {input_image_dir}")
+    
     # TODO: add something to delete old data, predictions???
 
     # Create base filename of model to use
@@ -157,7 +162,7 @@ def predict(
     predict_output_dir = Path(f"{conf.dirs['predict_image_output_basedir']}_{predict_out_subdir}")
     predicter.predict_dir(
             model=model_for_predict,
-            input_image_dir=conf.dirs.getpath('predict_image_input_dir'),
+            input_image_dir=input_image_dir,
             output_base_dir=predict_output_dir,
             border_pixels_to_ignore=conf.predict.getint('image_pixels_overlap'),
             projection_if_missing=image_layer['projection'],
