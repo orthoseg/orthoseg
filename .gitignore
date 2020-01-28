@@ -2,9 +2,16 @@
 bin/taskrunner.ini
 bin/taskrunner_sampleproject.ini
 orthoseg_code_ws.code-workspace
-projects_sample/footballfields/models
-projects_sample/footballfields/output_vector
-projects_sample/footballfields/training
+projects/footballfields/models
+projects/footballfields/output_vector
+projects/footballfields/training
+
+# Exclude all project except project_template and footballfields/labels
+#projects/*
+#!projects/project_template
+#!projects/footballfields/labels
+#!projects/footballfields/orthoseg_footballfields.qgz
+
 tmp/
 *.pyc
 *.log

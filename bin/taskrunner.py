@@ -33,13 +33,14 @@ def run_tasks(config_filepaths: List[Path]):
     global_config.read(config_filepaths)
 
     # Init logging
+    # TODO: Check if the directory the log is going to write to exists!
     logging.config.dictConfig(global_config['logging'].getdict('logconfig'))
     global logger
     logger = logging.getLogger()
     logger.info(f"Config files used for taskrunner: {config_filepaths}")
     
     # Get the default config dir
-    config_dir = Path(global_config['dirs'].get('config_dir'))
+    config_dir = global_config['dirs'].getpath('config_dir')
     stop_on_error = global_config['dirs'].getboolean('stop_on_error')
 
     # Read the tasks that need to be ran in the run_tasks file
