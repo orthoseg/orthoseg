@@ -1,6 +1,6 @@
-active , config             , action
-0      , footballfields.ini , load_images
-0      , footballfields.ini , load_testsample_images
-0      , footballfields.ini , train
-1      , footballfields.ini , predict
-1      , footballfields.ini , postprocess
+active , config         , action
+0      , footballfields , load_images
+0      , footballfields , load_testsample_images
+0      , footballfields , train
+1      , footballfields , predict
+1      , footballfields , postprocess

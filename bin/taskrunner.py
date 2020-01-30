@@ -39,9 +39,10 @@ def run_tasks(config_filepaths: List[Path]):
     logger = logging.getLogger()
     logger.info(f"Config files used for taskrunner: {config_filepaths}")
     
-    # Get the default config dir
+    # Get some basic pameters for taskrunner
     config_dir = global_config['dirs'].getpath('config_dir')
     stop_on_error = global_config['dirs'].getboolean('stop_on_error')
+    projectfile_basepath = global_config['files'].get('projectfile_path')
 
     # Read the tasks that need to be ran in the run_tasks file
     tasks_filepath = global_config['files'].getpath('tasks_path')
@@ -49,37 +50,44 @@ def run_tasks(config_filepaths: List[Path]):
 
     # Loop over tasks to run
     for task in tasks_df.itertuples(): 
+        # If the task is not active, skip
         if(task.active == 0):
             continue
 
-        logger.info(f"Start action {task.action} for config {task.config}")
+        # Format the projectfile_path
+        projectfile_path = Path(projectfile_basepath.format(segment_subject=task.config))
+        if not projectfile_path.is_absolute():
+            # If the projectfile path is not absolute, treat is as relative to the tasks csv file...
+            projectfile_path = tasks_filepath.parent.parent.absolute() / projectfile_path
+
+        # Now we are ready to start the action        
+        logger.info(f"Start action {task.action} for config {projectfile_path}")
         try:
             if(task.action == 'train'):
                 from orthoseg import train
-                train.train(config_dir=config_dir, config_filename=task.config)
+                train.train(projectconfig_path=projectfile_path)
             elif(task.action == 'predict'):
                 from orthoseg import predict
-                predict.predict(config_dir=config_dir, config_filename=task.config)
+                predict.predict(projectconfig_path=projectfile_path)
             elif(task.action == 'load_images'):
                 from orthoseg import load_images
-                load_images.load_images(config_dir=config_dir, config_filename=task.config)
+                load_images.load_images(projectconfig_path=projectfile_path)
             elif(task.action == 'load_testsample_images'):
                 from orthoseg import load_images
                 load_images.load_images(
-                        config_dir=config_dir, 
-                        config_filename=task.config, 
+                        projectconfig_path=projectfile_path, 
                         load_testsample_images=True)
             elif(task.action == 'postprocess'):
                 from orthoseg import postprocess
-                postprocess.postprocess(config_dir=config_dir, config_filename=task.config)
+                postprocess.postprocess(projectconfig_path=projectfile_path)
             else:
                 raise Exception(f"Unsupported action: {task.action}")
 
-            message = f"Completed action {task.action} for config {task.config}"
+            message = f"Completed action {task.action} for config {projectfile_path}"
             logger.info(message)
             sendmail(message)
         except Exception as ex:
-            message = f"ERROR in task with action {task.action} for config {task.config}"
+            message = f"ERROR in task with action {task.action} for config {projectfile_path}"
             logger.exception(message)
             sendmail(subject=message, body=f"Exception: {ex}")
             if stop_on_error:

@@ -17,7 +17,7 @@ if __name__ == '__main__':
     # Main initialisation of the logging
     '''
     layer_config_filepath = os.path.join(config_dir, 'image_layers.ini')
-    conf.read_config(config_filepaths, layer_config_filepath)
+    conf.read_project_config(config_filepaths, layer_config_filepath)
     logger = log_helper.main_log_init(conf.dirs['log_dir'], __name__)      
     logger.info(f"Config used: \n{conf.pformat_config()}")
     '''

@@ -21,9 +21,9 @@ logger = logging.getLogger(__name__)
 # The real work
 #-------------------------------------------------------------
 
-def read_config(
+def read_project_config(
         config_filepaths: List[Path],
-        layer_config_filepath: Path):
+        layer_config_filepath: Path = None):
         
     # Log config filepaths that don't exist...
     for config_filepath in config_filepaths:
@@ -57,7 +57,35 @@ def read_config(
     global files
     files = config['files']
 
+    # Some checks to make sure the config is loaded properly
+    segment_subject = general.get('segment_subject')
+    illegal_characters = ['_', ',', '.', '?', ':']
+    if segment_subject == 'MUST_OVERRIDE':
+        raise Exception(f"Projectconfig parameter general.segment_subject needs to be overruled to a proper name in a specific project config file!")
+    elif any(illegal_character in segment_subject for illegal_character in illegal_characters):
+        raise Exception(f"Projectconfig parameter general.segment_subject ({segment_subject}) should not contain any of the following characters: {illegal_characters}")
+
+    if train.get('image_layer') == 'MUST_OVERRIDE':
+        raise Exception(f"Projectconfig parameter train.image_layer needs to be overruled in the projects dir overrule file or in the specific project config file!")
+    if predict.get('image_layer') == 'MUST_OVERRIDE':
+        raise Exception(f"Projectconfig parameter predict.image_layer needs to be overruled in the projects dir overrule file or in the specific project config file!")
+
+    # If the projects_dir parameter is a relative path, resolve it towards the location of
+    # the project config file.
+    projects_dir = dirs.getpath('projects_dir')
+    logger.info(f"projects_dir: {projects_dir}")
+    if not projects_dir.is_absolute():
+        projects_dir_absolute = (config_filepaths[-1].parent / projects_dir).resolve()
+        logger.info(f"Parameter dirs.projects_dir was relative, so is now resolved to {projects_dir_absolute}")
+        dirs['projects_dir'] = str(projects_dir_absolute)
+        
     # Read the layer config
+    if layer_config_filepath is None:
+        layer_config_filepath = files.getpath('image_layers_config_filepath')
+
+    if not layer_config_filepath.exists():
+        raise Exception(f"Layer config file not found: {layer_config_filepath}")
+
     global layer_config
     layer_config = configparser.ConfigParser(
             interpolation=configparser.ExtendedInterpolation(),
@@ -134,30 +162,35 @@ def as_dict():
             the_dict[section][key] = val
     return the_dict
 
-def get_needed_config_files(
-        config_dir: Path,
-        config_filename: str = None) -> List[Path]:
+def search_projectconfig_files(
+        projectconfig_path: Path,
+        projectconfig_defaults_overrule_path: Path = None,
+        projectconfig_defaults_path: Path = None) -> List[Path]:
 
-    # Default settings need to be first in list
-    script_dir = Path(__file__).resolve().parent
-    config_filepaths = [script_dir / 'project_defaults.ini']
+    config_filepaths = []
+    # First the default settings, because they can be overridden by the other 2
+    if projectconfig_defaults_path is None:
+        install_dir = Path(__file__).resolve().parent.parent
+        projectconfig_defaults_path = install_dir / 'project_defaults.ini'
+        if projectconfig_defaults_path.exists():
+            config_filepaths.append(projectconfig_defaults_path)
+        else:
+            logger.warn(f"No default projectconfig found, so won't be used, but this could give problems when upgrading to new versions: {projectconfig_defaults_path}")
 
-    # Overrule of the default setting in the config dir
-    path = config_dir / 'project_defaults.ini'
-    if path.exists():
-        config_filepaths.append(path)
-    else: 
-        print(f"No (optional) overrule config file found, so won't be used: {path}")
+    # Then the settings on the projectsdir level
+    if projectconfig_defaults_overrule_path is not None:
+        config_filepaths.append(projectconfig_defaults_overrule_path)
+    else:
+        # Check if a config file exists on the default overrule location
+        projects_dir = projectconfig_path.parent.parent
+        projectconfig_defaults_overrule_path = projects_dir / 'project_defaults_overrule.ini'
+        if projectconfig_defaults_overrule_path.exists():
+            config_filepaths.append(projectconfig_defaults_overrule_path)
+        else: 
+            logger.warn(f"No (optional) project_defaults.ini file found on projectdir level, so won't be used: {projectconfig_defaults_overrule_path}")     
 
-    # Specific settings for the subject if one is specified
-    if(config_filename is not None):
-        config_filepath = config_dir / config_filename
-        if not config_filepath.exists():
-            raise Exception(f"Config file specified does not exist: {config_filepath}")
-        config_filepaths.append(config_filepath)
-
-    # Local overrule settings
-    config_filepaths.append(config_dir / 'local_overrule.ini')
+    # Specific settings for the subject
+    config_filepaths.append(projectconfig_path)
 
     return config_filepaths
 

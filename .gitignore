@@ -2,6 +2,7 @@
 bin/taskrunner.ini
 bin/taskrunner_sampleproject.ini
 orthoseg_code_ws.code-workspace
+projects/_image_cache
 projects/footballfields/models
 projects/footballfields/output_vector
 projects/footballfields/training

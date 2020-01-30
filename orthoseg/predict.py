@@ -29,9 +29,7 @@ def predict_args(args):
 
     # Required arguments
     required = parser.add_argument_group('Required arguments')
-    required.add_argument("--config_dir", type=str, required=True,
-            help="The config dir to use")
-    required.add_argument("--config_filename", type=str, required=True,
+    required.add_argument("--configfile", type=str, required=True,
             help="The config file to use")
     
     # Optional arguments
@@ -44,22 +42,26 @@ def predict_args(args):
     args = parser.parse_args(args)
 
     ##### Run! #####
-    predict(config_dir=Path(args.config_dir),
-            config_filename=args.config_filename)
+    predict(projectconfig_path=Path(args.configfile))
 
-def predict(     
-        config_dir: Path,
-        config_filename: str):
+def predict(
+        projectconfig_path: Path,
+        imagelayerconfig_path: Path = None):
     """
     Run a prediction of the input dir given.
+
+    Args:
+        projectconfig_path (Path): Path to the projects config file.
+        imagelayerconfig_path (Path, optional): Path to the imagelayer config file. If not specified, 
+            the path specified in files.image_layers_config_filepath in the project config will be used. 
+            Defaults to None.
     """
     ##### Init #####   
     # Load config
-    config_filepaths = conf.get_needed_config_files(
-            config_dir=config_dir, 
-            config_filename=config_filename)
-    layer_config_filepath = config_dir / 'image_layers.ini'
-    conf.read_config(config_filepaths, layer_config_filepath)
+    ##### Init #####   
+    # Load config
+    config_filepaths = conf.search_projectconfig_files(projectconfig_path=projectconfig_path)
+    conf.read_project_config(config_filepaths, imagelayerconfig_path)
     
     # Main initialisation of the logging
     global logger
