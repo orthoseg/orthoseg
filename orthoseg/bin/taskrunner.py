@@ -5,6 +5,7 @@ Process the tasks as configured in a tasks csv file.
 
 import argparse
 import configparser
+import datetime
 from email.message import EmailMessage
 import json
 import logging
@@ -19,40 +20,51 @@ sys.path.insert(0, '.')
 
 import pandas as pd
 
-def run_tasks(config_filepaths: List[Path]):
+def run_tasks(
+        tasks_path: Path,
+        config_filepaths: List[Path],
+        stop_on_error: bool = False):
 
     ##### Init #####
     # Read the taskrunner configuration
-    global global_config
-    global_config = configparser.ConfigParser(
+    global runner_config
+    runner_config = configparser.ConfigParser(
             interpolation=configparser.ExtendedInterpolation(),
             converters={'list': lambda x: [i.strip() for i in x.split(',')],
                         'listint': lambda x: [int(i.strip()) for i in x.split(',')],
                         'dict': lambda x: json.loads(x),
                         'path': lambda x: Path(x)})
-    global_config.read(config_filepaths)
-
-    # If the projects dir is relative, resolve it from the taskrunner.py script location
-    projects_dir = global_config['dirs'].getpath('projects_dir')
-    if not projects_dir.is_absolute():
-        script_dir = Path(__file__).resolve().parent
-        projects_dir = (script_dir / projects_dir).resolve()
-        global_config['dirs']['projects_dir'] = projects_dir.as_posix()
+    runner_config.read(config_filepaths)
 
     # Init logging
-    # TODO: Check if the directory the log is going to write to exists!
-    logging.config.dictConfig(global_config['logging'].getdict('logconfig'))
+    logconfig_dict = runner_config['logging'].getdict('logconfig')
+
+    # If there are file handlers, replace possible placeholders + make sure log dir exists
+    for handler in logconfig_dict['handlers']:
+        if "filename" in logconfig_dict['handlers'][handler]:
+            # Format the filename
+            log_path = Path(logconfig_dict['handlers'][handler]['filename'].format(
+                    iso_datetime=f"{datetime.datetime.now():%Y-%m-%d_%H-%M-%S}"))
+
+            # If the log_path is a relative path, resolve it towards the location of
+            # the tasks file.
+            if not log_path.is_absolute():
+                log_path = tasks_path.parent / log_path
+                print(f"Parameter logconfig.handlers.{handler}.filename was relative, so is now resolved to {log_path}")
+
+            logconfig_dict['handlers'][handler]['filename'] = log_path.as_posix()
+
+            # Also make sure the log dir exists
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Now load the log config
+    logging.config.dictConfig(logconfig_dict)
     global logger
     logger = logging.getLogger()
     logger.info(f"Config files used for taskrunner: {config_filepaths}")
     
-    # Get some basic pameters for taskrunner
-    stop_on_error = global_config['dirs'].getboolean('stop_on_error')
-    projectfile_basepath = global_config['files'].get('projectfile_path')
-
     # Read the tasks that need to be ran in the run_tasks file
-    tasks_filepath = global_config['files'].getpath('tasks_path')
-    tasks_df = get_tasks(tasks_filepath)
+    tasks_df = get_tasks(tasks_path)
 
     # Loop over tasks to run
     for task in tasks_df.itertuples(): 
@@ -61,10 +73,10 @@ def run_tasks(config_filepaths: List[Path]):
             continue
 
         # Format the projectfile_path
-        projectfile_path = Path(projectfile_basepath.format(config=task.config))
+        projectfile_path = Path(task.config)
+        # If the projectfile path is not absolute, treat is as relative to the tasks csv file...
         if not projectfile_path.is_absolute():
-            # If the projectfile path is not absolute, treat is as relative to the tasks csv file...
-            projectfile_path = tasks_filepath.parent.parent.absolute() / projectfile_path
+            projectfile_path = tasks_path.parent / projectfile_path
 
         # Now we are ready to start the action        
         logger.info(f"Start action {task.action} for config {projectfile_path}")
@@ -125,11 +137,13 @@ def sendmail(
         body: str = None,
         stop_on_error: bool = False):
 
-    mail_from = global_config['email'].get('from', None)
-    mail_to = global_config['email'].get('to', None)
-    mail_server = global_config['email'].get('server', None)
-    mail_server_username = global_config['email'].get('username', None)
-    mail_server_password = global_config['email'].get('password', None)
+    if runner_config['email'].getboolean('enabled', fallback=False):
+        return
+    mail_from = runner_config['email'].get('from', None)
+    mail_to = runner_config['email'].get('to', None)
+    mail_server = runner_config['email'].get('server', None)
+    mail_server_username = runner_config['email'].get('username', None)
+    mail_server_password = runner_config['email'].get('password', None)
 
     # If one of the necessary parameters not provided, log subject
     if(mail_from is None
@@ -167,27 +181,35 @@ if __name__ == '__main__':
 
     # Optional arguments
     optional = parser.add_argument_group('Optional arguments')
-    optional.add_argument('-c', '--configfile',
-            help='The config file to use. If not provided, taskrunner tries to use ./taskrunner.ini or ./taskrunner_sample.ini.')
+    optional.add_argument('-t', '--tasksfile',
+            help='The tasks file to use. If not provided, taskrunner tries to use ../../projects/tasks.csv relative to taskrunner.py')
     # Add back help         
     optional.add_argument('-h', '--help', action='help', default=argparse.SUPPRESS,
             help='Show this help message and exit')
     args = parser.parse_args()
 
-    # Determine config_filepaths
-    script_dir = Path(__file__).resolve().parent
-    config_defaults_filepath = script_dir / 'taskrunner_defaults.ini'
-    config_filepaths = [config_defaults_filepath]
-    if args.configfile is not None:
-        # config_filepath is provided, so use it as well
-        config_filepaths.append(Path(args.configfile))
+    # If tasks file is not specified, use default location
+    if args.tasksfile is not None:
+        tasks_path = Path(args.tasksfile)
     else:
-        # If the default config file name exist, use it as well
-        config_filepath = script_dir / 'taskrunner.ini'
-        if config_filepath.exists():
-            config_filepaths.append(config_filepath)
-        else:
-            print("Only taskrunner_defaults.ini settings will be used. If you want to overrule settings, follow the guidelines specified in this file on how to do this.")
+        script_dir = Path(__file__).resolve().parent
+        tasks_path = script_dir / '../../projects/tasks.csv'
+    
+    # Find the config filepaths to use
+    config_filepaths = []
+    script_dir = Path(__file__).resolve().parent
+    config_defaults_path = script_dir / '../project_defaults.ini'
+    if config_defaults_path.exists():
+        config_filepaths.append(config_defaults_path)
+    else:
+        print(f"Warning: default project settings not found: {config_defaults_path}")
+    config_defaults_overrule_path = tasks_path.parent / 'project_defaults_overrule.ini'
+    if config_defaults_overrule_path.exists():
+        config_filepaths.append(config_defaults_overrule_path)
+    else:
+        print(f"Warning: default overule project settings not found: {config_defaults_overrule_path}")
 
     # Run!
-    run_tasks(config_filepaths=config_filepaths)
+    run_tasks(
+            tasks_path=tasks_path,
+            config_filepaths=config_filepaths)
