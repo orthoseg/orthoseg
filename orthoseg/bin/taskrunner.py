@@ -137,7 +137,7 @@ def sendmail(
         body: str = None,
         stop_on_error: bool = False):
 
-    if runner_config['email'].getboolean('enabled', fallback=False):
+    if not runner_config['email'].getboolean('enabled', fallback=False):
         return
     mail_from = runner_config['email'].get('from', None)
     mail_to = runner_config['email'].get('to', None)
