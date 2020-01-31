@@ -32,6 +32,13 @@ def run_tasks(config_filepaths: List[Path]):
                         'path': lambda x: Path(x)})
     global_config.read(config_filepaths)
 
+    # If the projects dir is relative, resolve it from the taskrunner.py script location
+    projects_dir = global_config['dirs'].getpath('projects_dir')
+    if not projects_dir.is_absolute():
+        script_dir = Path(__file__).resolve().parent
+        projects_dir = (script_dir / projects_dir).resolve()
+        global_config['dirs']['projects_dir'] = projects_dir.as_posix()
+
     # Init logging
     # TODO: Check if the directory the log is going to write to exists!
     logging.config.dictConfig(global_config['logging'].getdict('logconfig'))
@@ -40,7 +47,6 @@ def run_tasks(config_filepaths: List[Path]):
     logger.info(f"Config files used for taskrunner: {config_filepaths}")
     
     # Get some basic pameters for taskrunner
-    config_dir = global_config['dirs'].getpath('config_dir')
     stop_on_error = global_config['dirs'].getboolean('stop_on_error')
     projectfile_basepath = global_config['files'].get('projectfile_path')
 

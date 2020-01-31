@@ -77,7 +77,7 @@ def read_project_config(
     if not projects_dir.is_absolute():
         projects_dir_absolute = (config_filepaths[-1].parent / projects_dir).resolve()
         logger.info(f"Parameter dirs.projects_dir was relative, so is now resolved to {projects_dir_absolute}")
-        dirs['projects_dir'] = str(projects_dir_absolute)
+        dirs['projects_dir'] = projects_dir_absolute.as_posix()
         
     # Read the layer config
     if layer_config_filepath is None:
