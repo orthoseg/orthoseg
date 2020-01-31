@@ -86,13 +86,11 @@ def predict(
         #logger.info(f"max model_traindata_version found: {model_traindata_version}")
     
     # Get the best model that already exists for this train dataset
-    model_architecture = conf.model['architecture']
     hyperparams_version = conf.train.getint('hyperparams_version')
     best_model = mh.get_best_model(
             model_dir=conf.dirs.getpath('model_dir'), 
             segment_subject=conf.general['segment_subject'],
-            traindata_version=traindata_version,            
-            model_architecture=model_architecture,
+            traindata_version=traindata_version,
             hyperparams_version=hyperparams_version)
     
     # Check if a model was found
@@ -105,7 +103,10 @@ def predict(
         logger.info(f"Best model found: {model_weights_filepath}")
     
     # Prepare output subdir to be used for predictions
-    predict_out_subdir = f"{best_model['basefilename']}_{best_model['epoch']}"
+    predict_out_subdir = f"{best_model['basefilename']}"
+    if hyperparams_version > 0:
+        predict_out_subdir += f"_{hyperparams_version}"
+    predict_out_subdir += f"_{best_model['epoch']}"
     
     # Try optimizing model with tensorrt
     try:

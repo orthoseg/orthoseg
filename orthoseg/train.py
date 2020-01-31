@@ -129,7 +129,6 @@ def train(
             model_dir=model_dir, 
             segment_subject=segment_subject,
             traindata_version=traindata_version,
-            model_architecture=model_architecture,
             hyperparams_version=hyperparams_version)
 
     # Check if training is needed
@@ -204,7 +203,6 @@ def train(
             best_model_for_architecture = mh.get_best_model(
                     model_dir=model_dir, 
                     segment_subject=segment_subject,
-                    model_architecture=model_architecture,
                     traindata_version=traindata_version)
             if best_model_for_architecture is not None:
                 model_preload_filepath = best_model_for_architecture['filepath']
@@ -234,7 +232,6 @@ def train(
         best_model_curr_train_version = mh.get_best_model(
                 model_dir=model_dir, 
                 segment_subject=segment_subject,
-                model_architecture=model_architecture,
                 traindata_version=traindata_version)
 
     # Now predict on the train,... data  
