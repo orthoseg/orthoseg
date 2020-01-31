@@ -55,7 +55,7 @@ def run_tasks(config_filepaths: List[Path]):
             continue
 
         # Format the projectfile_path
-        projectfile_path = Path(projectfile_basepath.format(segment_subject=task.config))
+        projectfile_path = Path(projectfile_basepath.format(config=task.config))
         if not projectfile_path.is_absolute():
             # If the projectfile path is not absolute, treat is as relative to the tasks csv file...
             projectfile_path = tasks_filepath.parent.parent.absolute() / projectfile_path
