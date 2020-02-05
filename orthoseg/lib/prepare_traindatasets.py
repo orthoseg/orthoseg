@@ -133,7 +133,7 @@ def prepare_traindatasets(
         logger.debug(f"Read label locations from {label_file['locations_path']}")
         file_labellocations_gdf = geofile_util.read_file(label_file['locations_path'])
         if file_labellocations_gdf is not None and len(file_labellocations_gdf) > 0:
-            file_labellocations_gdf['image_layer'] = label_file['image_layer']
+            file_labellocations_gdf.loc[:, 'image_layer'] = label_file['image_layer']
             if labellocations_gdf is None:
                 labellocations_gdf = file_labellocations_gdf
             else:
@@ -145,7 +145,7 @@ def prepare_traindatasets(
         logger.debug(f"Read label data from {label_file['data_path']}")
         file_labeldata_gdf = geofile_util.read_file(label_file['data_path'])
         if file_labeldata_gdf is not None and len(file_labeldata_gdf) > 0:
-            file_labeldata_gdf['image_layer'] = label_file['image_layer']
+            file_labeldata_gdf.loc[:, 'image_layer'] = label_file['image_layer']
             if labeldata_gdf is None:
                 labeldata_gdf = file_labeldata_gdf
             else:
@@ -164,9 +164,10 @@ def prepare_traindatasets(
     
     # Create list with only the input labels that need to be burned in the mask
     if labeldata_gdf is not None and 'label_name' in labeldata_gdf.columns:
-        # If thare is a column 'label_name', filter on the labels provided
-        labels_to_burn_gdf = labeldata_gdf.loc[labeldata_gdf['label_name'].isin(label_names_burn_values)]
-        labels_to_burn_gdf['burn_value'] = 0
+        # If there is a column 'label_name', filter on the labels provided
+        labels_to_burn_gdf = (
+                labeldata_gdf.loc[labeldata_gdf['label_name'].isin(label_names_burn_values)]).copy()
+        labels_to_burn_gdf.loc[:, 'burn_value'] = 0
         for label_name in label_names_burn_values:
             labels_to_burn_gdf.loc[(labels_to_burn_gdf['label_name'] == label_name),
                                    'burn_value'] = label_names_burn_values[label_name]
@@ -174,7 +175,8 @@ def prepare_traindatasets(
             logger.warn(f"Number of labels to burn changed from {len(labeldata_gdf)} to {len(labels_to_burn_gdf)} with filter on label_names_burn_values: {label_names_burn_values}")
     elif len(label_names_burn_values) == 1:
         labels_to_burn_gdf = labeldata_gdf
-        labels_to_burn_gdf['burn_value'] = label_names_burn_values[list(label_names_burn_values)[0]]
+        labels_to_burn_gdf.loc[:, 'burn_value'] = (
+                label_names_burn_values[list(label_names_burn_values)[0]])
     else:
         raise Exception(f"Column 'label_name' is mandatory in labeldata if multiple label_names_burn_values specified: {label_names_burn_values}")
                     
