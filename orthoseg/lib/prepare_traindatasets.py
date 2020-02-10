@@ -266,7 +266,7 @@ def prepare_traindatasets(
                     processed_per_hour = (nb_processed/time_passed) * 3600
                     hours_to_go = (int)((nb_todo - i)/processed_per_hour)
                     min_to_go = (int)((((nb_todo - i)/processed_per_hour)%1)*60)
-                    print(f"\r{hours_to_go}:{min_to_go} left for {nb_todo-i} of {nb_todo} at {processed_per_hour:0.0f}/h", 
+                    print(f"\r{hours_to_go:3d}:{min_to_go:2d} left for {nb_todo-i} of {nb_todo} at {processed_per_hour:0.0f}/h", 
                           end="", flush=True)
         except Exception as ex:
             message = "Error preparing dataset!"

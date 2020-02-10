@@ -66,7 +66,7 @@ def postprocess(
     searchstring = f"{prediction_basedir.name}*/"
     prediction_dirs = sorted(prediction_basedir.parent.glob(searchstring), reverse=True)
     if len(prediction_dirs) == 0:
-        raise Exception(f"STOP: No prediction dirs found with search string {searchstring}")        
+        raise Exception(f"STOP: No prediction dirs found with search string {searchstring} in {prediction_basedir.parent}")        
     input_dir = prediction_dirs[0]
 	
     # Format output dir, partly based on input dir

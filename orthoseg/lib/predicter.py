@@ -233,7 +233,7 @@ def predict_dir(
                         nb_per_hour_lastbatch = (nb_images_in_batch/time_passed_lastbatch_s) * 3600
                         hours_to_go = (int)((nb_todo - i)/nb_per_hour)
                         min_to_go = (int)((((nb_todo - i)/nb_per_hour)%1)*60)
-                        print(f"\r{hours_to_go}:{min_to_go} left for {nb_todo-i} todo at {nb_per_hour:0.0f}/h ({nb_per_hour_lastbatch:0.0f}/h last batch) in ...{str(input_image_dir)[-30:]}",
+                        print(f"\r{hours_to_go:3d}:{min_to_go:2d} left for {nb_todo-i} todo at {nb_per_hour:0.0f}/h ({nb_per_hour_lastbatch:0.0f}/h last batch) in ...{str(input_image_dir)[-30:]}",
                             end='', flush=True)
                 
                 # Reset variable for next batch
