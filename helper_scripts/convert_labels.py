@@ -24,7 +24,7 @@ def convert_traindata_v1tov2(
         image_pixel_x_size: float,
         image_pixel_y_size: float,
         image_srs_width: float,
-        image_srs_height: float) -> bool:
+        image_srs_height: float):
 
     # Prepare relevant file paths
     label_dir = labellocations_path.parent
