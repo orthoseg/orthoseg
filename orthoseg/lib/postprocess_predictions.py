@@ -289,7 +289,7 @@ def polygonize_prediction_files(
                     else:
                         geoms_gdf = gpd.GeoDataFrame(
                                 pd.concat([geoms_gdf, geoms_file_gdf], ignore_index=True), 
-                                crs=geoms_gdf.crs)
+                                crs=geoms_file_gdf.crs)
                     
                 except Exception as ex:
                     logger.exception(f"Error reading {future_to_filepath[future]}")
