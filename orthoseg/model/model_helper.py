@@ -36,7 +36,7 @@ class HyperParams:
             optimizer_params: dict = None,
             model_activation: str = None,
             loss_function: str = None,
-            monitor_metric: str = 'binary_accuracy',
+            monitor_metric: str = None,
             monitor_metric_mode: str = 'max',
             save_format: str = 'h5',
             save_best_only: bool = True,
@@ -59,8 +59,8 @@ class HyperParams:
             optimizer_params (dict, optional): Optimizer params to use. Defaults to { 'learning_rate': 0.0001 }.
             model_activation (Activation, optional): [description]. Defaults to None.
             loss_function (str, optional): [description]. Defaults to None.
-            monitor_metric (str, optional): Metric to monitor. Defaults to 'binary_accuracy'.
-            monitor_metric_mode (str, optional): Mode of the mtric to monitor. Defaults to 'max'.
+            monitor_metric (str, optional): Metric to monitor. If not specified the loss function will drive the metric. Defaults to None.
+            monitor_metric_mode (str, optional): Mode of the metric to monitor. Defaults to 'max'.
             save_format (str, optional): [description]. Defaults to 'h5'.
             save_best_only (bool, optional): [description]. Defaults to True.
             nb_epoch (int, optional): maximum number of epochs to train. Defaults to 1000.
@@ -106,7 +106,14 @@ class HyperParams:
         else:
             self.loss_function = 'binary_crossentropy'
 
-        self.monitor_metric = monitor_metric
+        if monitor_metric is not None:
+            self.monitor_metric = monitor_metric
+        elif self.loss_function == 'binary_crossentropy':
+            self.monitor_metric = 'binary_accuracy'
+        elif self.loss_function in (
+                'weighted_categorical_crossentropy', 'categorical_crossentropy'):
+            self.monitor_metric = 'categorical_accuracy'
+        
         self.monitor_metric_mode = monitor_metric_mode
         self.save_format = save_format
         self.save_best_only = save_best_only

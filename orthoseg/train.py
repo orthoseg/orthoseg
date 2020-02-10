@@ -93,10 +93,10 @@ def train(
     train_image_layer = label_files[first_label_file]['image_layer']
     train_projection = conf.image_layers[train_image_layer]['projection']
     label_names_burn_values = conf.train.getdict('label_names_burn_values')
-    nb_classes = len(label_names_burn_values)
+    nb_classes = len(label_names_burn_values) + 1
     # If more than 1 class... add a class for the background!
-    if nb_classes > 1:
-        nb_classes += 1
+    #if nb_classes > 1:
+    #    nb_classes += 1
 
     # First the "train" training dataset
     force_model_traindata_version = conf.train.getint('force_model_traindata_version')
@@ -212,6 +212,7 @@ def train(
                 mask_augmentations=conf.train.getdict('mask_augmentations'),
                 hyperparams_version=hyperparams_version,
                 nb_classes=nb_classes,
+                class_weights=conf.train.getlistfloat('class_weights'),
                 batch_size=conf.train.getint('batch_size_fit'), 
                 nb_epoch=conf.train.getint('max_epoch'))
                 
