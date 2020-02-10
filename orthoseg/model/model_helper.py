@@ -22,19 +22,45 @@ logger = logging.getLogger(__name__)
 # The real work
 #-------------------------------------------------------------
 
-class HyperParams:
+class ArchitectureParams:
+
+    def __init__(
+            self,
+            architecture: str,
+            architecture_id: int = 0,
+            nb_classes: int = 1,
+            nb_channels: int = 3,
+            activation_function: str = 'softmax'):
+        """
+        Class containing the hyper parameters needed to create the model.
+        
+        Args:
+            architecture (str): the model architecture to use.
+            architecture_id (int, optional): id of the architecture. Defaults to 0. 
+            nb_classes (int, optional): Number of classes the network will segment to. Defaults to 1.
+            nb_channels (int, optional): Number of channels of the images. Defaults to 3.
+            activation_function (str, optional): activation function to use. Defaults to softmax. 
+        """
+        self.architecture = architecture
+        self.architecture_id = architecture_id
+        self.nb_classes = nb_classes
+        self.nb_channels = nb_channels
+        self.activation_function = activation_function
+
+    def toJSON(self):
+        return json.dumps(self, default=lambda o: o.__dict__, 
+            sort_keys=True, indent=4)
+class TrainParams:
     
     def __init__(
             self,
             image_augmentations: dict, 
             mask_augmentations: dict,                        
-            hyperparams_version: int = 0,
-            nb_classes: int = 1,
+            trainparams_id: int = 0,
             class_weights: list = None,
             batch_size: int = 4,
             optimizer: str = 'adam',
             optimizer_params: dict = None,
-            model_activation: str = None,
             loss_function: str = None,
             monitor_metric: str = None,
             monitor_metric_mode: str = 'max',
@@ -49,15 +75,14 @@ class HyperParams:
         Args:
             image_augmentations (dict): The augmentations to use on the input image during training.
             mask_augmentations (dict): The augmentations to use on the input mask during training.
-            hyperparams_version (int, optional): version of the hyperparams. Defaults to 0.
-            nb_classes (int, optional): [description]. Defaults to 1.
+            architecture_id (int, optional): id of the architecture. Defaults to 0. 
+            trainparams_id (int, optional): id of the hyperparams. Defaults to 0.
             class_weights (list, optional): [description]. Defaults to None.
             batch_size (int, optional): batch size to use while training. This must be 
                 choosen depending on the neural network architecture
                 and available memory on you GPU. Defaults to 4.
             optimizer (str, optional): Optimizer to use for training. Defaults to 'adam'.
             optimizer_params (dict, optional): Optimizer params to use. Defaults to { 'learning_rate': 0.0001 }.
-            model_activation (Activation, optional): [description]. Defaults to None.
             loss_function (str, optional): [description]. Defaults to None.
             monitor_metric (str, optional): Metric to monitor. If not specified the loss function will drive the metric. Defaults to None.
             monitor_metric_mode (str, optional): Mode of the metric to monitor. Defaults to 'max'.
@@ -70,16 +95,9 @@ class HyperParams:
         Raises:
             Exception: [description]
         """
-        ##### Some checks on the input parameters #####
-        if(nb_classes > 1 
-           and class_weights is not None
-           and nb_classes != len(class_weights)):
-            raise Exception(f"The number of class weight ({class_weights}) should equal the number of classes ({nb_classes})!")
-
-        self.hyperparams_version = hyperparams_version
+        self.trainparams_id = trainparams_id
         self.image_augmentations = image_augmentations
         self.mask_augmentations = mask_augmentations
-        self.nb_classes = nb_classes
         self.class_weights = class_weights
         self.batch_size = batch_size    
         
@@ -90,26 +108,13 @@ class HyperParams:
         else:
             self.optimizer_params = optimizer_params
 
-        if model_activation is not None: 
-            self.model_activation = model_activation
-        elif self.nb_classes > 1:
-            self.model_activation = 'softmax'
+        if self.class_weights is not None: 
+            self.loss_function = 'weighted_categorical_crossentropy'
         else:
-            self.model_activation = 'sigmoid'
-
-        # Softmax with > 1 classes
-        if self.model_activation == 'softmax':
-            if self.class_weights is not None: 
-                self.loss_function = 'weighted_categorical_crossentropy'
-            else:
-                self.loss_function = 'categorical_crossentropy'
-        else:
-            self.loss_function = 'binary_crossentropy'
+            self.loss_function = 'categorical_crossentropy'
 
         if monitor_metric is not None:
             self.monitor_metric = monitor_metric
-        elif self.loss_function == 'binary_crossentropy':
-            self.monitor_metric = 'binary_accuracy'
         elif self.loss_function in (
                 'weighted_categorical_crossentropy', 'categorical_crossentropy'):
             self.monitor_metric = 'categorical_accuracy'
@@ -127,7 +132,19 @@ class HyperParams:
     def toJSON(self):
         return json.dumps(self, default=lambda o: o.__dict__, 
             sort_keys=True, indent=4)
-            
+
+class HyperParams:
+    def __init__(
+            self,
+            architecture: ArchitectureParams,
+            train: TrainParams):
+        self.architecture=architecture
+        self.train=train
+    
+    def toJSON(self):
+        return json.dumps(self, default=lambda o: o.__dict__, 
+            sort_keys=True, indent=4)
+                
 def get_max_data_version(model_dir: Path) -> int:
     """
     Get the maximum data version a model exists for in the model_dir.
@@ -137,31 +154,38 @@ def get_max_data_version(model_dir: Path) -> int:
     """
     models_df = get_models(model_dir)
     if models_df is not None and len(models_df.index) > 0:
-        traindata_version_max = models_df['traindata_version'].max()
-        return int(traindata_version_max)
+        traindata_id_max = models_df['traindata_id'].max()
+        return int(traindata_id_max)
     else:
         return -1
 
 def format_model_basefilename(
         segment_subject: str,
-        traindata_version: int,
-        hyperparams_version: int) -> str:
+        traindata_id: int,
+        architecture_id: int = 0,
+        trainparams_id: int = 0) -> str:
     """
     Format the parameters into a model_filename.
     
     Args
         segment_subject: the segment subject
-        traindata_version: the version of the data used to train the model
-        hyperparams_version: the version of the hyper parameters used to train
+        traindata_id: the id of the data used to train the model
+        architecture_id: the id of the model architecture used
+        trainparams_id: the id of the hyper parameters used to train the model
     """
     # Format file name
-    filename = f"{segment_subject}_{traindata_version:02d}_{hyperparams_version}"
+    filename = f"{segment_subject}_{traindata_id:02d}"
+
+    # If an architecture id and/or hyperparams id is specified, add those as well
+    if architecture_id > 0 or trainparams_id > 0:
+        filename = f"{filename}.{architecture_id}.{trainparams_id}"
     return filename
 
 def format_model_filename(
         segment_subject: str,
-        traindata_version: int,
-        hyperparams_version: int,
+        traindata_id: int,
+        architecture_id: int,
+        trainparams_id: int,
         acc_train: float,
         acc_val: float,
         acc_combined: float,
@@ -172,8 +196,9 @@ def format_model_filename(
     
     Args
         segment_subject: the segment subject
-        traindata_version: the version of the data used to train the model
-        hyperparams_version: the version of the hyper parameters used to train
+        traindata_id: the version of the data used to train the model
+        architecture_id: the id of the model architecture used
+        trainparams_id: the version of the hyper parameters used to train
         acc_train: the accuracy reached for the training dataset
         acc_val: the accuracy reached for the validation dataset
         acc_combined: the average of the train and validation accuracy
@@ -185,8 +210,9 @@ def format_model_filename(
     # Format file name
     filename = format_model_basefilename(
             segment_subject=segment_subject,
-            traindata_version=traindata_version,
-            hyperparams_version=hyperparams_version)
+            traindata_id=traindata_id,
+            architecture_id=architecture_id,
+            trainparams_id=trainparams_id)
     filename += f"_{acc_combined:.5f}_{epoch}"
 
     # Add suffix
@@ -201,9 +227,9 @@ def parse_model_filename(filepath: Path) -> Optional[dict]:
     """
     Parse a model_filename to a dict containing the properties of the model:
         * segment_subject: the segment subject
-        * traindata_version: the version of the data used to train the model
+        * traindata_id: the version of the data used to train the model
         * acc_combined: the average of the train and validation accuracy
-        * hyperparams_version: the version of the hyper parameters used to train
+        * trainparams_id: the version of the hyper parameters used to train
         * epoch: the epoch during training that reached these model weights
         * save_format (str): the format to save in:
             * keras format: 'h5'
@@ -229,27 +255,39 @@ def parse_model_filename(filepath: Path) -> Optional[dict]:
             logger.warning(f"Not a valid path for a model, file should have .h5 of .hdf5 as suffix: {filepath}")
             return None
         
-    # Now extract the basic fields...
+    # Now extract the fields...
     param_values = filename.split("_")
-    if len(param_values) < 4:
-        logger.warning(f"Not a valid path for a model, split('_') should result in >= 3 fields: {filepath}")
+    if len(param_values) < 3:
+        logger.warning(f"Not a valid path for a model, split('_') should result in >= 2 fields: {filepath}")
+
     segment_subject = param_values[0]
-    traindata_version = int(param_values[1])
-    hyperparams_version = int(param_values[2])    
-    acc_combined = float(param_values[3])
-    epoch = int(param_values[4])
+
+    model_info = param_values[1]
+    model_info_values = model_info.split('.')   
+    traindata_id = int(model_info_values[0])
+    architecture_id = 0
+    trainparams_id = 0
+    if len(model_info_values) > 1:
+        architecture_id = int(model_info_values[1])
+        if len(model_info_values) > 2:
+            trainparams_id = int(model_info_values[2])
+    
+    acc_combined = float(param_values[2])
+    epoch = int(param_values[3])
         
     basefilename = format_model_basefilename(
             segment_subject=segment_subject,
-            traindata_version=traindata_version,
-            hyperparams_version=hyperparams_version)
+            traindata_id=traindata_id,
+            architecture_id=architecture_id,
+            trainparams_id=trainparams_id)
 
     return {'filepath': filepath,
             'filename': filename,
             'basefilename': basefilename,
             'segment_subject': segment_subject,
-            'traindata_version': traindata_version,
-            'hyperparams_version': hyperparams_version,
+            'traindata_id': traindata_id,
+            'architecture_id': architecture_id,
+            'trainparams_id': trainparams_id,
             'acc_combined': acc_combined,
             'epoch': epoch,
             'save_format': save_format}
@@ -257,8 +295,9 @@ def parse_model_filename(filepath: Path) -> Optional[dict]:
 def get_models(
         model_dir: Path,
         segment_subject: str = None,
-        traindata_version: int = None,
-        hyperparams_version: int = None) -> pd.DataFrame:
+        traindata_id: int = None,
+        architecture_id: int = None,
+        trainparams_id: int = None) -> pd.DataFrame:
     """
     Return the list of models in the model_dir passed. It is returned as a 
     dataframe with the columns as returned in parse_model_filename()
@@ -266,9 +305,9 @@ def get_models(
     Args
         model_dir (Path): dir containing the models
         segment_subject (str, optional): only models with this the segment subject 
-        traindata_version (int, optional): only models with this traindata version
-        hyperparams_version (int, optional): only models with this hyperparams version
-          
+        traindata_id (int, optional): only models with this traindata version
+        architecture_id (int, optional): only models with this this architecture_id
+        trainparams_id (int, optional): only models with this hyperparams version
     """
 
     # List models
@@ -289,18 +328,21 @@ def get_models(
     if len(model_info_df) > 0:
         if segment_subject is not None:
             model_info_df = model_info_df.loc[model_info_df['segment_subject'] == segment_subject]
-        if traindata_version is not None:
-            model_info_df = model_info_df.loc[model_info_df['traindata_version'] == traindata_version]
-        if hyperparams_version is not None:
-            model_info_df = model_info_df.loc[model_info_df['hyperparams_version'] == hyperparams_version]
+        if traindata_id is not None:
+            model_info_df = model_info_df.loc[model_info_df['traindata_id'] == traindata_id]
+        if trainparams_id is not None:
+            model_info_df = model_info_df.loc[model_info_df['trainparams_id'] == trainparams_id]
+        if architecture_id is not None:
+            model_info_df = model_info_df.loc[model_info_df['architecture_id'] == architecture_id]
 
     return model_info_df
 
 def get_best_model(
         model_dir: Path,
         segment_subject: str = None,
-        traindata_version: int = None,
-        hyperparams_version: int = None) -> Optional[dict]:
+        traindata_id: int = None,
+        architecture_id: int = None,
+        trainparams_id: int = None) -> Optional[dict]:
     """
     Get the properties of the model with the highest combined accuracy for the highest 
     traindata version in the dir.
@@ -311,8 +353,9 @@ def get_best_model(
     Args
         model_dir: dir containing the models
         segment_subject (str, optional): only models with this the segment subject 
-        traindata_version (int, optional): only models with this train data version
-        hyperparams_version (int, optional): only models with this trainparams version
+        traindata_id (int, optional): only models with this train data id
+        architecture_id (int, optional): only models with this the architecture_id
+        trainparams_id (int, optional): only models with this hyperparams id
         
     Returns
         A dictionary with the info of the best model, or None if no model was found
@@ -321,15 +364,16 @@ def get_best_model(
     model_info_df = get_models(
             model_dir=model_dir,
             segment_subject=segment_subject,
-            traindata_version=traindata_version,
-            hyperparams_version=hyperparams_version)
+            traindata_id=traindata_id,
+            architecture_id=architecture_id,
+            trainparams_id=trainparams_id)
     
-    # If no traindata_version provided, take highest data version
-    if traindata_version is None:
+    # If no traindata_id provided, take highest data version
+    if traindata_id is None:
         max_data_version = get_max_data_version(model_dir)
         if max_data_version == -1:
             return None
-        model_info_df = model_info_df.loc[model_info_df['traindata_version'] == max_data_version]
+        model_info_df = model_info_df.loc[model_info_df['traindata_id'] == max_data_version]
     
     if len(model_info_df) > 0:
         model_info_df = model_info_df.reset_index()     
@@ -343,8 +387,9 @@ class ModelCheckpointExt(kr.callbacks.Callback):
             self, 
             model_save_dir: Path,
             segment_subject: str,
-            traindata_version: int,
-            hyperparams_version: int,
+            traindata_id: int,
+            architecture_id: int,
+            trainparams_id: int,
             monitor_metric: str,
             monitor_metric_mode: str,
             save_format: str = 'h5',
@@ -359,8 +404,9 @@ class ModelCheckpointExt(kr.callbacks.Callback):
         Args:
             model_save_dir (Path): [description]
             segment_subject (str): segment subject 
-            traindata_version (int): train data version
-            hyperparams_version (int): version of the hyper parameters used
+            traindata_id (int): train data id
+            architecture_id (int): model architecture id
+            trainparams_id (int): id of the hyper parameters used
             monitor_metric (str): The metric to monitor for accuracy
             monitor_metric_mode (str): use 'min' if the accuracy metrics should be 
                     as low as possible, 'max' if a higher values is better. 
@@ -381,8 +427,9 @@ class ModelCheckpointExt(kr.callbacks.Callback):
         
         self.model_save_dir = model_save_dir
         self.segment_subject = segment_subject
-        self.traindata_version = traindata_version
-        self.hyperparams_version = hyperparams_version
+        self.traindata_id = traindata_id
+        self.architecture_id = architecture_id
+        self.trainparams_id = trainparams_id
         self.monitor_metric = monitor_metric
         self.monitor_metric_mode = monitor_metric_mode
         self.save_format = save_format
@@ -398,8 +445,9 @@ class ModelCheckpointExt(kr.callbacks.Callback):
         save_and_clean_models(
                 model_save_dir=self.model_save_dir,
                 segment_subject=self.segment_subject,
-                traindata_version=self.traindata_version,
-                hyperparams_version=self.hyperparams_version,
+                traindata_id=self.traindata_id,
+                architecture_id=self.architecture_id,
+                trainparams_id=self.trainparams_id,
                 monitor_metric_mode=self.monitor_metric_mode,
                 new_model=self.model,
                 new_model_monitor_train=logs.get(self.monitor_metric),
@@ -415,8 +463,9 @@ class ModelCheckpointExt(kr.callbacks.Callback):
 def save_and_clean_models(
         model_save_dir: Path,
         segment_subject: str,
-        traindata_version: int, 
-        hyperparams_version: int,
+        traindata_id: int, 
+        architecture_id: int,
+        trainparams_id: int,
         monitor_metric_mode: str,
         new_model = None,        
         new_model_monitor_train: Optional[float] = None,
@@ -436,8 +485,9 @@ def save_and_clean_models(
     Args
         model_save_dir (Path): dir containing the models
         segment_subject (str): segment subject 
-        traindata_version (int): train data version
-        hyperparams_version (int): version of the train params
+        traindata_id (int): train data id
+        architecture_id (int): model architecture id
+        trainparams_id (int): id of the train params
         model_monitor_metric_mode (MetricMode): use 'min' if the monitored metrics should be 
                 as low as possible, 'max' if a higher values is better. 
         new_model (optional): the keras model object that will be saved
@@ -468,8 +518,8 @@ def save_and_clean_models(
     model_info_df = get_models(
             model_dir=model_save_dir, 
             segment_subject=segment_subject,
-            traindata_version=traindata_version,
-            hyperparams_version=hyperparams_version)
+            traindata_id=traindata_id,
+            trainparams_id=trainparams_id)
 
     # If there is a new model passed as param, add it to the list
     new_model_path = None
@@ -497,8 +547,9 @@ def save_and_clean_models(
         
         new_model_filename = format_model_filename(
                 segment_subject=segment_subject,
-                traindata_version=traindata_version,
-                hyperparams_version=hyperparams_version,
+                traindata_id=traindata_id,
+                architecture_id=architecture_id,
+                trainparams_id=trainparams_id,
                 acc_combined=new_model_acc_combined,
                 acc_train=new_model_acc_train, 
                 acc_val=new_model_acc_val, 
@@ -510,8 +561,9 @@ def save_and_clean_models(
         model_info_df = model_info_df.append({  'filepath': str(new_model_path),
                                                 'filename': new_model_filename,
                                                 'segment_subject': segment_subject,
-                                                'traindata_version': traindata_version,
-                                                'hyperparams_version': hyperparams_version,
+                                                'traindata_id': traindata_id,
+                                                'architecture_id': architecture_id,
+                                                'trainparams_id': trainparams_id,
                                                 'acc_combined': new_model_acc_combined,
                                                 'acc_train': new_model_acc_train,
                                                 'acc_val': new_model_acc_val,
@@ -577,7 +629,9 @@ def save_and_clean_models(
         best_model = get_best_model(
                 model_dir=model_save_dir,
                 segment_subject=segment_subject,
-                traindata_version=traindata_version)
+                traindata_id=traindata_id,
+                architecture_id=architecture_id,
+                trainparams_id=trainparams_id)
         if best_model is not None:
             print(f"\nBEST MODEL: acc_combined: {best_model['acc_combined']}, epoch: {best_model['epoch']}")
 

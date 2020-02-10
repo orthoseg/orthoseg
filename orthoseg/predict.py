@@ -8,6 +8,7 @@ from pathlib import Path
 import shlex
 import sys
 
+#import os
 #os.environ["CUDA_VISIBLE_DEVICES"] = "-1" # Disable using GPU
 import tensorflow as tf
 from tensorflow import keras as kr  
@@ -78,24 +79,24 @@ def predict(
     # Create base filename of model to use
     # TODO: is force data version the most logical, or rather implement 
     #       force weights file or ?
-    force_model_traindata_version = conf.train.getint('force_model_traindata_version')
-    if force_model_traindata_version > -1:
-        traindata_version = force_model_traindata_version 
+    force_model_traindata_id = conf.train.getint('force_model_traindata_id')
+    if force_model_traindata_id > -1:
+        traindata_id = force_model_traindata_id 
     else:
-        traindata_version = mh.get_max_data_version(model_dir=conf.dirs.getpath('model_dir'))
-        #logger.info(f"max model_traindata_version found: {model_traindata_version}")
+        traindata_id = mh.get_max_data_version(model_dir=conf.dirs.getpath('model_dir'))
+        #logger.info(f"max model_traindata_id found: {model_traindata_id}")
     
     # Get the best model that already exists for this train dataset
-    hyperparams_version = conf.train.getint('hyperparams_version')
+    trainparams_id = conf.train.getint('trainparams_id')
     best_model = mh.get_best_model(
             model_dir=conf.dirs.getpath('model_dir'), 
             segment_subject=conf.general['segment_subject'],
-            traindata_version=traindata_version,
-            hyperparams_version=hyperparams_version)
+            traindata_id=traindata_id,
+            trainparams_id=trainparams_id)
     
     # Check if a model was found
     if best_model is False:
-        message = f"No model found in model_dir: {conf.dirs.getpath('model_dir')} for traindata_version: {traindata_version}"
+        message = f"No model found in model_dir: {conf.dirs.getpath('model_dir')} for traindata_id: {traindata_id}"
         logger.critical(message)
         raise Exception(message)
     else:    
@@ -104,8 +105,8 @@ def predict(
     
     # Prepare output subdir to be used for predictions
     predict_out_subdir = f"{best_model['basefilename']}"
-    if hyperparams_version > 0:
-        predict_out_subdir += f"_{hyperparams_version}"
+    if trainparams_id > 0:
+        predict_out_subdir += f"_{trainparams_id}"
     predict_out_subdir += f"_{best_model['epoch']}"
     
     # Try optimizing model with tensorrt

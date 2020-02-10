@@ -36,6 +36,7 @@ def read_project_config(
             interpolation=configparser.ExtendedInterpolation(),
             converters={'list': lambda x: [i.strip() for i in x.split(',')],
                         'listint': lambda x: [int(i.strip()) for i in x.split(',')],
+                        'listfloat': lambda x: [float(i.strip()) for i in x.split(',')],
                         'dict': lambda x: json.loads(x),
                         'path': lambda x: Path(x)})
 

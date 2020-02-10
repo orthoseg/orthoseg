@@ -93,19 +93,18 @@ def train(
     train_image_layer = label_files[first_label_file]['image_layer']
     train_projection = conf.image_layers[train_image_layer]['projection']
     label_names_burn_values = conf.train.getdict('label_names_burn_values')
+
+    # Number classes = label_names + 1 class for the background!
     nb_classes = len(label_names_burn_values) + 1
-    # If more than 1 class... add a class for the background!
-    #if nb_classes > 1:
-    #    nb_classes += 1
 
     # First the "train" training dataset
-    force_model_traindata_version = conf.train.getint('force_model_traindata_version')
-    if force_model_traindata_version > -1:
-        training_dir = conf.dirs.getpath('training_train_basedir') / f"{force_model_traindata_version:02d}"
-        traindata_version = force_model_traindata_version
+    force_model_traindata_id = conf.train.getint('force_model_traindata_id')
+    if force_model_traindata_id > -1:
+        training_dir = conf.dirs.getpath('training_train_basedir') / f"{force_model_traindata_id:02d}"
+        traindata_id = force_model_traindata_id
     else:
         logger.info("Prepare train, validation and test data")
-        training_dir, traindata_version = prep.prepare_traindatasets(
+        training_dir, traindata_id = prep.prepare_traindatasets(
                 label_files=label_files,
                 label_names_burn_values=label_names_burn_values,
                 image_layers=conf.image_layers,
@@ -114,7 +113,7 @@ def train(
                 image_pixel_y_size=conf.train.getfloat('image_pixel_y_size'),
                 image_pixel_width=conf.train.getint('image_pixel_width'),
                 image_pixel_height=conf.train.getint('image_pixel_height'))
-    logger.info(f"Traindata dir to use is {training_dir}, with traindata_version: {traindata_version}")
+    logger.info(f"Traindata dir to use is {training_dir}, with traindata_id: {traindata_id}")
 
     traindata_dir = training_dir / 'train'
     validationdata_dir = training_dir / 'validation'
@@ -124,12 +123,12 @@ def train(
     model_dir = conf.dirs.getpath('model_dir')
     segment_subject = conf.general['segment_subject']
     model_architecture = conf.model['architecture']
-    hyperparams_version = conf.train.getint('hyperparams_version')
+    trainparams_id = conf.train.getint('trainparams_id')
     best_model_curr_train_version = mh.get_best_model(
             model_dir=model_dir, 
             segment_subject=segment_subject,
-            traindata_version=traindata_version,
-            hyperparams_version=hyperparams_version)
+            traindata_id=traindata_id,
+            trainparams_id=trainparams_id)
 
     # Check if training is needed
     resume_train = conf.train.getboolean('resume_train')
@@ -203,29 +202,36 @@ def train(
             best_model_for_architecture = mh.get_best_model(
                     model_dir=model_dir, 
                     segment_subject=segment_subject,
-                    traindata_version=traindata_version)
+                    traindata_id=traindata_id)
             if best_model_for_architecture is not None:
                 model_preload_filepath = best_model_for_architecture['filepath']
         
-        hyperparams = mh.HyperParams(
+        trainparams = mh.TrainParams(
                 image_augmentations=conf.train.getdict('image_augmentations'),
                 mask_augmentations=conf.train.getdict('mask_augmentations'),
-                hyperparams_version=hyperparams_version,
-                nb_classes=nb_classes,
+                trainparams_id=trainparams_id,
                 class_weights=conf.train.getlistfloat('class_weights'),
                 batch_size=conf.train.getint('batch_size_fit'), 
                 nb_epoch=conf.train.getint('max_epoch'))
-                
+        
+        architectureparams = mh.ArchitectureParams(
+                architecture=model_architecture,
+                nb_classes=nb_classes,
+                nb_channels=conf.model.getint('nb_channels'),
+                architecture_id=conf.model.getint('architecture_id'))
+
+        hyperparams = mh.HyperParams(
+                architecture=architectureparams,
+                train=trainparams)
+
         trainer.train(
                 traindata_dir=traindata_dir,
                 validationdata_dir=validationdata_dir,
                 model_save_dir=model_dir,
                 segment_subject=segment_subject,
-                traindata_version=traindata_version,                
-                model_architecture=model_architecture,
+                traindata_id=traindata_id,
                 hyperparams=hyperparams,
                 model_preload_filepath=model_preload_filepath,
-                nb_channels=conf.model.getint('nb_channels'),
                 image_width=conf.train.getint('image_pixel_width'),
                 image_height=conf.train.getint('image_pixel_height')) 
     
@@ -233,7 +239,7 @@ def train(
         best_model_curr_train_version = mh.get_best_model(
                 model_dir=model_dir, 
                 segment_subject=segment_subject,
-                traindata_version=traindata_version)
+                traindata_id=traindata_id)
 
     # Now predict on the train,... data  
     logger.info(f"PREDICT test data with best model: {best_model_curr_train_version['filename']}")

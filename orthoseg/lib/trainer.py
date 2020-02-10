@@ -34,11 +34,9 @@ def train(
         validationdata_dir: Path,
         model_save_dir: Path,
         segment_subject: str,
-        traindata_version: int, 
-        model_architecture: str,
-        hyperparams: mh.HyperParams,
+        traindata_id: int,
+        hyperparams: mh.HyperParams, 
         model_preload_filepath: Optional[Path] = None,
-        nb_channels: int = 3,
         image_width: int = 512,
         image_height: int = 512,
         image_subdir: str = "image",
@@ -62,7 +60,8 @@ def train(
         validationdata_dir: dir where the validation data is located
         model_save_dir: dir where (intermediate) best models will be saved
         segment_subject (str): segment subject 
-        traindata_version (int): train data version
+        traindata_id (int): train data version
+        architecture_id (int): model architecture id
         model_architecture (str): model architecture
         train_params: train_params
         image_width: width the input images will be rescaled to for training
@@ -82,25 +81,25 @@ def train(
             input_data_dir=traindata_dir,
             image_subdir=image_subdir, 
             mask_subdir=mask_subdir,
-            image_augment_dict=hyperparams.image_augmentations, 
-            mask_augment_dict=hyperparams.mask_augmentations, 
-            batch_size=hyperparams.batch_size,
+            image_augment_dict=hyperparams.train.image_augmentations, 
+            mask_augment_dict=hyperparams.train.mask_augmentations, 
+            batch_size=hyperparams.train.batch_size,
             target_size=(image_width, image_height), 
-            nb_classes=hyperparams.nb_classes, 
+            nb_classes=hyperparams.architecture.nb_classes, 
             save_to_subdir=save_augmented_subdir, 
             seed=2)
 
     # Create validation generator
-    validation_augmentations = dict(rescale=hyperparams.image_augmentations['rescale'])
+    validation_augmentations = dict(rescale=hyperparams.train.image_augmentations['rescale'])
     validation_gen = create_train_generator(
             input_data_dir=validationdata_dir,
             image_subdir=image_subdir, 
             mask_subdir=mask_subdir,
             image_augment_dict=validation_augmentations,
             mask_augment_dict=validation_augmentations, 
-            batch_size=hyperparams.batch_size,
+            batch_size=hyperparams.train.batch_size,
             target_size=(image_width, image_height), 
-            nb_classes=hyperparams.nb_classes, 
+            nb_classes=hyperparams.architecture.nb_classes, 
             save_to_subdir=save_augmented_subdir,
             shuffle=False, 
             seed=3)
@@ -109,9 +108,9 @@ def train(
     start_epoch = 0
     model_save_base_filename = mh.format_model_basefilename(
             segment_subject=segment_subject,
-            traindata_version=traindata_version,
-            model_architecture=model_architecture,
-            hyperparams_version=hyperparams.hyperparams_version)
+            traindata_id=traindata_id,
+            architecture_id=hyperparams.architecture.architecture_id,
+            trainparams_id=hyperparams.train.trainparams_id)
     csv_log_filepath = model_save_dir / (model_save_base_filename + '_log.csv')
     if csv_log_filepath.exists() and os.path.getsize(csv_log_filepath) > 0:
         if not model_preload_filepath:
@@ -122,20 +121,20 @@ def train(
         train_log_csv = pd.read_csv(csv_log_filepath, sep=';')
         logger.debug(f"train_log csv contents:\n{train_log_csv}")
         start_epoch = train_log_csv['epoch'].max()
-        hyperparams.optimizer_params['learning_rate'] = train_log_csv['lr'].min()
-    logger.info(f"start_epoch: {start_epoch}, learning_rate: {hyperparams.optimizer_params['learning_rate']}")
+        hyperparams.train.optimizer_params['learning_rate'] = train_log_csv['lr'].min()
+    logger.info(f"start_epoch: {start_epoch}, learning_rate: {hyperparams.train.optimizer_params['learning_rate']}")
        
     # If no existing model provided, create it from scratch
     if not model_preload_filepath:
         # Get the model we want to use
         model = mf.get_model(
-                architecture=model_architecture, 
-                nb_channels=nb_channels, 
-                nb_classes=hyperparams.nb_classes, 
-                activation=hyperparams.model_activation)
+                architecture=hyperparams.architecture.architecture, 
+                nb_channels=hyperparams.architecture.nb_channels, 
+                nb_classes=hyperparams.architecture.nb_classes, 
+                activation=hyperparams.architecture.activation_function)
         
         # Save the model architecture to json
-        model_json_filepath = model_save_dir / f"{model_save_base_filename}.json"
+        model_json_filepath = model_save_dir / f"{model_save_base_filename}_model.json"
         if not model_save_dir.exists():
             model_save_dir.mkdir(parents=True)
         if not model_json_filepath.exists():
@@ -165,18 +164,18 @@ def train(
         # If multiple GPU's available, create multi_gpu_model
         try:
             model_for_train = kr.utils.multi_gpu_model(model, gpus=nb_gpu, cpu_relocation=True)
-            logger.info(f"Train using multiple GPUs: {nb_gpu}, batch size becomes: {hyperparams.batch_size*nb_gpu}")
-            hyperparams.batch_size *= nb_gpu
+            logger.info(f"Train using multiple GPUs: {nb_gpu}, batch size becomes: {hyperparams.train.batch_size*nb_gpu}")
+            hyperparams.train.batch_size *= nb_gpu
         except ValueError:
             logger.info("Train using single GPU or CPU")
             model_for_train = model
 
     model_for_train = mf.compile_model(
             model=model_for_train, 
-            optimizer=hyperparams.optimizer, 
-            optimizer_params=hyperparams.optimizer_params, 
-            loss=hyperparams.loss_function, 
-            class_weights=hyperparams.class_weights)
+            optimizer=hyperparams.train.optimizer, 
+            optimizer_params=hyperparams.train.optimizer_params, 
+            loss=hyperparams.train.loss_function, 
+            class_weights=hyperparams.train.class_weights)
 
     # Define some callbacks for the training
     # Reduce the learning rate if the loss doesn't improve anymore
@@ -194,13 +193,13 @@ def train(
     model_checkpoint_saver = mh.ModelCheckpointExt(
             model_save_dir=model_save_dir, 
             segment_subject=segment_subject,
-            traindata_version=traindata_version,            
-            model_architecture=model_architecture,
-            hyperparams_version=hyperparams.hyperparams_version,
-            monitor_metric=hyperparams.monitor_metric,
-            monitor_metric_mode=hyperparams.monitor_metric_mode,
-            save_format=hyperparams.save_format,
-            save_best_only=hyperparams.save_best_only,
+            traindata_id=traindata_id,
+            architecture_id=hyperparams.architecture.architecture_id,
+            trainparams_id=hyperparams.train.trainparams_id,
+            monitor_metric=hyperparams.train.monitor_metric,
+            monitor_metric_mode=hyperparams.train.monitor_metric_mode,
+            save_format=hyperparams.train.save_format,
+            save_best_only=hyperparams.train.save_best_only,
             model_template_for_save=model_template_for_save)
 
     # Callbacks for logging
@@ -210,8 +209,8 @@ def train(
 
     # Stop if no more improvement
     early_stopping = kr.callbacks.EarlyStopping(
-            monitor=hyperparams.earlystop_monitor_metric, 
-            patience=hyperparams.earlystop_patience, restore_best_weights=False)
+            monitor=hyperparams.train.earlystop_monitor_metric, 
+            patience=hyperparams.train.earlystop_patience, restore_best_weights=False)
     
     # Prepare the parameters to pass to fit...
     # Supported filetypes to train/validate on
@@ -230,19 +229,21 @@ def train(
     
     # Calculate the number of steps within an epoch
     # Remark: number of steps per epoch should be at least 1, even if nb samples < batch size...
-    train_steps_per_epoch = math.ceil(train_dataset_size/hyperparams.batch_size)
-    validation_steps_per_epoch = math.ceil(validation_dataset_size/hyperparams.batch_size)
+    train_steps_per_epoch = math.ceil(train_dataset_size/hyperparams.train.batch_size)
+    validation_steps_per_epoch = math.ceil(validation_dataset_size/hyperparams.train.batch_size)
     
     # Start training
-    logger.info(f"Start training with batch_size: {hyperparams.batch_size}, train_dataset_size: {train_dataset_size}, train_steps_per_epoch: {train_steps_per_epoch}, validation_dataset_size: {validation_dataset_size}, validation_steps_per_epoch: {validation_steps_per_epoch}")
+    logger.info(f"Start training with batch_size: {hyperparams.train.batch_size}, train_dataset_size: {train_dataset_size}, train_steps_per_epoch: {train_steps_per_epoch}, validation_dataset_size: {validation_dataset_size}, validation_steps_per_epoch: {validation_steps_per_epoch}")
+        
     logger.info(f"{hyperparams.toJSON()}")
-    train_params_json_filepath = model_save_dir / f"{model_save_base_filename}_params.json"
-    train_params_json_filepath.write_text(hyperparams.toJSON())
+    hyperparams_filepath = model_save_dir / f"{model_save_base_filename}_hyperparams.json"
+    hyperparams_filepath.write_text(hyperparams.toJSON())
+
     try:
         model_for_train.fit(
                 train_gen, 
                 steps_per_epoch=train_steps_per_epoch, 
-                epochs=hyperparams.nb_epoch,
+                epochs=hyperparams.train.nb_epoch,
                 validation_data=validation_gen,
                 validation_steps=validation_steps_per_epoch,       # Number of items in validation/batch_size
                 callbacks=[model_checkpoint_saver, 

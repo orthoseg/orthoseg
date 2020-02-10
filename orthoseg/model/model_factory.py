@@ -40,7 +40,7 @@ def get_model(
         input_height: int = None,
         nb_channels: int = 3,
         nb_classes: int = 1,
-        activation: str = 'sigmoid',
+        activation: str = 'softmax',
         init_weights_with: str = 'imagenet') -> kr.models.Model:
     """
     Get a model.
@@ -51,7 +51,7 @@ def get_model(
         input_height (int, optional): Height of the input images. Defaults to None.
         nb_channels (int, optional): Nb of channels/bands of the input images. Defaults to 3.
         nb_classes (int, optional): Nb of classes to be segmented to. Defaults to 1.
-        activation (Activation, optional): Activation function of last layer. Defaults to 'sigmoid'.
+        activation (Activation, optional): Activation function of last layer. Defaults to 'softmax'.
         init_weights_with (str, optional): Weights to init the network with. Defaults to 'imagenet'.
     
     Raises:
