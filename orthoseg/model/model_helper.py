@@ -21,7 +21,6 @@ logger = logging.getLogger(__name__)
 #-------------------------------------------------------------
 # The real work
 #-------------------------------------------------------------
-
 class ArchitectureParams:
 
     def __init__(
@@ -130,20 +129,28 @@ class TrainParams:
             self.earlystop_monitor_metric = self.monitor_metric
 
     def toJSON(self):
-        return json.dumps(self, default=lambda o: o.__dict__, 
-            sort_keys=True, indent=4)
+        return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
 
 class HyperParams:
+
     def __init__(
             self,
             architecture: ArchitectureParams,
             train: TrainParams):
+        """
+        Class to store the hyper parameters to use for the machine learning algorythm.
+            
+        Args:
+            architecture (ArchitectureParams): the fixed parameters that define the architecture of the 
+                neural network. When training a network, it is possible to reuse the 
+                weights of another network if these parameters are the same.
+            train (TrainParams): these are the parameters that can be changed with each training.
+        """
         self.architecture=architecture
         self.train=train
     
     def toJSON(self):
-        return json.dumps(self, default=lambda o: o.__dict__, 
-            sort_keys=True, indent=4)
+        return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
                 
 def get_max_data_version(model_dir: Path) -> int:
     """

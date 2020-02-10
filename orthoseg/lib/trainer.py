@@ -61,9 +61,7 @@ def train(
         model_save_dir: dir where (intermediate) best models will be saved
         segment_subject (str): segment subject 
         traindata_id (int): train data version
-        architecture_id (int): model architecture id
-        model_architecture (str): model architecture
-        train_params: train_params
+        hyperparams (mh.HyperParams): the hyper parameters to use for the model
         image_width: width the input images will be rescaled to for training
         image_height: height the input images will be rescaled to for training
         image_subdir: subdir where the images can be found in traindata_dir and validationdata_dir
