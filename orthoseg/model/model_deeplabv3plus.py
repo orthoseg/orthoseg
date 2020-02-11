@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 """ Deeplabv3+ model for Keras.
 
 Downloaded from: https://github.com/bonlime/keras-deeplab-v3-plus/blob/master/model.py
@@ -7,10 +6,6 @@ Downloaded from: https://github.com/bonlime/keras-deeplab-v3-plus/blob/master/mo
 This model is based on TF repo:
 https://github.com/tensorflow/models/tree/master/research/deeplab
 On Pascal VOC, original model gets to 84.56% mIOU
-
-Now this model is only available for the TensorFlow backend,
-due to its reliance on `SeparableConvolution` layers, but Theano will add
-this layer soon.
 
 MobileNetv2 backbone is based on this repo:
 https://github.com/JonathanCMitchell/mobilenet_v2_keras
@@ -22,96 +17,37 @@ https://github.com/JonathanCMitchell/mobilenet_v2_keras
     (https://arxiv.org/abs/1610.02357)
 - [Inverted Residuals and Linear Bottlenecks: Mobile Networks for
     Classification, Detection and Segmentation](https://arxiv.org/abs/1801.04381)
-
-TODO: review code and cleanup due to introduction of model factory
-
 """
 
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import numpy as np
+import tensorflow as tf
 
-from keras.models import Model
-from keras import layers
-from keras.layers import Input
-from keras.layers import Activation
-from keras.layers import Concatenate
-from keras.layers import Add
-from keras.layers import Dropout
-from keras.layers import BatchNormalization
-from keras.layers import Conv2D
-from keras.layers import DepthwiseConv2D
-from keras.layers import ZeroPadding2D
-from keras.layers import AveragePooling2D
-from keras.engine import Layer
-from keras.engine import InputSpec
-from keras.engine.topology import get_source_inputs
-from keras import backend as K
-from keras.applications import imagenet_utils
-from keras.utils import conv_utils
-from keras.utils.data_utils import get_file
-
-import keras as kr
+'''
+from tensorflow.keras import layers
+from tensorflow.keras.layers import Input
+from tensorflow.keras.layers import Lambda
+from tensorflow.keras.layers import Activation
+from tensorflow.keras.layers import Concatenate
+from tensorflow.keras.layers import Add
+from tensorflow.keras.layers import Dropout
+from tensorflow.keras.layers import BatchNormalization
+from tensorflow.keras.layers import Conv2D
+from tensorflow.keras.layers import DepthwiseConv2D
+from tensorflow.keras.layers import ZeroPadding2D
+from tensorflow.keras.layers import GlobalAveragePooling2D
+from tensorflow.keras.utils.layer_utils import get_source_inputs
+from tensorflow.keras.utils.data_utils import get_file
+from tensorflow.keras import backend as K
+from tensorflow.keras.applications.imagenet_utils import preprocess_input
+'''
 
 WEIGHTS_PATH_X = "https://github.com/bonlime/keras-deeplab-v3-plus/releases/download/1.1/deeplabv3_xception_tf_dim_ordering_tf_kernels.h5"
 WEIGHTS_PATH_MOBILE = "https://github.com/bonlime/keras-deeplab-v3-plus/releases/download/1.1/deeplabv3_mobilenetv2_tf_dim_ordering_tf_kernels.h5"
-
-
-class BilinearUpsampling(Layer):
-    """Just a simple bilinear upsampling layer. Works only with TF.
-       Args:
-           upsampling: tuple of 2 numbers > 0. The upsampling ratio for h and w
-           output_size: used instead of upsampling arg if passed!
-    """
-
-    def __init__(self, upsampling=(2, 2), output_size=None, data_format=None, **kwargs):
-
-        super(BilinearUpsampling, self).__init__(**kwargs)
-
-        self.data_format = K.normalize_data_format(data_format)
-        self.input_spec = InputSpec(ndim=4)
-        if output_size:
-            self.output_size = conv_utils.normalize_tuple(
-                output_size, 2, 'output_size')
-            self.upsampling = None
-        else:
-            self.output_size = None
-            self.upsampling = conv_utils.normalize_tuple(
-                upsampling, 2, 'upsampling')
-
-    def compute_output_shape(self, input_shape):
-        if self.upsampling:
-            height = self.upsampling[0] * \
-                input_shape[1] if input_shape[1] is not None else None
-            width = self.upsampling[1] * \
-                input_shape[2] if input_shape[2] is not None else None
-        else:
-            height = self.output_size[0]
-            width = self.output_size[1]
-        return (input_shape[0],
-                height,
-                width,
-                input_shape[3])
-
-    def call(self, inputs):
-        if self.upsampling:
-            return K.tf.image.resize_bilinear(inputs, (inputs.shape[1] * self.upsampling[0],
-                                                       inputs.shape[2] * self.upsampling[1]),
-                                              align_corners=True)
-        else:
-            return K.tf.image.resize_bilinear(inputs, (self.output_size[0],
-                                                       self.output_size[1]),
-                                              align_corners=True)
-
-    def get_config(self):
-        config = {'upsampling': self.upsampling,
-                  'output_size': self.output_size,
-                  'data_format': self.data_format}
-        base_config = super(BilinearUpsampling, self).get_config()
-        return dict(list(base_config.items()) + list(config.items()))
-
+WEIGHTS_PATH_X_CS = "https://github.com/bonlime/keras-deeplab-v3-plus/releases/download/1.2/deeplabv3_xception_tf_dim_ordering_tf_kernels_cityscapes.h5"
+WEIGHTS_PATH_MOBILE_CS = "https://github.com/bonlime/keras-deeplab-v3-plus/releases/download/1.2/deeplabv3_mobilenetv2_tf_dim_ordering_tf_kernels_cityscapes.h5"
 
 def SepConv_BN(x, filters, prefix, stride=1, kernel_size=3, rate=1, depth_activation=False, epsilon=1e-3):
     """ SepConv with BN between depthwise & pointwise. Optionally add activation after BN
@@ -134,21 +70,21 @@ def SepConv_BN(x, filters, prefix, stride=1, kernel_size=3, rate=1, depth_activa
         pad_total = kernel_size_effective - 1
         pad_beg = pad_total // 2
         pad_end = pad_total - pad_beg
-        x = ZeroPadding2D((pad_beg, pad_end))(x)
+        x = tf.keras.layers.ZeroPadding2D((pad_beg, pad_end))(x)
         depth_padding = 'valid'
 
     if not depth_activation:
-        x = Activation('relu')(x)
-    x = DepthwiseConv2D((kernel_size, kernel_size), strides=(stride, stride), dilation_rate=(rate, rate),
+        x = tf.keras.layers.Activation(tf.nn.relu)(x)
+    x = tf.keras.layers.DepthwiseConv2D((kernel_size, kernel_size), strides=(stride, stride), dilation_rate=(rate, rate),
                         padding=depth_padding, use_bias=False, name=prefix + '_depthwise')(x)
-    x = BatchNormalization(name=prefix + '_depthwise_BN', epsilon=epsilon)(x)
+    x = tf.keras.layers.BatchNormalization(name=prefix + '_depthwise_BN', epsilon=epsilon)(x)
     if depth_activation:
-        x = Activation('relu')(x)
-    x = Conv2D(filters, (1, 1), padding='same',
+        x = tf.keras.layers.Activation(tf.nn.relu)(x)
+    x = tf.keras.layers.Conv2D(filters, (1, 1), padding='same',
                use_bias=False, name=prefix + '_pointwise')(x)
-    x = BatchNormalization(name=prefix + '_pointwise_BN', epsilon=epsilon)(x)
+    x = tf.keras.layers.BatchNormalization(name=prefix + '_pointwise_BN', epsilon=epsilon)(x)
     if depth_activation:
-        x = Activation('relu')(x)
+        x = tf.keras.layers.Activation(tf.nn.relu)(x)
 
     return x
 
@@ -165,7 +101,7 @@ def _conv2d_same(x, filters, prefix, stride=1, kernel_size=3, rate=1):
             rate: atrous rate for depthwise convolution
     """
     if stride == 1:
-        return Conv2D(filters,
+        return tf.keras.layers.Conv2D(filters,
                       (kernel_size, kernel_size),
                       strides=(stride, stride),
                       padding='same', use_bias=False,
@@ -176,8 +112,8 @@ def _conv2d_same(x, filters, prefix, stride=1, kernel_size=3, rate=1):
         pad_total = kernel_size_effective - 1
         pad_beg = pad_total // 2
         pad_end = pad_total - pad_beg
-        x = ZeroPadding2D((pad_beg, pad_end))(x)
-        return Conv2D(filters,
+        x = tf.keras.layers.ZeroPadding2D((pad_beg, pad_end))(x)
+        return tf.keras.layers.Conv2D(filters,
                       (kernel_size, kernel_size),
                       strides=(stride, stride),
                       padding='valid', use_bias=False,
@@ -212,20 +148,16 @@ def _xception_block(inputs, depth_list, prefix, skip_connection_type, stride,
         shortcut = _conv2d_same(inputs, depth_list[-1], prefix + '_shortcut',
                                 kernel_size=1,
                                 stride=stride)
-        shortcut = BatchNormalization(name=prefix + '_shortcut_BN')(shortcut)
-        outputs = layers.add([residual, shortcut])
+        shortcut = tf.keras.layers.BatchNormalization(name=prefix + '_shortcut_BN')(shortcut)
+        outputs = tf.keras.layers.add([residual, shortcut])
     elif skip_connection_type == 'sum':
-        outputs = layers.add([residual, inputs])
+        outputs = tf.keras.layers.add([residual, inputs])
     elif skip_connection_type == 'none':
         outputs = residual
     if return_skip:
         return outputs, skip
     else:
         return outputs
-
-
-def relu6(x):
-    return K.relu(x, max_value=6)
 
 
 def _make_divisible(v, divisor, min_value=None):
@@ -239,7 +171,7 @@ def _make_divisible(v, divisor, min_value=None):
 
 
 def _inverted_res_block(inputs, expansion, stride, alpha, filters, block_id, skip_connection, rate=1):
-    in_channels = inputs._keras_shape[-1]
+    in_channels = inputs.shape[-1].value  # inputs._keras_shape[-1]
     pointwise_conv_filters = int(filters * alpha)
     pointwise_filters = _make_divisible(pointwise_conv_filters, 8)
     x = inputs
@@ -247,56 +179,57 @@ def _inverted_res_block(inputs, expansion, stride, alpha, filters, block_id, ski
     if block_id:
         # Expand
 
-        x = Conv2D(expansion * in_channels, kernel_size=1, padding='same',
+        x = tf.keras.layers.Conv2D(expansion * in_channels, kernel_size=1, padding='same',
                    use_bias=False, activation=None,
                    name=prefix + 'expand')(x)
-        x = BatchNormalization(epsilon=1e-3, momentum=0.999,
+        x = tf.keras.layers.BatchNormalization(epsilon=1e-3, momentum=0.999,
                                name=prefix + 'expand_BN')(x)
-        x = Activation(relu6, name=prefix + 'expand_relu')(x)
+        x = tf.keras.layers.Activation(tf.nn.relu6, name=prefix + 'expand_relu')(x)
     else:
         prefix = 'expanded_conv_'
     # Depthwise
-    x = DepthwiseConv2D(kernel_size=3, strides=stride, activation=None,
+    x = tf.keras.layers.DepthwiseConv2D(kernel_size=3, strides=stride, activation=None,
                         use_bias=False, padding='same', dilation_rate=(rate, rate),
                         name=prefix + 'depthwise')(x)
-    x = BatchNormalization(epsilon=1e-3, momentum=0.999,
+    x = tf.keras.layers.BatchNormalization(epsilon=1e-3, momentum=0.999,
                            name=prefix + 'depthwise_BN')(x)
 
-    x = Activation(relu6, name=prefix + 'depthwise_relu')(x)
+    x = tf.keras.layers.Activation(tf.nn.relu6, name=prefix + 'depthwise_relu')(x)
 
     # Project
-    x = Conv2D(pointwise_filters,
+    x = tf.keras.layers.Conv2D(pointwise_filters,
                kernel_size=1, padding='same', use_bias=False, activation=None,
                name=prefix + 'project')(x)
-    x = BatchNormalization(epsilon=1e-3, momentum=0.999,
+    x = tf.keras.layers.BatchNormalization(epsilon=1e-3, momentum=0.999,
                            name=prefix + 'project_BN')(x)
 
     if skip_connection:
-        return Add(name=prefix + 'add')([inputs, x])
+        return tf.keras.layers.Add(name=prefix + 'add')([inputs, x])
 
     # if in_channels == pointwise_filters and stride == 1:
-    #    return Add(name='res_connect_' + str(block_id))([inputs, x])
+    #    return tf.keras.layers.Add(name='res_connect_' + str(block_id))([inputs, x])
 
     return x
 
 
-def Deeplabv3(weights='pascal_voc', input_tensor=None, input_shape=(512, 512, 3), classes=21, backbone='mobilenetv2', OS=16, alpha=1.):
+def Deeplabv3(weights='pascal_voc', input_tensor=None, input_shape=(512, 512, 3), classes=21, backbone='mobilenetv2',
+              OS=16, alpha=1., activation=None):
     """ Instantiates the Deeplabv3+ architecture
 
     Optionally loads weights pre-trained
-    on PASCAL VOC. This model is available for TensorFlow only,
-    and can only be used with inputs following the TensorFlow
-    data format `(width, height, channels)`.
+    on PASCAL VOC or Cityscapes. This model is available for TensorFlow only.
     # Arguments
-        weights: one of 'pascal_voc' (pre-trained on pascal voc)
-            or None (random initialization)
+        weights: one of 'pascal_voc' (pre-trained on pascal voc),
+            'cityscapes' (pre-trained on cityscape) or None (random initialization)
         input_tensor: optional Keras tensor (i.e. output of `layers.Input()`)
             to use as image input for the model.
         input_shape: shape of input image. format HxWxC
-            PASCAL VOC model was trained on (512,512,3) images
-        classes: number of desired classes. If classes != 21,
-            last layer is initialized randomly
+            PASCAL VOC model was trained on (512,512,3) images. None is allowed as shape/width
+        classes: number of desired classes. PASCAL VOC has 21 classes, Cityscapes has 19 classes.
+            If number of classes not aligned with the weights used, last layer is initialized randomly
         backbone: backbone to use. one of {'xception','mobilenetv2'}
+        activation: optional activation to add to the top of the network.
+            One of 'softmax', 'sigmoid' or None
         OS: determines input_shape/feature_extractor_output ratio. One of {8,16}.
             Used only for xception backbone.
         alpha: controls the width of the MobileNetV2 network. This is known as the
@@ -307,7 +240,7 @@ def Deeplabv3(weights='pascal_voc', input_tensor=None, input_shape=(512, 512, 3)
                     of filters in each layer.
                 - If `alpha` = 1, default number of filters from the paper
                     are used at each layer.
-            Used only for mobilenetv2 backbone
+            Used only for mobilenetv2 backbone. Pretrained is only available for alpha=1.
 
     # Returns
         A Keras model instance.
@@ -319,26 +252,19 @@ def Deeplabv3(weights='pascal_voc', input_tensor=None, input_shape=(512, 512, 3)
 
     """
 
-    if not (weights in {'pascal_voc', None}):
+    if not (weights in {'pascal_voc', 'cityscapes', None}):
         raise ValueError('The `weights` argument should be either '
-                         '`None` (random initialization) or `pascal_voc` '
+                         '`None` (random initialization), `pascal_voc`, or `cityscapes` '
                          '(pre-trained on PASCAL VOC)')
-
-    if K.backend() != 'tensorflow':
-        raise RuntimeError('The Deeplabv3+ model is only available with '
-                           'the TensorFlow backend.')
 
     if not (backbone in {'xception', 'mobilenetv2'}):
         raise ValueError('The `backbone` argument should be either '
                          '`xception`  or `mobilenetv2` ')
 
     if input_tensor is None:
-        img_input = Input(shape=input_shape)
+        img_input = tf.keras.layers.Input(shape=input_shape)
     else:
-        if not K.is_keras_tensor(input_tensor):
-            img_input = Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
+        img_input = input_tensor
 
     if backbone == 'xception':
         if OS == 8:
@@ -352,14 +278,14 @@ def Deeplabv3(weights='pascal_voc', input_tensor=None, input_shape=(512, 512, 3)
             exit_block_rates = (1, 2)
             atrous_rates = (6, 12, 18)
 
-        x = Conv2D(32, (3, 3), strides=(2, 2),
+        x = tf.keras.layers.Conv2D(32, (3, 3), strides=(2, 2),
                    name='entry_flow_conv1_1', use_bias=False, padding='same')(img_input)
-        x = BatchNormalization(name='entry_flow_conv1_1_BN')(x)
-        x = Activation('relu')(x)
+        x = tf.keras.layers.BatchNormalization(name='entry_flow_conv1_1_BN')(x)
+        x = tf.keras.layers.Activation(tf.nn.relu)(x)
 
         x = _conv2d_same(x, 64, 'entry_flow_conv1_2', kernel_size=3, stride=1)
-        x = BatchNormalization(name='entry_flow_conv1_2_BN')(x)
-        x = Activation('relu')(x)
+        x = tf.keras.layers.BatchNormalization(name='entry_flow_conv1_2_BN')(x)
+        x = tf.keras.layers.Activation(tf.nn.relu)(x)
 
         x = _xception_block(x, [128, 128, 128], 'entry_flow_block1',
                             skip_connection_type='conv', stride=2,
@@ -386,13 +312,13 @@ def Deeplabv3(weights='pascal_voc', input_tensor=None, input_shape=(512, 512, 3)
     else:
         OS = 8
         first_block_filters = _make_divisible(32 * alpha, 8)
-        x = Conv2D(first_block_filters,
+        x = tf.keras.layers.Conv2D(first_block_filters,
                    kernel_size=3,
                    strides=(2, 2), padding='same',
                    use_bias=False, name='Conv')(img_input)
-        x = BatchNormalization(
+        x = tf.keras.layers.BatchNormalization(
             epsilon=1e-3, momentum=0.999, name='Conv_BN')(x)
-        x = Activation(relu6, name='Conv_Relu6')(x)
+        x = tf.keras.layers.Activation(tf.nn.relu6, name='Conv_Relu6')(x)
 
         x = _inverted_res_block(x, filters=16, alpha=alpha, stride=1,
                                 expansion=1, block_id=0, skip_connection=False)
@@ -441,18 +367,23 @@ def Deeplabv3(weights='pascal_voc', input_tensor=None, input_shape=(512, 512, 3)
     # branching for Atrous Spatial Pyramid Pooling
 
     # Image Feature branch
-    #out_shape = int(np.ceil(input_shape[0] / OS))
-    b4 = AveragePooling2D(pool_size=(int(np.ceil(input_shape[0] / OS)), int(np.ceil(input_shape[1] / OS))))(x)
-    b4 = Conv2D(256, (1, 1), padding='same',
+    shape_before = tf.shape(x)
+    b4 = tf.keras.layers.GlobalAveragePooling2D()(x)
+    # from (b_size, channels)->(b_size, 1, 1, channels)
+    b4 = tf.keras.layers.Lambda(lambda x: tf.keras.backend.expand_dims(x, 1))(b4)
+    b4 = tf.keras.layers.Lambda(lambda x: tf.keras.backend.expand_dims(x, 1))(b4)
+    b4 = tf.keras.layers.Conv2D(256, (1, 1), padding='same',
                 use_bias=False, name='image_pooling')(b4)
-    b4 = BatchNormalization(name='image_pooling_BN', epsilon=1e-5)(b4)
-    b4 = Activation('relu')(b4)
-    b4 = BilinearUpsampling((int(np.ceil(input_shape[0] / OS)), int(np.ceil(input_shape[1] / OS))))(b4)
-
+    b4 = tf.keras.layers.BatchNormalization(name='image_pooling_BN', epsilon=1e-5)(b4)
+    b4 = tf.keras.layers.Activation(tf.nn.relu)(b4)
+    # upsample. have to use compat because of the option align_corners
+    size_before = tf.keras.backend.int_shape(x)
+    b4 = tf.keras.layers.Lambda(lambda x: tf.compat.v1.image.resize(x, size_before[1:3],
+                                                    method='bilinear', align_corners=True))(b4)
     # simple 1x1
-    b0 = Conv2D(256, (1, 1), padding='same', use_bias=False, name='aspp0')(x)
-    b0 = BatchNormalization(name='aspp0_BN', epsilon=1e-5)(b0)
-    b0 = Activation('relu', name='aspp0_activation')(b0)
+    b0 = tf.keras.layers.Conv2D(256, (1, 1), padding='same', use_bias=False, name='aspp0')(x)
+    b0 = tf.keras.layers.BatchNormalization(name='aspp0_BN', epsilon=1e-5)(b0)
+    b0 = tf.keras.layers.Activation(tf.nn.relu, name='aspp0_activation')(b0)
 
     # there are only 2 branches in mobilenetV2. not sure why
     if backbone == 'xception':
@@ -467,68 +398,96 @@ def Deeplabv3(weights='pascal_voc', input_tensor=None, input_shape=(512, 512, 3)
                         rate=atrous_rates[2], depth_activation=True, epsilon=1e-5)
 
         # concatenate ASPP branches & project
-        x = Concatenate()([b4, b0, b1, b2, b3])
+        x = tf.keras.layers.Concatenate()([b4, b0, b1, b2, b3])
     else:
-        x = Concatenate()([b4, b0])
+        x = tf.keras.layers.Concatenate()([b4, b0])
 
-    x = Conv2D(256, (1, 1), padding='same',
+    x = tf.keras.layers.Conv2D(256, (1, 1), padding='same',
                use_bias=False, name='concat_projection')(x)
-    x = BatchNormalization(name='concat_projection_BN', epsilon=1e-5)(x)
-    x = Activation('relu')(x)
-    x = Dropout(0.1)(x)
-
+    x = tf.keras.layers.BatchNormalization(name='concat_projection_BN', epsilon=1e-5)(x)
+    x = tf.keras.layers.Activation(tf.nn.relu)(x)
+    x = tf.keras.layers.Dropout(0.1)(x)
     # DeepLab v.3+ decoder
 
     if backbone == 'xception':
         # Feature projection
         # x4 (x2) block
-        x = BilinearUpsampling(output_size=(int(np.ceil(input_shape[0] / 4)),
-                                            int(np.ceil(input_shape[1] / 4))))(x)
-        dec_skip1 = Conv2D(48, (1, 1), padding='same',
+        size_before2 = tf.keras.backend.int_shape(x)
+        x = tf.keras.layers.Lambda(lambda xx: tf.compat.v1.image.resize(xx,
+                                                        skip1.shape[1:3],
+                                                        method='bilinear', align_corners=True))(x)
+
+        dec_skip1 = tf.keras.layers.Conv2D(48, (1, 1), padding='same',
                            use_bias=False, name='feature_projection0')(skip1)
-        dec_skip1 = BatchNormalization(
+        dec_skip1 = tf.keras.layers.BatchNormalization(
             name='feature_projection0_BN', epsilon=1e-5)(dec_skip1)
-        dec_skip1 = Activation('relu')(dec_skip1)
-        x = Concatenate()([x, dec_skip1])
+        dec_skip1 = tf.keras.layers.Activation(tf.nn.relu)(dec_skip1)
+        x = tf.keras.layers.Concatenate()([x, dec_skip1])
         x = SepConv_BN(x, 256, 'decoder_conv0',
                        depth_activation=True, epsilon=1e-5)
         x = SepConv_BN(x, 256, 'decoder_conv1',
                        depth_activation=True, epsilon=1e-5)
 
     # you can use it with arbitary number of classes
-    if classes == 21:
+    if (weights == 'pascal_voc' and classes == 21) or (weights == 'cityscapes' and classes == 19):
         last_layer_name = 'logits_semantic'
     else:
         last_layer_name = 'custom_logits_semantic'
 
-    x = Conv2D(classes, (1, 1), padding='same', name=last_layer_name)(x)
-    x = BilinearUpsampling(output_size=(input_shape[0], input_shape[1]))(x)
+    x = tf.keras.layers.Conv2D(classes, (1, 1), padding='same', name=last_layer_name)(x)
+    size_before3 = tf.keras.backend.int_shape(img_input)
+    x = tf.keras.layers.Lambda(lambda xx: tf.compat.v1.image.resize(xx,
+                                                    size_before3[1:3],
+                                                    method='bilinear', align_corners=True))(x)
 
     # Ensure that the model takes into account
     # any potential predecessors of `input_tensor`.
     if input_tensor is not None:
-        inputs = get_source_inputs(input_tensor)
+        inputs = tf.keras.utils.layer_utils.get_source_inputs(input_tensor)
     else:
         inputs = img_input
 
-    model = Model(inputs, x, name='deeplabv3plus')
+    if activation in {'softmax', 'sigmoid'}:
+        x = tf.keras.layers.Activation(activation)(x)
+
+    model = tf.keras.Model(inputs, x, name='deeplabv3plus')
 
     # load weights
 
     if weights == 'pascal_voc':
         if backbone == 'xception':
-            weights_path = get_file('deeplabv3_xception_tf_dim_ordering_tf_kernels.h5',
+            weights_path = tf.keras.utils.layer_utils.get_file('deeplabv3_xception_tf_dim_ordering_tf_kernels.h5',
                                     WEIGHTS_PATH_X,
                                     cache_subdir='models')
         else:
-            weights_path = get_file('deeplabv3_mobilenetv2_tf_dim_ordering_tf_kernels.h5',
+            weights_path = tf.keras.utils.layer_utils.get_file('deeplabv3_mobilenetv2_tf_dim_ordering_tf_kernels.h5',
                                     WEIGHTS_PATH_MOBILE,
+                                    cache_subdir='models')
+        model.load_weights(weights_path, by_name=True)
+    elif weights == 'cityscapes':
+        if backbone == 'xception':
+            weights_path = tf.keras.utils.layer_utils.get_file('deeplabv3_xception_tf_dim_ordering_tf_kernels_cityscapes.h5',
+                                    WEIGHTS_PATH_X_CS,
+                                    cache_subdir='models')
+        else:
+            weights_path = tf.keras.utils.layer_utils.get_file('deeplabv3_mobilenetv2_tf_dim_ordering_tf_kernels_cityscapes.h5',
+                                    WEIGHTS_PATH_MOBILE_CS,
                                     cache_subdir='models')
         model.load_weights(weights_path, by_name=True)
     return model
 
-def get_model(input_width=256, input_height=256, n_channels=3,
-              n_classes=1,
+def preprocess_input(x):
+    """Preprocesses a numpy array encoding a batch of images.
+    # Arguments
+        x: a 4D numpy array consists of RGB values within [0, 255].
+    # Returns
+        Input array scaled to [-1.,1.]
+    """
+    return tf.keras.applications.imagenet_utils.preprocess_input(x, mode='tf')
+
+
+def get_model(input_width=256, input_height=256, nb_channels=3,
+              nb_classes=1,
               loss_mode='binary_crossentropy', learning_rate=0.0001,
               init_model_weights: bool = False, 
               pretrained_weights_filepath: str = None):
@@ -539,26 +498,18 @@ def get_model(input_width=256, input_height=256, n_channels=3,
     
     model = Deeplabv3(weights=weights_to_use, 
                      input_tensor=None, 
-                     input_shape=(input_width, input_height, n_channels), 
-                     classes=n_classes, 
+                     input_shape=(input_width, input_height, nb_channels), 
+                     classes=nb_classes, 
                      backbone='xception', 
                      OS=16, 
                      alpha=1.)
     
-    model.compile(optimizer=kr.optimizers.Adam(lr=learning_rate), loss=loss_mode,
+    model.compile(optimizer=tf.keras.optimizers.Adam(lr=learning_rate), loss=loss_mode,
                   metrics=[jaccard_coef, jacard_coef_flat,
                            jaccard_coef_int, dice_coef, 'accuracy'])
     
     return model
 
-def preprocess_input(x):
-    """Preprocesses a numpy array encoding a batch of images.
-    # Arguments
-        x: a 4D numpy array consists of RGB values within [0, 255].
-    # Returns
-        Input array scaled to [-1.,1.]
-    """
-    return imagenet_utils.preprocess_input(x, mode='tf')
 
 #------------------------------------------
 # Metrics functions
@@ -567,37 +518,37 @@ def preprocess_input(x):
 SMOOTH_LOSS = 1e-12
 
 def jaccard_coef(y_true, y_pred):
-    intersection = kr.backend.sum(y_true * y_pred, axis=[0, -1, -2])
-    sum_ = kr.backend.sum(y_true + y_pred, axis=[0, -1, -2])
+    intersection = tf.keras.backend.sum(y_true * y_pred, axis=[0, -1, -2])
+    sum_ = tf.keras.backend.sum(y_true + y_pred, axis=[0, -1, -2])
 
     jac = (intersection + SMOOTH_LOSS) / (sum_ - intersection + SMOOTH_LOSS)
 
-    return kr.backend.mean(jac)
+    return tf.keras.backend.mean(jac)
 
 def jaccard_coef_int(y_true, y_pred):
-    y_pred_pos = kr.backend.round(kr.backend.clip(y_pred, 0, 1))
+    y_pred_pos = tf.keras.backend.round(tf.keras.backend.clip(y_pred, 0, 1))
 
-    intersection = kr.backend.sum(y_true * y_pred_pos, axis=[0, -1, -2])
-    sum_ = kr.backend.sum(y_true + y_pred_pos, axis=[0, -1, -2])
+    intersection = tf.keras.backend.sum(y_true * y_pred_pos, axis=[0, -1, -2])
+    sum_ = tf.keras.backend.sum(y_true + y_pred_pos, axis=[0, -1, -2])
     jac = (intersection + SMOOTH_LOSS) / (sum_ - intersection + SMOOTH_LOSS)
-    return kr.backend.mean(jac)
+    return tf.keras.backend.mean(jac)
 
 def jacard_coef_flat(y_true, y_pred):
-    y_true_f = kr.backend.flatten(y_true)
-    y_pred_f = kr.backend.flatten(y_pred)
-    intersection = kr.backend.sum(y_true_f * y_pred_f)
-    return (intersection + SMOOTH_LOSS) / (kr.backend.sum(y_true_f) + kr.backend.sum(y_pred_f) - intersection + SMOOTH_LOSS)
+    y_true_f = tf.keras.backend.flatten(y_true)
+    y_pred_f = tf.keras.backend.flatten(y_pred)
+    intersection = tf.keras.backend.sum(y_true_f * y_pred_f)
+    return (intersection + SMOOTH_LOSS) / (tf.keras.backend.sum(y_true_f) + tf.keras.backend.sum(y_pred_f) - intersection + SMOOTH_LOSS)
 
 def dice_coef(y_true, y_pred, smooth=1.0):
-    y_true_f = kr.backend.flatten(y_true)
-    y_pred_f = kr.backend.flatten(y_pred)
-    intersection = kr.backend.sum(y_true_f * y_pred_f)
-    return (2. * intersection + smooth) / (kr.backend.sum(y_true_f) + kr.backend.sum(y_pred_f) + smooth)
+    y_true_f = tf.keras.backend.flatten(y_true)
+    y_pred_f = tf.keras.backend.flatten(y_pred)
+    intersection = tf.keras.backend.sum(y_true_f * y_pred_f)
+    return (2. * intersection + smooth) / (tf.keras.backend.sum(y_true_f) + tf.keras.backend.sum(y_pred_f) + smooth)
 
 def pct_wrong(y_true, y_pred):
-    y_pred_pos = kr.backend.round(kr.backend.clip(y_pred, 0, 1))
+    y_pred_pos = tf.keras.backend.round(tf.keras.backend.clip(y_pred, 0, 1))
 
-    intersection = kr.backend.sum(y_true * y_pred_pos, axis=[0, -1, -2])
-    sum_ = kr.backend.sum(y_true + y_pred_pos, axis=[0, -1, -2])
+    intersection = tf.keras.backend.sum(y_true * y_pred_pos, axis=[0, -1, -2])
+    sum_ = tf.keras.backend.sum(y_true + y_pred_pos, axis=[0, -1, -2])
     jac = (intersection + SMOOTH_LOSS) / (sum_ - intersection + SMOOTH_LOSS)
-    return kr.backend.mean(jac)
+    return tf.keras.backend.mean(jac)

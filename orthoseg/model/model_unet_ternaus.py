@@ -3,26 +3,25 @@
 Unet code based on https://github.com/ternaus/kaggle_dstl_submission/tree/master/src
 
 TODO: review code and cleanup due to introduction of model factory
-
-@author: Pieter Roggemans
 """
 
 from __future__ import division
 
 import numpy as np
-import keras as kr
+import tensorflow as tf
+import tensorflow.keras as kr
 
 #from keras.models import Model
-from keras.layers import Input, merge, Convolution2D, MaxPooling2D, UpSampling2D, Cropping2D
+from tensorflow.keras.layers import Input, merge, Convolution2D, MaxPooling2D, UpSampling2D, Cropping2D
 
-from keras import backend as K
+from tensorflow.keras import backend as K
 
 import h5py
 
-from keras.optimizers import Nadam
-from keras.callbacks import History
+from tensorflow.keras.optimizers import Nadam
+from tensorflow.keras.callbacks import History
 import pandas as pd
-from keras.backend import binary_crossentropy
+from tensorflow.keras.backend import binary_crossentropy
 
 import datetime
 import os
@@ -30,7 +29,7 @@ import os
 import random
 import threading
 
-from keras.models import model_from_json
+from tensorflow.keras.models import model_from_json
 
 '''
 img_rows = 112          # -> renamed to input_height

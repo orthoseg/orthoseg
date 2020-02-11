@@ -69,14 +69,20 @@ def get_model(
     decoder = segment_architecture_parts[1]
 
     if decoder.lower() == 'deeplabv3plus':
-        import models.model_deeplabv3plus as m
+        logger.warn(f"Architecture {architecture} not tested in a long time, so use at own risk")
+        import orthoseg.model.model_deeplabv3plus as m
+        if init_weights_with is not None:
+            init_weights = True
+        else:
+            init_weights = False
         return m.get_model(input_width=input_width, input_height=input_height,
                            nb_channels=nb_channels, nb_classes=nb_classes,
-                           init_model_weights=init_weights_with)
+                           init_model_weights=init_weights)
     elif decoder.lower() == 'unet':
         # These two unet variants are implemented in a seperate module
         if encoder.lower() == 'standard':
-            import models.model_unet_standard as m
+            logger.warn(f"Architecture {architecture} not tested in a long time, so use at own risk")
+            import orthoseg.model.model_unet_standard as m
             if init_weights_with is not None:
                 init_weights = True
             else:
@@ -85,7 +91,8 @@ def get_model(
                                nb_channels=nb_channels, nb_classes=nb_classes,
                                init_model_weights=init_weights)
         elif encoder.lower() == 'ternaus':
-            import models.model_unet_ternaus as m
+            logger.warn(f"Architecture {architecture} not tested in a long time, so use at own risk")
+            import orthoseg.model.model_unet_ternaus as m
             if init_weights_with is not None:
                 init_weights = True
             else:
