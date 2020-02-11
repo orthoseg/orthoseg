@@ -78,9 +78,7 @@ def train(
         if dir and not dir.exists():
             dir.mkdir()
     
-    # If the training data doesn't exist yet, create it
-    # Get the config needeed
-
+    ##### If the training data doesn't exist yet, create it #####
     # Get the label input info, and clean it so it is practical to use
     label_files = conf.train.getdict('label_datasources')
     for label_file_key in label_files:
@@ -94,10 +92,7 @@ def train(
     train_projection = conf.image_layers[train_image_layer]['projection']
     label_names_burn_values = conf.train.getdict('label_names_burn_values')
 
-    # Number classes = label_names + 1 class for the background!
-    nb_classes = len(label_names_burn_values) + 1
-
-    # First the "train" training dataset
+    # Now create the train datasets (train, validation, test)
     force_model_traindata_id = conf.train.getint('force_model_traindata_id')
     if force_model_traindata_id > -1:
         training_dir = conf.dirs.getpath('training_train_basedir') / f"{force_model_traindata_id:02d}"
@@ -114,23 +109,46 @@ def train(
                 image_pixel_width=conf.train.getint('image_pixel_width'),
                 image_pixel_height=conf.train.getint('image_pixel_height'))
     logger.info(f"Traindata dir to use is {training_dir}, with traindata_id: {traindata_id}")
-
     traindata_dir = training_dir / 'train'
     validationdata_dir = training_dir / 'validation'
     testdata_dir = training_dir / 'test'
     
-    # Get the best model that already exists for this train dataset
+    ##### Check if training is needed #####
+    # Get hyper parameters from the config
+    # Remark: * nb_classes = label_names + 1 class for the background!
+    architectureparams = mh.ArchitectureParams(
+            architecture=conf.model['architecture'],
+            nb_classes=(len(label_names_burn_values) + 1),   
+            nb_channels=conf.model.getint('nb_channels'),
+            architecture_id=conf.model.getint('architecture_id'))
+    trainparams = mh.TrainParams(
+            trainparams_id=conf.train.getint('trainparams_id'),
+            image_augmentations=conf.train.getdict('image_augmentations'),
+            mask_augmentations=conf.train.getdict('mask_augmentations'),
+            class_weights=conf.train.getlistfloat('class_weights'),
+            batch_size=conf.train.getint('batch_size_fit'), 
+            optimizer=conf.train.get('optimizer'), 
+            optimizer_params=conf.train.getdict('optimizer_params'), 
+            loss_function=conf.train.get('loss_function'), 
+            monitor_metric=conf.train.get('monitor_metric'), 
+            monitor_metric_mode=conf.train.get('monitor_metric_mode'), 
+            save_format=conf.train.get('save_format'), 
+            save_best_only=conf.train.getboolean('save_best_only'), 
+            nb_epoch=conf.train.getint('max_epoch'),
+            earlystop_patience=conf.train.getint('earlystop_patience'),
+            earlystop_monitor_metric=conf.train.get('earlystop_monitor_metric'))
+
+    # Check if there exists already a model for this train dataset + hyperparameters
     model_dir = conf.dirs.getpath('model_dir')
     segment_subject = conf.general['segment_subject']
-    model_architecture = conf.model['architecture']
-    trainparams_id = conf.train.getint('trainparams_id')
     best_model_curr_train_version = mh.get_best_model(
             model_dir=model_dir, 
             segment_subject=segment_subject,
             traindata_id=traindata_id,
-            trainparams_id=trainparams_id)
+            architecture_id=architectureparams.architecture_id,
+            trainparams_id=trainparams.trainparams_id)
 
-    # Check if training is needed
+    # Determine if training is needed,...
     resume_train = conf.train.getboolean('resume_train')
     if resume_train is False:
         # If no (best) model found, training needed!
@@ -151,7 +169,7 @@ def train(
             logger.error(message)
             raise Exception(message)
     
-    # If training is needed
+    ##### Train!!! #####
     if train_needed is True:
 
         # If a model already exists, use it to predict (possibly new) training and 
@@ -194,7 +212,6 @@ def train(
         
         # Now we can really start training
         logger.info('Start training')
-
         model_preload_filepath = None
         if best_model_curr_train_version is not None:
             model_preload_filepath = best_model_curr_train_version['filepath']
@@ -206,20 +223,7 @@ def train(
             if best_model_for_architecture is not None:
                 model_preload_filepath = best_model_for_architecture['filepath']
         
-        trainparams = mh.TrainParams(
-                image_augmentations=conf.train.getdict('image_augmentations'),
-                mask_augmentations=conf.train.getdict('mask_augmentations'),
-                trainparams_id=trainparams_id,
-                class_weights=conf.train.getlistfloat('class_weights'),
-                batch_size=conf.train.getint('batch_size_fit'), 
-                nb_epoch=conf.train.getint('max_epoch'))
-        
-        architectureparams = mh.ArchitectureParams(
-                architecture=model_architecture,
-                nb_classes=nb_classes,
-                nb_channels=conf.model.getint('nb_channels'),
-                architecture_id=conf.model.getint('architecture_id'))
-
+        # Combine all hyperparameters in hyperparams object
         hyperparams = mh.HyperParams(
                 architecture=architectureparams,
                 train=trainparams)

@@ -447,8 +447,22 @@ class ModelCheckpointExt(kr.callbacks.Callback):
         self.only_report = only_report
         
     def on_epoch_end(self, epoch, logs={}):
-        logger.debug("Start in callback on_epoch_begin")
+        logger.debug(f"Start in callback on_epoch_begin, logs contains: {logs}")
         
+        # First determine the values of the monitor metric for train and validation
+        # If the monitor_metric doesn't contain placeholder, it is easy
+        if '{' not in self.monitor_metric:
+            new_model_monitor_train = logs.get(self.monitor_metric)
+            new_model_monitor_val = logs.get('val_' + self.monitor_metric)
+        else:
+            # There are placeholders, so we need some more logic
+            monitor_metric_train_formatted = self.monitor_metric.format(**logs)
+            new_model_monitor_train = eval(monitor_metric_train_formatted, {}, {})
+
+            monitor_metric_val_formatted = self.monitor_metric.replace('{', '{val_').format(**logs)
+            new_model_monitor_val = eval(monitor_metric_val_formatted, {}, {})
+            
+        # Now we can save and clean models
         save_and_clean_models(
                 model_save_dir=self.model_save_dir,
                 segment_subject=self.segment_subject,
@@ -457,8 +471,8 @@ class ModelCheckpointExt(kr.callbacks.Callback):
                 trainparams_id=self.trainparams_id,
                 monitor_metric_mode=self.monitor_metric_mode,
                 new_model=self.model,
-                new_model_monitor_train=logs.get(self.monitor_metric),
-                new_model_monitor_val=logs.get('val_' + self.monitor_metric),
+                new_model_monitor_train=new_model_monitor_train,
+                new_model_monitor_val=new_model_monitor_val,
                 new_model_epoch=epoch,
                 save_format=self.save_format,
                 save_best_only=self.save_best_only,          
