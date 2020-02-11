@@ -198,6 +198,7 @@ def train(
             monitor_metric_mode=hyperparams.train.monitor_metric_mode,
             save_format=hyperparams.train.save_format,
             save_best_only=hyperparams.train.save_best_only,
+            save_min_accuracy=hyperparams.train.save_min_accuracy,
             model_template_for_save=model_template_for_save)
 
     # Callbacks for logging
@@ -238,6 +239,8 @@ def train(
     hyperparams_filepath.write_text(hyperparams.toJSON())
 
     try:
+        # Eager seems to be 50% slower
+        model_for_train.run_eagerly = False
         model_for_train.fit(
                 train_gen, 
                 steps_per_epoch=train_steps_per_epoch, 

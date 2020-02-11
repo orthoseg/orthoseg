@@ -90,7 +90,7 @@ def train(
     first_label_file = list(label_files)[0]
     train_image_layer = label_files[first_label_file]['image_layer']
     train_projection = conf.image_layers[train_image_layer]['projection']
-    label_names_burn_values = conf.train.getdict('label_names_burn_values')
+    classes = conf.train.getdict('classes')
 
     # Now create the train datasets (train, validation, test)
     force_model_traindata_id = conf.train.getint('force_model_traindata_id')
@@ -101,7 +101,7 @@ def train(
         logger.info("Prepare train, validation and test data")
         training_dir, traindata_id = prep.prepare_traindatasets(
                 label_files=label_files,
-                label_names_burn_values=label_names_burn_values,
+                classes=classes,
                 image_layers=conf.image_layers,
                 training_dir=conf.dirs.getpath('training_dir'),
                 image_pixel_x_size=conf.train.getfloat('image_pixel_x_size'),
@@ -115,17 +115,16 @@ def train(
     
     ##### Check if training is needed #####
     # Get hyper parameters from the config
-    # Remark: * nb_classes = label_names + 1 class for the background!
     architectureparams = mh.ArchitectureParams(
             architecture=conf.model['architecture'],
-            nb_classes=(len(label_names_burn_values) + 1),   
+            nb_classes=len(classes),   
             nb_channels=conf.model.getint('nb_channels'),
             architecture_id=conf.model.getint('architecture_id'))
     trainparams = mh.TrainParams(
             trainparams_id=conf.train.getint('trainparams_id'),
             image_augmentations=conf.train.getdict('image_augmentations'),
             mask_augmentations=conf.train.getdict('mask_augmentations'),
-            class_weights=conf.train.getlistfloat('class_weights'),
+            class_weights=[classes[class_name]['weight'] for class_name in classes],
             batch_size=conf.train.getint('batch_size_fit'), 
             optimizer=conf.train.get('optimizer'), 
             optimizer_params=conf.train.getdict('optimizer_params'), 
@@ -134,6 +133,7 @@ def train(
             monitor_metric_mode=conf.train.get('monitor_metric_mode'), 
             save_format=conf.train.get('save_format'), 
             save_best_only=conf.train.getboolean('save_best_only'), 
+            save_min_accuracy=conf.train.getfloat('save_min_accuracy'),
             nb_epoch=conf.train.getint('max_epoch'),
             earlystop_patience=conf.train.getint('earlystop_patience'),
             earlystop_monitor_metric=conf.train.get('earlystop_monitor_metric'))

@@ -65,6 +65,7 @@ class TrainParams:
             monitor_metric_mode: str = 'max',
             save_format: str = 'h5',
             save_best_only: bool = True,
+            save_min_accuracy: float = 0.95,
             nb_epoch: int = 1000,
             earlystop_patience: int = 100,
             earlystop_monitor_metric: str = None):
@@ -87,6 +88,7 @@ class TrainParams:
             monitor_metric_mode (str, optional): Mode of the metric to monitor. Defaults to 'max'.
             save_format (str, optional): [description]. Defaults to 'h5'.
             save_best_only (bool, optional): [description]. Defaults to True.
+            save_min_accuracy (float, optional): minimum accuracy to save a model. Defaults to 0.95.
             nb_epoch (int, optional): maximum number of epochs to train. Defaults to 1000.
             earlystop_patience (int, optional): [description]. Defaults to 100.
             earlystop_monitor_metric (str, optional): [description]. Defaults to None.
@@ -121,6 +123,7 @@ class TrainParams:
         self.monitor_metric_mode = monitor_metric_mode
         self.save_format = save_format
         self.save_best_only = save_best_only
+        self.save_min_accuracy=save_min_accuracy
         self.nb_epoch = nb_epoch
         self.earlystop_patience = earlystop_patience
         if earlystop_monitor_metric is not None:
@@ -401,6 +404,7 @@ class ModelCheckpointExt(kr.callbacks.Callback):
             monitor_metric_mode: str,
             save_format: str = 'h5',
             save_best_only: bool = False,
+            save_min_accuracy: float = 0.95,
             save_weights_only: bool = False,
             model_template_for_save = None,
             verbose: bool = True,
@@ -418,7 +422,8 @@ class ModelCheckpointExt(kr.callbacks.Callback):
             monitor_metric_mode (str): use 'min' if the accuracy metrics should be 
                     as low as possible, 'max' if a higher values is better. 
             save_format (str, optional): The format to save in: 'h5' (keras format) or 'tf' (tensorflow savedmodel). Defaults to 'tf'
-            save_best_only: optional: only keep the best model
+            save_best_only (bool, optional): only keep the best model. Defaults to True.
+            save_min_accuracy (float, optional): minimum accuracy to be reached to save model. Defaults to 0.95.
             save_weights_only: optional: only save weights
             model_template_for_save: optional, if using multi-GPU training, pass
                 the original model here to use this as template for saving        
@@ -441,6 +446,7 @@ class ModelCheckpointExt(kr.callbacks.Callback):
         self.monitor_metric_mode = monitor_metric_mode
         self.save_format = save_format
         self.save_best_only = save_best_only
+        self.save_min_accuracy = save_min_accuracy
         self.save_weights_only = save_weights_only
         self.model_template_for_save = model_template_for_save
         self.verbose = verbose
@@ -475,7 +481,8 @@ class ModelCheckpointExt(kr.callbacks.Callback):
                 new_model_monitor_val=new_model_monitor_val,
                 new_model_epoch=epoch,
                 save_format=self.save_format,
-                save_best_only=self.save_best_only,          
+                save_best_only=self.save_best_only,
+                save_min_accuracy=self.save_min_accuracy,          
                 save_weights_only=self.save_weights_only,
                 model_template_for_save=self.model_template_for_save,      
                 verbose=self.verbose,
@@ -494,6 +501,7 @@ def save_and_clean_models(
         new_model_epoch: Optional[int] = None,
         save_format: str = 'h5',
         save_best_only: bool = False,
+        save_min_accuracy: float = 0.95,
         save_weights_only: bool = False,
         model_template_for_save = None, 
         verbose: bool = True,
@@ -519,6 +527,7 @@ def save_and_clean_models(
             * h5: keras format
             * tf: tensorflow savedmodel
         save_best_only (bool, optional): only keep the best model
+        save_min_accuracy (float, optional): minimum accuracy to save the model.
         save_weights_only (bool, optional): only save weights
         model_template_for_save (optional): if using multi-GPU training, pass
             the original model here to use this as template for saving        
@@ -618,18 +627,21 @@ def save_and_clean_models(
                and only_report is not True
                and model_info['filepath'] == str(new_model_path)
                and not new_model_path.exists()):
-                logger.debug('Save model start')
-                if save_weights_only:
-                    if model_template_for_save is not None:
-                        model_template_for_save.save_weights(str(new_model_path))
-                    else:                    
-                        new_model.save_weights(str(new_model_path))
+                if model_info['acc_combined'] > save_min_accuracy:                        
+                    logger.debug('Save model start')
+                    if save_weights_only:
+                        if model_template_for_save is not None:
+                            model_template_for_save.save_weights(str(new_model_path))
+                        else:                    
+                            new_model.save_weights(str(new_model_path))
+                    else:
+                        if model_template_for_save is not None:
+                            model_template_for_save.save(str(new_model_path))
+                        else:                    
+                            new_model.save(str(new_model_path))
+                    logger.debug('Save model ready')
                 else:
-                    if model_template_for_save is not None:
-                        model_template_for_save.save(str(new_model_path))
-                    else:                    
-                        new_model.save(str(new_model_path))
-                logger.debug('Save model ready')
+                    print(f"\nNew model is best model, but acc_combined < save_min_accuracy: {new_model_acc_combined} < {save_min_accuracy}")
         else:     
             # Bad model... can be removed (or not saved)
             if only_report is True:

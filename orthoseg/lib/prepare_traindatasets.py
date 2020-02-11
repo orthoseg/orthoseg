@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 
 def prepare_traindatasets(
         label_files: dict,
-        label_names_burn_values: dict,
+        classes: dict,
         image_layers: dict,
         training_dir: Path,
         image_pixel_x_size: float = 0.25,
@@ -166,19 +166,18 @@ def prepare_traindatasets(
     if labeldata_gdf is not None and 'label_name' in labeldata_gdf.columns:
         # If there is a column 'label_name', filter on the labels provided
         labels_to_burn_gdf = (
-                labeldata_gdf.loc[labeldata_gdf['label_name'].isin(label_names_burn_values)]).copy()
+                labeldata_gdf.loc[labeldata_gdf['label_name'].isin(classes)]).copy()
         labels_to_burn_gdf.loc[:, 'burn_value'] = 0
-        for label_name in label_names_burn_values:
+        for label_name in classes:
             labels_to_burn_gdf.loc[(labels_to_burn_gdf['label_name'] == label_name),
-                                   'burn_value'] = label_names_burn_values[label_name]
+                                   'burn_value'] = classes[label_name]['burn_value']
         if len(labeldata_gdf) != len(labels_to_burn_gdf):
-            logger.warn(f"Number of labels to burn changed from {len(labeldata_gdf)} to {len(labels_to_burn_gdf)} with filter on label_names_burn_values: {label_names_burn_values}")
-    elif len(label_names_burn_values) == 1:
+            logger.warn(f"Number of labels to burn changed from {len(labeldata_gdf)} to {len(labels_to_burn_gdf)} with filter on classes: {classes}")
+    elif len(classes) == 2:
         labels_to_burn_gdf = labeldata_gdf
-        labels_to_burn_gdf.loc[:, 'burn_value'] = (
-                label_names_burn_values[list(label_names_burn_values)[0]])
+        labels_to_burn_gdf.loc[:, 'burn_value'] = classes[list(classes)[1]]['burn_value']
     else:
-        raise Exception(f"Column 'label_name' is mandatory in labeldata if multiple label_names_burn_values specified: {label_names_burn_values}")
+        raise Exception(f"Column 'label_name' is mandatory in labeldata if multiple classes specified: {classes}")
                     
     # Prepare the different traindata types
     for traindata_type in ['train', 'validation', 'test']:
@@ -251,7 +250,7 @@ def prepare_traindatasets(
                     mask_filepath = Path(str(image_filepath)
                             .replace(str(output_tmp_image_dir), str(output_tmp_mask_dir))
                             .replace('.jpg', '.png'))
-                    nb_classes = len(label_names_burn_values) + 1
+                    nb_classes = len(classes)
                     _create_mask(
                             input_image_filepath=image_filepath,
                             output_mask_filepath=mask_filepath,
