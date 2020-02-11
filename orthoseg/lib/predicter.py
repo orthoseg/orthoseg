@@ -87,6 +87,9 @@ def predict_dir(
 
     logger.info(f"Start predict for input_image_dir: {input_image_dir}")
 
+    # Eager and not eager prediction seems +- the same performance-wise
+    #model.run_eagerly = False
+    
     # If we are using evaluate mode, change the output dir...
     if evaluate_mode:
         output_base_dir = Path(str(output_base_dir) + '_eval')
@@ -196,6 +199,10 @@ def predict_dir(
                 #images = [info.get('image_data') for info in curr_batch_image_infos_ext]
                 #image_array = np.array(images, copy=False)
                 curr_batch_image_pred_arr = model.predict_on_batch(curr_batch_image_arr)
+                
+                # In tf 2.1 a tf.tensor object is returned, but we want an ndarray
+                if type(curr_batch_image_pred_arr) is not np.ndarray:
+                    curr_batch_image_pred_arr = curr_batch_image_pred_arr.numpy()
                 
                 # Postprocess predictions
                 # Remark: trying to parallelize this doesn't seem to help at all!
