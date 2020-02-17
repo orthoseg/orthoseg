@@ -24,7 +24,12 @@ logger = logging.getLogger(__name__)
 def read_project_config(
         config_filepaths: List[Path],
         layer_config_filepath: Path = None):
-        
+    
+    # Define the chars that cannot be used in codes that are use in filenames.
+    # Remark: '_' cannot be used because '_' is used as devider to parse filenames, and if it is 
+    # used in codes as well the parsing becomes a lot more difficult. 
+    illegal_chars_in_codes = ['_', ',', '.', '?', ':']
+
     # Log config filepaths that don't exist...
     for config_filepath in config_filepaths:
         if not config_filepath.exists():
@@ -60,11 +65,10 @@ def read_project_config(
 
     # Some checks to make sure the config is loaded properly
     segment_subject = general.get('segment_subject')
-    illegal_characters = ['_', ',', '.', '?', ':']
     if segment_subject == 'MUST_OVERRIDE':
         raise Exception(f"Projectconfig parameter general.segment_subject needs to be overruled to a proper name in a specific project config file!")
-    elif any(illegal_character in segment_subject for illegal_character in illegal_characters):
-        raise Exception(f"Projectconfig parameter general.segment_subject ({segment_subject}) should not contain any of the following characters: {illegal_characters}")
+    elif any(illegal_character in segment_subject for illegal_character in illegal_chars_in_codes):
+        raise Exception(f"Projectconfig parameter general.segment_subject ({segment_subject}) should not contain any of the following characters: {illegal_chars_in_codes}")
 
     if train.get('image_layer') == 'MUST_OVERRIDE':
         raise Exception(f"Projectconfig parameter train.image_layer needs to be overruled in the projects dir overrule file or in the specific project config file!")
@@ -100,6 +104,10 @@ def read_project_config(
     global image_layers
     image_layers = {}
     for image_layer in layer_config.sections():
+        # First check if the image_layer code doesn't exist 'illegal' characters
+        if any(illegal_char in image_layer for illegal_char in illegal_chars_in_codes):
+            raise Exception(f"Section name [{image_layer}] in layer config should not contain any of the following characters: {illegal_chars_in_codes}, in {layer_config_filepath}")
+
         image_layers[image_layer] = dict(layer_config[image_layer])
         
         # The layer names and layer styles are lists
