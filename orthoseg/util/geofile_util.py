@@ -32,12 +32,19 @@ def read_file(filepath: Path,
 
     # TODO: think about if possible/how to support  adding optional parameter and pass them to next function, example encoding, float_format,...
     """
-    # If no layer name specified, use the filename (without extension)
-    if layer is None:
-        layer = filepath.stem
+    # Init
+    ext_lower = filepath.suffix.lower()
+
+    # For file multilayer types, if no layer name specified, check if there is only one layer in the file.
+    if(ext_lower in ['.gpkg'] 
+       and layer is None):
+        listlayers = fiona.listlayers(filepath)
+        if len(listlayers) == 1:
+            layer = listlayers[0]
+        else:
+            raise Exception(f"File contains {len(listlayers)} layers: {listlayers}, but layer is not specified: {filepath}")
 
     # Depending on the extension... different implementations
-    ext_lower = filepath.suffix.lower()
     if ext_lower == '.shp':
         return gpd.read_file(str(filepath))
     elif ext_lower == '.geojson':
