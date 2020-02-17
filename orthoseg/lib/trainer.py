@@ -251,9 +251,20 @@ def train(
                            reduce_lr, early_stopping,
                            tensorboard_logger,
                            csv_logger],
-                #class_weight={'0': 1, '1': 10, '2': 2},
                 initial_epoch=start_epoch)
-        
+
+        # Write some reporting
+        train_report_path = model_save_dir / (model_save_base_filename + '_report.pdf')
+        train_log_df = pd.read_csv(csv_log_filepath, sep=';')
+        columns_to_keep = []
+        for column in train_log_df.columns:
+            if(column.endswith('accuracy')
+            or column.endswith('f1-score')):
+                columns_to_keep.append(column)
+
+        train_log_vis_df = train_log_df[columns_to_keep]
+        train_log_vis_df.plot().get_figure().savefig(train_report_path)
+
     finally:
         # Release the memory from the GPU...
         #from keras import backend as K
