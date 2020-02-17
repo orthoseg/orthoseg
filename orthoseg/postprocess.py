@@ -59,7 +59,7 @@ def postprocess(
     # Main initialisation of the logging
     global logger
     logger = log_helper.main_log_init(conf.dirs.getpath('log_training_dir'), __name__)      
-    logger.info(f"Config used: \n{conf.pformat_config()}")
+    logger.debug(f"Config used: \n{conf.pformat_config()}")
 
     # Input dir = the "most recent" prediction result dir for this subject 
     prediction_basedir = Path(f"{conf.dirs['predict_image_output_basedir']}_{conf.general['segment_subject']}_")

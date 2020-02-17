@@ -63,7 +63,7 @@ def train(
     # Main initialisation of the logging
     global logger
     logger = log_helper.main_log_init(conf.dirs.getpath('log_training_dir'), __name__)      
-    logger.info(f"Config used: \n{conf.pformat_config()}")
+    logger.debug(f"Config used: \n{conf.pformat_config()}")
     # TODO: add something to delete old data, predictions???
 
     # First check if the segment_subject has a valid name
@@ -218,8 +218,7 @@ def train(
         elif conf.train.getboolean('preload_with_previous_traindata'):
             best_model_for_architecture = mh.get_best_model(
                     model_dir=model_dir, 
-                    segment_subject=segment_subject,
-                    traindata_id=traindata_id)
+                    segment_subject=segment_subject)
             if best_model_for_architecture is not None:
                 model_preload_filepath = best_model_for_architecture['filepath']
         

@@ -67,7 +67,7 @@ def predict(
     # Main initialisation of the logging
     global logger
     logger = log_helper.main_log_init(conf.dirs.getpath('log_training_dir'), __name__)      
-    logger.info(f"Config used: \n{conf.pformat_config()}")
+    logger.debug(f"Config used: \n{conf.pformat_config()}")
     
     # Check if the input inmages dir exists
     input_image_dir = conf.dirs.getpath('predict_image_input_dir')
@@ -95,7 +95,7 @@ def predict(
             trainparams_id=trainparams_id)
     
     # Check if a model was found
-    if best_model is False:
+    if best_model is None:
         message = f"No model found in model_dir: {conf.dirs.getpath('model_dir')} for traindata_id: {traindata_id}"
         logger.critical(message)
         raise Exception(message)
