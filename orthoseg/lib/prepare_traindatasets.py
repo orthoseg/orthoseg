@@ -111,7 +111,7 @@ def prepare_traindatasets(
             dataversion_new = dataversion_mostrecent + 1
     
     # Prepare the output basedir...
-    output_tmp_basedir = training_dir / f"{dataversion_new:02d}_BUSY"
+    output_tmp_basedir = training_dir / f"{dataversion_new:02d}_BUSY2"
     if output_tmp_basedir.exists():
         shutil.rmtree(output_tmp_basedir)
     if not output_tmp_basedir.exists():
