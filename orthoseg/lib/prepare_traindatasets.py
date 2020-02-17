@@ -167,7 +167,7 @@ def prepare_traindatasets(
         # If there is a column 'label_name', filter on the labels provided
         labels_to_burn_gdf = (
                 labeldata_gdf.loc[labeldata_gdf['label_name'].isin(classes)]).copy()
-        labels_to_burn_gdf.loc[:, 'burn_value'] = 0
+        labels_to_burn_gdf['burn_value'] = 0
         for label_name in classes:
             labels_to_burn_gdf.loc[(labels_to_burn_gdf['label_name'] == label_name),
                                    'burn_value'] = classes[label_name]['burn_value']
@@ -193,7 +193,6 @@ def prepare_traindatasets(
                 dir.mkdir(parents=True)
 
         try:
-
             # Get the label locations for this traindata type
             labels_to_use_for_bounds_gdf = (
                     labellocations_gdf[labellocations_gdf['traindata_type'] == traindata_type])
@@ -251,10 +250,13 @@ def prepare_traindatasets(
                             .replace(str(output_tmp_image_dir), str(output_tmp_mask_dir))
                             .replace('.jpg', '.png'))
                     nb_classes = len(classes)
+                    # Only keep the labels that are meant for this image layer
+                    labels_gdf = (labels_to_burn_gdf.loc[
+                                        labels_to_burn_gdf['image_layer'] == image_layer]).copy()
                     _create_mask(
                             input_image_filepath=image_filepath,
                             output_mask_filepath=mask_filepath,
-                            labels_to_burn_gdf=labels_to_burn_gdf,
+                            labels_to_burn_gdf=labels_gdf,
                             nb_classes=nb_classes,
                             force=force)
                 
@@ -397,12 +399,14 @@ def _create_mask(
 
     # Burn the vectors in a mask
     burn_shapes = ((geom, value) 
-            for geom, value in zip(labels_to_burn_gdf.geometry, labels_to_burn_gdf.burn_value))
-
-    mask_arr = rio_features.rasterize(
-            shapes=burn_shapes, transform=image_transform_affine,
-            dtype=rio.uint8, fill=0, 
-            out_shape=(image_output_profile['width'], image_output_profile['height']))
+            for geom, value in zip(labels_to_burn_gdf.geometry, labels_to_burn_gdf.burn_value) if geom is not None)
+    try:
+        mask_arr = rio_features.rasterize(
+                shapes=burn_shapes, transform=image_transform_affine,
+                dtype=rio.uint8, fill=0, 
+                out_shape=(image_output_profile['width'], image_output_profile['height']))
+    except Exception as ex:
+        raise Exception(f"Error creating mask for {image_transform_affine}") from ex
 
     # Check if the mask meets the requirements to be written...
     if minimum_pct_labeled > 0:
