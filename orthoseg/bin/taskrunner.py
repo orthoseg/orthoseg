@@ -20,6 +20,46 @@ sys.path.insert(0, '.')
 
 import pandas as pd
 
+def main():
+    
+    ##### Interprete arguments #####
+    parser = argparse.ArgumentParser(add_help=False)
+
+    # Optional arguments
+    optional = parser.add_argument_group('Optional arguments')
+    optional.add_argument('-t', '--tasksfile',
+            help='The tasks file to use. If not provided, taskrunner tries to use ../../projects/tasks.csv relative to taskrunner.py')
+    # Add back help         
+    optional.add_argument('-h', '--help', action='help', default=argparse.SUPPRESS,
+            help='Show this help message and exit')
+    args = parser.parse_args()
+
+    # If tasks file is not specified, use default location
+    if args.tasksfile is not None:
+        tasks_path = Path(args.tasksfile)
+    else:
+        script_dir = Path(__file__).resolve().parent
+        tasks_path = script_dir / '../../projects/tasks.csv'
+    
+    # Find the config filepaths to use
+    config_filepaths = []
+    script_dir = Path(__file__).resolve().parent
+    config_defaults_path = script_dir / '../project_defaults.ini'
+    if config_defaults_path.exists():
+        config_filepaths.append(config_defaults_path)
+    else:
+        print(f"Warning: default project settings not found: {config_defaults_path}")
+    config_defaults_overrule_path = tasks_path.parent / 'project_defaults_overrule.ini'
+    if config_defaults_overrule_path.exists():
+        config_filepaths.append(config_defaults_overrule_path)
+    else:
+        print(f"Warning: default overule project settings not found: {config_defaults_overrule_path}")
+
+    # Run!
+    run_tasks(
+            tasks_path=tasks_path,
+            config_filepaths=config_filepaths)
+
 def run_tasks(
         tasks_path: Path,
         config_filepaths: List[Path],
@@ -173,43 +213,6 @@ def sendmail(
             logger.exception("Error sending email")
         else:
             raise Exception("Error sending email") from ex
-        
+
 if __name__ == '__main__':
-    
-    ##### Interprete arguments #####
-    parser = argparse.ArgumentParser(add_help=False)
-
-    # Optional arguments
-    optional = parser.add_argument_group('Optional arguments')
-    optional.add_argument('-t', '--tasksfile',
-            help='The tasks file to use. If not provided, taskrunner tries to use ../../projects/tasks.csv relative to taskrunner.py')
-    # Add back help         
-    optional.add_argument('-h', '--help', action='help', default=argparse.SUPPRESS,
-            help='Show this help message and exit')
-    args = parser.parse_args()
-
-    # If tasks file is not specified, use default location
-    if args.tasksfile is not None:
-        tasks_path = Path(args.tasksfile)
-    else:
-        script_dir = Path(__file__).resolve().parent
-        tasks_path = script_dir / '../../projects/tasks.csv'
-    
-    # Find the config filepaths to use
-    config_filepaths = []
-    script_dir = Path(__file__).resolve().parent
-    config_defaults_path = script_dir / '../project_defaults.ini'
-    if config_defaults_path.exists():
-        config_filepaths.append(config_defaults_path)
-    else:
-        print(f"Warning: default project settings not found: {config_defaults_path}")
-    config_defaults_overrule_path = tasks_path.parent / 'project_defaults_overrule.ini'
-    if config_defaults_overrule_path.exists():
-        config_filepaths.append(config_defaults_overrule_path)
-    else:
-        print(f"Warning: default overule project settings not found: {config_defaults_overrule_path}")
-
-    # Run!
-    run_tasks(
-            tasks_path=tasks_path,
-            config_filepaths=config_filepaths)
+    main()
