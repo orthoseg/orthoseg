@@ -7,10 +7,10 @@ orthoseg/bin/taskrunner.ini
 orthoseg/bin/taskrunner_sampleproject.ini
 orthoseg_code_ws.code-workspace
 
-projects/_image_cache
-projects/footballfields/models
-projects/footballfields/output_vector
-projects/footballfields/training
+sample_projects/_image_cache
+sample_projects/footballfields/models
+sample_projects/footballfields/output_vector
+sample_projects/footballfields/training
 
 # Exclude all project except project_template and footballfields/labels
 #projects/*

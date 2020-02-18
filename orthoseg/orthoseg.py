@@ -20,6 +20,8 @@ sys.path.insert(0, '.')
 
 import pandas as pd
 
+import orthoseg.util.git_downloader as git_downloader
+
 def main():
     
     ##### Interprete arguments #####
@@ -28,18 +30,28 @@ def main():
     # Optional arguments
     optional = parser.add_argument_group('Optional arguments')
     optional.add_argument('-t', '--tasksfile',
-            help='The tasks file to use. If not provided, taskrunner tries to use ../projects/tasks.csv relative to orthoseg.py')
+            help='The path to the tasks .csv file to use.')
+    optional.add_argument('-s', '--sampleprojects', action='store_true',
+            help="Download the sample projects to ~/orthoseg/sample_projects if this directory doesn't exist and run.")
     # Add back help         
     optional.add_argument('-h', '--help', action='help', default=argparse.SUPPRESS,
             help='Show this help message and exit')
     args = parser.parse_args()
 
-    # If tasks file is not specified, use default location
+    # If tasks file is specified, use it
     if args.tasksfile is not None:
         tasks_path = Path(args.tasksfile)
+    elif args.sampleprojects is True:
+        # If sampleprojects is true, download sampleproject and run
+        orthoseg_dir = Path.home() / 'orthoseg'
+        projects_dir = orthoseg_dir / 'sample_projects'
+        if not projects_dir.exists():
+            git_repo_dir = 'https://github.com/theroggy/orthoseg/tree/master/sample_projects'
+            git_downloader.download(repo_url=git_repo_dir, output_dir=orthoseg_dir)
+        tasks_path = projects_dir / 'tasks.csv'
     else:
-        script_dir = Path(__file__).resolve().parent
-        tasks_path = script_dir / '../projects/tasks.csv'
+        parser.print_help()
+        sys.exit(1)
     
     # Find the config filepaths to use
     config_filepaths = []
