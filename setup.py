@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="orthoseg", 
-    version="0.0.2",
+    version="0.0.3",
     author="Pieter Roggemans",
     author_email="pieter.roggemans@gmail.com",
     description="Package to make it easier to segment orthophotos.",
@@ -15,7 +15,7 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     entry_points='''
         [console_scripts]
-        orthoseg=orthoseg.bin.taskrunner:main
+        orthoseg=orthoseg.orthoseg:main
         ''',
     classifiers=[
         "Programming Language :: Python :: 3",
