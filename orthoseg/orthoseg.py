@@ -28,7 +28,7 @@ def main():
     # Optional arguments
     optional = parser.add_argument_group('Optional arguments')
     optional.add_argument('-t', '--tasksfile',
-            help='The tasks file to use. If not provided, taskrunner tries to use ../../projects/tasks.csv relative to taskrunner.py')
+            help='The tasks file to use. If not provided, taskrunner tries to use ../projects/tasks.csv relative to orthoseg.py')
     # Add back help         
     optional.add_argument('-h', '--help', action='help', default=argparse.SUPPRESS,
             help='Show this help message and exit')
@@ -39,12 +39,12 @@ def main():
         tasks_path = Path(args.tasksfile)
     else:
         script_dir = Path(__file__).resolve().parent
-        tasks_path = script_dir / '../../projects/tasks.csv'
+        tasks_path = script_dir / '../projects/tasks.csv'
     
     # Find the config filepaths to use
     config_filepaths = []
     script_dir = Path(__file__).resolve().parent
-    config_defaults_path = script_dir / '../project_defaults.ini'
+    config_defaults_path = script_dir / 'project_defaults.ini'
     if config_defaults_path.exists():
         config_filepaths.append(config_defaults_path)
     else:
