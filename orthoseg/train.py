@@ -95,7 +95,7 @@ def train(
     # Now create the train datasets (train, validation, test)
     force_model_traindata_id = conf.train.getint('force_model_traindata_id')
     if force_model_traindata_id > -1:
-        training_dir = conf.dirs.getpath('training_train_basedir') / f"{force_model_traindata_id:02d}"
+        training_dir = conf.dirs.getpath('training_dir') / f"{force_model_traindata_id:02d}"
         traindata_id = force_model_traindata_id
     else:
         logger.info("Prepare train, validation and test data")
