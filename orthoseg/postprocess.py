@@ -89,7 +89,7 @@ def postprocess(
             input_ext='.tif',
             border_pixels_to_ignore=border_pixels_to_ignore,
             evaluate_mode=False,
-            force=True)
+            force=False)
 
 #-------------------------------------------------------------
 # If the script is ran directly...
