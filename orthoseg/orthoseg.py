@@ -46,6 +46,7 @@ def main():
         orthoseg_dir = Path.home() / 'orthoseg'
         projects_dir = orthoseg_dir / 'sample_projects'
         if not projects_dir.exists():
+            print("Download sample projects")
             git_repo_dir = 'https://github.com/theroggy/orthoseg/tree/master/sample_projects'
             git_downloader.download(repo_url=git_repo_dir, output_dir=orthoseg_dir)
         tasks_path = projects_dir / 'tasks.csv'
@@ -113,7 +114,7 @@ def run_tasks(
     logging.config.dictConfig(logconfig_dict)
     global logger
     logger = logging.getLogger()
-    logger.info(f"Config files used for taskrunner: {config_filepaths}")
+    logger.info(f"Config files used for orthoseg: {config_filepaths}")
     
     # Read the tasks that need to be ran in the run_tasks file
     tasks_df = get_tasks(tasks_path)
