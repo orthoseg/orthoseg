@@ -260,65 +260,84 @@ def polygonize_prediction_files(
         max_parallel = multiprocessing.cpu_count()
         with futures.ProcessPoolExecutor(max_parallel) as read_pool:
 
-            future_to_filepath = {}
+            future_to_filepath_queue = {}
             geoms_gdf = None
             nb_files_done = 0
-            
-            for filepath in filepaths:
-                # Read prediction file
-                future = read_pool.submit(
-                        read_prediction_file, 
-                        filepath,
-                        border_pixels_to_ignore)
-                future_to_filepath[future] = filepath
+            nb_files_in_queue = 0
+            next_file_to_queue = 0
+            max_files_in_queue = max_parallel * 2
 
-            for future in futures.as_completed(future_to_filepath):
-                # Get result
-                nb_files_done += 1
-                #logger.info(f"Ready processing {future_to_filepath[future]}")
-                try:
-                    geoms_file_gdf = future.result()
-
-                    if geoms_file_gdf is None:
-                        continue
-                    if geoms_gdf is None:
-                        # Check if the input has a crs
-                        if geoms_file_gdf.crs is None:
-                            raise Exception("STOP: input does not have a crs!") 
-                        geoms_gdf = geoms_file_gdf
-                    else:
-                        geoms_gdf = gpd.GeoDataFrame(
-                                pd.concat([geoms_gdf, geoms_file_gdf], ignore_index=True), 
-                                crs=geoms_file_gdf.crs)
+            # Loop till all files are done
+            while nb_files_done <= (nb_files-1):
+                # If the queue isn't complely filled or all files are being treated, 
+                # add files to processing queue
+                while(nb_files_in_queue < max_files_in_queue
+                      and next_file_to_queue < nb_files):
                     
-                except Exception as ex:
-                    logger.exception(f"Error reading {future_to_filepath[future]}")
-                finally:
-                    nb_geoms_ready_to_write = 0
+                    # Read prediction file
+                    future = read_pool.submit(
+                            read_prediction_file, 
+                            filepaths[next_file_to_queue],
+                            border_pixels_to_ignore)
+                    future_to_filepath_queue[future] = filepaths[next_file_to_queue]
+                    nb_files_in_queue += 1
+                    next_file_to_queue += 1
+
+                # Get the futures that are ready from the queue, and process the result
+                futures_done = futures.wait(future_to_filepath_queue, return_when='FIRST_COMPLETED').done
+                for future in futures_done:
+                    # Get result
+                    nb_files_done += 1
+
+                    #logger.info(f"Ready processing {future_to_filepath[future]}")
+                    try:
+                        geoms_file_gdf = future.result()
+
+                        if geoms_file_gdf is None:
+                            continue
+                        if geoms_gdf is None:
+                            # Check if the input has a crs
+                            if geoms_file_gdf.crs is None:
+                                raise Exception("STOP: input does not have a crs!") 
+                            geoms_gdf = geoms_file_gdf
+                        else:
+                            geoms_gdf = gpd.GeoDataFrame(
+                                    pd.concat([geoms_gdf, geoms_file_gdf], ignore_index=True), 
+                                    crs=geoms_file_gdf.crs)
+                        
+                    except Exception as ex:
+                        logger.exception(f"Error reading {future_to_filepath_queue[future]}")
+                    finally:
+                        # Remove processed future from queue
+                        nb_files_in_queue -= 1
+                        del future_to_filepath_queue[future]
+                    
+                    # If all files are treated or enough geoms are read, write to file
                     if geoms_gdf is not None:
                         nb_geoms_ready_to_write = len(geoms_gdf)
+                    else:
+                        nb_geoms_ready_to_write = 0
                     if nb_files_done%100 == 0:
                         logger.debug(f"{nb_files_done} of {nb_files} processed ({(nb_files_done*100/nb_files):0.0f}%), {nb_geoms_ready_to_write} ready to write")
-            
-                # If all files are treated or enough geoms are read, clean + write
-                if(nb_geoms_ready_to_write > 0
-                   and (nb_files_done == (nb_files-1)
-                        or nb_geoms_ready_to_write > 10000)):
-                    try:
-                        # If output file isn't created yet, do so...
-                        if output_tmp_file is None:
-                            # Open the destination file
-                            output_tmp_file = fiona.open(
-                                    output_tmp_filepath, 'w', 
-                                    driver=geofile_util.get_driver(output_tmp_filepath), 
-                                    layer=layer, crs=geoms_gdf.crs, 
-                                    schema=gpd.io.file.infer_schema(geoms_gdf))
-                        
-                        output_tmp_file.writerecords(geoms_gdf.iterfeatures())
-                        geoms_gdf = None
-                        logger.info(f"{nb_files_done} of {nb_files} processed + saved ({(nb_files_done*100/nb_files):0.0f}%)")
-                    except Exception as ex:
-                        raise Exception(f"Error saving gdf to {output_tmp_filepath}") from ex
+                    if(nb_geoms_ready_to_write > 0
+                       and (nb_files_done == (nb_files-1)
+                            or nb_geoms_ready_to_write > 10000)):
+                        try:
+                            # If output file isn't created yet, do so...
+                            if output_tmp_file is None:
+                                # Open the destination file
+                                output_tmp_file = fiona.open(
+                                        output_tmp_filepath, 'w', 
+                                        driver=geofile_util.get_driver(output_tmp_filepath), 
+                                        layer=layer, crs=geoms_gdf.crs, 
+                                        schema=gpd.io.file.infer_schema(geoms_gdf))
+                            
+                            # Now write to file
+                            output_tmp_file.writerecords(geoms_gdf.iterfeatures())
+                            geoms_gdf = None
+                            logger.info(f"{nb_files_done} of {nb_files} processed + saved ({(nb_files_done*100/nb_files):0.0f}%)")
+                        except Exception as ex:
+                            raise Exception(f"Error saving gdf to {output_tmp_filepath}") from ex
 
             # If we get here, file is normally created successfully, so rename to real output
             if output_tmp_file is not None:
