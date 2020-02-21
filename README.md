@@ -7,4 +7,4 @@ This project provides a procedure and (python) scripts to make it (relatively) e
 
 Only open source software is needed, eg. QGIS and tensorflow.
 
-Installation and usage instructions can be found in the [OrthoSeg wiki](https://github.com/theroggy/orthoseg/wiki)
+Installation and usage instructions can be found in the [orthoseg wiki](https://github.com/theroggy/orthoseg/wiki)
