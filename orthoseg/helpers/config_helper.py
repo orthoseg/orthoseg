@@ -78,7 +78,6 @@ def read_project_config(
     # If the projects_dir parameter is a relative path, resolve it towards the location of
     # the project config file.
     projects_dir = dirs.getpath('projects_dir')
-    logger.info(f"projects_dir: {projects_dir}")
     if not projects_dir.is_absolute():
         projects_dir_absolute = (config_filepaths[-1].parent / projects_dir).resolve()
         logger.info(f"Parameter dirs.projects_dir was relative, so is now resolved to {projects_dir_absolute}")

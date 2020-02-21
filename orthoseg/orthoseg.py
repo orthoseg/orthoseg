@@ -79,7 +79,7 @@ def run_tasks(
         stop_on_error: bool = False):
 
     ##### Init #####
-    # Read the taskrunner configuration
+    # Read the configuration
     global runner_config
     runner_config = configparser.ConfigParser(
             interpolation=configparser.ExtendedInterpolation(),
