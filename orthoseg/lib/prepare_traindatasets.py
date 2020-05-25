@@ -73,7 +73,8 @@ def prepare_traindatasets(
     # Determine the current data version based on existing output data dir(s),
     # but ignore dirs ending on _ERROR
     output_dirs = training_dir.glob(f"[0-9]*/")
-    output_dirs = [output_dir for output_dir in output_dirs if output_dir.name.endswith('_BUSY') is False]
+    output_dirs = [output_dir for output_dir in output_dirs if not '_BUSY' in output_dir.name]
+    logger.info(f"output_dirs: {output_dirs}")
     if len(output_dirs) == 0:
         output_legacy_train_dirs = training_dir.glob(f"train_[0-9]*/")
         output_legacy_train_dirs = [output_dir for output_dir in output_legacy_train_dirs if output_dir.name.endswith('_BUSY') is False]
@@ -111,11 +112,19 @@ def prepare_traindatasets(
             dataversion_new = dataversion_mostrecent + 1
     
     # Prepare the output basedir...
-    output_tmp_basedir = training_dir / f"{dataversion_new:02d}_BUSY2"
-    if output_tmp_basedir.exists():
-        shutil.rmtree(output_tmp_basedir)
-    if not output_tmp_basedir.exists():
-        output_tmp_basedir.mkdir(parents=True)
+    for i in range(100):
+        output_tmp_basedir = training_dir / f"{dataversion_new:02d}_BUSY_{i:02d}"
+        if output_tmp_basedir.exists():
+            try:
+                shutil.rmtree(output_tmp_basedir)
+            except:
+                None
+        if not output_tmp_basedir.exists():
+            try:
+                output_tmp_basedir.mkdir(parents=True)
+                break
+            except:
+                None
 
     # Process all input files
     labellocations_gdf = None
@@ -253,6 +262,8 @@ def prepare_traindatasets(
                     # Only keep the labels that are meant for this image layer
                     labels_gdf = (labels_to_burn_gdf.loc[
                                         labels_to_burn_gdf['image_layer'] == image_layer]).copy()
+                    if len(labels_gdf) == 0:
+                        logger.info("No labels to be burned for this layer, this is weird!")
                     _create_mask(
                             input_image_filepath=image_filepath,
                             output_mask_filepath=mask_filepath,
