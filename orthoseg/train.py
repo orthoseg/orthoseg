@@ -161,7 +161,7 @@ def train(
             train_needed = False
     else:
         # We want to preload an existing model and models were found
-        if best_model_curr_train_version is None:
+        if best_model_curr_train_version is not None:
             logger.info(f"PRELOAD model and continue TRAINING it: {best_model_curr_train_version['filename']}")
             train_needed = True
         else:
