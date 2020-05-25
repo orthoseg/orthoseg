@@ -16,6 +16,7 @@ from typing import Optional
 # Evade having many info warnings about self intersections from shapely
 logging.getLogger('shapely.geos').setLevel(logging.WARNING)
 import fiona
+import geofile_ops.geofile_ops as geofile_ops
 import geopandas as gpd
 import numpy as np
 import pandas as pd
@@ -100,28 +101,36 @@ def postprocess_predictions(
     else:
         logger.info(f"Output file exists already, so continue postprocess: {geoms_orig_filepath}")
 
-    # Check the size of the orig file: if too large, no use continuing!
-    if os.path.getsize(geoms_orig_filepath) > (1024*1024*1024):
-        logger.warn(f"File > 1 GB, so stop postprocessing: {geoms_orig_filepath}")
-        return
-    geoms_gdf = geofile_util.read_file(geoms_orig_filepath)
+    # # Check the size of the orig file: if too large, no use continuing!
+    # if os.path.getsize(geoms_orig_filepath) > (1024*1024*1024):
+    #     logger.warn(f"File > 1 GB, so stop postprocessing: {geoms_orig_filepath}")
+    #     return
+    # geoms_gdf = geofile_util.read_file(geoms_orig_filepath)
 
-    # Union the data, optimized using the available onborder column
+    # # Union the data, optimized using the available onborder column
+    # geoms_union_filepath = output_dir / f"{output_basefilename_noext}_union{output_ext}"
+    # geoms_union_gdf = vector_util.unary_union_with_onborder(
+    #         input_gdf=geoms_gdf,
+    #         input_filepath=geoms_orig_filepath,
+    #         output_filepath=geoms_union_filepath,
+    #         evaluate_mode=evaluate_mode,
+    #         force=force)
+
+    input_cardsheets_path = r"X:\GIS\GIS DATA\Versnijdingen\Kaartbladversnijdingen_NGI_numerieke_reeks_Shapefile\Shapefile\Kbl8.shp"
     geoms_union_filepath = output_dir / f"{output_basefilename_noext}_union{output_ext}"
-    geoms_union_gdf = vector_util.unary_union_with_onborder(
-            input_gdf=geoms_gdf,
-            input_filepath=geoms_orig_filepath,
-            output_filepath=geoms_union_filepath,
-            evaluate_mode=evaluate_mode,
-            force=force)
+    geofile_ops.dissolve_cardsheets(
+            input_path=geoms_orig_filepath,
+            input_cardsheets_path=input_cardsheets_path,
+            output_path=geoms_union_filepath,
+            explodecollections=True)
 
     # Retain only geoms > 5m²
     geoms_gt5m2_filepath = output_dir / f"{output_basefilename_noext}_union_gt5m2{output_ext}"
     geoms_gt5m2_gdf = None
     if force or not geoms_gt5m2_filepath.exists():
-        if geoms_union_gdf is None:
-            geoms_union_gdf = geofile_util.read_file(geoms_union_filepath)
-        geoms_gt5m2_gdf = geoms_union_gdf.loc[(geoms_union_gdf.geometry.area > 5)]
+        geoms_union_gdf = geofile_util.read_file(geoms_union_filepath)
+        geoms_union_gdf.reset_index(inplace=True)
+        geoms_gt5m2_gdf = geoms_union_gdf.loc[(geoms_union_gdf.geometry.area > 5)].copy()
         # TODO: setting the CRS here hardcoded should be removed
         if geoms_gt5m2_gdf.crs is None:
             message = "No crs available!!!"
@@ -130,15 +139,14 @@ def postprocess_predictions(
         
         # Qgis wants unique id column, otherwise weird effects!
         geoms_gt5m2_gdf.reset_index(inplace=True, drop=True)
-        #geoms_gt5m2_gdf['id'] = geoms_gt5m2_gdf.index 
         geoms_gt5m2_gdf.loc[:, 'id'] = geoms_gt5m2_gdf.index 
         geofile_util.to_file(geoms_gt5m2_gdf, geoms_gt5m2_filepath)
 
     # Simplify with standard shapely algo 
     # -> if preserve_topology False, this is Ramer-Douglas-Peucker, otherwise ?
-    geoms_simpl_shap_filepath = output_dir / f"{output_basefilename_noext}_simpl_shap{output_ext}"
-    geoms_simpl_shap_gdf = None
-    if force or not geoms_simpl_shap_filepath.exists():
+    geoms_simpl_filepath = output_dir / f"{output_basefilename_noext}_simpl{output_ext}"
+    geoms_simpl_gdf = None
+    if force or not geoms_simpl_filepath.exists():
         logger.info("Simplify with default shapely algo")
         # If input geoms not yet in memory, read from file
         if geoms_gt5m2_gdf is None:
@@ -146,58 +154,65 @@ def postprocess_predictions(
 
         # Simplify, fix invalid geoms, remove empty geoms, 
         # apply multipart-to-singlepart, only > 5m² + write
-        geoms_simpl_shap_gdf = geoms_gt5m2_gdf.copy()
-        geoms_simpl_shap_gdf['geometry'] = geoms_simpl_shap_gdf.simplify(
+        geoms_simpl_gdf = geoms_gt5m2_gdf.copy()
+        geoms_simpl_gdf['geometry'] = geoms_simpl_gdf.simplify(
                 tolerance=0.5, preserve_topology=True)
-        geoms_simpl_shap_gdf['geometry'] = geoms_simpl_shap_gdf.geometry.apply(
+        geoms_simpl_gdf['geometry'] = geoms_simpl_gdf.geometry.apply(
                 lambda geom: vector_util.fix(geom))
-        geoms_simpl_shap_gdf.dropna(subset=['geometry'], inplace=True)
-        geoms_simpl_shap_gdf = geoms_simpl_shap_gdf.reset_index(drop=True).explode()
-        geoms_simpl_shap_gdf['geometry'] = geoms_simpl_shap_gdf.geometry.apply(
+        geoms_simpl_gdf.dropna(subset=['geometry'], inplace=True)
+
+        # Explode only works with one column, but cast to geodataframe, otherwise geoseries 
+        geoms_simpl_gdf = gpd.GeoDataFrame(geoms_simpl_gdf['geometry'])
+        geoms_simpl_gdf = geoms_simpl_gdf.explode().reset_index()
+        geoms_simpl_gdf['geometry'] = geoms_simpl_gdf.geometry.apply(
                 lambda geom: vector_util.remove_inner_rings(geom, 2))        
                 
         # Add area column, and remove rows with small area
-        geoms_simpl_shap_gdf['area'] = geoms_simpl_shap_gdf.geometry.area       
-        geoms_simpl_shap_gdf = geoms_simpl_shap_gdf.loc[
-                (geoms_simpl_shap_gdf['area'] > 5)]
+        geoms_simpl_gdf['area'] = geoms_simpl_gdf.geometry.area       
+        geoms_simpl_gdf = geoms_simpl_gdf.loc[
+                (geoms_simpl_gdf['area'] > 5)]
 
         # Qgis wants unique id column, otherwise weird effects!
-        geoms_simpl_shap_gdf.reset_index(inplace=True, drop=True)
-        geoms_simpl_shap_gdf['id'] = geoms_simpl_shap_gdf.index 
-        geoms_simpl_shap_gdf['nbcoords'] = geoms_simpl_shap_gdf.geometry.apply(
+        geoms_simpl_gdf.reset_index(inplace=True, drop=True)
+        geoms_simpl_gdf['id'] = geoms_simpl_gdf.index 
+        geoms_simpl_gdf['nbcoords'] = geoms_simpl_gdf.geometry.apply(
                 lambda geom: vector_util.get_nb_coords(geom))
-        geofile_util.to_file(geoms_simpl_shap_gdf, geoms_simpl_shap_filepath)
-        logger.info(f"Result written to {geoms_simpl_shap_filepath}")
+        geofile_util.to_file(geoms_simpl_gdf, geoms_simpl_filepath)
+        logger.info(f"Result written to {geoms_simpl_filepath}")
         
     # Apply negative buffer on result
-    geoms_simpl_shap_m1m_filepath = (
-            output_dir / f"{output_basefilename_noext}_simpl_shap_m1.5m_3{output_ext}")
-    if force or not geoms_simpl_shap_m1m_filepath.exists():
+    geoms_simpl_m1m_filepath = (
+            output_dir / f"{output_basefilename_noext}_simpl_m1.5m{output_ext}")
+    if force or not geoms_simpl_m1m_filepath.exists():
         logger.info("Apply negative buffer")
         # If input geoms not yet in memory, read from file
-        if geoms_simpl_shap_gdf is None:
-            geoms_simpl_shap_gdf = geofile_util.read_file(geoms_simpl_shap_filepath)
+        if geoms_simpl_gdf is None:
+            geoms_simpl_gdf = geofile_util.read_file(geoms_simpl_filepath)
             
         # Simplify, fix invalid geoms, remove empty geoms, 
         # apply multipart-to-singlepart, only > 5m² + write
-        geoms_simpl_shap_m1m_gdf = geoms_simpl_shap_gdf.copy()
-        geoms_simpl_shap_m1m_gdf['geometry'] = geoms_simpl_shap_m1m_gdf.buffer(
+        geoms_simpl_m1m_gdf = geoms_simpl_gdf.copy()
+        geoms_simpl_m1m_gdf['geometry'] = geoms_simpl_m1m_gdf.buffer(
                 distance=-1.5, resolution=3)       
-        geoms_simpl_shap_m1m_gdf.dropna(subset=['geometry'], inplace=True)
-        geoms_simpl_shap_m1m_gdf = geoms_simpl_shap_m1m_gdf.reset_index(drop=True).explode()
+        geoms_simpl_m1m_gdf.dropna(subset=['geometry'], inplace=True)
+
+        # Explode only possible if one column, but should stay a geodataframe to add columns later
+        geoms_simpl_m1m_gdf = gpd.GeoDataFrame(geoms_simpl_m1m_gdf['geometry'])
+        geoms_simpl_m1m_gdf = geoms_simpl_m1m_gdf.explode()
+        geoms_simpl_m1m_gdf.reset_index(inplace=True, drop=True)
                 
         # Add/calculate area column, and remove rows with small area
-        geoms_simpl_shap_m1m_gdf['area'] = geoms_simpl_shap_m1m_gdf.geometry.area       
-        geoms_simpl_shap_m1m_gdf = geoms_simpl_shap_m1m_gdf.loc[
-                (geoms_simpl_shap_m1m_gdf['area'] > 5)]
+        geoms_simpl_m1m_gdf['area'] = geoms_simpl_m1m_gdf.geometry.area       
+        geoms_simpl_m1m_gdf = geoms_simpl_m1m_gdf.loc[
+                geoms_simpl_m1m_gdf['area'] > 5]
 
         # Qgis wants unique id column, otherwise weird effects!
-        geoms_simpl_shap_m1m_gdf.reset_index(inplace=True, drop=True)
-        geoms_simpl_shap_m1m_gdf['id'] = geoms_simpl_shap_m1m_gdf.index 
-        geoms_simpl_shap_m1m_gdf['nbcoords'] = geoms_simpl_shap_m1m_gdf.geometry.apply(
+        geoms_simpl_m1m_gdf.reset_index(inplace=True, drop=True)
+        geoms_simpl_m1m_gdf['id'] = geoms_simpl_m1m_gdf.index 
+        geoms_simpl_m1m_gdf['nbcoords'] = geoms_simpl_m1m_gdf.geometry.apply(
                 lambda geom: vector_util.get_nb_coords(geom))        
-        geofile_util.to_file(geoms_simpl_shap_m1m_gdf, geoms_simpl_shap_m1m_filepath)
-        logger.info(f"Result written to {geoms_simpl_shap_m1m_filepath}")
+        geofile_util.to_file(geoms_simpl_m1m_gdf, geoms_simpl_m1m_filepath)
+        logger.info(f"Result written to {geoms_simpl_m1m_filepath}")
 
 def polygonize_prediction_files(
             input_dir: Path,
