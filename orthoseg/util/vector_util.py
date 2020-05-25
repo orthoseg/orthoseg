@@ -134,7 +134,7 @@ def remove_inner_rings(
         if len(geometry.interiors) == 0:
             return geometry
         else:
-            # Els create new polygon with only the exterior ring
+            # Else create new polygon with only the exterior ring
             return sh_ops.Polygon(geometry.exterior)
     
     # If only small rings need to be removed... loop over them
