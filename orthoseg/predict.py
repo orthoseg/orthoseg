@@ -66,7 +66,7 @@ def predict(
     
     # Main initialisation of the logging
     global logger
-    logger = log_helper.main_log_init(conf.dirs.getpath('log_training_dir'), __name__)      
+    logger = log_helper.main_log_init(conf.dirs.getpath('log_dir'), __name__)      
     logger.debug(f"Config used: \n{conf.pformat_config()}")
     
     # Check if the input inmages dir exists

@@ -62,7 +62,7 @@ def train(
     
     # Main initialisation of the logging
     global logger
-    logger = log_helper.main_log_init(conf.dirs.getpath('log_training_dir'), __name__)      
+    logger = log_helper.main_log_init(conf.dirs.getpath('log_dir'), __name__)      
     logger.debug(f"Config used: \n{conf.pformat_config()}")
     # TODO: add something to delete old data, predictions???
 
