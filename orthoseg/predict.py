@@ -172,7 +172,8 @@ def predict(
             projection_if_missing=image_layer['projection'],
             input_mask_dir=None,
             batch_size=batch_size,
-            evaluate_mode=False)
+            evaluate_mode=False,
+            cancel_filepath=conf.files.getpath('cancel_filepath'))
 
 # If the script is ran directly...
 if __name__ == '__main__':

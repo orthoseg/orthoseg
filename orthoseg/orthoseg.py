@@ -66,7 +66,7 @@ def main():
     if config_defaults_overrule_path.exists():
         config_filepaths.append(config_defaults_overrule_path)
     else:
-        print(f"Warning: default overule project settings not found: {config_defaults_overrule_path}")
+        print(f"Warning: default overrule project settings not found: {config_defaults_overrule_path}")
 
     # Run!
     run_tasks(
@@ -119,8 +119,17 @@ def run_tasks(
     # Read the tasks that need to be ran in the run_tasks file
     tasks_df = get_tasks(tasks_path)
 
+    # Get the cancel filepath from the config
+    cancel_filepath = Path(runner_config['files']['cancel_filepath'])
+
     # Loop over tasks to run
     for task in tasks_df.itertuples(): 
+
+        # If the cancel file exists, stop processing...
+        if cancel_filepath.exists():
+            logger.info(f"Cancel file found, so stop: {cancel_filepath}")
+            break
+
         # If the task is not active, skip
         if(task.active == 0):
             continue

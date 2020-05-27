@@ -48,6 +48,7 @@ def postprocess_predictions(
         input_ext: str,
         border_pixels_to_ignore: int = 0,
         evaluate_mode: bool = False,
+        cancel_filepath: Optional[Path] = None,
         force: bool = False):
     """
     Merges all geojson files in input dir (recursively), unions them, and 
@@ -63,7 +64,10 @@ def postprocess_predictions(
         output_filepath: the filepath where the output file(s) will be written.
         force: False to just keep existing output files instead of processing
                 them again. 
-        evaluate_mode: True to apply the logic to a subset of the files.            
+        evaluate_mode: True to apply the logic to a subset of the files. 
+        cancel_filepath: If the file in this path exists, processing stops asap
+        force: False to skip results that already exist, true to
+               ignore existing results and overwrite them           
     """
     
     # TODO: this function should be split to several ones, because now it does
@@ -90,8 +94,9 @@ def postprocess_predictions(
                     input_dir=input_dir,
                     output_filepath=geoms_orig_filepath,
                     input_ext=input_ext,
-                    evaluate_mode=evaluate_mode,
                     border_pixels_to_ignore=border_pixels_to_ignore,
+                    evaluate_mode=evaluate_mode,
+                    cancel_filepath=cancel_filepath,
                     force=force)               
         except RuntimeWarning as ex:
             logger.warn(f"No prediction files found to merge, ex: {ex}")
@@ -101,21 +106,12 @@ def postprocess_predictions(
     else:
         logger.info(f"Output file exists already, so continue postprocess: {geoms_orig_filepath}")
 
-    # # Check the size of the orig file: if too large, no use continuing!
-    # if os.path.getsize(geoms_orig_filepath) > (1024*1024*1024):
-    #     logger.warn(f"File > 1 GB, so stop postprocessing: {geoms_orig_filepath}")
-    #     return
-    # geoms_gdf = geofile_util.read_file(geoms_orig_filepath)
+    # If the cancel file exists, stop processing...
+    if cancel_filepath is not None and cancel_filepath.exists():
+        logger.info(f"Cancel file found, so stop: {cancel_filepath}")
+        return
 
-    # # Union the data, optimized using the available onborder column
-    # geoms_union_filepath = output_dir / f"{output_basefilename_noext}_union{output_ext}"
-    # geoms_union_gdf = vector_util.unary_union_with_onborder(
-    #         input_gdf=geoms_gdf,
-    #         input_filepath=geoms_orig_filepath,
-    #         output_filepath=geoms_union_filepath,
-    #         evaluate_mode=evaluate_mode,
-    #         force=force)
-
+    # Union the data
     input_cardsheets_path = r"X:\GIS\GIS DATA\Versnijdingen\Kaartbladversnijdingen_NGI_numerieke_reeks_Shapefile\Shapefile\Kbl8.shp"
     geoms_union_filepath = output_dir / f"{output_basefilename_noext}_union{output_ext}"
     geofile_ops.dissolve_cardsheets(
@@ -221,6 +217,7 @@ def polygonize_prediction_files(
             border_pixels_to_ignore: int = 0,
             apply_on_border_distance: float = None,
             evaluate_mode: bool = False,
+            cancel_filepath: Optional[Path] = None,
             force: bool = False):
     """
     Polygonizes all prediction files in input dir (recursively) and writes it to ones file.
@@ -232,8 +229,10 @@ def polygonize_prediction_files(
         input_dir:
         output_filepath:
         apply_on_border_distance:
-        evaluate_mode:
-        force:
+        evaluate_mode: True to run in evaluate mode
+        cancel_filepath: If the file in this path exists, processing stops asap
+        force: False to skip images that already have a prediction, true to
+               ignore existing predictions and overwrite them
     """
     ##### Init #####
     # Check if we need to do anything anyway
@@ -284,6 +283,12 @@ def polygonize_prediction_files(
 
             # Loop till all files are done
             while nb_files_done <= (nb_files-1):
+
+                # If the cancel file exists, stop processing...
+                if cancel_filepath is not None and cancel_filepath.exists():
+                    logger.info(f"Cancel file found, so stop: {cancel_filepath}")
+                    return
+
                 # If the queue isn't complely filled or all files are being treated, 
                 # add files to processing queue
                 while(nb_files_in_queue < max_files_in_queue
@@ -521,7 +526,7 @@ def postprocess_for_evaluation(
         if image_pred_filepath is not None:
             image_dest_filepath = Path(f"{str(output_basefilepath)}_pred{image_filepath.suffix}")
             if not image_dest_filepath.exists():
-                shutil.move(image_pred_filepath, image_dest_filepath)
+                shutil.move(str(image_pred_filepath), image_dest_filepath)
 
         # If all_black, we are ready now
         if all_black:

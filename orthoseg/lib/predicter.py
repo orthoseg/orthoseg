@@ -37,6 +37,7 @@ def predict_dir(
         input_mask_dir: Optional[Path] = None,
         batch_size: int = 16,                
         evaluate_mode: bool = False,
+        cancel_filepath: Optional[Path] = None,
         force: bool = False):
     """
     Create a prediction for all the images in the directories specified 
@@ -70,12 +71,13 @@ def predict_dir(
         min_pixelvalue_for_save: the minimum pixel value that should be 
                 present in the prediction to save the prediction
         input_mask_dir: optional dir where the mask images are located
+        projection_if_missing: Normally the projection should be in the raster file. If it 
+                    is not, you can explicitly specify one.
         batch_size: batch size to use while predicting. This must be choosen 
                 depending on the neural network architecture and available 
                 memory on you GPU.
         evaluate_mode: True to run in evaluate mode
-        projection: Normally the projection should be in the raster file. If it 
-                    is not, you can explicitly specify one.
+        cancel_filepath: If the file in this path exists, processing stops asap
         force: False to skip images that already have a prediction, true to
                ignore existing predictions and overwrite them
     """
@@ -130,13 +132,19 @@ def predict_dir(
     nb_processed = 0
     start_time = None
     start_time_batch_read = None
+    progress_log_time = None
     image_filepaths_sorted = sorted(image_filepaths)
     with images_error_log_filepath.open('a+') as image_errorlog_file, \
          images_done_log_filepath.open('a+') as image_donelog_file, \
          futures.ThreadPoolExecutor(batch_size) as pool:
         
         for i, image_filepath in enumerate(image_filepaths_sorted):
-    
+            
+            # If the cancel file exists, stop processing...
+            if cancel_filepath is not None and cancel_filepath.exists():
+                logger.info(f"Cancel file found, so stop: {cancel_filepath}")
+                break
+
             # If force is false and prediction exists... skip
             if force is False:
                if image_filepath.name in image_done_filenames:
@@ -240,8 +248,16 @@ def predict_dir(
                         nb_per_hour_lastbatch = (nb_images_in_batch/time_passed_lastbatch_s) * 3600
                         hours_to_go = (int)((nb_todo - i)/nb_per_hour)
                         min_to_go = (int)((((nb_todo - i)/nb_per_hour)%1)*60)
-                        print(f"\r{hours_to_go:3d}:{min_to_go:2d} left for {nb_todo-i} todo at {nb_per_hour:0.0f}/h ({nb_per_hour_lastbatch:0.0f}/h last batch) in ...{str(input_image_dir)[-30:]}",
-                            end='', flush=True)
+                        message = f"{hours_to_go:3d}:{min_to_go:2d} left for {nb_todo-i} todo at {nb_per_hour:0.0f}/h ({nb_per_hour_lastbatch:0.0f}/h last batch) in ...{str(input_image_dir)[-30:]}"
+                        print(f"\r{message}", end='', flush=True)
+
+                        # Once every 15 minutes, log progress to log file
+                        time_passed_progress_log_s = 0
+                        if progress_log_time is not None:
+                            time_passed_progress_log_s = (datetime.datetime.now()-progress_log_time).total_seconds()
+                        if progress_log_time is None or time_passed_progress_log_s > (15*60):
+                            logger.info(message)
+                            progress_log_time = datetime.datetime.now()
                 
                 # Reset variable for next batch
                 curr_batch_image_infos = []

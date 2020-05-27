@@ -195,7 +195,8 @@ def train(
                         projection_if_missing=train_projection,
                         input_mask_dir=traindata_dir / 'mask',
                         batch_size=conf.train.getint('batch_size_predict'), 
-                        evaluate_mode=True)
+                        evaluate_mode=True,
+                        cancel_filepath=conf.files.getpath('cancel_filepath'))
                     
                 # Predict validation dataset
                 predicter.predict_dir(
@@ -205,7 +206,8 @@ def train(
                         projection_if_missing=train_projection,
                         input_mask_dir=validationdata_dir / 'mask',
                         batch_size=conf.train.getint('batch_size_predict'), 
-                        evaluate_mode=True)
+                        evaluate_mode=True,
+                        cancel_filepath=conf.files.getpath('cancel_filepath'))
                 del model
             except Exception as ex:
                 logger.warn(f"Exception trying to predict with old model: {ex}")
@@ -263,7 +265,8 @@ def train(
             projection_if_missing=train_projection,
             input_mask_dir=traindata_dir / 'mask',
             batch_size=conf.train.getint('batch_size_predict'), 
-            evaluate_mode=True)
+            evaluate_mode=True,
+            cancel_filepath=conf.files.getpath('cancel_filepath'))
     
     # Predict validation dataset
     predicter.predict_dir(
@@ -273,7 +276,8 @@ def train(
             projection_if_missing=train_projection,
             input_mask_dir=validationdata_dir / 'mask',
             batch_size=conf.train.getint('batch_size_predict'), 
-            evaluate_mode=True)
+            evaluate_mode=True,
+            cancel_filepath=conf.files.getpath('cancel_filepath'))
 
     # Predict test dataset, if it exists
     if testdata_dir is not None and testdata_dir.exists():
@@ -284,7 +288,8 @@ def train(
                 projection_if_missing=train_projection,
                 input_mask_dir=testdata_dir / 'mask',
                 batch_size=conf.train.getint('batch_size_predict'), 
-                evaluate_mode=True)
+                evaluate_mode=True,
+                cancel_filepath=conf.files.getpath('cancel_filepath'))
     
     # Predict extra test dataset with random images in the roi, to add to 
     # train and/or validation dataset if inaccuracies are found
@@ -296,7 +301,8 @@ def train(
                 output_base_dir=conf.dirs.getpath('predictsample_image_output_basedir') / predict_out_subdir,
                 projection_if_missing=train_projection,
                 batch_size=conf.train.getint('batch_size_predict'), 
-                evaluate_mode=True)
+                evaluate_mode=True,
+                cancel_filepath=conf.files.getpath('cancel_filepath'))
     
 if __name__ == '__main__':
     train_args(sys.argv[1:])
