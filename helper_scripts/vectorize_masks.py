@@ -15,8 +15,9 @@ import rasterio.features as rio_features
 import shapely as sh
 import shapely.geometry as sh_geom
 import geopandas as gpd
+import glob
 
-import log_helper
+from orthoseg.helpers import log_helper
 
 def vectorize_masks(input_image_dir: Path,
                     output_filepath: Path,
@@ -31,6 +32,8 @@ def vectorize_masks(input_image_dir: Path,
     logger.info(f"Found {nb_files} {input_ext} masks to vectorize in {input_image_dir}")
 
     label_records = []
+    label_type = None
+    xmin, ymin, xmax, ymax = (None, None, None, None)
     for mask_filepath in image_filepaths:
         
         # First try to parse mask_transform info from filename
@@ -137,9 +140,9 @@ if __name__ == '__main__':
 
     # Main initialisation of the logging
     log_dir = os.path.join(project_dir, "log")
-    logger = log_helper.main_log_init(log_dir, __name__)
+    logger = log_helper.main_log_init(Path(log_dir), __name__)
     
     # Now vectorize the masks
-    vectorize_masks(input_image_dir=mask_dir,
-                    output_filepath=output_filepath,
+    vectorize_masks(input_image_dir=Path(mask_dir),
+                    output_filepath=Path(output_filepath),
                     projection_if_missing='epsg:31370')

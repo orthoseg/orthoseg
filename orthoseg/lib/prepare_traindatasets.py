@@ -112,20 +112,27 @@ def prepare_traindatasets(
             dataversion_new = dataversion_mostrecent + 1
     
     # Prepare the output basedir...
+    output_tmp_basedir = None
     for i in range(100):
         output_tmp_basedir = training_dir / f"{dataversion_new:02d}_BUSY_{i:02d}"
         if output_tmp_basedir.exists():
             try:
                 shutil.rmtree(output_tmp_basedir)
             except:
-                None
+                output_tmp_basedir = None
         if not output_tmp_basedir.exists():
             try:
                 output_tmp_basedir.mkdir(parents=True)
                 break
             except:
-                None
-
+                output_tmp_basedir = None
+        else:
+            output_tmp_basedir = None
+    
+    # If no output tmp dir could be found... stop...
+    if output_tmp_basedir is None:
+        raise Exception(f"Error creating output_tmp_basedir in {training_dir}")
+    
     # Process all input files
     labellocations_gdf = None
     labeldata_gdf = None

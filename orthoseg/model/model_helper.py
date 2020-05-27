@@ -553,6 +553,7 @@ def save_and_clean_models(
 
     # If there is a new model passed as param, add it to the list
     new_model_path = None
+    new_model_acc_combined = None
     if new_model is not None:
         
         if(new_model_monitor_train is None
