@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="orthoseg", 
-    version="0.0.10",
+    version="0.1.0",
     author="Pieter Roggemans",
     author_email="pieter.roggemans@gmail.com",
     description="Package to make it easier to segment orthophotos.",
