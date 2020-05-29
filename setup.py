@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="orthoseg", 
-    version="0.1.0",
+    version="0.1.2",
     author="Pieter Roggemans",
     author_email="pieter.roggemans@gmail.com",
     description="Package to make it easier to segment orthophotos.",
@@ -15,8 +15,8 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     include_package_data=True,
     install_requires=[
-            "tensorflow-gpu", "pillow", "rasterio", "geopandas", 
-            "owslib", "segmentation-models", "geofile-ops"],
+            "tensorflow-gpu", "pillow", "rasterio", "geopandas>=0.7", 
+            "owslib", "segmentation-models", "geofileops"],
     entry_points='''
             [console_scripts]
             orthoseg=orthoseg.orthoseg:main

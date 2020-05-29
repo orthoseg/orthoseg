@@ -151,7 +151,7 @@ dependencies:
     - kiwisolver==1.2.0
     - matplotlib==3.2.1
     - networkx==2.4
-    - orthoseg==0.1.0
+    - orthoseg==0.1.2
     - pywavelets==1.1.1
     - scikit-image==0.17.2
     - segmentation-models==1.0.1
