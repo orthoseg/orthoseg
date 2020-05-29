@@ -67,8 +67,8 @@ def prepare_traindatasets(
         output_basedir: the base dir where the train dataset needs to be written to 
 
     """
-    image_srs_width = math.fabs(image_pixel_width*image_pixel_x_size)   # tile width in units of crs => 500 m
-    image_srs_height = math.fabs(image_pixel_height*image_pixel_y_size) # tile height in units of crs => 500 m
+    image_crs_width = math.fabs(image_pixel_width*image_pixel_x_size)   # tile width in units of crs => 500 m
+    image_crs_height = math.fabs(image_pixel_height*image_pixel_y_size) # tile height in units of crs => 500 m
 
     # Determine the current data version based on existing output data dir(s),
     # but ignore dirs ending on _ERROR
@@ -171,9 +171,9 @@ def prepare_traindatasets(
         else:
             logger.warn(f"No label data found in {label_file['data_path']}")
 
-    # Get the srs to use from the input vectors...
+    # Get the crs to use from the input vectors...
     try:
-        img_srs = labellocations_gdf.crs['init']
+        img_crs = labellocations_gdf.crs
     except Exception as ex:
         logger.exception(f"Error getting crs from labellocations, labellocations_gdf.crs: {labellocations_gdf.crs}")
         raise ex
@@ -231,8 +231,8 @@ def prepare_traindatasets(
                 geom_bounds = label_geom.bounds
                 xmin = geom_bounds[0]-(geom_bounds[0]%image_pixel_x_size)
                 ymin = geom_bounds[1]-(geom_bounds[1]%image_pixel_y_size)
-                xmax = xmin + image_srs_width
-                ymax = ymin + image_srs_height
+                xmax = xmin + image_crs_width
+                ymax = ymin + image_crs_height
                 img_bbox = sh_geom.box(xmin, ymin, xmax, ymax)
                 image_layer = getattr(label_tuple, 'image_layer')
 
@@ -249,7 +249,7 @@ def prepare_traindatasets(
                         layers=image_layers[image_layer]['wms_layernames'],
                         styles=image_layers[image_layer]['wms_layerstyles'],
                         output_dir=output_tmp_image_dir,
-                        srs=img_srs,
+                        crs=img_crs,
                         bbox=img_bbox.bounds,
                         size=(image_pixel_width, image_pixel_height),
                         image_format=ows_util.FORMAT_PNG,

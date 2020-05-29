@@ -16,6 +16,7 @@ from typing import List, Optional, Tuple
 
 import owslib
 import owslib.wms
+import pyproj
 import rasterio as rio
 import geopandas as gpd
 import shapely.geometry as sh_geom
@@ -53,14 +54,14 @@ def get_images_for_grid(
         wms_server_url: str,
         wms_version: str,
         wms_layernames: List[str],
-        srs: str,
+        crs: pyproj.CRS,
         output_image_dir: Path,
         image_gen_bounds: Tuple[float, float, float, float] = None,
         image_gen_roi_filepath: Optional[Path] = None,
         grid_xmin: float = 0.0,
         grid_ymin: float = 0.0,
-        image_srs_pixel_x_size: float = 0.25,
-        image_srs_pixel_y_size: float = 0.25,
+        image_crs_pixel_x_size: float = 0.25,
+        image_crs_pixel_y_size: float = 0.25,
         image_pixel_width: int = 1024,
         image_pixel_height: int = 1024,
         image_pixels_ignore_border: int = 0,
@@ -81,9 +82,8 @@ def get_images_for_grid(
     if image_format_save is None:
         image_format_save = image_format
 
-    srs_width = math.fabs(image_pixel_width*image_srs_pixel_x_size)   # tile width in units of crs => 500 m
-    srs_height = math.fabs(image_pixel_height*image_srs_pixel_y_size) # tile height in units of crs => 500 m
-    is_srs_projected = rio.crs.CRS.from_string(srs).is_projected
+    crs_width = math.fabs(image_pixel_width*image_crs_pixel_x_size)   # tile width in units of crs => 500 m
+    crs_height = math.fabs(image_pixel_height*image_crs_pixel_y_size) # tile height in units of crs => 500 m
     
     # Read the region of interest file if provided
     roi_gdf = None
@@ -96,16 +96,16 @@ def get_images_for_grid(
         # based on the roi (but make sure they fit the grid!)
         if not image_gen_bounds:
             roi_bounds = roi_gdf.geometry.total_bounds
-            image_gen_bounds = (roi_bounds[0]-((roi_bounds[0]-grid_xmin)%srs_width),
-                                roi_bounds[1]-((roi_bounds[1]-grid_ymin)%srs_height),
-                                roi_bounds[2]+(grid_xmin-((roi_bounds[2]-grid_xmin)%srs_width)),
-                                roi_bounds[3]+(grid_ymin-((roi_bounds[3]-grid_ymin)%srs_height)))
+            image_gen_bounds = (roi_bounds[0]-((roi_bounds[0]-grid_xmin)%crs_width),
+                                roi_bounds[1]-((roi_bounds[1]-grid_ymin)%crs_height),
+                                roi_bounds[2]+(grid_xmin-((roi_bounds[2]-grid_xmin)%crs_width)),
+                                roi_bounds[3]+(grid_ymin-((roi_bounds[3]-grid_ymin)%crs_height)))
             logger.info(f"roi_bounds: {roi_bounds}, image_gen_bounds: {image_gen_bounds}")
         
         # If there are large objects in the roi, segment them to speed up
         # TODO: implement usefull check to see if segmenting is usefull...
         # TODO: support creating a grid in latlon????
-        if is_srs_projected:
+        if crs.is_projected:
             
             # Create grid
             grid = vector_util.create_grid(
@@ -122,28 +122,28 @@ def get_images_for_grid(
             #roi_gdf.to_file("X:\\Monitoring\\OrthoSeg\\roi_gridded.shp")
             
     # Check if the image_gen_bounds are compatible with the grid...
-    if (image_gen_bounds[0]-grid_xmin)%srs_width != 0:
-        xmin_new = image_gen_bounds[0] - ((image_gen_bounds[0]-grid_xmin)%srs_width)
+    if (image_gen_bounds[0]-grid_xmin)%crs_width != 0:
+        xmin_new = image_gen_bounds[0] - ((image_gen_bounds[0]-grid_xmin)%crs_width)
         logger.warning(f"xmin {image_gen_bounds[0]} in compatible with grid, {xmin_new} will be used")
         image_gen_bounds = (xmin_new, image_gen_bounds[1], image_gen_bounds[2], image_gen_bounds[3])
-    if (image_gen_bounds[1]-grid_ymin)%srs_height != 0:
-        ymin_new = image_gen_bounds[1] - ((image_gen_bounds[1]-grid_ymin)%srs_height)
+    if (image_gen_bounds[1]-grid_ymin)%crs_height != 0:
+        ymin_new = image_gen_bounds[1] - ((image_gen_bounds[1]-grid_ymin)%crs_height)
         logger.warning(f"ymin {image_gen_bounds[1]} incompatible with grid, {ymin_new} will be used")
         image_gen_bounds = (image_gen_bounds[0], ymin_new, image_gen_bounds[2], image_gen_bounds[3])
-    if (image_gen_bounds[2]-grid_xmin)%srs_width != 0:
-        xmax_new = image_gen_bounds[2] + srs_width - ((image_gen_bounds[2]-grid_xmin)%srs_width)
+    if (image_gen_bounds[2]-grid_xmin)%crs_width != 0:
+        xmax_new = image_gen_bounds[2] + crs_width - ((image_gen_bounds[2]-grid_xmin)%crs_width)
         logger.warning(f"xmax {image_gen_bounds[2]} incompatible with grid, {xmax_new} will be used")
         image_gen_bounds = (image_gen_bounds[0], image_gen_bounds[1], xmax_new, image_gen_bounds[3])
-    if (image_gen_bounds[3]-grid_ymin)%srs_height != 0:
-        ymax_new = image_gen_bounds[3] + srs_height - ((image_gen_bounds[3]-grid_ymin)%srs_height)
+    if (image_gen_bounds[3]-grid_ymin)%crs_height != 0:
+        ymax_new = image_gen_bounds[3] + crs_height - ((image_gen_bounds[3]-grid_ymin)%crs_height)
         logger.warning(f"ymax {image_gen_bounds[3]} incompatible with grid, {ymax_new} will be used")
         image_gen_bounds = (image_gen_bounds[0], image_gen_bounds[1], image_gen_bounds[2], ymax_new)
 
     # Calculate width and height...
     dx = math.fabs(image_gen_bounds[0] - image_gen_bounds[2]) # area width in units of crs
     dy = math.fabs(image_gen_bounds[1] - image_gen_bounds[3]) # area height in units of crs
-    cols = int(math.ceil(dx / srs_width)) + 1
-    rows = int(math.ceil(dy / srs_height)) + 1
+    cols = int(math.ceil(dx / crs_width)) + 1
+    rows = int(math.ceil(dy / crs_height)) + 1
 
     # Inits to start getting images 
     if not output_image_dir.exists():
@@ -164,16 +164,16 @@ def get_images_for_grid(
         output_filename_list = []
         for col in range(column_start, cols):
             
-            image_xmin = col * srs_width + image_gen_bounds[0]
-            image_xmax = (col + 1) * srs_width + image_gen_bounds[0]
+            image_xmin = col * crs_width + image_gen_bounds[0]
+            image_xmax = (col + 1) * crs_width + image_gen_bounds[0]
     
             # If overlapping images are wanted... increase image bbox
             if pixels_overlap:
-                image_xmin = image_xmin-(pixels_overlap*image_srs_pixel_x_size)
-                image_xmax = image_xmax+(pixels_overlap*image_srs_pixel_x_size)
+                image_xmin = image_xmin-(pixels_overlap*image_crs_pixel_x_size)
+                image_xmax = image_xmax+(pixels_overlap*image_crs_pixel_x_size)
                 
             # Put all the images of this column in a dir
-            if is_srs_projected:
+            if crs.is_projected:
                 output_dir = output_image_dir / f"{image_xmin:06.0f}"
             else:
                 output_dir = output_image_dir / f"{image_xmin:09.4f}"
@@ -191,17 +191,17 @@ def get_images_for_grid(
                     continue
     
                 # Calculate y bounds
-                image_ymin = row * srs_height + image_gen_bounds[1]
-                image_ymax = (row + 1) * srs_height + image_gen_bounds[1]
+                image_ymin = row * crs_height + image_gen_bounds[1]
+                image_ymax = (row + 1) * crs_height + image_gen_bounds[1]
     
                 # If overlapping images are wanted... increase image bbox
                 if pixels_overlap:
-                    image_ymin = image_ymin-(pixels_overlap*image_srs_pixel_y_size)
-                    image_ymax = image_ymax+(pixels_overlap*image_srs_pixel_y_size)
+                    image_ymin = image_ymin-(pixels_overlap*image_crs_pixel_y_size)
+                    image_ymax = image_ymax+(pixels_overlap*image_crs_pixel_y_size)
     
                 # Create output filename
                 output_filename = create_filename(
-                        srs=srs,
+                        crs=crs,
                         bbox=(image_xmin, image_ymin, image_xmax, image_ymax),
                         size=(image_pixel_width+2*pixels_overlap, 
                               image_pixel_height+2*pixels_overlap),
@@ -277,7 +277,7 @@ def get_images_for_grid(
                             it.repeat(wms),
                             it.repeat(wms_layernames),
                             it.repeat(output_dir),
-                            it.repeat(srs),
+                            it.repeat(crs),
                             bbox_list,
                             size_list,
                             it.repeat(image_format),
@@ -333,7 +333,7 @@ def getmap_to_file(
         wms: owslib.wms.WebMapService,
         layers: List[str],
         output_dir: Path,
-        srs: str,
+        crs: pyproj.CRS,
         bbox,
         size,
         image_format: str = FORMAT_GEOTIFF,
@@ -363,7 +363,7 @@ def getmap_to_file(
         if layername_in_filename:
             layername = '_'.join(layers)
         output_filename = create_filename(
-                srs=srs, 
+                crs=crs, 
                 bbox=bbox, size=size, 
                 image_format=image_format_save,
                 layername=layername)
@@ -400,14 +400,14 @@ def getmap_to_file(
                 size_for_getmap = (size[0] + 2*image_pixels_ignore_border,
                                    size[1] + 2*image_pixels_ignore_border)
             # Dirty hack to support y,x cordinate system
-            if srs.lower() == 'epsg:3059':
+            if crs.to_epsg() == 3059:
                 bbox_for_getmap = (bbox_for_getmap[1], bbox_for_getmap[0], 
                                    bbox_for_getmap[3], bbox_for_getmap[2])
 
             response = wms.getmap(
                     layers=layers,
                     styles=styles,
-                    srs=srs,
+                    srs=f"epsg:{crs.to_epsg()}",
                     bbox=bbox_for_getmap,
                     size=size_for_getmap,
                     format=image_format,
@@ -430,7 +430,7 @@ def getmap_to_file(
                 continue
             else:
                 message = f"Retried 10 times and didn't work, with layers: {layers}, styles: {styles}"
-                logger.error(message)
+                logger.exception(message)
                 raise Exception(message) from ex
 
     ##### Save image to file #####
@@ -483,23 +483,23 @@ def getmap_to_file(
             logger.debug(f"Map request size: {size_for_getmap}")
 
             # For some coordinate systems apparently the axis ordered is configured wrong in LibOWS :-(
-            srs_pixel_x_size = (bbox[2]-bbox[0])/size[0]
-            srs_pixel_y_size = (bbox[1]-bbox[3])/size[1]
+            crs_pixel_x_size = (bbox[2]-bbox[0])/size[0]
+            crs_pixel_y_size = (bbox[1]-bbox[3])/size[1]
 
             logger.debug(f"Coordinates to put in geotiff:\n" +
-                         f"    - x-component of the pixel width, W-E: {srs_pixel_x_size}\n" +
+                         f"    - x-component of the pixel width, W-E: {crs_pixel_x_size}\n" +
                          f"    - y-component of the pixel width, W-E (0 if image is exactly N up): 0\n" +
                          f"    - top-left x: {bbox[0]}\n" +
                          f"    - x-component of the pixel height, N-S (0 if image is exactly N up): \n" +
-                         f"    - y-component of the pixel height, N-S: {srs_pixel_y_size}\n" +
+                         f"    - y-component of the pixel height, N-S: {crs_pixel_y_size}\n" +
                          f"    - top-left y: {bbox[3]}")
 
-            # Add transform and srs to the profile
+            # Add transform and crs to the profile
             image_profile.update(
                     transform = rio.transform.Affine(
-                                srs_pixel_x_size, 0, bbox[0],
-                                0 , srs_pixel_y_size, bbox[3]),
-                    crs=srs)
+                                crs_pixel_x_size, 0, bbox[0],
+                                0 , crs_pixel_y_size, bbox[3]),
+                    crs=crs)
 
             # Delete output file, and write again
             output_filepath.unlink()
@@ -508,18 +508,18 @@ def getmap_to_file(
 
     else:
         # For file formats that doesn't support coordinates, we add a worldfile       
-        srs_pixel_x_size = (bbox[2]-bbox[0])/size[0]
-        srs_pixel_y_size = (bbox[1]-bbox[3])/size[1]
+        crs_pixel_x_size = (bbox[2]-bbox[0])/size[0]
+        crs_pixel_y_size = (bbox[1]-bbox[3])/size[1]
 
         path_noext = output_filepath.parent / output_filepath.stem
         ext_world = get_world_ext_for_image_format(image_format_save)
         output_worldfile_filepath = Path(str(path_noext) + ext_world)
         
         with output_worldfile_filepath.open('w') as wld_file:
-            wld_file.write(f"{srs_pixel_x_size}")
+            wld_file.write(f"{crs_pixel_x_size}")
             wld_file.write("\n0.000")
             wld_file.write("\n0.000")
-            wld_file.write(f"\n{srs_pixel_y_size}")
+            wld_file.write(f"\n{crs_pixel_y_size}")
             wld_file.write(f"\n{bbox[0]}")
             wld_file.write(f"\n{bbox[3]}")
         
@@ -567,7 +567,7 @@ def getmap_to_file(
     return output_filepath
 
 def create_filename(
-        srs: str,
+        crs: pyproj.CRS,
         bbox,
         size,
         image_format: str,
@@ -576,9 +576,8 @@ def create_filename(
     # Get image extension based on format
     image_ext = get_ext_for_image_format(image_format)
 
-    # Use different file names for projected vs geographic SRS
-    is_srs_projected = rio.crs.CRS.from_string(srs).is_projected
-    if is_srs_projected:
+    # Use different file names for projected vs geographic crs
+    if crs.is_projected:
         output_filename = f"{bbox[0]:06.0f}_{bbox[1]:06.0f}_{bbox[2]:06.0f}_{bbox[3]:06.0f}_{size[0]}_{size[1]}"
     else:
         output_filename = f"{bbox[0]:09.4f}_{bbox[1]:09.4f}_{bbox[2]:09.4f}_{bbox[3]:09.4f}_{size[0]}_{size[1]}"

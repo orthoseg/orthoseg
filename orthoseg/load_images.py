@@ -8,6 +8,8 @@ from pathlib import Path
 import shlex
 import sys
 
+import pyproj
+
 from orthoseg.helpers import config_helper as conf
 from orthoseg.helpers import log_helper
 from orthoseg.util import ows_util
@@ -102,7 +104,7 @@ def load_images(
     wms_layerstyles = conf.image_layers[predict_layer]['wms_layerstyles']
     nb_concurrent_calls = conf.image_layers[predict_layer]['nb_concurrent_calls']
     random_sleep = conf.image_layers[predict_layer]['random_sleep']
-    projection = conf.image_layers[predict_layer]['projection']
+    crs = pyproj.CRS.from_user_input(conf.image_layers[predict_layer]['projection'])
     bbox = conf.image_layers[predict_layer]['bbox']
     grid_xmin = conf.image_layers[predict_layer]['grid_xmin']
     grid_ymin = conf.image_layers[predict_layer]['grid_ymin']
@@ -114,14 +116,14 @@ def load_images(
             wms_version=wms_version,
             wms_layernames=wms_layernames,
             wms_layerstyles=wms_layerstyles,
-            srs=projection,
+            crs=crs,
             output_image_dir=output_image_dir,
             image_gen_bounds=bbox,
             image_gen_roi_filepath=roi_filepath,
             grid_xmin=grid_xmin,
             grid_ymin=grid_ymin,
-            image_srs_pixel_x_size=image_pixel_x_size,
-            image_srs_pixel_y_size=image_pixel_y_size,
+            image_crs_pixel_x_size=image_pixel_x_size,
+            image_crs_pixel_y_size=image_pixel_y_size,
             image_pixel_width=image_pixel_width,
             image_pixel_height=image_pixel_height,
             image_pixels_ignore_border=image_pixels_ignore_border,
