@@ -349,7 +349,7 @@ def polygonize_prediction_files(
                                 output_tmp_file = fiona.open(
                                         output_tmp_filepath, 'w', 
                                         driver=geofile_util.get_driver(output_tmp_filepath), 
-                                        layer=layer, crs=geoms_gdf.crs, 
+                                        layer=layer, crs=geoms_gdf.crs.to_wkt(), 
                                         schema=gpd.io.file.infer_schema(geoms_gdf))
                             
                             # Now write to file
