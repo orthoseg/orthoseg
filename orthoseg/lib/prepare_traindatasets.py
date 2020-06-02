@@ -149,7 +149,10 @@ def prepare_traindatasets(
         logger.debug(f"Read label locations from {label_file['locations_path']}")
         file_labellocations_gdf = geofile_util.read_file(label_file['locations_path'])
         if file_labellocations_gdf is not None and len(file_labellocations_gdf) > 0:
+            file_labellocations_gdf.loc[:, 'filepath'] = str(label_file['locations_path'])
             file_labellocations_gdf.loc[:, 'image_layer'] = label_file['image_layer']
+            # Remark: geopandas 0.7.0 drops the fid column internaly, so cannot be retrieved
+            file_labellocations_gdf.loc[:, 'row_nb_orig'] = file_labellocations_gdf.index
             if labellocations_gdf is None:
                 labellocations_gdf = file_labellocations_gdf
             else:
@@ -227,7 +230,10 @@ def prepare_traindatasets(
                 # as a start... ideally make sure we use it entirely for cases with
                 # no abundance of data
                 # Make sure the image requested is of the correct size
-                label_geom = label_tuple.geometry            
+                label_geom = label_tuple.geometry
+                if label_geom is None:
+                    logger.warn(f"No geometry found in file {label_tuple.filepath}, (zero based) row_nb_orig: {label_tuple.fid_orig}")
+                    continue
                 geom_bounds = label_geom.bounds
                 xmin = geom_bounds[0]-(geom_bounds[0]%image_pixel_x_size)
                 ymin = geom_bounds[1]-(geom_bounds[1]%image_pixel_y_size)
