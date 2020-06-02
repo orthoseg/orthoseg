@@ -143,7 +143,7 @@ dependencies:
     - decorator==4.4.2
     - efficientnet==1.0.0
     - gast==0.3.3
-    - geofile-ops==0.0.4
+    - geofileops==0.0.1
     - geopandas==0.7.0
     - image-classifiers==1.0.0
     - imagecodecs==2020.2.18
@@ -151,7 +151,7 @@ dependencies:
     - kiwisolver==1.2.0
     - matplotlib==3.2.1
     - networkx==2.4
-    - orthoseg==0.1.2
+    - orthoseg==0.1.3
     - pywavelets==1.1.1
     - scikit-image==0.17.2
     - segmentation-models==1.0.1
