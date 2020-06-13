@@ -16,7 +16,7 @@ setuptools.setup(
     include_package_data=True,
     install_requires=[
             "tensorflow-gpu", "pillow", "rasterio", "geopandas>=0.7", 
-            "owslib", "segmentation-models", "geofileops"],
+            "owslib", "segmentation-models", "geofileops>=0.0.3"],
     entry_points='''
             [console_scripts]
             orthoseg=orthoseg.orthoseg:main
