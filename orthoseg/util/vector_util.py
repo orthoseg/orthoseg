@@ -7,13 +7,13 @@ import logging
 from pathlib import Path
 from typing import Tuple
 
+from geofileops import geofile
 import geopandas as gpd
 import numpy as np
 import shapely.ops as sh_ops
 
 from orthoseg.util.vector import simplify_visval as simpl_vis
 from orthoseg.util.vector import simplify_rdp_plus as simpl_rdp_plus
-from orthoseg.util import geofile_util
 
 #-------------------------------------------------------------
 # First define/init some general variables/constants
@@ -39,7 +39,7 @@ def unary_union_with_onborder(
         
     # If the input geoms are not yet in memory, read them from file
     if input_gdf is None:
-        input_gdf = geofile_util.read_file(input_filepath)
+        input_gdf = geofile.read_file(input_filepath)
         
         if evaluate_mode:
             logger.info("Evaluate mode, so limit input to 1000 geoms")
@@ -78,7 +78,7 @@ def unary_union_with_onborder(
     # Rem: Reset index because append retains the original index values
     union_gdf.reset_index(inplace=True, drop=True)
     union_gdf['id'] = union_gdf.index
-    geofile_util.to_file(union_gdf, output_filepath)
+    geofile.to_file(union_gdf, output_filepath)
     return union_gdf
             
 def extract_polygons(in_geom) -> list:

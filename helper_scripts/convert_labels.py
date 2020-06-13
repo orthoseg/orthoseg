@@ -12,11 +12,12 @@ import geopandas as gpd
 import pandas as pd
 import shapely.geometry as sh_geom
 
+from geofileops import geofile
+
 # Because orthoseg isn't installed as package + it is higher in dir hierarchy, add root to sys.path
 [sys.path.append(i) for i in ['.', '..']]
 from orthoseg.helpers import config_helper as conf
 from orthoseg.helpers import log_helper
-from orthoseg.util import geofile_util
 
 def convert_traindata_v1tov2(
         labellocations_path: Path, 
@@ -39,11 +40,11 @@ def convert_traindata_v1tov2(
         raise Exception(f"Stop: input file(s) don't exist: {label_train_path} and/or {label_validation_path}")
 
     # Read train and validation labels
-    label_train_gdf = geofile_util.read_file(label_train_path)
+    label_train_gdf = geofile.read_file(label_train_path)
     label_train_gdf['traindata_type'] = 'train'
     if 'image' not in list(label_train_gdf.columns):
         label_train_gdf['image'] = None
-    label_validation_gdf = geofile_util.read_file(label_validation_path)
+    label_validation_gdf = geofile.read_file(label_validation_path)
     label_validation_gdf['traindata_type'] = 'validation'
     if 'image' not in list(label_validation_gdf.columns):
         label_validation_gdf['image'] = None
@@ -53,7 +54,7 @@ def convert_traindata_v1tov2(
 
     # If test labels exist as well... read and add them as well
     if os.path.exists(label_test_path):
-        label_test_gdf = geofile_util.read_file(label_test_path)
+        label_test_gdf = geofile.read_file(label_test_path)
         label_test_gdf['traindata_type'] = 'test'
         if 'image' not in list(label_test_gdf.columns):
             label_test_gdf['image'] = None
@@ -80,10 +81,10 @@ def convert_traindata_v1tov2(
     labellocations_gdf['geometry'] = labellocations_gdf.geometry.apply(
             lambda geom: get_bbox_translated(geom))
     
-    geofile_util.to_file(labellocations_gdf, labellocations_path)
+    geofile.to_file(labellocations_gdf, labellocations_path)
     labeldata_gdf = label_gdf[label_gdf['burninmask'] == 1]
     labeldata_gdf.drop(columns=['usebounds', 'burninmask', 'traindata_type'], inplace=True)
-    geofile_util.to_file(labeldata_gdf, labeldata_path)
+    geofile.to_file(labeldata_gdf, labeldata_path)
 
 if __name__ == "__main__":
     

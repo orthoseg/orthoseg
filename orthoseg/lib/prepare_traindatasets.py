@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 import fiona
+from geofileops import geofile
 import pandas as pd
 import geopandas as gpd
 import numpy as np
@@ -23,7 +24,6 @@ import shapely.geometry as sh_geom
 
 from orthoseg.helpers import log_helper
 from orthoseg.util import ows_util
-from orthoseg.util import geofile_util
 
 #-------------------------------------------------------------
 # First define/init some general variables/constants
@@ -100,9 +100,9 @@ def prepare_traindatasets(
             labeldata_output_mostrecent_path = output_dir_mostrecent / label_file['data_path'].name
             if(not (labellocations_output_mostrecent_path.exists()
                and labeldata_output_mostrecent_path.exists()
-               and geofile_util.cmp(
+               and geofile.cmp(
                         label_file['locations_path'], labellocations_output_mostrecent_path)
-               and geofile_util.cmp(label_file['data_path'], labeldata_output_mostrecent_path))):
+               and geofile.cmp(label_file['data_path'], labeldata_output_mostrecent_path))):
                 logger.info(f"RETURN: input label file(s) changed since last prepare_traindatasets, recreate")
                 reuse = False
                 break
@@ -142,12 +142,12 @@ def prepare_traindatasets(
 
         # Copy the vector files to the dest dir so we keep knowing which files 
         # were used to create the dataset
-        geofile_util.copy(label_file['locations_path'], output_tmp_basedir)
-        geofile_util.copy(label_file['data_path'], output_tmp_basedir)
+        geofile.copy(label_file['locations_path'], output_tmp_basedir)
+        geofile.copy(label_file['data_path'], output_tmp_basedir)
 
         # Read label data and append to general dataframes
         logger.debug(f"Read label locations from {label_file['locations_path']}")
-        file_labellocations_gdf = geofile_util.read_file(label_file['locations_path'])
+        file_labellocations_gdf = geofile.read_file(label_file['locations_path'])
         if file_labellocations_gdf is not None and len(file_labellocations_gdf) > 0:
             file_labellocations_gdf.loc[:, 'filepath'] = str(label_file['locations_path'])
             file_labellocations_gdf.loc[:, 'image_layer'] = label_file['image_layer']
@@ -162,7 +162,7 @@ def prepare_traindatasets(
         else:
             logger.warn(f"No label locations data found in {label_file['locations_path']}")
         logger.debug(f"Read label data from {label_file['data_path']}")
-        file_labeldata_gdf = geofile_util.read_file(label_file['data_path'])
+        file_labeldata_gdf = geofile.read_file(label_file['data_path'])
         if file_labeldata_gdf is not None and len(file_labeldata_gdf) > 0:
             file_labeldata_gdf.loc[:, 'image_layer'] = label_file['image_layer']
             if labeldata_gdf is None:
@@ -339,7 +339,7 @@ def create_masks_for_images(
         output_vector_mostrecent_filepath = os.path.join(
                 output_dir_mostrecent, os.path.basename(input_vector_label_filepath))
         if(os.path.exists(output_vector_mostrecent_filepath)
-           and geofile_util.cmp(input_vector_label_filepath, 
+           and geofile.cmp(input_vector_label_filepath, 
                                   output_vector_mostrecent_filepath)):
             logger.info(f"RETURN: input vector label file isn't changed since last prepare_traindatasets, so no need to recreate")
             return output_dir_mostrecent, dataversion_mostrecent
@@ -359,7 +359,7 @@ def create_masks_for_images(
 
     # Copy the vector file(s) to the dest dir so we keep knowing which file was
     # used to create the dataset
-    geofile_util.copy(input_vector_label_filepath, output_tmp_dir)
+    geofile.copy(input_vector_label_filepath, output_tmp_dir)
     
     # Open vector layer
     logger.debug(f"Open vector file {input_vector_label_filepath}")

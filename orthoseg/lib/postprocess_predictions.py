@@ -16,7 +16,8 @@ from typing import Optional
 # Evade having many info warnings about self intersections from shapely
 logging.getLogger('shapely.geos').setLevel(logging.WARNING)
 import fiona
-import geofile_ops.geofile_ops as geofile_ops
+from geofileops import geofileops
+from geofileops import geofile
 import geopandas as gpd
 import numpy as np
 import pandas as pd
@@ -24,7 +25,6 @@ import rasterio as rio
 import rasterio.features as rio_features
 import shapely as sh
 
-from orthoseg.util import geofile_util
 from orthoseg.util import vector_util
 
 #-------------------------------------------------------------
@@ -112,19 +112,20 @@ def postprocess_predictions(
         return
 
     # Union the data
-    input_cardsheets_path = r"X:\GIS\GIS DATA\Versnijdingen\Kaartbladversnijdingen_NGI_numerieke_reeks_Shapefile\Shapefile\Kbl8.shp"
+    input_cardsheets_path = Path(r"X:\GIS\GIS DATA\Versnijdingen\Kaartbladversnijdingen_NGI_numerieke_reeks_Shapefile\Shapefile\Kbl8.shp")
     geoms_union_filepath = output_dir / f"{output_basefilename_noext}_union{output_ext}"
-    geofile_ops.dissolve_cardsheets(
+    geofileops.dissolve(
             input_path=geoms_orig_filepath,
             input_cardsheets_path=input_cardsheets_path,
             output_path=geoms_union_filepath,
-            explodecollections=True)
+            explodecollections=True,
+            keep_cardsheets=True)
 
     # Retain only geoms > 5m²
     geoms_gt5m2_filepath = output_dir / f"{output_basefilename_noext}_union_gt5m2{output_ext}"
     geoms_gt5m2_gdf = None
     if force or not geoms_gt5m2_filepath.exists():
-        geoms_union_gdf = geofile_util.read_file(geoms_union_filepath)
+        geoms_union_gdf = geofile.read_file(geoms_union_filepath)
         geoms_union_gdf.reset_index(inplace=True)
         geoms_gt5m2_gdf = geoms_union_gdf.loc[(geoms_union_gdf.geometry.area > 5)].copy()
         # TODO: setting the CRS here hardcoded should be removed
@@ -136,7 +137,7 @@ def postprocess_predictions(
         # Qgis wants unique id column, otherwise weird effects!
         geoms_gt5m2_gdf.reset_index(inplace=True, drop=True)
         geoms_gt5m2_gdf.loc[:, 'id'] = geoms_gt5m2_gdf.index 
-        geofile_util.to_file(geoms_gt5m2_gdf, geoms_gt5m2_filepath)
+        geofile.to_file(geoms_gt5m2_gdf, geoms_gt5m2_filepath)
 
     # Simplify with standard shapely algo 
     # -> if preserve_topology False, this is Ramer-Douglas-Peucker, otherwise ?
@@ -146,7 +147,7 @@ def postprocess_predictions(
         logger.info("Simplify with default shapely algo")
         # If input geoms not yet in memory, read from file
         if geoms_gt5m2_gdf is None:
-            geoms_gt5m2_gdf = geofile_util.read_file(geoms_gt5m2_filepath)
+            geoms_gt5m2_gdf = geofile.read_file(geoms_gt5m2_filepath)
 
         # Simplify, fix invalid geoms, remove empty geoms, 
         # apply multipart-to-singlepart, only > 5m² + write
@@ -173,7 +174,7 @@ def postprocess_predictions(
         geoms_simpl_gdf['id'] = geoms_simpl_gdf.index 
         geoms_simpl_gdf['nbcoords'] = geoms_simpl_gdf.geometry.apply(
                 lambda geom: vector_util.get_nb_coords(geom))
-        geofile_util.to_file(geoms_simpl_gdf, geoms_simpl_filepath)
+        geofile.to_file(geoms_simpl_gdf, geoms_simpl_filepath)
         logger.info(f"Result written to {geoms_simpl_filepath}")
         
     # Apply negative buffer on result
@@ -183,7 +184,7 @@ def postprocess_predictions(
         logger.info("Apply negative buffer")
         # If input geoms not yet in memory, read from file
         if geoms_simpl_gdf is None:
-            geoms_simpl_gdf = geofile_util.read_file(geoms_simpl_filepath)
+            geoms_simpl_gdf = geofile.read_file(geoms_simpl_filepath)
             
         # Simplify, fix invalid geoms, remove empty geoms, 
         # apply multipart-to-singlepart, only > 5m² + write
@@ -207,7 +208,7 @@ def postprocess_predictions(
         geoms_simpl_m1m_gdf['id'] = geoms_simpl_m1m_gdf.index 
         geoms_simpl_m1m_gdf['nbcoords'] = geoms_simpl_m1m_gdf.geometry.apply(
                 lambda geom: vector_util.get_nb_coords(geom))        
-        geofile_util.to_file(geoms_simpl_m1m_gdf, geoms_simpl_m1m_filepath)
+        geofile.to_file(geoms_simpl_m1m_gdf, geoms_simpl_m1m_filepath)
         logger.info(f"Result written to {geoms_simpl_m1m_filepath}")
 
 def polygonize_prediction_files(
@@ -348,7 +349,7 @@ def polygonize_prediction_files(
                                 # Open the destination file
                                 output_tmp_file = fiona.open(
                                         output_tmp_filepath, 'w', 
-                                        driver=geofile_util.get_driver(output_tmp_filepath), 
+                                        driver=geofile.get_driver(output_tmp_filepath), 
                                         layer=layer, crs=geoms_gdf.crs.to_wkt(), 
                                         schema=gpd.io.file.infer_schema(geoms_gdf))
                             
@@ -373,7 +374,7 @@ def read_prediction_file(
         border_pixels_to_ignore: int = 0) -> gpd.geodataframe:
     ext_lower = filepath.suffix.lower()
     if ext_lower == '.geojson':
-        return geofile_util.read_file(filepath)
+        return geofile.read_file(filepath)
     elif ext_lower == '.tif':
         return polygonize_pred_from_file(filepath, border_pixels_to_ignore)
     else:
@@ -727,7 +728,7 @@ def polygonize_pred(
         # Write the geoms to file
         if output_basefilepath is not None:
             geom_filepath = Path(f"{str(output_basefilepath)}_pred_cleaned_2.geojson")
-            geofile_util.to_file(geoms_gdf, geom_filepath)
+            geofile.to_file(geoms_gdf, geom_filepath)
         
         return geoms_gdf
             

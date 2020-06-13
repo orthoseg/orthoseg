@@ -572,7 +572,8 @@ def clean_and_save_prediction(
         
         # If the cleaned result contains useful values... save
         if(min_pixelvalue_for_save == 0 
-           or np.any(image_pred_uint8_cleaned_curr >= min_pixelvalue_for_save)):
+           or np.any(image_pred_uint8_cleaned_curr >= min_pixelvalue_for_save)
+           or evaluate_mode is True):
             save_prediction(
                     image_image_filepath=image_image_filepath,
                     image_crs=image_crs,
