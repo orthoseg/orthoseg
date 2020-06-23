@@ -21,6 +21,7 @@ from geofileops import geofile
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+import pyproj
 import rasterio as rio
 import rasterio.features as rio_features
 import shapely as sh
@@ -319,12 +320,13 @@ def polygonize_prediction_files(
                         if geoms_gdf is None:
                             # Check if the input has a crs
                             if geoms_file_gdf.crs is None:
+                                #geoms_file_gdf.crs = pyproj.CRS.from_user_input("EPSG:31370")
                                 raise Exception("STOP: input does not have a crs!") 
                             geoms_gdf = geoms_file_gdf
                         else:
                             geoms_gdf = gpd.GeoDataFrame(
                                     pd.concat([geoms_gdf, geoms_file_gdf], ignore_index=True), 
-                                    crs=geoms_file_gdf.crs)
+                                    crs=geoms_gdf.crs)
                         
                     except Exception as ex:
                         logger.exception(f"Error reading {future_to_filepath_queue[future]}")
