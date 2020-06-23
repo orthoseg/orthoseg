@@ -10,17 +10,19 @@ from email.message import EmailMessage
 import json
 import logging
 import logging.config
+import os
 from pathlib import Path
+import pprint
 import smtplib
 from typing import List
 
 # Because orthoseg isn't installed as package + it is higher in dir hierarchy, add root to sys.path
 import sys
-sys.path.insert(0, '.')
+sys.path.insert(0, str(Path(__file__).resolve().parent / '..'))
 
 import pandas as pd
 
-import orthoseg.util.git_downloader as git_downloader
+from orthoseg.util import git_downloader
 
 def main():
     
@@ -115,7 +117,22 @@ def run_tasks(
     global logger
     logger = logging.getLogger()
     logger.info(f"Config files used for orthoseg: {config_filepaths}")
+        
+    # Make sure GDAL is properly set up
+    if os.environ['GDAL_DATA'] is None:
+        logger.info(f"environment: {pprint.pformat(os.environ)}")
+        #os.environ['GDAL_DATA'] = r"C:\Tools\miniconda3\envs\orthoseg\Library\share\gdal"
+        os.environ['GDAL_DATA'] = r"C:\Users\pierog\Miniconda3\envs\orthosegdev\Library\share\gdal"
+        logger.warn(f"Environment variable GDAL_DATA was not set, so set to {os.environ['GDAL_DATA']}")
+    if os.environ['PROJ_LIB'] is None:
+        #os.environ['PROJ_LIB'] = r"C:\Tools\miniconda3\envs\orthoseg\Library\share\proj"
+        os.environ['PROJ_LIB'] = r"C:\Users\pierog\Miniconda3\envs\orthosegdev\Library\share\proj"
+        logger.warn(f"Environment variable PROJ_LIB was not set, so set to {os.environ['PROJ_LIB']}")
     
+    proj_db_path = Path(os.environ['PROJ_LIB']) / 'proj.db'
+    if not proj_db_path.exists():
+        raise Exception(f"There must be something wrong with the GDAL installation. proj.db file not found in {os.environ['PROJ_LIB']}")
+        
     # Read the tasks that need to be ran in the run_tasks file
     tasks_df = get_tasks(tasks_path)
 
