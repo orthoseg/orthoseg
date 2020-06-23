@@ -22,3 +22,4 @@ tmp/
 *.pyc
 *.log
 */__pycache__/
+orthoseg.code-workspace
