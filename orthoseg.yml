@@ -143,7 +143,7 @@ dependencies:
     - decorator==4.4.2
     - efficientnet==1.0.0
     - gast==0.3.3
-    - geofileops==0.0.3
+    - geofileops==0.0.4
     - geopandas==0.7.0
     - image-classifiers==1.0.0
     - imagecodecs==2020.2.18
