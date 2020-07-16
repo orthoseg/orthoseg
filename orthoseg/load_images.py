@@ -109,7 +109,7 @@ def load_images(
     grid_xmin = conf.image_layers[predict_layer]['grid_xmin']
     grid_ymin = conf.image_layers[predict_layer]['grid_ymin']
     image_pixels_ignore_border = conf.image_layers[predict_layer]['image_pixels_ignore_border']
-    roi_filepath = conf.image_layers[predict_layer]['roi_filepath']
+    roi_filepath = conf.image_layers[predict_layer].getpath('roi_filepath')
 
     ows_util.get_images_for_grid(
             wms_server_url=wms_server_url,
