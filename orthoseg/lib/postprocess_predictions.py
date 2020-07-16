@@ -113,14 +113,15 @@ def postprocess_predictions(
         return
 
     # Union the data
-    input_cardsheets_path = Path(r"X:\GIS\GIS DATA\Versnijdingen\Kaartbladversnijdingen_NGI_numerieke_reeks_Shapefile\Shapefile\Kbl8.shp")
+    #tiles_path = Path(r"X:\GIS\GIS DATA\Versnijdingen\Kaartbladversnijdingen_NGI_numerieke_reeks_Shapefile\Shapefile\Kbl8.shp")
+    tiles_path = None
     geoms_union_filepath = output_dir / f"{output_basefilename_noext}_union{output_ext}"
     geofileops.dissolve(
             input_path=geoms_orig_filepath,
-            input_cardsheets_path=input_cardsheets_path,
+            tiles_path=tiles_path,
             output_path=geoms_union_filepath,
             explodecollections=True,
-            keep_cardsheets=True)
+            clip_on_tiles=False)
 
     # Retain only geoms > 5m²
     geoms_gt5m2_filepath = output_dir / f"{output_basefilename_noext}_union_gt5m2{output_ext}"
