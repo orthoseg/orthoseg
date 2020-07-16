@@ -139,8 +139,12 @@ def predict(
         logger.info(f"Load optimized model + weights from {savedmodel_optim_dir}")
         model = tf.keras.models.load_model(savedmodel_optim_dir)
 
-    except ImportError as e:
+    except ImportError:
         logger.info('Tensorrt is not available, so load unoptimized model')
+        model = None
+    
+    # If model isn't loaded yet... load!
+    if model is None:
         model = mf.load_model(best_model['filepath'], compile=False)
 
     # Prepare the model for predicting

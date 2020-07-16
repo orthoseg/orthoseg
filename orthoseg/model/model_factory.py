@@ -9,6 +9,7 @@ Many models are supported by using this segmentation model zoo:
 https://github.com/qubvel/segmentation_models
 """
 
+import json
 import logging
 from pathlib import Path
 from typing import List
@@ -142,7 +143,7 @@ def compile_model(
         loss: str,
         metrics: List[str] = None,
         sample_weight_mode: str = None,
-        class_weights: list = None):
+        class_weights: list = None) -> kr.models.Model:
     """
     Compile the model for training.
     
@@ -210,28 +211,102 @@ def compile_model(
 
 def load_model(
         model_to_use_filepath: Path, 
-        compile: bool = True):
-    # If it is a file with only weights
-    if model_to_use_filepath.stem.endswith('_weights'):
-        model_json_filename = model_to_use_filepath.stem.replace('_weights', '') + '.json'
-        model_json_filepath = model_to_use_filepath.parent / model_json_filename
-        with model_json_filepath.open('r') as src:
-            model_json = src.read()
-            model = kr.models.model_from_json(model_json)
-        model.load_weights(str(model_to_use_filepath))
-    else:
+        compile: bool = True) -> kr.models.Model:
+    """
+    Load an existing model from a file.
+
+    If loading the architecture + model from the file doesn't work, tries 
+    different things to load a model anyway:
+    1) looks for a ..._model.json file to load the architecture from,  
+       the weights are then loaded from the original file
+    2) looks for a ..._hyperparams.json file to create the architecture from, 
+       the weights are then loaded from the original file
+
+    Args:
+        model_to_use_filepath (Path): The file to load the model from.
+        compile (bool, optional): True to get a compiled version back that is 
+            ready to train. Defaults to True.
+
+    Raises:
+        Exception: [description]
+
+    Returns:
+        kr.models.Model: The loaded model.
+    """
+    errors = []
+    model = None
+    
+    # If it is a file with the complete model, try loading it entirely...
+    if not model_to_use_filepath.stem.endswith('_weights'):
         iou_score = sm.metrics.IOUScore()
         f1_score = sm.metrics.FScore()
-        model = kr.models.load_model(
-                str(model_to_use_filepath),
-                custom_objects={'jaccard_coef': jaccard_coef,
-                                'jaccard_coef_flat': jaccard_coef_flat,
-                                'jaccard_coef_round': jaccard_coef_round,
-                                'dice_coef': dice_coef,
-                                'iou_score': iou_score,
-                                'f1_score': f1_score,
-                                'weighted_categorical_crossentropy': weighted_categorical_crossentropy},
-                compile=compile)
+
+        try:
+            model = kr.models.load_model(
+                    str(model_to_use_filepath),
+                    custom_objects={'jaccard_coef': jaccard_coef,
+                                    'jaccard_coef_flat': jaccard_coef_flat,
+                                    'jaccard_coef_round': jaccard_coef_round,
+                                    'dice_coef': dice_coef,
+                                    'iou_score': iou_score,
+                                    'f1_score': f1_score,
+                                    'weighted_categorical_crossentropy': weighted_categorical_crossentropy},
+                    compile=compile)
+        except Exception as ex:
+            errors.append(f"Error loading model+weights from {model_to_use_filepath}: {ex}")
+    
+    # If no model returned yet, try loading loading architecture and weights seperately
+    if model is None:
+        # Load the architecture from a model.json file
+        model_basestem = f"{'_'.join(model_to_use_filepath.stem.split('_')[0:2])}"
+
+        # Check if there is a specific model.json file for these weights
+        model_json_filepath = model_to_use_filepath.parent / (model_to_use_filepath.stem.replace('_weights', '') + '.json')
+        if not model_json_filepath.exists():
+            # If not, check if there is a model.json file for the training session
+            model_json_filepath = model_to_use_filepath.parent / f"{model_basestem}_model.json"
+        if model_json_filepath.exists():
+            with model_json_filepath.open('r') as src:
+                model_json = src.read()
+            try:
+                model = kr.models.model_from_json(model_json)
+            except Exception as ex:
+                errors.append(f"Error loading model architecture from {model_json_filepath}: {ex}")
+        else:
+            errors.append(f"No model.json file found to load model from: {model_json_filepath}")
+        
+        # If loading model.json not successfull, create model based on hyperparams.json
+        if model is None:
+            # Load the hyperparams file if available
+            hyperparams_json_filepath = model_to_use_filepath.parent / f"{model_basestem}_hyperparams.json"
+            if hyperparams_json_filepath.exists():
+                with hyperparams_json_filepath.open('r') as src:
+                    hyperparams = json.load(src)
+                # Create the model we want to use
+                try:
+                    model = get_model(
+                            architecture=hyperparams['architecture']['architecture'],
+                            nb_channels=hyperparams['architecture']['nb_channels'], 
+                            nb_classes=hyperparams['architecture']['nb_classes'], 
+                            activation=hyperparams['architecture']['activation_function'])
+                except Exception as ex:
+                    errors.append(f"Exception trying get_model() with parameters from: {hyperparams_json_filepath}: {ex}")
+            else:
+                errors.append(f"No hyperparams.json file found to load model from: {hyperparams_json_filepath}")
+
+        # Now load the weights
+        if model is not None:
+            try:
+                model.load_weights(str(model_to_use_filepath))
+            except Exception as ex:
+                errors.append(f"Exception trying model.load_weights on: {model_to_use_filepath}: {ex}")
+
+    # If we still have not model... time to give up.
+    if model is None:
+        errors_str = ""
+        if len(errors) > 0:
+            errors_str = (" The following errors occured while trying: \n    -> " + "\n    -> ".join(errors))
+        raise Exception(f"Error loading model for {model_to_use_filepath}.{errors_str}")
 
     return model
 
@@ -282,16 +357,16 @@ def dice_coef_loss(y_true, y_pred):
 def bootstrapped_crossentropy(y_true, y_pred, bootstrap_type='hard', alpha=0.95):
     target_tensor = y_true
     prediction_tensor = y_pred
-    _epsilon = kr.backend.tensorflow_backend._to_tensor(kr.backend.epsilon(), prediction_tensor.dtype.base_dtype)
-    prediction_tensor = kr.backend.tf.clip_by_value(prediction_tensor, _epsilon, 1 - _epsilon)
-    prediction_tensor = kr.backend.tf.log(prediction_tensor / (1 - prediction_tensor))
+    _epsilon = tf.convert_to_tensor(kr.backend.epsilon(), prediction_tensor.dtype.base_dtype)
+    prediction_tensor = tf.clip_by_value(prediction_tensor, _epsilon, 1 - _epsilon)
+    prediction_tensor = kr.backend.log(prediction_tensor / (1 - prediction_tensor))
 
     if bootstrap_type == 'soft':
-        bootstrap_target_tensor = alpha * target_tensor + (1.0 - alpha) * kr.backend.tf.sigmoid(prediction_tensor)
+        bootstrap_target_tensor = alpha * target_tensor + (1.0 - alpha) * tf.sigmoid(prediction_tensor)
     else:
-        bootstrap_target_tensor = alpha * target_tensor + (1.0 - alpha) * kr.backend.tf.cast(
-            kr.backend.tf.sigmoid(prediction_tensor) > 0.5, kr.backend.tf.float32)
-    return kr.backend.mean(kr.backend.tf.nn.sigmoid_cross_entropy_with_logits(
+        bootstrap_target_tensor = alpha * target_tensor + (1.0 - alpha) * tf.cast(
+            tf.sigmoid(prediction_tensor) > 0.5, tf.float32)
+    return kr.backend.mean(tf.nn.sigmoid_cross_entropy_with_logits(
         labels=bootstrap_target_tensor, logits=prediction_tensor))
 
 def dice_coef_loss_bce(y_true, y_pred):
