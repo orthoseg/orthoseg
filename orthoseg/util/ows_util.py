@@ -16,6 +16,7 @@ from typing import List, Optional, Tuple
 
 import owslib
 import owslib.wms
+import owslib.util
 import pyproj
 import rasterio as rio
 import geopandas as gpd
@@ -415,12 +416,13 @@ def getmap_to_file(
             logger.debug(f"Finished doing request {response.geturl()}")
             
             # If a random sleep was specified... apply it
-            if random_sleep:
+            if random_sleep > 0:
                 time.sleep(random.uniform(0, random_sleep))
             
             # Image was retrieved... so stop loop
             break
-
+        except owslib.util.ServiceException as ex:
+            raise Exception(f"WMS Service gave an exception: {ex}") from ex
         except Exception as ex:
             # Retry 10 times... and increase sleep time every time
             if nb_retries < 10:
