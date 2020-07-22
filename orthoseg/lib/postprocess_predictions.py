@@ -82,18 +82,14 @@ def postprocess_predictions(
         output_dir = output_dir.parent / (output_dir.name + eval_suffix)
     if not output_dir.exists():
         output_dir.mkdir(parents=True)
-
-    # Prepare output driver
-    output_basefilename_noext = output_filepath.stem
-    output_ext = output_filepath.suffix.lower()
     
     # Polygonize all prediction files if orig file doesn't exist yet
-    geoms_orig_filepath = output_dir / f"{output_basefilename_noext}{output_ext}"
-    if not geoms_orig_filepath.exists():
+    geoms_orig_path = output_dir / output_filepath.name
+    if not geoms_orig_path.exists():
         try:
             polygonize_prediction_files(
                     input_dir=input_dir,
-                    output_filepath=geoms_orig_filepath,
+                    output_filepath=geoms_orig_path,
                     input_ext=input_ext,
                     border_pixels_to_ignore=border_pixels_to_ignore,
                     evaluate_mode=evaluate_mode,
@@ -105,26 +101,41 @@ def postprocess_predictions(
                 logger.warn("No prediction files found to merge")
                 return
     else:
-        logger.info(f"Output file exists already, so continue postprocess: {geoms_orig_filepath}")
+        logger.info(f"Output file exists already, so continue postprocess: {geoms_orig_path}")
+
+    # If the cancel file exists, stop processing...
+    if cancel_filepath is not None and cancel_filepath.exists():
+        logger.info(f"Cancel file found, so stop: {cancel_filepath}")
+        return
+    
+    clean_vectordata(
+        input_path=geoms_orig_path,
+        output_path=geoms_orig_path)
+
+def clean_vectordata(
+        input_path: Path,
+        output_path: Path,
+        cancel_filepath: Optional[Path] = None,
+        force: bool = False):
+
+    # Union the data
+    #tiles_path = Path(r"X:\GIS\GIS DATA\Versnijdingen\Kaartbladversnijdingen_NGI_numerieke_reeks_Shapefile\Shapefile\Kbl8.shp")
+    tiles_path = None
+    geoms_union_filepath = output_path.parent / f"{output_path.stem}_union{output_path.suffix}"
+    geofileops.dissolve(
+            input_path=input_path,
+            tiles_path=tiles_path,
+            output_path=geoms_union_filepath,
+            explodecollections=True,
+            clip_on_tiles=False)
 
     # If the cancel file exists, stop processing...
     if cancel_filepath is not None and cancel_filepath.exists():
         logger.info(f"Cancel file found, so stop: {cancel_filepath}")
         return
 
-    # Union the data
-    #tiles_path = Path(r"X:\GIS\GIS DATA\Versnijdingen\Kaartbladversnijdingen_NGI_numerieke_reeks_Shapefile\Shapefile\Kbl8.shp")
-    tiles_path = None
-    geoms_union_filepath = output_dir / f"{output_basefilename_noext}_union{output_ext}"
-    geofileops.dissolve(
-            input_path=geoms_orig_filepath,
-            tiles_path=tiles_path,
-            output_path=geoms_union_filepath,
-            explodecollections=True,
-            clip_on_tiles=False)
-
     # Retain only geoms > 5m²
-    geoms_gt5m2_filepath = output_dir / f"{output_basefilename_noext}_union_gt5m2{output_ext}"
+    geoms_gt5m2_filepath = output_path.parent / f"{output_path.stem}_union_gt5m2{output_path.suffix}"
     geoms_gt5m2_gdf = None
     if force or not geoms_gt5m2_filepath.exists():
         geoms_union_gdf = geofile.read_file(geoms_union_filepath)
@@ -143,7 +154,7 @@ def postprocess_predictions(
 
     # Simplify with standard shapely algo 
     # -> if preserve_topology False, this is Ramer-Douglas-Peucker, otherwise ?
-    geoms_simpl_filepath = output_dir / f"{output_basefilename_noext}_simpl{output_ext}"
+    geoms_simpl_filepath = output_path.parent / f"{output_path.stem}_simpl{output_path.suffix}"
     geoms_simpl_gdf = None
     if force or not geoms_simpl_filepath.exists():
         logger.info("Simplify with default shapely algo")
@@ -181,7 +192,7 @@ def postprocess_predictions(
         
     # Apply negative buffer on result
     geoms_simpl_m1m_filepath = (
-            output_dir / f"{output_basefilename_noext}_simpl_m1.5m{output_ext}")
+            output_path.parent / f"{output_path.stem}_simpl_m1.5m{output_path.suffix}")
     if force or not geoms_simpl_m1m_filepath.exists():
         logger.info("Apply negative buffer")
         # If input geoms not yet in memory, read from file
