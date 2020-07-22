@@ -127,6 +127,11 @@ def remove_inner_rings(
     # First check if the geom is None...
     if geometry is None:
         return None
+    if geometry.type not in ('Polygon', 'Multipolgon'):
+        raise Exception(f"remove_inner_rings is not possible with geometry.type: {geometry.type}, geometry: {geometry}")
+
+    #if geometry.area > 91000 and geometry.area < 92000:
+    #    logger.info("test")
 
     # If all inner rings need to be removed...
     if min_area_to_keep is None or min_area_to_keep == 0.0:
@@ -141,7 +146,7 @@ def remove_inner_rings(
     ring_coords_to_keep = []
     small_ring_found = False
     for ring in geometry.interiors:
-        if abs(ring.area) <= min_area_to_keep:
+        if abs(sh_ops.Polygon(ring).area) <= min_area_to_keep:
             small_ring_found = True
         else:
             ring_coords_to_keep.append(ring.coords)
