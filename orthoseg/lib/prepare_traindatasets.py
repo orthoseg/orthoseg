@@ -10,9 +10,9 @@ import shutil
 import math
 import datetime
 from pathlib import Path
-from typing import Optional, Tuple
+import pprint
+from typing import List, Optional, Tuple
 
-import fiona
 from geofileops import geofile
 import pandas as pd
 import geopandas as gpd
@@ -22,7 +22,6 @@ import rasterio as rio
 import rasterio.features as rio_features
 import shapely.geometry as sh_geom
 
-from orthoseg.helpers import log_helper
 from orthoseg.util import ows_util
 
 #-------------------------------------------------------------
@@ -36,8 +35,19 @@ logger = logging.getLogger(__name__)
 # The real work
 #-------------------------------------------------------------
 
+class LabelInfo:
+    def __init__(self,
+            location_path: Path,
+            data_path: Path,
+            image_layer: str):
+        self.location_path = location_path
+        self.data_path = data_path
+        self.image_layer = image_layer
+    def __repr__(self):
+       return f"LabelInfo with image_layer: {self.image_layer}, location_path: {self.location_path}, data_path: {self.data_path}"
+
 def prepare_traindatasets(
-        label_files: dict,
+        label_infos: List[LabelInfo],
         classes: dict,
         image_layers: dict,
         training_dir: Path,
@@ -61,7 +71,7 @@ def prepare_traindatasets(
             dataversion: a version number for the dataset created/found
 
     Args
-        label_files: paths to the files with label data and locations to generate images for
+        label_files (List[LabelFiles]): paths to the files with label data and locations to generate images for
         wms_server_url: WMS server where the images can be fetched from
         wms_layername: layername on the WMS server to use
         output_basedir: the base dir where the train dataset needs to be written to 
@@ -92,17 +102,16 @@ def prepare_traindatasets(
         
         # If none of the input files changed since previous run, reuse dataset
         reuse = False
-        for label_file_key in label_files:                  
-            label_file = label_files[label_file_key]
+        for label_file in label_infos:
             reuse = True
             labellocations_output_mostrecent_path = (
-                    output_dir_mostrecent / label_file['locations_path'].name)
-            labeldata_output_mostrecent_path = output_dir_mostrecent / label_file['data_path'].name
+                    output_dir_mostrecent / label_file.location_path.name)
+            labeldata_output_mostrecent_path = output_dir_mostrecent / label_file.data_path.name
             if(not (labellocations_output_mostrecent_path.exists()
                and labeldata_output_mostrecent_path.exists()
                and geofile.cmp(
-                        label_file['locations_path'], labellocations_output_mostrecent_path)
-               and geofile.cmp(label_file['data_path'], labeldata_output_mostrecent_path))):
+                        label_file.location_path, labellocations_output_mostrecent_path)
+               and geofile.cmp(label_file.data_path, labeldata_output_mostrecent_path))):
                 logger.info(f"RETURN: input label file(s) changed since last prepare_traindatasets, recreate")
                 reuse = False
                 break
@@ -134,37 +143,36 @@ def prepare_traindatasets(
         raise Exception(f"Error creating output_tmp_basedir in {training_dir}")
     
     # Process all input files
-    labellocations_gdf = None
+    labellocation_gdf = None
     labeldata_gdf = None
-    logger.info(label_files)
-    for label_file_key in label_files:
-        label_file = label_files[label_file_key]
+    logger.info(f"Label info: \n{pprint.pformat(label_infos, indent=4)}")
+    for label_file in label_infos:
 
         # Copy the vector files to the dest dir so we keep knowing which files 
         # were used to create the dataset
-        geofile.copy(label_file['locations_path'], output_tmp_basedir)
-        geofile.copy(label_file['data_path'], output_tmp_basedir)
+        geofile.copy(label_file.location_path, output_tmp_basedir)
+        geofile.copy(label_file.data_path, output_tmp_basedir)
 
         # Read label data and append to general dataframes
-        logger.debug(f"Read label locations from {label_file['locations_path']}")
-        file_labellocations_gdf = geofile.read_file(label_file['locations_path'])
-        if file_labellocations_gdf is not None and len(file_labellocations_gdf) > 0:
-            file_labellocations_gdf.loc[:, 'filepath'] = str(label_file['locations_path'])
-            file_labellocations_gdf.loc[:, 'image_layer'] = label_file['image_layer']
+        logger.debug(f"Read label locations from {label_file.location_path}")
+        file_labellocation_gdf = geofile.read_file(label_file.location_path)
+        if file_labellocation_gdf is not None and len(file_labellocation_gdf) > 0:
+            file_labellocation_gdf.loc[:, 'filepath'] = str(label_file.location_path)
+            file_labellocation_gdf.loc[:, 'image_layer'] = label_file.image_layer
             # Remark: geopandas 0.7.0 drops the fid column internaly, so cannot be retrieved
-            file_labellocations_gdf.loc[:, 'row_nb_orig'] = file_labellocations_gdf.index
-            if labellocations_gdf is None:
-                labellocations_gdf = file_labellocations_gdf
+            file_labellocation_gdf.loc[:, 'row_nb_orig'] = file_labellocation_gdf.index
+            if labellocation_gdf is None:
+                labellocation_gdf = file_labellocation_gdf
             else:
-                labellocations_gdf = gpd.GeoDataFrame(
-                        pd.concat([labellocations_gdf, file_labellocations_gdf], ignore_index=True),
-                        crs=file_labellocations_gdf.crs)
+                labellocation_gdf = gpd.GeoDataFrame(
+                        pd.concat([labellocation_gdf, file_labellocation_gdf], ignore_index=True),
+                        crs=file_labellocation_gdf.crs)
         else:
-            logger.warn(f"No label locations data found in {label_file['locations_path']}")
-        logger.debug(f"Read label data from {label_file['data_path']}")
-        file_labeldata_gdf = geofile.read_file(label_file['data_path'])
+            logger.warn(f"No label locations data found in {label_file.location_path}")
+        logger.debug(f"Read label data from {label_file.data_path}")
+        file_labeldata_gdf = geofile.read_file(label_file.data_path)
         if file_labeldata_gdf is not None and len(file_labeldata_gdf) > 0:
-            file_labeldata_gdf.loc[:, 'image_layer'] = label_file['image_layer']
+            file_labeldata_gdf.loc[:, 'image_layer'] = label_file.image_layer
             if labeldata_gdf is None:
                 labeldata_gdf = file_labeldata_gdf
             else:
@@ -172,13 +180,13 @@ def prepare_traindatasets(
                         pd.concat([labeldata_gdf, file_labeldata_gdf], ignore_index=True),
                         crs=file_labeldata_gdf.crs)
         else:
-            logger.warn(f"No label data found in {label_file['data_path']}")
+            logger.warn(f"No label data found in {label_file.data_path}")
 
     # Get the crs to use from the input vectors...
     try:
-        img_crs = labellocations_gdf.crs
+        img_crs = labellocation_gdf.crs
     except Exception as ex:
-        logger.exception(f"Error getting crs from labellocations, labellocations_gdf.crs: {labellocations_gdf.crs}")
+        logger.exception(f"Error getting crs from labellocations, labellocation_gdf.crs: {labellocation_gdf.crs}")
         raise ex
     
     # Create list with only the input labels that need to be burned in the mask
@@ -214,7 +222,7 @@ def prepare_traindatasets(
         try:
             # Get the label locations for this traindata type
             labels_to_use_for_bounds_gdf = (
-                    labellocations_gdf[labellocations_gdf['traindata_type'] == traindata_type])
+                    labellocation_gdf[labellocation_gdf['traindata_type'] == traindata_type])
             
             # Loop trough all locations labels to get an image for each of them
             nb_todo = len(labels_to_use_for_bounds_gdf)

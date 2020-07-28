@@ -6,8 +6,10 @@ Module to make it easy to start a training session.
 import argparse
 import os
 from pathlib import Path
+import re
 import shlex
 import sys
+from typing import List
 
 from orthoseg.helpers import config_helper as conf
 from orthoseg.helpers import log_helper
@@ -79,16 +81,24 @@ def train(
             dir.mkdir()
     
     ##### If the training data doesn't exist yet, create it #####
-    # Get the label input info, and clean it so it is practical to use
-    label_files = conf.train.getdict('label_datasources')
-    for label_file_key in label_files:
-        # Convert the str file paths to Path objects
-        label_files[label_file_key]['locations_path'] = Path(
-                label_files[label_file_key]['locations_path'])
-        label_files[label_file_key]['data_path'] = Path(
-                label_files[label_file_key]['data_path'])
-    first_label_file = list(label_files)[0]
-    train_image_layer = label_files[first_label_file]['image_layer']
+    # Get the label input info
+    label_files_dict = conf.train.getdict('label_datasources', None)
+    label_infos = []
+    if label_files_dict is not None:    
+        for label_file_key in label_files_dict:
+            label_file = label_files_dict[label_file_key]
+            # Add as LabelInfo objects to list
+            label_infos.append(prep.LabelInfo(
+                    location_path=Path(label_file['locations_path']),
+                    data_path=Path(label_file['data_path']),
+                    image_layer=label_file['image_layer']))
+    else:
+        # Search for the files based on the file name templates... 
+        labeldata_template = conf.train.getpath('labeldata_template')
+        labellocation_template = conf.train.getpath('labellocation_template')
+        label_infos = search_label_files(labeldata_template, labellocation_template)
+
+    train_image_layer = label_infos[0].image_layer
     train_projection = conf.image_layers[train_image_layer]['projection']
     classes = conf.train.getdict('classes')
 
@@ -100,7 +110,7 @@ def train(
     else:
         logger.info("Prepare train, validation and test data")
         training_dir, traindata_id = prep.prepare_traindatasets(
-                label_files=label_files,
+                label_infos=label_infos,
                 classes=classes,
                 image_layers=conf.image_layers,
                 training_dir=conf.dirs.getpath('training_dir'),
@@ -303,7 +313,49 @@ def train(
                 batch_size=conf.train.getint('batch_size_predict'), 
                 evaluate_mode=True,
                 cancel_filepath=conf.files.getpath('cancel_filepath'))
+
+def search_label_files(
+        labeldata_template: Path,
+        labellocation_template: Path) -> List[prep.LabelInfo]:
+    label_infos = []
+
+    labeldata_template_searchpath = Path(str(labeldata_template).format(image_layer='*'))
+    labeldata_paths = list(labeldata_template_searchpath.parent.glob(labeldata_template_searchpath.name))
+    labellocation_template_searchpath = Path(str(labellocation_template).format(image_layer='*'))
+    labellocation_paths = list(labellocation_template_searchpath.parent.glob(labellocation_template_searchpath.name))
+
+    # Loop through all labellocation files
+    for labellocation_path in labellocation_paths:
+        tokens = unformat(labellocation_path.stem, labellocation_template.stem)
+        if 'image_layer' not in tokens:
+            raise Exception(f"image_layer token not found in {labellocation_path} using pattern {labellocation_template}")
+        image_layer = tokens['image_layer']
+
+        # Look for the matching (= same image_layer) data file
+        found = False
+        for labeldata_path in labeldata_paths:
+            tokens = unformat(labeldata_path.stem, labeldata_template.stem)
+            if 'image_layer' not in tokens:
+                raise Exception(f"image_layer token not found in {labeldata_path} using pattern {labeldata_template}")
+            
+            if tokens['image_layer'] == image_layer:
+                found = True
+                label_infos.append(prep.LabelInfo(
+                        location_path=labellocation_path,
+                        data_path=labeldata_path,
+                        image_layer=image_layer))
+        if found is False:
+            raise Exception(f"No matching data file found for {labellocation_path}")
     
+    return label_infos
+
+def unformat(string: str, pattern: str) -> dict:
+    regex = re.sub(r'{(.+?)}', r'(?P<_\1>.+)', pattern)
+    values = list(re.search(regex, string).groups())
+    keys = re.findall(r'{(.+?)}', pattern)
+    _dict = dict(zip(keys, values))
+    return _dict
+
 if __name__ == '__main__':
     train_args(sys.argv[1:])
     
