@@ -81,12 +81,15 @@ def postprocess(
     output_vector_name = f"{'_'.join(model_info)}_{conf.predict['image_layer']}"
     output_filepath = output_dir / f"{output_vector_name}.gpkg"
     
-    ##### Go! #####
+    # Prepare some parameters
     border_pixels_to_ignore = conf.predict.getint('image_pixels_overlap')
+    postprocess_params = {"dissolve_tiles_path": conf.postprocess.getpath('dissolve_tiles_path')}
+    ##### Go! #####
     postp.postprocess_predictions(
             input_dir=input_dir,
             output_filepath=output_filepath,
             input_ext='.tif',
+            postprocess_params=postprocess_params,
             border_pixels_to_ignore=border_pixels_to_ignore,
             evaluate_mode=False,
             force=False)

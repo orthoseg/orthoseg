@@ -47,6 +47,7 @@ def postprocess_predictions(
         input_dir: Path,
         output_filepath: Path,
         input_ext: str,
+        postprocess_params: dict,
         border_pixels_to_ignore: int = 0,
         evaluate_mode: bool = False,
         cancel_filepath: Optional[Path] = None,
@@ -110,24 +111,28 @@ def postprocess_predictions(
     
     clean_vectordata(
         input_path=geoms_orig_path,
-        output_path=geoms_orig_path)
+        output_path=geoms_orig_path,
+        postprocess_params=postprocess_params)
 
 def clean_vectordata(
         input_path: Path,
         output_path: Path,
+        postprocess_params: dict,
         cancel_filepath: Optional[Path] = None,
         force: bool = False):
 
     # Union the data
-    #tiles_path = Path(r"X:\GIS\GIS DATA\Versnijdingen\Kaartbladversnijdingen_NGI_numerieke_reeks_Shapefile\Shapefile\Kbl8.shp")
-    tiles_path = None
+    tiles_path = postprocess_params['dissolve_tiles_path']
+    clip_on_tiles = False
+    if tiles_path is not None:
+        clip_on_tiles = True
     geoms_union_filepath = output_path.parent / f"{output_path.stem}_union{output_path.suffix}"
     geofileops.dissolve(
             input_path=input_path,
             tiles_path=tiles_path,
             output_path=geoms_union_filepath,
             explodecollections=True,
-            clip_on_tiles=False)
+            clip_on_tiles=clip_on_tiles)
 
     # If the cancel file exists, stop processing...
     if cancel_filepath is not None and cancel_filepath.exists():

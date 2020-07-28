@@ -88,7 +88,8 @@ def run_tasks(
             converters={'list': lambda x: [i.strip() for i in x.split(',')],
                         'listint': lambda x: [int(i.strip()) for i in x.split(',')],
                         'dict': lambda x: json.loads(x),
-                        'path': lambda x: Path(x)})
+                        'path': lambda x: None if x is None else Path(x)},
+            allow_no_value=True)
     runner_config.read(config_filepaths)
 
     # Init logging

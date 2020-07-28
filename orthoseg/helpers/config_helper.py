@@ -6,6 +6,7 @@ Module with specific helper functions to manage the configuration of orthoseg.
 import configparser
 import json
 import logging
+from orthoseg.lib import postprocess_predictions
 from pathlib import Path
 import pprint
 from typing import List
@@ -43,7 +44,8 @@ def read_project_config(
                         'listint': lambda x: [int(i.strip()) for i in x.split(',')],
                         'listfloat': lambda x: [float(i.strip()) for i in x.split(',')],
                         'dict': lambda x: json.loads(x),
-                        'path': lambda x: Path(x)})
+                        'path': lambda x: None if x is None else Path(x)},
+            allow_no_value=True)
 
     config.read(config_filepaths)
     global config_filepaths_used
@@ -52,12 +54,14 @@ def read_project_config(
     # Now set global variables to each section as shortcuts
     global general
     general = config['general']
+    global model
+    model = config['model']    
     global train
     train = config['train']
     global predict
     predict = config['predict']
-    global model
-    model = config['model']
+    global postprocess
+    postprocess = config['postprocess']
     global dirs 
     dirs = config['dirs']
     global files
