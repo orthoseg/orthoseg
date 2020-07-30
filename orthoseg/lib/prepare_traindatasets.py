@@ -37,14 +37,14 @@ logger = logging.getLogger(__name__)
 
 class LabelInfo:
     def __init__(self,
-            location_path: Path,
-            data_path: Path,
+            locations_path: Path,
+            polygons_path: Path,
             image_layer: str):
-        self.location_path = location_path
-        self.data_path = data_path
+        self.locations_path = locations_path
+        self.polygons_path = polygons_path
         self.image_layer = image_layer
     def __repr__(self):
-       return f"LabelInfo with image_layer: {self.image_layer}, location_path: {self.location_path}, data_path: {self.data_path}"
+       return f"LabelInfo with image_layer: {self.image_layer}, locations_path: {self.locations_path}, polygons_path: {self.polygons_path}"
 
 def prepare_traindatasets(
         label_infos: List[LabelInfo],
@@ -71,7 +71,7 @@ def prepare_traindatasets(
             dataversion: a version number for the dataset created/found
 
     Args
-        label_files (List[LabelFiles]): paths to the files with label data and locations to generate images for
+        label_files (List[LabelFiles]): paths to the files with label polygons and locations to generate images for
         wms_server_url: WMS server where the images can be fetched from
         wms_layername: layername on the WMS server to use
         output_basedir: the base dir where the train dataset needs to be written to 
@@ -105,13 +105,13 @@ def prepare_traindatasets(
         for label_file in label_infos:
             reuse = True
             labellocations_output_mostrecent_path = (
-                    output_dir_mostrecent / label_file.location_path.name)
-            labeldata_output_mostrecent_path = output_dir_mostrecent / label_file.data_path.name
+                    output_dir_mostrecent / label_file.locations_path.name)
+            labeldata_output_mostrecent_path = output_dir_mostrecent / label_file.polygons_path.name
             if(not (labellocations_output_mostrecent_path.exists()
                and labeldata_output_mostrecent_path.exists()
                and geofile.cmp(
-                        label_file.location_path, labellocations_output_mostrecent_path)
-               and geofile.cmp(label_file.data_path, labeldata_output_mostrecent_path))):
+                        label_file.locations_path, labellocations_output_mostrecent_path)
+               and geofile.cmp(label_file.polygons_path, labeldata_output_mostrecent_path))):
                 logger.info(f"RETURN: input label file(s) changed since last prepare_traindatasets, recreate")
                 reuse = False
                 break
@@ -143,65 +143,65 @@ def prepare_traindatasets(
         raise Exception(f"Error creating output_tmp_basedir in {training_dir}")
     
     # Process all input files
-    labellocation_gdf = None
-    labeldata_gdf = None
+    labellocations_gdf = None
+    labelpolygons_gdf = None
     logger.info(f"Label info: \n{pprint.pformat(label_infos, indent=4)}")
     for label_file in label_infos:
 
         # Copy the vector files to the dest dir so we keep knowing which files 
         # were used to create the dataset
-        geofile.copy(label_file.location_path, output_tmp_basedir)
-        geofile.copy(label_file.data_path, output_tmp_basedir)
+        geofile.copy(label_file.locations_path, output_tmp_basedir)
+        geofile.copy(label_file.polygons_path, output_tmp_basedir)
 
         # Read label data and append to general dataframes
-        logger.debug(f"Read label locations from {label_file.location_path}")
-        file_labellocation_gdf = geofile.read_file(label_file.location_path)
-        if file_labellocation_gdf is not None and len(file_labellocation_gdf) > 0:
-            file_labellocation_gdf.loc[:, 'filepath'] = str(label_file.location_path)
-            file_labellocation_gdf.loc[:, 'image_layer'] = label_file.image_layer
+        logger.debug(f"Read label locations from {label_file.locations_path}")
+        file_labellocations_gdf = geofile.read_file(label_file.locations_path)
+        if file_labellocations_gdf is not None and len(file_labellocations_gdf) > 0:
+            file_labellocations_gdf.loc[:, 'filepath'] = str(label_file.locations_path)
+            file_labellocations_gdf.loc[:, 'image_layer'] = label_file.image_layer
             # Remark: geopandas 0.7.0 drops the fid column internaly, so cannot be retrieved
-            file_labellocation_gdf.loc[:, 'row_nb_orig'] = file_labellocation_gdf.index
-            if labellocation_gdf is None:
-                labellocation_gdf = file_labellocation_gdf
+            file_labellocations_gdf.loc[:, 'row_nb_orig'] = file_labellocations_gdf.index
+            if labellocations_gdf is None:
+                labellocations_gdf = file_labellocations_gdf
             else:
-                labellocation_gdf = gpd.GeoDataFrame(
-                        pd.concat([labellocation_gdf, file_labellocation_gdf], ignore_index=True),
-                        crs=file_labellocation_gdf.crs)
+                labellocations_gdf = gpd.GeoDataFrame(
+                        pd.concat([labellocations_gdf, file_labellocations_gdf], ignore_index=True),
+                        crs=file_labellocations_gdf.crs)
         else:
-            logger.warn(f"No label locations data found in {label_file.location_path}")
-        logger.debug(f"Read label data from {label_file.data_path}")
-        file_labeldata_gdf = geofile.read_file(label_file.data_path)
-        if file_labeldata_gdf is not None and len(file_labeldata_gdf) > 0:
-            file_labeldata_gdf.loc[:, 'image_layer'] = label_file.image_layer
-            if labeldata_gdf is None:
-                labeldata_gdf = file_labeldata_gdf
+            logger.warn(f"No label locations data found in {label_file.locations_path}")
+        logger.debug(f"Read label data from {label_file.polygons_path}")
+        file_labelpolygons_gdf = geofile.read_file(label_file.polygons_path)
+        if file_labelpolygons_gdf is not None and len(file_labelpolygons_gdf) > 0:
+            file_labelpolygons_gdf.loc[:, 'image_layer'] = label_file.image_layer
+            if labelpolygons_gdf is None:
+                labelpolygons_gdf = file_labelpolygons_gdf
             else:
-                labeldata_gdf = gpd.GeoDataFrame(
-                        pd.concat([labeldata_gdf, file_labeldata_gdf], ignore_index=True),
-                        crs=file_labeldata_gdf.crs)
+                labelpolygons_gdf = gpd.GeoDataFrame(
+                        pd.concat([labelpolygons_gdf, file_labelpolygons_gdf], ignore_index=True),
+                        crs=file_labelpolygons_gdf.crs)
         else:
-            logger.warn(f"No label data found in {label_file.data_path}")
+            logger.warn(f"No label data found in {label_file.polygons_path}")
 
     # Get the crs to use from the input vectors...
     try:
-        img_crs = labellocation_gdf.crs
+        img_crs = labellocations_gdf.crs
     except Exception as ex:
-        logger.exception(f"Error getting crs from labellocations, labellocation_gdf.crs: {labellocation_gdf.crs}")
+        logger.exception(f"Error getting crs from labellocations, labellocation_gdf.crs: {labellocations_gdf.crs}")
         raise ex
     
     # Create list with only the input labels that need to be burned in the mask
-    if labeldata_gdf is not None and 'label_name' in labeldata_gdf.columns:
+    if labelpolygons_gdf is not None and 'label_name' in labelpolygons_gdf.columns:
         # If there is a column 'label_name', filter on the labels provided
         labels_to_burn_gdf = (
-                labeldata_gdf.loc[labeldata_gdf['label_name'].isin(classes)]).copy()
+                labelpolygons_gdf.loc[labelpolygons_gdf['label_name'].isin(classes)]).copy()
         labels_to_burn_gdf['burn_value'] = 0
         for label_name in classes:
             labels_to_burn_gdf.loc[(labels_to_burn_gdf['label_name'] == label_name),
                                    'burn_value'] = classes[label_name]['burn_value']
-        if len(labeldata_gdf) != len(labels_to_burn_gdf):
-            logger.warn(f"Number of labels to burn changed from {len(labeldata_gdf)} to {len(labels_to_burn_gdf)} with filter on classes: {classes}")
+        if len(labelpolygons_gdf) != len(labels_to_burn_gdf):
+            logger.warn(f"Number of labels to burn changed from {len(labelpolygons_gdf)} to {len(labels_to_burn_gdf)} with filter on classes: {classes}")
     elif len(classes) == 2:
-        labels_to_burn_gdf = labeldata_gdf
+        labels_to_burn_gdf = labelpolygons_gdf
         labels_to_burn_gdf.loc[:, 'burn_value'] = classes[list(classes)[1]]['burn_value']
     else:
         raise Exception(f"Column 'label_name' is mandatory in labeldata if multiple classes specified: {classes}")
@@ -222,7 +222,7 @@ def prepare_traindatasets(
         try:
             # Get the label locations for this traindata type
             labels_to_use_for_bounds_gdf = (
-                    labellocation_gdf[labellocation_gdf['traindata_type'] == traindata_type])
+                    labellocations_gdf[labellocations_gdf['traindata_type'] == traindata_type])
             
             # Loop trough all locations labels to get an image for each of them
             nb_todo = len(labels_to_use_for_bounds_gdf)

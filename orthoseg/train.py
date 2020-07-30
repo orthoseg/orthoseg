@@ -89,14 +89,14 @@ def train(
             label_file = label_files_dict[label_file_key]
             # Add as LabelInfo objects to list
             label_infos.append(prep.LabelInfo(
-                    location_path=Path(label_file['locations_path']),
-                    data_path=Path(label_file['data_path']),
+                    locations_path=Path(label_file['locations_path']),
+                    polygons_path=Path(label_file['data_path']),
                     image_layer=label_file['image_layer']))
     else:
-        # Search for the files based on the file name templates... 
-        labeldata_template = conf.train.getpath('labeldata_template')
-        labellocation_template = conf.train.getpath('labellocation_template')
-        label_infos = search_label_files(labeldata_template, labellocation_template)
+        # Search for the files based on the file name patterns... 
+        labelpolygons_pattern = conf.train.getpath('labelpolygons_pattern')
+        labellocations_pattern = conf.train.getpath('labellocations_pattern')
+        label_infos = search_label_files(labelpolygons_pattern, labellocations_pattern)
 
     train_image_layer = label_infos[0].image_layer
     train_projection = conf.image_layers[train_image_layer]['projection']
@@ -315,37 +315,37 @@ def train(
                 cancel_filepath=conf.files.getpath('cancel_filepath'))
 
 def search_label_files(
-        labeldata_template: Path,
-        labellocation_template: Path) -> List[prep.LabelInfo]:
+        labelpolygons_pattern: Path,
+        labellocations_pattern: Path) -> List[prep.LabelInfo]:
     label_infos = []
 
-    labeldata_template_searchpath = Path(str(labeldata_template).format(image_layer='*'))
-    labeldata_paths = list(labeldata_template_searchpath.parent.glob(labeldata_template_searchpath.name))
-    labellocation_template_searchpath = Path(str(labellocation_template).format(image_layer='*'))
-    labellocation_paths = list(labellocation_template_searchpath.parent.glob(labellocation_template_searchpath.name))
+    labelpolygons_pattern_searchpath = Path(str(labelpolygons_pattern).format(image_layer='*'))
+    labelpolygons_paths = list(labelpolygons_pattern_searchpath.parent.glob(labelpolygons_pattern_searchpath.name))
+    labellocations_pattern_searchpath = Path(str(labellocations_pattern).format(image_layer='*'))
+    labellocations_paths = list(labellocations_pattern_searchpath.parent.glob(labellocations_pattern_searchpath.name))
 
     # Loop through all labellocation files
-    for labellocation_path in labellocation_paths:
-        tokens = unformat(labellocation_path.stem, labellocation_template.stem)
+    for labellocations_path in labellocations_paths:
+        tokens = unformat(labellocations_path.stem, labellocations_pattern.stem)
         if 'image_layer' not in tokens:
-            raise Exception(f"image_layer token not found in {labellocation_path} using pattern {labellocation_template}")
+            raise Exception(f"image_layer token not found in {labellocations_path} using pattern {labellocations_pattern}")
         image_layer = tokens['image_layer']
 
         # Look for the matching (= same image_layer) data file
         found = False
-        for labeldata_path in labeldata_paths:
-            tokens = unformat(labeldata_path.stem, labeldata_template.stem)
+        for labelpolygons_path in labelpolygons_paths:
+            tokens = unformat(labelpolygons_path.stem, labelpolygons_pattern.stem)
             if 'image_layer' not in tokens:
-                raise Exception(f"image_layer token not found in {labeldata_path} using pattern {labeldata_template}")
+                raise Exception(f"image_layer token not found in {labelpolygons_path} using pattern {labelpolygons_pattern}")
             
             if tokens['image_layer'] == image_layer:
                 found = True
                 label_infos.append(prep.LabelInfo(
-                        location_path=labellocation_path,
-                        data_path=labeldata_path,
+                        locations_path=labellocations_path,
+                        polygons_path=labelpolygons_path,
                         image_layer=image_layer))
         if found is False:
-            raise Exception(f"No matching data file found for {labellocation_path}")
+            raise Exception(f"No matching data file found for {labellocations_path}")
     
     return label_infos
 
