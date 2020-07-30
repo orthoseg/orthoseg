@@ -36,13 +36,18 @@ def test_clean_vectordata(tmpdir):
     input_path = temp_dir / "vector_input.gpkg"
     geofile.to_file(input_gdf, input_path)
     output_path = temp_dir / input_path.name
-    post_pred.clean_vectordata(input_path=input_path, output_path=output_path, force=True)
+    postprocess_params = {"dissolve_tiles_path": None}
+    post_pred.clean_vectordata(
+            input_path=input_path, 
+            output_path=output_path, 
+            postprocess_params=postprocess_params,
+            force=True)
 
     # Read result and check
     geoms_simpl_filepath = output_path.parent / f"{output_path.stem}_simpl{output_path.suffix}"
     result_gdf = geofile.read_file(geoms_simpl_filepath)
 
-    assert len(result_gdf) == 5
+    assert len(result_gdf) == 298
 
 if __name__ == '__main__':
     # Prepare temp directory
