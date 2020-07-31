@@ -1,11 +1,15 @@
+import os
 import setuptools
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
+version = "0.1.8"
+os.environ['PACKAGE_TAG_VERSION'] = version
+
 setuptools.setup(
     name="orthoseg", 
-    version="0.1.7",
+    version=version,
     author="Pieter Roggemans",
     author_email="pieter.roggemans@gmail.com",
     description="Package to make it easier to segment orthophotos.",
