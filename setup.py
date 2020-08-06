@@ -4,7 +4,7 @@ import setuptools
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
-version = "0.1.8"
+version = "0.1.9"
 os.environ['PACKAGE_TAG_VERSION'] = version
 
 setuptools.setup(
