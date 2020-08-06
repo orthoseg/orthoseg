@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 import pprint
 import smtplib
+import traceback
 from typing import List
 
 # Because orthoseg isn't installed as package + it is higher in dir hierarchy, add root to sys.path
@@ -159,7 +160,9 @@ def run_tasks(
             projectfile_path = tasks_path.parent / projectfile_path
 
         # Now we are ready to start the action        
-        logger.info(f"Start action {task.action} for config {projectfile_path}")
+        message = f"Start action {task.action} for config {projectfile_path}"
+        logger.info(message)
+        sendmail(message)
         try:
             if(task.action == 'train'):
                 from orthoseg import train
@@ -187,7 +190,7 @@ def run_tasks(
         except Exception as ex:
             message = f"ERROR in task with action {task.action} for config {projectfile_path}"
             logger.exception(message)
-            sendmail(subject=message, body=f"Exception: {ex}")
+            sendmail(subject=message, body=f"Exception: {ex}\n\n {traceback.format_exc()}")
             if stop_on_error:
                 raise Exception(message) from ex
 
