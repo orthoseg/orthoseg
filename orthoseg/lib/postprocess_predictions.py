@@ -132,7 +132,8 @@ def clean_vectordata(
             tiles_path=tiles_path,
             output_path=geoms_union_filepath,
             explodecollections=True,
-            clip_on_tiles=clip_on_tiles)
+            clip_on_tiles=clip_on_tiles,
+            force=force)
 
     # If the cancel file exists, stop processing...
     if cancel_filepath is not None and cancel_filepath.exists():
@@ -157,11 +158,21 @@ def clean_vectordata(
         geoms_gt5m2_gdf.loc[:, 'id'] = geoms_gt5m2_gdf.index 
         geofile.to_file(geoms_gt5m2_gdf, geoms_gt5m2_filepath)
 
-    # Simplify with standard shapely algo 
-    # -> if preserve_topology False, this is Ramer-Douglas-Peucker, otherwise ?
+    # Simplify 
     geoms_simpl_filepath = output_path.parent / f"{output_path.stem}_simpl{output_path.suffix}"
+    
     geoms_simpl_gdf = None
     if force or not geoms_simpl_filepath.exists():
+        geofileops.simplify(
+                input_path=geoms_gt5m2_filepath,
+                output_path=geoms_simpl_filepath,
+                tolerance=0.5,
+                force=force)
+        geofile.add_column(path=geoms_simpl_filepath, 
+                name='area', type='real', expression='ST_Area(geom)')
+        geofile.add_column(path=geoms_simpl_filepath, 
+                name='nbcoords', type='integer', expression='ST_NumPoints(geom)')
+        '''
         logger.info("Simplify with default shapely algo")
         # If input geoms not yet in memory, read from file
         if geoms_gt5m2_gdf is None:
@@ -194,10 +205,18 @@ def clean_vectordata(
                 lambda geom: vector_util.get_nb_coords(geom))
         geofile.to_file(geoms_simpl_gdf, geoms_simpl_filepath)
         logger.info(f"Result written to {geoms_simpl_filepath}")
-        
+        '''
+
     # Apply negative buffer on result
     geoms_simpl_m1m_filepath = (
             output_path.parent / f"{output_path.stem}_simpl_m1.5m{output_path.suffix}")
+    geofileops.buffer(
+        input_path=geoms_simpl_filepath,
+        output_path=geoms_simpl_m1m_filepath,
+        distance=-1.5,
+        force=force)
+
+    '''
     if force or not geoms_simpl_m1m_filepath.exists():
         logger.info("Apply negative buffer")
         # If input geoms not yet in memory, read from file
@@ -228,6 +247,7 @@ def clean_vectordata(
                 lambda geom: vector_util.get_nb_coords(geom))        
         geofile.to_file(geoms_simpl_m1m_gdf, geoms_simpl_m1m_filepath)
         logger.info(f"Result written to {geoms_simpl_m1m_filepath}")
+    '''
 
 def polygonize_prediction_files(
             input_dir: Path,

@@ -4,7 +4,6 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent / '..'))
 
 from geofileops import geofile
-import geopandas as gpd
 
 from orthoseg.lib import postprocess_predictions as post_pred
 
@@ -47,7 +46,7 @@ def test_clean_vectordata(tmpdir):
     geoms_simpl_filepath = output_path.parent / f"{output_path.stem}_simpl{output_path.suffix}"
     result_gdf = geofile.read_file(geoms_simpl_filepath)
 
-    assert len(result_gdf) == 298
+    assert len(result_gdf) == 300
 
 if __name__ == '__main__':
     # Prepare temp directory

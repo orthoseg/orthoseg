@@ -20,7 +20,7 @@ setuptools.setup(
     include_package_data=True,
     install_requires=[
             "tensorflow>=2.2,<2.3", "pillow", "rasterio", "geopandas>=0.8,<0.9", 
-            "owslib", "segmentation-models>=1.0,<1.1", "geofileops==0.0.7"],
+            "owslib", "segmentation-models>=1.0,<1.1", "geofileops==0.0.8"],
     entry_points='''
             [console_scripts]
             orthoseg=orthoseg.orthoseg:main
