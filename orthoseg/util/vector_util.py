@@ -255,17 +255,17 @@ def create_grid(xmin: float,
     polygons = []
     cell_left = xmin
     cell_right = xmin + cell_width
-    for _ in range(cols):
-        if cell_right > xmax:
+    for _ in range(cols+1):
+        if cell_left > xmax:
             break
-        cell_top = ymax
-        cell_bottom = ymax-cell_height
-        for _ in range(rows):
-            if cell_bottom < ymin:
+        cell_top = ymin+cell_height
+        cell_bottom = ymin
+        for _ in range(rows+1):
+            if cell_bottom > ymax:
                 break
             polygons.append(sh_ops.Polygon([(cell_left, cell_top), (cell_right, cell_top), (cell_right, cell_bottom), (cell_left, cell_bottom)])) 
-            cell_top -= cell_height
-            cell_bottom -= cell_height
+            cell_top += cell_height
+            cell_bottom += cell_height
             
         cell_left += cell_width
         cell_right += cell_width

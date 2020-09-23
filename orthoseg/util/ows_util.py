@@ -19,6 +19,7 @@ import owslib.wms
 import owslib.util
 import pyproj
 import rasterio as rio
+#from geofileops.util import vector_util 
 import geopandas as gpd
 import shapely.geometry as sh_geom
 
@@ -113,6 +114,12 @@ def get_images_for_grid(
                     xmin=image_gen_bounds[0], ymin=image_gen_bounds[1], 
                     xmax=image_gen_bounds[2], ymax=image_gen_bounds[3],
                     cell_width=4000, cell_height=4000)
+            """
+            grid = vector_util.create_grid3(
+                    total_boundsxmin=image_gen_bounds,
+                    width=4000, height=4000)
+            """
+
             # Create intersection layer between grid and roi
             #roi_gdf = roi_gdf.geometry.intersection(grid.geometry)
             roi_gdf = gpd.overlay(grid, roi_gdf, how='intersection')
@@ -163,6 +170,7 @@ def get_images_for_grid(
         bbox_list = []
         size_list = []
         output_filename_list = []
+        output_dir_list = []
         for col in range(column_start, cols):
             
             image_xmin = col * crs_width + image_gen_bounds[0]
@@ -181,16 +189,10 @@ def get_images_for_grid(
             if not output_dir.exists():
                 output_dir.mkdir()
                 
-            logger.info(f"Start processing column {col}")
+            logger.info(f"Start processing column {col} ({output_dir.name})")
             for row in range(0, rows):
                 nb_processed += 1
                 
-                # To be able to quickly get images spread over the roi...
-                if(nb_images_to_skip
-                   and (nb_processed%nb_images_to_skip) != 0):
-                    #logger.debug(f"Skip this image, because {nb_processed}%{nb_images_to_skip} is not 0")
-                    continue
-    
                 # Calculate y bounds
                 image_ymin = row * crs_height + image_gen_bounds[1]
                 image_ymax = (row + 1) * crs_height + image_gen_bounds[1]
@@ -205,24 +207,27 @@ def get_images_for_grid(
                         crs=crs,
                         bbox=(image_xmin, image_ymin, image_xmax, image_ymax),
                         size=(image_pixel_width+2*pixels_overlap, 
-                              image_pixel_height+2*pixels_overlap),
+                            image_pixel_height+2*pixels_overlap),
                         image_format=image_format,
                         layername=None)
                 output_filepath = output_dir / output_filename
-                if not force and output_filepath.exists():
+
+                # Do some checks to know if the image needs to be downloaded 
+                image_to_be_skipped = False
+                if(nb_images_to_skip
+                   and (nb_processed%nb_images_to_skip) != 0):
+                    # If we need to skip images, do so...
                     nb_ignore_in_progress += 1
+                    image_to_be_skipped = True
+                elif not force and output_filepath.exists():
+                    # Image exists already
+                    nb_ignore_in_progress += 1
+                    image_to_be_skipped = True
                     logger.debug("    -> image exists already, so skip")
-                    continue
-                
-                # If roi was provided, check first if the current image overlaps
-                # TODO: using an chopped up version of the ROI is probably faster
-                # TODO: possibly checking if the dest file exists already before 
-                # this is faster...
-                
-                if roi_gdf is not None:
+                elif roi_gdf is not None:
+                    # If roi was provided, check first if the current image overlaps
                     image_shape = sh_geom.box(image_xmin, image_ymin, image_xmax, image_ymax)
                     
-                    #intersections = gpd.sjoin(roi_gdf, lines, how="inner", op='intersects')
                     spatial_index = roi_gdf.sindex
                     possible_matches_index = list(spatial_index.intersection(image_shape.bounds))
                     possible_matches = roi_gdf.iloc[possible_matches_index]
@@ -231,24 +236,25 @@ def get_images_for_grid(
                     if len(precise_matches) == 0:
                         nb_ignore_in_progress += 1
                         logger.debug("    -> image doesn't overlap with roi, so skip")
-                        continue                                       
-                    
-                
-                # Now we are getting to start fetching images... init start_time 
-                if start_time is None:
-                    start_time = datetime.datetime.now()
-                
-                # Append the image info to the batch arrays so they can be treated in 
+                        image_to_be_skipped = True                                      
+               
+                # If the image doesn't need to be skipped... append the image 
+                # info to the batch arrays so they can be treated in 
                 # bulk if the batch size is reached
-                bbox_list.append((image_xmin, image_ymin, image_xmax, image_ymax))
-                size_list.append((image_pixel_width+2*pixels_overlap, 
-                                  image_pixel_height+2*pixels_overlap))
-                output_filename_list.append(output_filename)
-                
+                if image_to_be_skipped is False:
+                    bbox_list.append((image_xmin, image_ymin, image_xmax, image_ymax))
+                    size_list.append((image_pixel_width+2*pixels_overlap, 
+                                     image_pixel_height+2*pixels_overlap))
+                    output_filename_list.append(output_filename)
+                    output_dir_list.append(output_dir)
+
                 # If the batch size is reached or we are at the last images
                 nb_images_in_batch = len(bbox_list)
                 if(nb_images_in_batch == nb_concurrent_calls or nb_processed == (nb_todo-1)):
     
+                    # Now we are getting to start fetching images... init start_time 
+                    if start_time is None:
+                        start_time = datetime.datetime.now()
                     start_time_batch_read = datetime.datetime.now()
                     
                     # Exec in parallel 
@@ -256,7 +262,7 @@ def get_images_for_grid(
                             getmap_to_file,        # Function 
                             it.repeat(wms),
                             it.repeat(wms_layernames),
-                            it.repeat(output_dir),
+                            output_dir_list,
                             it.repeat(crs),
                             bbox_list,
                             size_list,
@@ -291,6 +297,7 @@ def get_images_for_grid(
                     bbox_list = []
                     size_list = []
                     output_filename_list = []
+                    output_dir_list = []
 
                     if max_nb_images > -1 and nb_downloaded >= max_nb_images:
                         return            
