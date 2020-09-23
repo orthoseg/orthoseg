@@ -233,27 +233,6 @@ def get_images_for_grid(
                         logger.debug("    -> image doesn't overlap with roi, so skip")
                         continue                                       
                     
-                    # TODO: cleanup old code
-                    '''
-                    if not roi_gdf.intersects(image_shape).any():
-                        nb_ignore_in_progress += 1
-                        logger.debug("    -> image doesn't overlap with roi, so skip")
-                        continue                                       
-                    '''
-                    '''
-                    intersects = False
-                    # Loop through the roi rows. If one of them overlaps -> OK.
-                    for roi_row in roi_rows:
-                        # Check first on bounds to improve performance
-                        if(roi_row['geom_bounds'].intersection(image_shape)
-                           and roi_row['geom'].intersection(image_shape)):
-                            intersects = True
-                            break
-                    if not intersects:
-                        nb_ignore_in_progress += 1
-                        logger.debug("    -> image doesn't overlap with roi, so skip")
-                        continue
-                    '''
                 
                 # Now we are getting to start fetching images... init start_time 
                 if start_time is None:
@@ -315,20 +294,6 @@ def get_images_for_grid(
 
                     if max_nb_images > -1 and nb_downloaded >= max_nb_images:
                         return            
-                    '''
-                    # TODO: cleanup
-                    #logger.info(f"Nb processed: {nb_processed} of {cols*rows} ({nb_processed/(cols*rows):.2f}%), Nb downloaded: {counter_downloaded}")
-                    # Log the progress and prediction speed once 10 seconds have passed
-                    secs_since_last_log = (datetime.datetime.now()-last_progress_log_time).total_seconds()
-                    if secs_since_last_log > 10:
-                        last_progress_log_time = datetime.datetime.now()
-                        secs_passed_total = (datetime.datetime.now()-start_time).total_seconds()
-                        nb_per_hour = ((nb_processed-nb_ignore_in_progress)/secs_passed_total) * 3600
-                        hours_to_go = (int)((nb_todo-nb_processed)/nb_per_hour)
-                        min_to_go = (int)((((nb_todo-nb_processed)/nb_per_hour)%1)*60)
-                        print(f"\r{hours_to_go}:{min_to_go} left for {nb_todo-nb_processed} todo at {nb_per_hour:0.0f}/h",
-                              end="", flush=True)
-                    '''
                     
 def getmap_to_file(
         wms: owslib.wms.WebMapService,
