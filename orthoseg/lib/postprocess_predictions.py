@@ -121,16 +121,16 @@ def clean_vectordata(
         cancel_filepath: Optional[Path] = None,
         force: bool = False):
 
-    # Union the data
+    # Dissolve the data
     tiles_path = postprocess_params['dissolve_tiles_path']
     clip_on_tiles = False
     if tiles_path is not None:
         clip_on_tiles = True
-    geoms_union_filepath = output_path.parent / f"{output_path.stem}_union{output_path.suffix}"
+    geoms_dissolve_filepath = output_path.parent / f"{output_path.stem}_union{output_path.suffix}"
     geofileops.dissolve(
             input_path=input_path,
             tiles_path=tiles_path,
-            output_path=geoms_union_filepath,
+            output_path=geoms_dissolve_filepath,
             explodecollections=True,
             clip_on_tiles=clip_on_tiles,
             force=force)
@@ -140,6 +140,7 @@ def clean_vectordata(
         logger.info(f"Cancel file found, so stop: {cancel_filepath}")
         return
 
+    '''
     # Retain only geoms > 5m²
     geoms_gt5m2_filepath = output_path.parent / f"{output_path.stem}_union_gt5m2{output_path.suffix}"
     geoms_gt5m2_gdf = None
@@ -157,14 +158,13 @@ def clean_vectordata(
         geoms_gt5m2_gdf.reset_index(inplace=True, drop=True)
         geoms_gt5m2_gdf.loc[:, 'id'] = geoms_gt5m2_gdf.index 
         geofile.to_file(geoms_gt5m2_gdf, geoms_gt5m2_filepath)
+    '''
 
     # Simplify 
     geoms_simpl_filepath = output_path.parent / f"{output_path.stem}_simpl{output_path.suffix}"
-    
-    geoms_simpl_gdf = None
     if force or not geoms_simpl_filepath.exists():
         geofileops.simplify(
-                input_path=geoms_gt5m2_filepath,
+                input_path=geoms_dissolve_filepath,
                 output_path=geoms_simpl_filepath,
                 tolerance=0.5,
                 force=force)
@@ -172,82 +172,6 @@ def clean_vectordata(
                 name='area', type='real', expression='ST_Area(geom)')
         geofile.add_column(path=geoms_simpl_filepath, 
                 name='nbcoords', type='integer', expression='ST_NumPoints(geom)')
-        '''
-        logger.info("Simplify with default shapely algo")
-        # If input geoms not yet in memory, read from file
-        if geoms_gt5m2_gdf is None:
-            geoms_gt5m2_gdf = geofile.read_file(geoms_gt5m2_filepath)
-
-        # Simplify, fix invalid geoms, remove empty geoms, 
-        # apply multipart-to-singlepart, only > 5m² + write
-        geoms_simpl_gdf = geoms_gt5m2_gdf.copy()
-        geoms_simpl_gdf['geometry'] = geoms_simpl_gdf.simplify(
-                tolerance=0.5, preserve_topology=True)
-        geoms_simpl_gdf['geometry'] = geoms_simpl_gdf.geometry.apply(
-                lambda geom: vector_util.fix(geom))
-        geoms_simpl_gdf.dropna(subset=['geometry'], inplace=True)
-
-        # Explode only works with one column, but cast to geodataframe, otherwise geoseries 
-        geoms_simpl_gdf = gpd.GeoDataFrame(geoms_simpl_gdf['geometry'])
-        geoms_simpl_gdf = geoms_simpl_gdf.explode().reset_index()
-        geoms_simpl_gdf['geometry'] = geoms_simpl_gdf.geometry.apply(
-                lambda geom: vector_util.remove_inner_rings(geom, 2))        
-                
-        # Add area column, and remove rows with small area
-        geoms_simpl_gdf['area'] = geoms_simpl_gdf.geometry.area       
-        geoms_simpl_gdf = geoms_simpl_gdf.loc[
-                (geoms_simpl_gdf['area'] > 5)]
-
-        # Qgis wants unique id column, otherwise weird effects!
-        geoms_simpl_gdf.reset_index(inplace=True, drop=True)
-        geoms_simpl_gdf['id'] = geoms_simpl_gdf.index 
-        geoms_simpl_gdf['nbcoords'] = geoms_simpl_gdf.geometry.apply(
-                lambda geom: vector_util.get_nb_coords(geom))
-        geofile.to_file(geoms_simpl_gdf, geoms_simpl_filepath)
-        logger.info(f"Result written to {geoms_simpl_filepath}")
-        '''
-
-    # Apply negative buffer on result
-    geoms_simpl_m1m_filepath = (
-            output_path.parent / f"{output_path.stem}_simpl_m1.5m{output_path.suffix}")
-    geofileops.buffer(
-        input_path=geoms_simpl_filepath,
-        output_path=geoms_simpl_m1m_filepath,
-        distance=-1.5,
-        force=force)
-
-    '''
-    if force or not geoms_simpl_m1m_filepath.exists():
-        logger.info("Apply negative buffer")
-        # If input geoms not yet in memory, read from file
-        if geoms_simpl_gdf is None:
-            geoms_simpl_gdf = geofile.read_file(geoms_simpl_filepath)
-            
-        # Simplify, fix invalid geoms, remove empty geoms, 
-        # apply multipart-to-singlepart, only > 5m² + write
-        geoms_simpl_m1m_gdf = geoms_simpl_gdf.copy()
-        geoms_simpl_m1m_gdf['geometry'] = geoms_simpl_m1m_gdf.buffer(
-                distance=-1.5, resolution=3)       
-        geoms_simpl_m1m_gdf.dropna(subset=['geometry'], inplace=True)
-
-        # Explode only possible if one column, but should stay a geodataframe to add columns later
-        geoms_simpl_m1m_gdf = gpd.GeoDataFrame(geoms_simpl_m1m_gdf['geometry'])
-        geoms_simpl_m1m_gdf = geoms_simpl_m1m_gdf.explode()
-        geoms_simpl_m1m_gdf.reset_index(inplace=True, drop=True)
-                
-        # Add/calculate area column, and remove rows with small area
-        geoms_simpl_m1m_gdf['area'] = geoms_simpl_m1m_gdf.geometry.area       
-        geoms_simpl_m1m_gdf = geoms_simpl_m1m_gdf.loc[
-                geoms_simpl_m1m_gdf['area'] > 5]
-
-        # Qgis wants unique id column, otherwise weird effects!
-        geoms_simpl_m1m_gdf.reset_index(inplace=True, drop=True)
-        geoms_simpl_m1m_gdf['id'] = geoms_simpl_m1m_gdf.index 
-        geoms_simpl_m1m_gdf['nbcoords'] = geoms_simpl_m1m_gdf.geometry.apply(
-                lambda geom: vector_util.get_nb_coords(geom))        
-        geofile.to_file(geoms_simpl_m1m_gdf, geoms_simpl_m1m_filepath)
-        logger.info(f"Result written to {geoms_simpl_m1m_filepath}")
-    '''
 
 def polygonize_prediction_files(
             input_dir: Path,
