@@ -4,12 +4,15 @@ Module to make it easy to start a training session.
 """
 
 import argparse
+import gc
 import os
 from pathlib import Path
 import re
 import shlex
 import sys
 from typing import List
+
+from tensorflow import keras as kr
 
 from orthoseg.helpers import config_helper as conf
 from orthoseg.helpers import log_helper
@@ -313,6 +316,13 @@ def train(
                 batch_size=conf.train.getint('batch_size_predict'), 
                 evaluate_mode=True,
                 cancel_filepath=conf.files.getpath('cancel_filepath'))
+
+    # Free resources...
+    logger.debug("Free resources")
+    if model is not None:
+        del model
+    kr.backend.clear_session()
+    gc.collect()
 
 def search_label_files(
         labelpolygons_pattern: Path,
