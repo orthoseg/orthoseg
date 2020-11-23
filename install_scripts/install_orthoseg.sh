@@ -105,7 +105,7 @@ else
   echo Prepare for development: only install dependencies + install dev tools
   echo
   conda install -y pylint pytest rope
-  pip install "tensorflow>=2.2,<=2.3" "segmentation-models>=1.0,<1.1" "geofileops==0.1.0" 
+  pip install "tensorflow>=2.3,<=2.4" "segmentation-models>=1.0,<1.1" "geofileops==0.1.0" 
 fi
 
 # Deactivate new env + base
