@@ -118,15 +118,15 @@ def run_tasks(
     logging.config.dictConfig(logconfig_dict)
     global logger
     logger = logging.getLogger()
-    logger.info(f"Config files used for orthoseg: {config_filepaths}")
+    #logger.info(f"Config files used for orthoseg task loop: {config_filepaths}")
         
     # Make sure GDAL is properly set up
-    if os.environ['GDAL_DATA'] is None:
+    if os.environ.get('GDAL_DATA') is None:
         logger.info(f"environment: {pprint.pformat(os.environ)}")
         #os.environ['GDAL_DATA'] = r"C:\Tools\miniconda3\envs\orthoseg\Library\share\gdal"
         os.environ['GDAL_DATA'] = r"C:\Users\pierog\Miniconda3\envs\orthosegdev\Library\share\gdal"
         logger.warn(f"Environment variable GDAL_DATA was not set, so set to {os.environ['GDAL_DATA']}")
-    if os.environ['PROJ_LIB'] is None:
+    if os.environ.get('PROJ_LIB') is None:
         #os.environ['PROJ_LIB'] = r"C:\Tools\miniconda3\envs\orthoseg\Library\share\proj"
         os.environ['PROJ_LIB'] = r"C:\Users\pierog\Miniconda3\envs\orthosegdev\Library\share\proj"
         logger.warn(f"Environment variable PROJ_LIB was not set, so set to {os.environ['PROJ_LIB']}")
