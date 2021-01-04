@@ -77,6 +77,7 @@ def prepare_traindatasets(
         output_basedir: the base dir where the train dataset needs to be written to 
 
     """
+    # Init stuff
     image_crs_width = math.fabs(image_pixel_width*image_pixel_x_size)   # tile width in units of crs => 500 m
     image_crs_height = math.fabs(image_pixel_height*image_pixel_y_size) # tile height in units of crs => 500 m
 
@@ -108,10 +109,9 @@ def prepare_traindatasets(
                     output_dir_mostrecent / label_file.locations_path.name)
             labeldata_output_mostrecent_path = output_dir_mostrecent / label_file.polygons_path.name
             if(not (labellocations_output_mostrecent_path.exists()
-               and labeldata_output_mostrecent_path.exists()
-               and geofile.cmp(
-                        label_file.locations_path, labellocations_output_mostrecent_path)
-               and geofile.cmp(label_file.polygons_path, labeldata_output_mostrecent_path))):
+                    and labeldata_output_mostrecent_path.exists()
+                    and geofile.cmp(label_file.locations_path, labellocations_output_mostrecent_path)
+                    and geofile.cmp(label_file.polygons_path, labeldata_output_mostrecent_path))):
                 logger.info(f"RETURN: input label file(s) changed since last prepare_traindatasets, recreate")
                 reuse = False
                 break
