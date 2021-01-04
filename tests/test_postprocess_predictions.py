@@ -1,10 +1,15 @@
-import datetime
+# -*- coding: utf-8 -*-
+"""
+Tests for functionalities in orthoseg.lib.postprocess_predictions.
+"""
+
 from pathlib import Path
 import sys
-sys.path.insert(0, str(Path(__file__).resolve().parent / '..'))
 
 from geofileops import geofile
 
+# Add path so the local orthoseg packages are found 
+sys.path.insert(0, str(Path(__file__).resolve().parent / '..'))
 from orthoseg.lib import postprocess_predictions as post_pred
 
 def get_testdata_dir() -> Path:
@@ -46,7 +51,7 @@ def test_clean_vectordata(tmpdir):
     geoms_simpl_filepath = output_path.parent / f"{output_path.stem}_simpl{output_path.suffix}"
     result_gdf = geofile.read_file(geoms_simpl_filepath)
 
-    assert len(result_gdf) == 300
+    assert len(result_gdf) == 616
 
 if __name__ == '__main__':
     # Prepare temp directory

@@ -1,8 +1,13 @@
-import datetime
+# -*- coding: utf-8 -*-
+"""
+Tests for functionalities in orthoseg.train.
+"""
+
 from pathlib import Path
 import sys
-sys.path.insert(0, str(Path(__file__).resolve().parent / '..'))
 
+# Add path so the local orthoseg packages are found 
+sys.path.insert(0, str(Path(__file__).resolve().parent / '..'))
 from orthoseg import train
 
 def get_testdata_dir() -> Path:
