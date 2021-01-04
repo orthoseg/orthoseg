@@ -37,7 +37,6 @@ SOFTWARE.
 from numpy import array, argmin
 import numpy as np
 
-
 def triangle_area(p1,p2,p3):
     """
     calculates the area of a triangle given its vertices
@@ -250,8 +249,6 @@ class WKTSimplifier(VWSimplifier):
         else:
           return self.wkt_from_number(r*len(self.thresholds))
 
-
-
 try:
     from django.contrib.gis.gdal import OGRGeometry,OGRException
     from django.contrib.gis.geos import GEOSGeometry, fromstr
@@ -284,6 +281,7 @@ else:
           geometry objects.'''
           global p
           self.return_GDAL = return_GDAL
+          name = None
           if isinstance(geom,OGRGeometry):
             name = geom.geom_name
             self.Geometry = lambda w: OGRGeometry(w,srs=geom.srs)
@@ -292,7 +290,7 @@ else:
             name = geom.geom_type.upper()
             self.Geometry = lambda w: fromstr(w) 
             self.pts = np.array(geom.tuple)
-          elif isinstance(geom, unicode) or isinstance(geom,str): 
+          elif isinstance(geom,np.unicode) or isinstance(geom,str): 
             #assume wkt
             #for WKT
             def str2tuple(q):
