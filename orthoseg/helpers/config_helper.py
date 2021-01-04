@@ -70,7 +70,7 @@ def read_project_config(
     # Some checks to make sure the config is loaded properly
     segment_subject = general.get('segment_subject')
     if segment_subject == 'MUST_OVERRIDE':
-        raise Exception(f"Projectconfig parameter general.segment_subject needs to be overruled to a proper name in a specific project config file!")
+        raise Exception(f"Projectconfig parameter general.segment_subject needs to be overruled to a proper name in a specific project config file, \nwith config_filepaths {config_filepaths}")
     elif any(illegal_character in segment_subject for illegal_character in illegal_chars_in_codes):
         raise Exception(f"Projectconfig parameter general.segment_subject ({segment_subject}) should not contain any of the following characters: {illegal_chars_in_codes}")
 
