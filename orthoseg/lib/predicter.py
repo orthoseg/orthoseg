@@ -36,6 +36,7 @@ def predict_dir(
         output_image_dir: Path,
         output_vector_path: Optional[Path],         
         classes: list,
+        prediction_cleanup_params = None,
         border_pixels_to_ignore: int = 0,
         min_pixelvalue_for_save: int = 127,
         projection_if_missing: str = None,
@@ -73,6 +74,9 @@ def predict_dir(
         output_vector_path (Pathlike): the path to write the vector output to
         classes (list): a list of the different class names. Mandatory 
             if more than background + 1 class.
+        prediction_cleanup_params (dict, optional): parameters to specify which
+            cleanups of the prediction need to be executed. 
+            Default is None. 
         border_pixels_to_ignore: because the segmentation at the borders of the
             input images images is not as good, you can specify that x 
             pixels need to be ignored
@@ -286,6 +290,7 @@ def predict_dir(
                                     min_pixelvalue_for_save,
                                     classes[1:],               # The first class is the background so skip that
                                     pred_tmp_output_path,
+                                    prediction_cleanup_params,
                                     border_pixels_to_ignore)
                             future_to_input_path[future] = image_info['input_image_filepath']
 

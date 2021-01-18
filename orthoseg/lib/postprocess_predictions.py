@@ -691,6 +691,7 @@ def polygonize_pred_multiclass_to_file(
         min_pixelvalue_for_save,
         classes: list,
         output_path: Path,
+        prediction_cleanup_params: dict = None,
         border_pixels_to_ignore: int = 0) -> bool:
 
     # Polygonize the result...
@@ -700,6 +701,7 @@ def polygonize_pred_multiclass_to_file(
             image_transform=image_transform,
             min_pixelvalue_for_save=min_pixelvalue_for_save,
             classes=classes,
+            prediction_cleanup_params=prediction_cleanup_params,
             border_pixels_to_ignore=border_pixels_to_ignore)
 
     # If there were polygons, save them...
@@ -715,6 +717,7 @@ def polygonize_pred_multiclass(
         image_transform,
         min_pixelvalue_for_save,
         classes: list,
+        prediction_cleanup_params: dict = None,
         border_pixels_to_ignore: int = 0) -> gpd.geodataframe:
 
     # Init
@@ -743,6 +746,7 @@ def polygonize_pred_multiclass(
                 image_crs=image_crs,
                 image_transform=image_transform,
                 classname=classes[channel_id],
+                prediction_cleanup_params=prediction_cleanup_params,
                 border_pixels_to_ignore=border_pixels_to_ignore)
 
         # Add to result
@@ -767,6 +771,7 @@ def polygonize_pred(
         image_transform,
         classname: str = None,
         output_basefilepath: Optional[Path] = None,
+        prediction_cleanup_params: dict = None,
         border_pixels_to_ignore: int = 0) -> gpd.geodataframe:
 
     # Polygonize result
@@ -786,19 +791,6 @@ def polygonize_pred(
         geoms_gdf = gpd.GeoDataFrame(geoms, columns=['geometry'])
         geoms_gdf.crs = image_crs
 
-        # Apply a minimal simplify to the geometries based on the pixel size
-        pixel_sizex = image_transform[0]
-        pixel_sizey = -image_transform[4]
-        min_pixel_size = min(pixel_sizex, pixel_sizey)
-        # Calculate the tolerance as half the diagonal of the square formed 
-        # by the min pixel size, rounded up in centimeter 
-        simplify_tolerance = math.ceil(math.sqrt(pow(min_pixel_size, 2)/2)*100)/100
-        geoms_gdf.geometry = geoms_gdf.geometry.simplify(simplify_tolerance)
-        
-        # Fix + remove empty geom rows
-        geoms_gdf.dropna(subset=['geometry'], inplace=True)
-        geoms_gdf = geoms_gdf.reset_index(drop=True).explode()
-
         # Calculate the bounds of the image in projected coordinates
         image_shape = image_pred_uint8_bin.shape
         image_width = image_shape[0]
@@ -812,6 +804,29 @@ def polygonize_pred(
                          image_bounds[2]-border_pixels_to_ignore*x_pixsize,
                          image_bounds[3]-border_pixels_to_ignore*y_pixsize)
         
+        # Calculate the tolerance as half the diagonal of the square formed 
+        # by the min pixel size, rounded up in centimeter
+        if prediction_cleanup_params is not None:
+            # If a simplify is asked... 
+            if 'simplify' in prediction_cleanup_params:
+                # Define the bounds of the image as linestring, so points on this 
+                # border are preserved during the simplify
+                border_lines = sh_geom.LineString(sh_geom.box(*border_bounds).exterior.coords)
+                geoms_gdf.geometry = geoms_gdf.geometry.apply(
+                        lambda geom: gfo_vector_util.simplify_ext(
+                                geometry=geom, 
+                                tolerance=prediction_cleanup_params['simplify']['tolerance'], 
+                                keep_points_on=border_lines))
+                
+                # Remove geom rows that became empty after simplify + explode
+                geoms_gdf = geoms_gdf[~geoms_gdf.is_empty] 
+                if len(geoms_gdf) == 0:
+                    return None
+                geoms_gdf = geoms_gdf[~geoms_gdf.isna()]  
+                if len(geoms_gdf) == 0:
+                    return None
+                geoms_gdf = geoms_gdf.reset_index(drop=True).explode()
+
         # Now we can calculate the "onborder" property
         geoms_gdf = vector_util.calc_onborder(geoms_gdf, border_bounds)
 

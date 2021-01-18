@@ -169,6 +169,9 @@ def predict(
             logger.info("Predict using single GPU or CPU")
             model_for_predict = model
 
+    # Prepare some extra parameters
+    prediction_cleanup_params = conf.predict.getdict('prediction_cleanup_params')
+
     # Predict for entire dataset
     # TODO: read classes from file with the model, instead of from config 
     image_layer = conf.image_layers[conf.predict['image_layer']]
@@ -184,6 +187,7 @@ def predict(
             output_image_dir=predict_output_dir,
             output_vector_path=output_vector_path,
             classes=hyperparams.architecture.classes,
+            prediction_cleanup_params=prediction_cleanup_params,
             border_pixels_to_ignore=conf.predict.getint('image_pixels_overlap'),
             projection_if_missing=image_layer['projection'],
             input_mask_dir=None,
