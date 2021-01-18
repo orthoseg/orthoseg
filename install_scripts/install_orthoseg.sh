@@ -94,7 +94,7 @@ conda create -y --name $envname
 conda activate $envname
 conda config --env --add channels conda-forge
 conda config --env --set channel_priority strict
-conda install -y python=3.8 pillow rasterio geopandas=0.8.1 pygeos owslib cudatoolkit=10.1 cudnn hdf5=1.10.5
+conda install -y python=3.8 pillow rasterio geopandas=0.8.1 pygeos owslib cudatoolkit=11 cudnn hdf5=1.10.5
 
 # For the following packages, no conda package is available or -for tensorflow- no recent version.
 if [[ ! $fordev =~ ^[Yy]$ ]]
@@ -105,7 +105,7 @@ else
   echo Prepare for development: only install dependencies + install dev tools
   echo
   conda install -y pylint pytest rope
-  pip install "tensorflow>=2.3,<=2.4" "segmentation-models>=1.0,<1.1" "geofileops==0.1.0" 
+  pip install "tensorflow>=2.4,<=2.5" "segmentation-models>=1.0,<1.1" "geofileops>=0.1.2,<0.2" 
 fi
 
 # Deactivate new env + base

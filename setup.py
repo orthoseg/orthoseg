@@ -3,7 +3,7 @@ import setuptools
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
-version = "0.1.12"
+version = "0.1.13"
 with open('package_tag_version.txt', mode='w') as file:
     file.write(version)
 
@@ -19,8 +19,8 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     include_package_data=True,
     install_requires=[
-            "tensorflow>=2.3,<2.4", "pillow", "rasterio", "geopandas>=0.8,<0.9", 
-            "owslib", "segmentation-models>=1.0,<1.1", "geofileops>=0.1.1,<0.2"],
+            "tensorflow>=2.4,<2.5", "pillow", "rasterio", "geopandas>=0.8,<0.9", 
+            "owslib", "segmentation-models>=1.0,<1.1", "geofileops>=0.1.2,<0.2"],
     entry_points='''
             [console_scripts]
             orthoseg=orthoseg.orthoseg:main
