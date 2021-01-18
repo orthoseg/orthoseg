@@ -150,7 +150,7 @@ def run_tasks(
             break
 
         # If the task is not active, skip
-        if(task.active == 0):
+        if(task.active <= 0):
             continue
 
         # Format the projectfile_path
