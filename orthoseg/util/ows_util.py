@@ -19,7 +19,6 @@ import owslib.wms
 import owslib.util
 import pyproj
 import rasterio as rio
-#from geofileops.util import vector_util 
 import geopandas as gpd
 import shapely.geometry as sh_geom
 

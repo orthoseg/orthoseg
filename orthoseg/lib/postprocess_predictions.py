@@ -27,6 +27,7 @@ import rasterio.features as rio_features
 import shapely as sh
 
 from orthoseg.util import vector_util
+import geofileops.util.vector_util as gfo_vector_util
 
 #-------------------------------------------------------------
 # First define/init some general variables/constants
@@ -668,7 +669,6 @@ def polygonize_pred(
         geoms_gdf.geometry = geoms_gdf.geometry.simplify(simplify_tolerance)
         
         # Fix + remove empty geom rows
-        geoms_gdf['geometry'] = geoms_gdf.geometry.apply(lambda geom: vector_util.fix(geom))
         geoms_gdf.dropna(subset=['geometry'], inplace=True)
         geoms_gdf = geoms_gdf.reset_index(drop=True).explode()
 

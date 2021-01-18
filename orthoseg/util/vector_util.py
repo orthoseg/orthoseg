@@ -12,9 +12,6 @@ import geopandas as gpd
 import numpy as np
 import shapely.ops as sh_ops
 
-from orthoseg.util.vector import simplify_visval as simpl_vis
-from orthoseg.util.vector import simplify_rdp_plus as simpl_rdp_plus
-
 #-------------------------------------------------------------
 # First define/init some general variables/constants
 #-------------------------------------------------------------
@@ -23,189 +20,7 @@ logger = logging.getLogger(__name__)
 
 #-------------------------------------------------------------
 # The real work
-#-------------------------------------------------------------
-    
-def unary_union_with_onborder(
-        input_gdf: gpd.GeoDataFrame,
-        input_filepath: Path,
-        output_filepath: Path,
-        evaluate_mode: bool = False,
-        force: bool = False):
-
-    # If output file already exists and force is False, return
-    if not force and output_filepath.exists():
-        logger.info(f"Force is false and output file exists already, skip: {output_filepath}")
-        return None
-        
-    # If the input geoms are not yet in memory, read them from file
-    if input_gdf is None:
-        input_gdf = geofile.read_file(input_filepath)
-        
-        if evaluate_mode:
-            logger.info("Evaluate mode, so limit input to 1000 geoms")
-            input_gdf = input_gdf.head(1000)
-
-    # Check if the onborder column is available!
-    if 'onborder' not in input_gdf.columns:
-        message = "STOP: onborder column is not available!"
-        logger.critical(message)
-        raise Exception(message)
-    
-    # Check if the input has a crs
-    if input_gdf.crs is None:
-        message = "STOP: input does not have a crs!"
-        logger.critical(message)
-        raise Exception(message)       
-    
-    # Get geoms on border, and union them
-    onborder_gdf = input_gdf[input_gdf['onborder'] == 1]
-        
-    logger.info(f"Start unary_union on {len(onborder_gdf)} geoms on border")
-    onborder_union_multi = sh_ops.unary_union(onborder_gdf.geometry.tolist())
-    onborder_union = extract_polygons(onborder_union_multi)
-
-    onborder_union_gdf = gpd.GeoDataFrame(geometry=onborder_union)
-    logger.info("Unary_union ready")
-    
-    # Get geoms not on border
-    notonborder_gdf = input_gdf.loc[(input_gdf['onborder'] == 0)]
-    
-    # Merge onborder and notonborder geoms
-    union_gdf = onborder_union_gdf.append(
-            notonborder_gdf, sort=False)
-
-    # Write to file
-    # Rem: Reset index because append retains the original index values
-    union_gdf.reset_index(inplace=True, drop=True)
-    union_gdf['id'] = union_gdf.index
-    geofile.to_file(union_gdf, output_filepath)
-    return union_gdf
-            
-def extract_polygons(in_geom) -> list:
-    """
-    Extracts all polygons from the input geom and returns them as a list.
-    """
-    
-    # Extract the polygons from the multipolygon
-    geoms = []
-    if in_geom.geom_type == 'MultiPolygon':
-        geoms = list(in_geom)
-    elif in_geom.geom_type == 'Polygon':
-        geoms.append(in_geom)
-    elif in_geom.geom_type == 'GeometryCollection':
-        for geom in in_geom:
-            if geom.geom_type in ('MultiPolygon', 'Polygon'):
-                geoms.append(geom)
-            else:
-                logger.debug(f"Found {geom.geom_type}, ignore!")
-    else:
-        raise IOError(f"in_geom is of an unsupported type: {in_geom.geom_type}")
-    
-    return geoms
-
-def fix(geometry):
-    
-    # First check if the geom is None...
-    if geometry is None:
-        return None
-    # If the geometry is valid, just return it
-    if geometry.is_valid:
-        return geometry
-
-    # Else... try fixing it...
-    geom_buf = geometry.buffer(0)
-    if geom_buf.is_valid:
-        return geom_buf
-    else:
-        logger.error(f"Error fixing geometry {geometry}")
-        return geometry
-
-def remove_inner_rings(
-        geometry,
-        min_area_to_keep: float = None):
-    
-    # First check if the geom is None...
-    if geometry is None:
-        return None
-    if geometry.type not in ('Polygon', 'Multipolgon'):
-        raise Exception(f"remove_inner_rings is not possible with geometry.type: {geometry.type}, geometry: {geometry}")
-
-    #if geometry.area > 91000 and geometry.area < 92000:
-    #    logger.info("test")
-
-    # If all inner rings need to be removed...
-    if min_area_to_keep is None or min_area_to_keep == 0.0:
-        # If there are no interior rings anyway, just return input
-        if len(geometry.interiors) == 0:
-            return geometry
-        else:
-            # Else create new polygon with only the exterior ring
-            return sh_ops.Polygon(geometry.exterior)
-    
-    # If only small rings need to be removed... loop over them
-    ring_coords_to_keep = []
-    small_ring_found = False
-    for ring in geometry.interiors:
-        if abs(sh_ops.Polygon(ring).area) <= min_area_to_keep:
-            small_ring_found = True
-        else:
-            ring_coords_to_keep.append(ring.coords)
-    
-    # If no small rings were found, just return input
-    if small_ring_found == False:
-        return geometry
-    else:
-        return sh_ops.Polygon(geometry.exterior.coords, 
-                              ring_coords_to_keep)        
-
-def get_nb_coords(geometry) -> int:
-    # First check if the geom is None...
-    if geometry is None:
-        return 0
-    
-    # Get the number of points for all rings
-    nb_coords = len(geometry.exterior.coords)
-    for ring in geometry.interiors:
-        nb_coords += len(ring.coords)
-    
-    return nb_coords
-    
-def simplify_visval(
-        geometry, 
-        threshold: int,
-        preserve_topology: bool = False):
-
-    # Apply the simplification
-    geom_simpl_np = simpl_vis.VWSimplifier(geometry.exterior.coords).from_threshold(threshold)
-
-    # If simplified version has at least 3 points...
-    if geom_simpl_np.shape[0] >= 3:
-        #logger.info(f"geom_simpl_np.size: {geom_simpl_np.size}, geom_simpl_np.shape: {geom_simpl_np.shape}, geom_simpl_np: {geom_simpl_np}")
-        return sh_ops.Polygon(geom_simpl_np)
-    else:
-        if preserve_topology:
-            return geometry
-        else:
-            return None
-
-def simplify_rdp_plus(
-        geometry, 
-        epsilon: int,
-        preserve_topology: bool = False):
-
-    # Apply the simplification
-    geom_simpl_coords = simpl_rdp_plus.rdp(geometry.exterior.coords, 
-                                           epsilon=epsilon)
-
-    # If simplified version has at least 3 points...
-    if len(geom_simpl_coords) >= 3:
-        return sh_ops.Polygon(geom_simpl_coords)
-    else:
-        if preserve_topology:
-            return geometry
-        else:
-            return None
-        
+#-------------------------------------------------------------    
 def calc_onborder(
         geoms_gdf: gpd.GeoDataFrame,
         border_bounds: Tuple[float, float, float, float],
@@ -239,8 +54,7 @@ def calc_onborder(
             
             geoms_gdf.loc[i, onborder_column_name] = onborder
 
-    #logger.info(geoms_gdf)
-    return geoms_gdf
+    return geoms_gdf.reset_index(drop=True)
 
 def create_grid(xmin: float,
                 ymin: float,
