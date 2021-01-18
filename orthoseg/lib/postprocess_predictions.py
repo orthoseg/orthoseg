@@ -9,6 +9,7 @@ import math
 import multiprocessing
 import os
 from pathlib import Path
+import shapely.geometry as sh_geom
 import shutil
 import sys
 from typing import Optional
@@ -21,10 +22,10 @@ from geofileops import geofile
 import geopandas as gpd
 import numpy as np
 import pandas as pd
-import pyproj
 import rasterio as rio
 import rasterio.features as rio_features
 import shapely as sh
+import tensorflow as tf
 
 from orthoseg.util import vector_util
 import geofileops.util.vector_util as gfo_vector_util
@@ -668,22 +669,103 @@ def polygonize_pred_from_file(
         output_basefilepath = None
         if save_to_file is True:
             output_basefilepath = image_pred_filepath.parent / image_pred_filepath.stem
-        return polygonize_pred(
+        result_gdf = polygonize_pred(
                 image_pred_uint8_bin=image_pred_uint8_bin,
                 image_crs=image_crs,
                 image_transform=image_transform,
-                image_pred_filepath=image_pred_filepath,
                 output_basefilepath=output_basefilepath,
                 border_pixels_to_ignore=border_pixels_to_ignore)
 
+        if result_gdf is None:
+            logger.warn(f"Prediction didn't result in any polygons: {image_pred_filepath}")
+            
+        return result_gdf
+
     except Exception as ex:
         raise Exception(f"Error in polygonize_pred_from_file on {image_pred_filepath}") from ex
+
+def polygonize_pred_multiclass_to_file(
+        image_pred_arr: np.ndarray,
+        image_crs: str,
+        image_transform,
+        min_pixelvalue_for_save,
+        classes: list,
+        output_path: Path,
+        border_pixels_to_ignore: int = 0) -> bool:
+
+    # Polygonize the result...
+    result_gdf = polygonize_pred_multiclass(
+            image_pred_arr=image_pred_arr,
+            image_crs=image_crs,
+            image_transform=image_transform,
+            min_pixelvalue_for_save=min_pixelvalue_for_save,
+            classes=classes,
+            border_pixels_to_ignore=border_pixels_to_ignore)
+
+    # If there were polygons, save them...
+    if result_gdf is not None:
+        geofile.to_file(result_gdf, output_path, append=True, index=False)
+        return True
+    else:
+        return False
+
+def polygonize_pred_multiclass(
+        image_pred_arr: np.ndarray,
+        image_crs: str,
+        image_transform,
+        min_pixelvalue_for_save,
+        classes: list,
+        border_pixels_to_ignore: int = 0) -> gpd.geodataframe:
+
+    # Init
+    result_gdf = None
+
+    # Loop through channels and polygonize one by one...
+    image_pred_shape = image_pred_arr.shape
+    nb_channels = image_pred_shape[2]
+    for channel_id in range(0, nb_channels):
+        image_pred_curr_arr = image_pred_arr[:,:,channel_id]
+
+        # Clean prediction
+        image_pred_uint8_cleaned_curr = clean_prediction(
+                image_pred_arr=image_pred_curr_arr, 
+                border_pixels_to_ignore=border_pixels_to_ignore)
+                        
+        # If the cleaned result doesn't contain any useful values... go to next
+        if(min_pixelvalue_for_save > 0 
+           and not np.any(image_pred_uint8_cleaned_curr >= min_pixelvalue_for_save)):
+            continue
+
+        # Polygonize this channel 
+        image_pred_uint8_bin = to_binary_uint8(image_pred_uint8_cleaned_curr, 125)
+        result_channel_gdf = polygonize_pred(
+                image_pred_uint8_bin=image_pred_uint8_bin,
+                image_crs=image_crs,
+                image_transform=image_transform,
+                classname=classes[channel_id],
+                border_pixels_to_ignore=border_pixels_to_ignore)
+
+        # Add to result
+        if result_channel_gdf is None:
+            continue
+        if result_gdf is None:
+            # Check if the input has a crs
+            if result_channel_gdf.crs is None:
+                #geoms_file_gdf.crs = pyproj.CRS.from_user_input("EPSG:31370")
+                raise Exception("STOP: input does not have a crs!") 
+            result_gdf = result_channel_gdf
+        else:
+            result_gdf = gpd.GeoDataFrame(
+                    pd.concat([result_gdf, result_channel_gdf], ignore_index=True), 
+                    crs=result_gdf.crs)
+    
+    return result_gdf
 
 def polygonize_pred(
         image_pred_uint8_bin,
         image_crs: str,
         image_transform,
-        image_pred_filepath: Optional[Path] = None,
+        classname: str = None,
         output_basefilepath: Optional[Path] = None,
         border_pixels_to_ignore: int = 0) -> gpd.geodataframe:
 
@@ -695,7 +777,6 @@ def polygonize_pred(
 
         # If nothing found, we can return
         if len(polygonized_records) == 0:
-            logger.warn(f"Prediction didn't result in any polygons: {image_pred_filepath}")
             return None
 
         # Convert shapes to geopandas geodataframe 
@@ -727,17 +808,22 @@ def polygonize_pred(
         x_pixsize = get_pixelsize_x(image_transform)
         y_pixsize = get_pixelsize_y(image_transform)
         border_bounds = (image_bounds[0]+border_pixels_to_ignore*x_pixsize,
-                            image_bounds[1]+border_pixels_to_ignore*y_pixsize,
-                            image_bounds[2]-border_pixels_to_ignore*x_pixsize,
-                            image_bounds[3]-border_pixels_to_ignore*y_pixsize)
+                         image_bounds[1]+border_pixels_to_ignore*y_pixsize,
+                         image_bounds[2]-border_pixels_to_ignore*x_pixsize,
+                         image_bounds[3]-border_pixels_to_ignore*y_pixsize)
         
         # Now we can calculate the "onborder" property
         geoms_gdf = vector_util.calc_onborder(geoms_gdf, border_bounds)
 
+        # Add the classname if provided and area
+        if classname is not None:
+            geoms_gdf['classname'] = classname
+        geoms_gdf['area'] = geoms_gdf.geometry.area
+
         # Write the geoms to file
         if output_basefilepath is not None:
             geom_filepath = Path(f"{str(output_basefilepath)}_pred_cleaned_2.geojson")
-            geofile.to_file(geoms_gdf, geom_filepath)
+            geofile.to_file(geoms_gdf, geom_filepath, index=False)
         
         return geoms_gdf
             

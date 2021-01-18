@@ -228,7 +228,8 @@ def train(
                 predicter.predict_dir(
                         model=best_model,
                         input_image_dir=traindata_dir / 'image',
-                        output_base_dir=traindata_dir / predict_out_subdir,
+                        output_image_dir=traindata_dir / predict_out_subdir,
+                        output_vector_path=None,
                         projection_if_missing=train_projection,
                         input_mask_dir=traindata_dir / 'mask',
                         batch_size=conf.train.getint('batch_size_predict'), 
@@ -240,7 +241,8 @@ def train(
                 predicter.predict_dir(
                         model=best_model,
                         input_image_dir=validationdata_dir / 'image',
-                        output_base_dir=validationdata_dir / predict_out_subdir,
+                        output_image_dir=validationdata_dir / predict_out_subdir,
+                        output_vector_path=None,
                         projection_if_missing=train_projection,
                         input_mask_dir=validationdata_dir / 'mask',
                         batch_size=conf.train.getint('batch_size_predict'), 
@@ -301,7 +303,8 @@ def train(
     predicter.predict_dir(
             model=model,
             input_image_dir=traindata_dir / 'image',
-            output_base_dir=traindata_dir / predict_out_subdir,
+            output_image_dir=traindata_dir / predict_out_subdir,
+            output_vector_path=None,
             projection_if_missing=train_projection,
             input_mask_dir=traindata_dir / 'mask',
             batch_size=conf.train.getint('batch_size_predict'), 
@@ -313,7 +316,8 @@ def train(
     predicter.predict_dir(
             model=model,
             input_image_dir=validationdata_dir / 'image',
-            output_base_dir=validationdata_dir / predict_out_subdir,
+            output_image_dir=validationdata_dir / predict_out_subdir,
+            output_vector_path=None,
             projection_if_missing=train_projection,
             input_mask_dir=validationdata_dir / 'mask',
             batch_size=conf.train.getint('batch_size_predict'), 
@@ -326,7 +330,8 @@ def train(
         predicter.predict_dir(
                 model=model,
                 input_image_dir=testdata_dir / 'image',
-                output_base_dir=testdata_dir / predict_out_subdir, 
+                output_image_dir=testdata_dir / predict_out_subdir, 
+                output_vector_path=None,
                 projection_if_missing=train_projection,
                 input_mask_dir=testdata_dir / 'mask',
                 batch_size=conf.train.getint('batch_size_predict'), 
@@ -341,7 +346,8 @@ def train(
         predicter.predict_dir(
                 model=model,
                 input_image_dir=conf.dirs.getpath('predictsample_image_input_dir'),
-                output_base_dir=conf.dirs.getpath('predictsample_image_output_basedir') / predict_out_subdir,
+                output_image_dir=conf.dirs.getpath('predictsample_image_output_basedir') / predict_out_subdir,
+                output_vector_path=None,
                 projection_if_missing=train_projection,
                 batch_size=conf.train.getint('batch_size_predict'), 
                 evaluate_mode=True,

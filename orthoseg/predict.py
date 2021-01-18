@@ -170,12 +170,19 @@ def predict(
             model_for_predict = model
 
     # Predict for entire dataset
+    # TODO: read classes from file with the model, instead of from config 
     image_layer = conf.image_layers[conf.predict['image_layer']]
     predict_output_dir = Path(f"{conf.dirs['predict_image_output_basedir']}_{predict_out_subdir}")
+    
+    output_dir = conf.dirs.getpath('output_vector_dir') / conf.predict['image_layer']
+    output_vector_name = f"{best_model['basefilename']}_{best_model['epoch']}_{conf.predict['image_layer']}"
+    output_vector_path = output_dir / f"{output_vector_name}.gpkg"
+    
     predicter.predict_dir(
             model=model_for_predict,
             input_image_dir=input_image_dir,
-            output_base_dir=predict_output_dir,
+            output_image_dir=predict_output_dir,
+            output_vector_path=output_vector_path,
             classes=hyperparams.architecture.classes,
             border_pixels_to_ignore=conf.predict.getint('image_pixels_overlap'),
             projection_if_missing=image_layer['projection'],
