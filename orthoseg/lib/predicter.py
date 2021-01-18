@@ -31,6 +31,7 @@ def predict_dir(
         model: kr.models.Model,
         input_image_dir: Path,
         output_base_dir: Path,         
+        classes: list,
         border_pixels_to_ignore: int = 0,
         min_pixelvalue_for_save: int = 127,
         projection_if_missing: str = None,
@@ -65,6 +66,8 @@ def predict_dir(
     Args
         input_image_dir: dir where the input images are located
         output_base_dir: dir where the output will be put
+        classes (list): a list of the different class names. Mandatory 
+            if more than background + 1 class.
         border_pixels_to_ignore: because the segmentation at the borders of the
                 input images images is not as good, you can specify that x 
                 pixels need to be ignored
@@ -100,6 +103,14 @@ def predict_dir(
     for dir in [output_base_dir]:
         if not dir.exists():
             dir.mkdir()
+
+    # Write prediction config used, so it can be used for postprocessing
+    prediction_config_path = output_image_dir / "prediction_config.json"
+    with open(prediction_config_path, 'w') as pred_conf_file:
+        pred_conf = {}
+        pred_conf['border_pixels_to_ignore'] = border_pixels_to_ignore
+        pred_conf['classes'] = classes
+        json.dump(pred_conf, pred_conf_file)
 
     # Get list of all image files to process...
     image_filepaths: List[Path] = []
@@ -217,18 +228,19 @@ def predict_dir(
                 logger.debug("Start post-processing")    
                 for j, image_info in enumerate(curr_batch_image_infos_ext):    
                     try:
-                        clean_and_save_prediction(
-                                image_image_filepath=image_info['input_image_filepath'],
-                                image_crs=image_info['image_crs'],
-                                image_transform=image_info['image_transform'],
-                                image_pred_arr=curr_batch_image_pred_arr[j],
-                                output_dir=image_info['output_dir'],
-                                input_image_dir=input_image_dir,
-                                input_mask_dir=input_mask_dir,
-                                border_pixels_to_ignore=border_pixels_to_ignore,
-                                min_pixelvalue_for_save=min_pixelvalue_for_save,
-                                evaluate_mode=evaluate_mode,
-                                force=force)
+                            postp.clean_and_save_prediction(
+                                    image_image_filepath=image_info['input_image_filepath'],
+                                    image_crs=image_info['image_crs'],
+                                    image_transform=image_info['image_transform'],
+                                    image_pred_arr=curr_batch_image_pred_arr[batch_image_id],
+                                    output_dir=image_info['output_dir'],
+                                    input_image_dir=input_image_dir,
+                                    input_mask_dir=input_mask_dir,
+                                    border_pixels_to_ignore=border_pixels_to_ignore,
+                                    min_pixelvalue_for_save=min_pixelvalue_for_save,
+                                    evaluate_mode=evaluate_mode,
+                                    classes=classes,
+                                    force=force)
 
                         # Write line to file with done files...
                         image_donelog_file.write(image_info['input_image_filepath'].name + '\n')

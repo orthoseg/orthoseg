@@ -19,6 +19,9 @@ from orthoseg.lib import predicter
 import orthoseg.model.model_factory as mf
 import orthoseg.model.model_helper as mh
 
+# Global variable
+logger = None
+
 def predict_argstr(argstr):
     args = shlex.split(argstr)
     predict_args(args)
@@ -57,8 +60,6 @@ def predict(
             the path specified in files.image_layers_config_filepath in the project config will be used. 
             Defaults to None.
     """
-    ##### Init #####   
-    # Load config
     ##### Init #####   
     # Load config
     config_filepaths = conf.search_projectconfig_files(projectconfig_path=projectconfig_path)
@@ -102,6 +103,11 @@ def predict(
     else:    
         model_weights_filepath = best_model['filepath']
         logger.info(f"Best model found: {model_weights_filepath}")
+    
+    # Load the hyperparams of the model
+    # TODO: move the hyperparams filename formatting to get_models...
+    hyperparams_path = best_model['filepath'].parent / f"{best_model['basefilename']}_hyperparams.json"
+    hyperparams = mh.HyperParams(path=hyperparams_path)           
     
     # Prepare output subdir to be used for predictions
     predict_out_subdir = f"{best_model['basefilename']}"
@@ -150,8 +156,6 @@ def predict(
     # Prepare the model for predicting
     nb_gpu = len(tf.config.experimental.list_physical_devices('GPU'))
     batch_size = conf.predict.getint('batch_size')
-    # TODO: because of bug in tensorflow 1.14, multi GPU doesn't work (this way), 
-    # so always use one
     if nb_gpu <= 1:
         model_for_predict = model
         logger.info(f"Predict using single GPU or CPU, with nb_gpu: {nb_gpu}")
@@ -172,6 +176,7 @@ def predict(
             model=model_for_predict,
             input_image_dir=input_image_dir,
             output_base_dir=predict_output_dir,
+            classes=hyperparams.architecture.classes,
             border_pixels_to_ignore=conf.predict.getint('image_pixels_overlap'),
             projection_if_missing=image_layer['projection'],
             input_mask_dir=None,

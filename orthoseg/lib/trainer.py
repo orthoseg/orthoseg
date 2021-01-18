@@ -9,11 +9,13 @@ import os
 from pathlib import Path
 from typing import Tuple, Optional
 
+import numpy as np
 import tensorflow as tf
 from tensorflow import keras as kr
 #import keras as kr
 
 import pandas as pd
+from PIL import Image
 
 import orthoseg.model.model_factory as mf
 import orthoseg.model.model_helper as mh
@@ -83,21 +85,22 @@ def train(
             mask_augment_dict=hyperparams.train.mask_augmentations, 
             batch_size=hyperparams.train.batch_size,
             target_size=(image_width, image_height), 
-            nb_classes=hyperparams.architecture.nb_classes, 
+            nb_classes=len(hyperparams.architecture.classes), 
             save_to_subdir=save_augmented_subdir, 
             seed=2)
 
     # Create validation generator
     validation_augmentations = dict(rescale=hyperparams.train.image_augmentations['rescale'])
+    validation_mask_augmentations = dict(rescale=hyperparams.train.mask_augmentations['rescale'])
     validation_gen = create_train_generator(
             input_data_dir=validationdata_dir,
             image_subdir=image_subdir, 
             mask_subdir=mask_subdir,
             image_augment_dict=validation_augmentations,
-            mask_augment_dict=validation_augmentations, 
+            mask_augment_dict=validation_mask_augmentations, 
             batch_size=hyperparams.train.batch_size,
             target_size=(image_width, image_height), 
-            nb_classes=hyperparams.architecture.nb_classes, 
+            nb_classes=len(hyperparams.architecture.classes), 
             save_to_subdir=save_augmented_subdir,
             shuffle=False, 
             seed=3)
@@ -128,7 +131,7 @@ def train(
         model = mf.get_model(
                 architecture=hyperparams.architecture.architecture, 
                 nb_channels=hyperparams.architecture.nb_channels, 
-                nb_classes=hyperparams.architecture.nb_classes, 
+                nb_classes=len(hyperparams.architecture.classes), 
                 activation=hyperparams.architecture.activation_function)
         
         # Save the model architecture to json
@@ -299,6 +302,17 @@ def create_train_generator(
                the transformation for image and mask is the same
              * set save_to_dir = "your path" to check results of the generator
     """
+    # Init
+    # If there are more than two classes, the mask will have integers as values
+    # to code the different masks in, and one hot-encoding will be applied to 
+    # it, so it should not be rescaled!!!
+    if nb_classes > 2:
+        if(mask_augment_dict is not None 
+           and 'rescale' in mask_augment_dict
+           and mask_augment_dict['rescale'] != 1):
+                raise Exception(f"With nb_classes > 2 ({nb_classes}), the mask should have a rescale value of 1, not {mask_augment_dict['rescale']}")
+
+    # Create the image generators with the augment info
     image_datagen = kr.preprocessing.image.ImageDataGenerator(**image_augment_dict)
     mask_datagen = kr.preprocessing.image.ImageDataGenerator(**mask_augment_dict)
 
@@ -306,12 +320,10 @@ def create_train_generator(
     # Remark: flow_from_directory doesn't support Path, so supply str immediately as well,
     # otherwise, if str(Path) is used later on, it becomes 'None' instead of None !!!
     save_to_dir = None
-    save_to_dir_str = None
     if save_to_subdir is not None:
         save_to_dir = input_data_dir / save_to_subdir
         if not save_to_dir.exists():
             save_to_dir.mkdir(parents=True)
-        save_to_dir_str = str(save_to_dir)
 
     image_generator = image_datagen.flow_from_directory(
             directory=str(input_data_dir),
@@ -320,7 +332,7 @@ def create_train_generator(
             color_mode=image_color_mode,
             target_size=target_size,
             batch_size=batch_size,
-            save_to_dir=save_to_dir_str,
+            save_to_dir=None,
             save_prefix=image_save_prefix,
             shuffle=shuffle,
             seed=seed)
@@ -332,41 +344,51 @@ def create_train_generator(
             color_mode=mask_color_mode,
             target_size=target_size,
             batch_size=batch_size,
-            save_to_dir=save_to_dir_str,
+            save_to_dir=None,
             save_prefix=mask_save_prefix,
             shuffle=shuffle,
             seed=seed)
 
     train_generator = zip(image_generator, mask_generator)
 
-    for image, mask in train_generator:
-
-        # Rename files in save dir to make compare between image and mask easy    
-        if save_to_dir is not None:
-            def rename_prefix_to_suffix(save_dir: Path, save_prefix: str):
-                """ Rename file so the filename prefix is moved to being a suffix  """
-                paths = save_dir.glob(f"{save_prefix}_*.png")
-                for path in paths:
-                    dir = path.parent
-                    filename_noext = path.stem
-                    ext = path.suffix
-                    rename_filename_noext = f"{filename_noext.replace(save_prefix + '_', '')}_{save_prefix}"
-                    for index in range(1, 999):
-                        rename_path = dir / f"{rename_filename_noext}_{index}{ext}"
-                        # If the path to rename to exists already, add an index to keep file name unique
-                        if not rename_path.exists():
-                            path.rename(rename_path)
-                            break
-                        else:
-                            continue
-                        raise Exception(f"No new filename found for {path}")
-
-            rename_prefix_to_suffix(save_to_dir, mask_save_prefix)
-            rename_prefix_to_suffix(save_to_dir, image_save_prefix)
-
-        # If loss is categorical_crossentropy -> one-hot encode masks
+    for batch_id, (image, mask) in enumerate(train_generator):
+        
+        # One-hot encode mask if multiple classes
         if nb_classes > 1:
             mask = kr.utils.to_categorical(mask, nb_classes)
+
+        # Because the default save_to_dir option doesn't support saving the 
+        # augmented masks in seperate files per class, implement this here.  
+        if save_to_dir is not None:            
+            # Save mask for every class seperately
+            # Get the number of images in this batch + the nb classes
+            mask_shape = mask.shape
+            nb_images = mask_shape[0]
+            nb_classes = mask_shape[3]
+
+            # Loop through images in this batch
+            for image_id in range(nb_images):
+                # Slice the next image from the array
+                image_to_save = image[image_id,:,:,:]
+                
+                # Reverse the rescale if there is one
+                if(mask_augment_dict is not None 
+                   and 'rescale' in mask_augment_dict
+                   and mask_augment_dict['rescale'] != 1):
+                    image_to_save = image_to_save / mask_augment_dict['rescale']
+
+                # Now convert to uint8 image and save!
+                im = Image.fromarray(image_to_save.astype(np.uint8), image_color_mode)
+                image_path = save_to_dir / f"{batch_id}_{image_id}.jpg"
+                im.save(image_path)
+
+                # Loop through the masks for each class
+                for channel_id in range(nb_classes):
+                    mask_to_save = mask[image_id,:,:,channel_id]
+                    mask_path = save_to_dir / f"{batch_id}_{image_id}_{channel_id}.png"
+                    im = Image.fromarray((mask_to_save * 255).astype(np.uint8))
+                    im.save(mask_path)
+                    
         yield (image, mask)
     
 # If the script is ran directly...

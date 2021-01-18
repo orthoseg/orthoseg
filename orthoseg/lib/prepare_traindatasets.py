@@ -51,6 +51,7 @@ def prepare_traindatasets(
         classes: dict,
         image_layers: dict,
         training_dir: Path,
+        labelname_column: str,
         image_pixel_x_size: float = 0.25,
         image_pixel_y_size: float = 0.25,
         image_pixel_width: int = 512,
@@ -72,6 +73,7 @@ def prepare_traindatasets(
 
     Args
         label_files (List[LabelFiles]): paths to the files with label polygons and locations to generate images for
+        labelname_column: the column wqhere the label names are stored in the polygon files
         wms_server_url: WMS server where the images can be fetched from
         wms_layername: layername on the WMS server to use
         output_basedir: the base dir where the train dataset needs to be written to 
@@ -190,22 +192,32 @@ def prepare_traindatasets(
         raise ex
     
     # Create list with only the input labels that need to be burned in the mask
-    if labelpolygons_gdf is not None and 'label_name' in labelpolygons_gdf.columns:
-        # If there is a column 'label_name', filter on the labels provided
+    # TODO: think about a mechanism to ignore label_name's if specified...
+    if labelpolygons_gdf is not None and labelname_column in labelpolygons_gdf.columns:
+        # If there is a column labelname_column (default='label_name'), filter 
+        # on the labelnames provided
+        labelnames_to_burn = []
+        for classname in classes:
+            # Labels with burn_value 0 don't need to be burned... 
+            if classes[classname]['burn_value'] != 0:
+                labelnames_to_burn.extend(classes[classname]['labelnames'])
         labels_to_burn_gdf = (
-                labelpolygons_gdf.loc[labelpolygons_gdf['label_name'].isin(classes)]).copy()
+                labelpolygons_gdf.loc[labelpolygons_gdf[labelname_column].isin(labelnames_to_burn)]).copy()
+
+        # Now set the burn_value to be used per row
         labels_to_burn_gdf['burn_value'] = 0
-        for label_name in classes:
-            labels_to_burn_gdf.loc[(labels_to_burn_gdf['label_name'] == label_name),
-                                   'burn_value'] = classes[label_name]['burn_value']
+        for classname in classes:
+            labels_to_burn_gdf.loc[(labels_to_burn_gdf[labelname_column].isin(classes[classname]['labelnames'])),
+                                   'burn_value'] = classes[classname]['burn_value']
         if len(labelpolygons_gdf) != len(labels_to_burn_gdf):
             logger.warn(f"Number of labels to burn changed from {len(labelpolygons_gdf)} to {len(labels_to_burn_gdf)} with filter on classes: {classes}")
     elif len(classes) == 2:
+        logger.info(f'Column with label names ({labelname_column}) not found, so use all polygons')
         labels_to_burn_gdf = labelpolygons_gdf
-        labels_to_burn_gdf.loc[:, 'burn_value'] = classes[list(classes)[1]]['burn_value']
+        labels_to_burn_gdf.loc[:, 'burn_value'] = 1
     else:
-        raise Exception(f"Column 'label_name' is mandatory in labeldata if multiple classes specified: {classes}")
-                    
+        raise Exception(f"Column {labelname_column} is mandatory in labeldata if multiple classes specified: {classes}")
+
     # Prepare the different traindata types
     for traindata_type in ['train', 'validation', 'test']:
                    

@@ -26,29 +26,37 @@ class ArchitectureParams:
     def __init__(
             self,
             architecture: str,
-            architecture_id: int = 0,
-            nb_classes: int = 1,
+            classes: list = None,
             nb_channels: int = 3,
-            activation_function: str = 'softmax'):
+            activation_function: str = 'softmax',
+            architecture_id: int = 0):
         """
         Class containing the hyper parameters needed to create the model.
         
         Args:
             architecture (str): the model architecture to use.
-            architecture_id (int, optional): id of the architecture. Defaults to 0. 
-            nb_classes (int, optional): Number of classes the network will segment to. Defaults to 1.
-            nb_channels (int, optional): Number of channels of the images. Defaults to 3.
-            activation_function (str, optional): activation function to use. Defaults to softmax. 
+            classes (list, optional): list of classes that will be detected by 
+                the model. Default to None, and then 2 generic classes are 
+                supposed. 
+            nb_channels (int, optional): Number of channels of the images. 
+                Defaults to 3.
+            activation_function (str, optional): activation function to use. 
+                Defaults to softmax. 
+            architecture_id (int, optional): id of the architecture. 
+                Defaults to 0. 
         """
         self.architecture = architecture
-        self.architecture_id = architecture_id
-        self.nb_classes = nb_classes
+        if classes is not None:
+            self.classes = classes
+        else:
+            self.classes = ['background', 'segmentsubject']
         self.nb_channels = nb_channels
         self.activation_function = activation_function
+        self.architecture_id = architecture_id
 
     def toJSON(self):
-        return json.dumps(self, default=lambda o: o.__dict__, 
-            sort_keys=True, indent=4)
+        return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
+
 class TrainParams:
     
     def __init__(
@@ -138,8 +146,9 @@ class HyperParams:
 
     def __init__(
             self,
-            architecture: ArchitectureParams,
-            train: TrainParams):
+            architecture: ArchitectureParams = None,
+            train: TrainParams = None,
+            path: Path = None):
         """
         Class to store the hyper parameters to use for the machine learning algorythm.
             
@@ -149,12 +158,31 @@ class HyperParams:
                 weights of another network if these parameters are the same.
             train (TrainParams): these are the parameters that can be changed with each training.
         """
-        self.architecture=architecture
-        self.train=train
-    
+        self.fileversion = 1.1
+        if architecture is not None:
+            self.architecture=architecture
+        if train is not None:
+            self.train=train
+        if path is not None:
+            with open(path, 'r') as jsonfile:
+                jsonstr = jsonfile.read()
+                data = json.loads(jsonstr)
+
+                # Read file version if it is present
+                if 'fileversion' in data:
+                    self.fileversion = data['fileversion']
+
+                # Now parse the real data
+                # For backwards compatibility, remove 'nb_classes' parameter if it exists
+                if 'nb_classes' in data['architecture']:
+                    del data['architecture']['nb_classes']
+
+                self.architecture = ArchitectureParams(**data['architecture'])
+                self.train = TrainParams(**data['train'])
+
     def toJSON(self):
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
-                
+
 def get_max_data_version(model_dir: Path) -> int:
     """
     Get the maximum data version a model exists for in the model_dir.
@@ -667,7 +695,7 @@ def save_and_clean_models(
                 architecture_id=architecture_id,
                 trainparams_id=trainparams_id)
         if best_model is not None:
-            print(f"\nBEST MODEL: acc_combined: {best_model['acc_combined']}, epoch: {best_model['epoch']}")
+            print(f"\nBEST MODEL for {segment_subject}: acc_combined: {best_model['acc_combined']}, epoch: {best_model['epoch']}")
 
 if __name__ == '__main__':
     raise Exception("Not implemented")

@@ -60,6 +60,9 @@ def train(
             the path specified in files.image_layers_config_filepath in the project config will be used. 
             Defaults to None.
     """
+    # TODO: when predicting, read classes from file with the model, instead of from config 
+    # TODO: when training write classes to config file with model!
+
     ##### Init #####   
     # Load config
     config_filepaths = conf.search_projectconfig_files(projectconfig_path=projectconfig_path)
@@ -95,15 +98,30 @@ def train(
                     locations_path=Path(label_file['locations_path']),
                     polygons_path=Path(label_file['data_path']),
                     image_layer=label_file['image_layer']))
+        if label_infos is None or len(label_infos) == 0:
+            raise Exception(f"Parameter label_datasources is defined in config but doesn't contain valid label info!")
     else:
         # Search for the files based on the file name patterns... 
         labelpolygons_pattern = conf.train.getpath('labelpolygons_pattern')
         labellocations_pattern = conf.train.getpath('labellocations_pattern')
         label_infos = search_label_files(labelpolygons_pattern, labellocations_pattern)
+        if label_infos is None or len(label_infos) == 0:
+            raise Exception(f"No label files found with patterns {labellocations_pattern} and {labelpolygons_pattern}")
 
+    # Determine the projection of (the first) train layer... it will be used for all!!!
     train_image_layer = label_infos[0].image_layer
     train_projection = conf.image_layers[train_image_layer]['projection']
-    classes = conf.train.getdict('classes')
+
+    # Determine classes 
+    try:
+        classes = conf.train.getdict('classes')
+
+        # If the burn_value property isn't supplied for the classes, add them
+        for class_id, (classname) in enumerate(classes):
+            if 'burn_value' not in classes[classname]:
+                classes[classname]['burn_value'] = class_id
+    except Exception as ex:
+        raise Exception(f"Error reading classes: {conf.train.get('classes')}") from ex
 
     # Now create the train datasets (train, validation, test)
     force_model_traindata_id = conf.train.getint('force_model_traindata_id')
@@ -117,6 +135,7 @@ def train(
                 classes=classes,
                 image_layers=conf.image_layers,
                 training_dir=conf.dirs.getpath('training_dir'),
+                labelname_column=conf.train.get('labelname_column'),
                 image_pixel_x_size=conf.train.getfloat('image_pixel_x_size'),
                 image_pixel_y_size=conf.train.getfloat('image_pixel_y_size'),
                 image_pixel_width=conf.train.getint('image_pixel_width'),
@@ -128,16 +147,18 @@ def train(
     
     ##### Check if training is needed #####
     # Get hyper parameters from the config
+    # TODO: activation_function should probably not be specified!!!!!!
     architectureparams = mh.ArchitectureParams(
             architecture=conf.model['architecture'],
-            nb_classes=len(classes),   
+            classes=[classname for classname in classes],
             nb_channels=conf.model.getint('nb_channels'),
-            architecture_id=conf.model.getint('architecture_id'))
+            architecture_id=conf.model.getint('architecture_id'),
+            activation_function='softmax')
     trainparams = mh.TrainParams(
             trainparams_id=conf.train.getint('trainparams_id'),
             image_augmentations=conf.train.getdict('image_augmentations'),
             mask_augmentations=conf.train.getdict('mask_augmentations'),
-            class_weights=[classes[class_name]['weight'] for class_name in classes],
+            class_weights=[classes[classname]['weight'] for classname in classes],
             batch_size=conf.train.getint('batch_size_fit'), 
             optimizer=conf.train.get('optimizer'), 
             optimizer_params=conf.train.getdict('optimizer_params'), 
@@ -193,35 +214,40 @@ def train(
         best_recent_model = mh.get_best_model(model_dir=model_dir)
         if best_recent_model is not None:
             try:
+                # TODO: move the hyperparams filename formatting to get_models...
                 logger.info(f"Load model + weights from {best_recent_model['filepath']}")    
-                model = mf.load_model(best_recent_model['filepath'], compile=False)            
-                logger.info("Loaded model + weights")
+                best_model = mf.load_model(best_recent_model['filepath'], compile=False)
+                best_hyperparams_path = best_recent_model['filepath'].parent / f"{best_recent_model['basefilename']}_hyperparams.json"
+                best_hyperparams = mh.HyperParams(path=best_hyperparams_path)           
+                logger.info("Loaded model, weights and params")
 
                 # Prepare output subdir to be used for predictions
                 predict_out_subdir, _ = os.path.splitext(best_recent_model['filename'])
                 
                 # Predict training dataset
                 predicter.predict_dir(
-                        model=model,
+                        model=best_model,
                         input_image_dir=traindata_dir / 'image',
                         output_base_dir=traindata_dir / predict_out_subdir,
                         projection_if_missing=train_projection,
                         input_mask_dir=traindata_dir / 'mask',
                         batch_size=conf.train.getint('batch_size_predict'), 
                         evaluate_mode=True,
+                        classes=best_hyperparams.architecture.classes,
                         cancel_filepath=conf.files.getpath('cancel_filepath'))
                     
                 # Predict validation dataset
                 predicter.predict_dir(
-                        model=model,
+                        model=best_model,
                         input_image_dir=validationdata_dir / 'image',
                         output_base_dir=validationdata_dir / predict_out_subdir,
                         projection_if_missing=train_projection,
                         input_mask_dir=validationdata_dir / 'mask',
                         batch_size=conf.train.getint('batch_size_predict'), 
                         evaluate_mode=True,
+                        classes=best_hyperparams.architecture.classes,
                         cancel_filepath=conf.files.getpath('cancel_filepath'))
-                del model
+                del best_model
             except Exception as ex:
                 logger.warn(f"Exception trying to predict with old model: {ex}")
         
@@ -251,7 +277,8 @@ def train(
                 hyperparams=hyperparams,
                 model_preload_filepath=model_preload_filepath,
                 image_width=conf.train.getint('image_pixel_width'),
-                image_height=conf.train.getint('image_pixel_height')) 
+                image_height=conf.train.getint('image_pixel_height'),
+                save_augmented_subdir=conf.train.get('save_augmented_subdir')) 
     
         # Now get the best model found during training
         best_model_curr_train_version = mh.get_best_model(
@@ -279,6 +306,7 @@ def train(
             input_mask_dir=traindata_dir / 'mask',
             batch_size=conf.train.getint('batch_size_predict'), 
             evaluate_mode=True,
+            classes=classes,
             cancel_filepath=conf.files.getpath('cancel_filepath'))
     
     # Predict validation dataset
@@ -290,6 +318,7 @@ def train(
             input_mask_dir=validationdata_dir / 'mask',
             batch_size=conf.train.getint('batch_size_predict'), 
             evaluate_mode=True,
+            classes=classes,
             cancel_filepath=conf.files.getpath('cancel_filepath'))
 
     # Predict test dataset, if it exists
@@ -302,6 +331,7 @@ def train(
                 input_mask_dir=testdata_dir / 'mask',
                 batch_size=conf.train.getint('batch_size_predict'), 
                 evaluate_mode=True,
+                classes=classes,
                 cancel_filepath=conf.files.getpath('cancel_filepath'))
     
     # Predict extra test dataset with random images in the roi, to add to 
@@ -315,6 +345,7 @@ def train(
                 projection_if_missing=train_projection,
                 batch_size=conf.train.getint('batch_size_predict'), 
                 evaluate_mode=True,
+                classes=classes,
                 cancel_filepath=conf.files.getpath('cancel_filepath'))
 
     # Free resources...

@@ -11,6 +11,10 @@ import sys
 from orthoseg.helpers import config_helper as conf
 from orthoseg.helpers import log_helper
 from orthoseg.lib import postprocess_predictions as postp
+import json
+
+# Define global variables
+logger = None
 
 def postprocess_argstr(argstr):
     args = shlex.split(argstr)
@@ -80,16 +84,32 @@ def postprocess(
     output_dir = conf.dirs.getpath('output_vector_dir') / conf.predict['image_layer']
     output_vector_name = f"{'_'.join(model_info)}_{conf.predict['image_layer']}"
     output_filepath = output_dir / f"{output_vector_name}.gpkg"
-    
-    # Prepare some parameters
-    border_pixels_to_ignore = conf.predict.getint('image_pixels_overlap')
-    postprocess_params = {"dissolve_tiles_path": conf.postprocess.getpath('dissolve_tiles_path')}
+
+    # If a prediction config file exists, get prediction-specific config from it     
+    prediction_config_path = input_dir / "prediction_config.json"
+    if prediction_config_path.exists():
+        with open(prediction_config_path, 'r') as pred_conf_file:
+            pred_config_str = pred_conf_file.read()
+            pred_config = json.loads(pred_config_str)
+            border_pixels_to_ignore = pred_config['border_pixels_to_ignore']
+            classes = pred_config['classes']
+    else:
+        border_pixels_to_ignore = conf.predict.getint('image_pixels_overlap')
+        classes = [classname for classname in conf.train.getdict('classes')]
+
+    # Prepare some parameters for the postprocessing
+    postprocess_params = {
+                "dissolve": conf.postprocess.getboolean('dissolve'),
+                "dissolve_tiles_path": conf.postprocess.getpath('dissolve_tiles_path'),
+            }
+                
     ##### Go! #####
     postp.postprocess_predictions(
             input_dir=input_dir,
             output_filepath=output_filepath,
             input_ext='.tif',
             postprocess_params=postprocess_params,
+            classes=classes,
             border_pixels_to_ignore=border_pixels_to_ignore,
             evaluate_mode=False,
             force=False)

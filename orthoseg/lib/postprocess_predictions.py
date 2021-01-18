@@ -49,6 +49,7 @@ def postprocess_predictions(
         output_filepath: Path,
         input_ext: str,
         postprocess_params: dict,
+        classes: list,
         border_pixels_to_ignore: int = 0,
         evaluate_mode: bool = False,
         cancel_filepath: Optional[Path] = None,
@@ -65,16 +66,13 @@ def postprocess_predictions(
         input_dir: the dir where all geojson files can be found. All geojson 
                 files will be searched for recursively.
         output_filepath: the filepath where the output file(s) will be written.
-        force: False to just keep existing output files instead of processing
-                them again. 
+        classes (list): Classes that were predicted (in correct order!). 
         evaluate_mode: True to apply the logic to a subset of the files. 
         cancel_filepath: If the file in this path exists, processing stops asap
         force: False to skip results that already exist, true to
                ignore existing results and overwrite them           
     """
     
-    # TODO: this function should be split to several ones, because now it does
-    # several things that aren't covered with the name
     ##### Init #####
     # Prepare output dir
     eval_suffix = ""
@@ -85,35 +83,62 @@ def postprocess_predictions(
     if not output_dir.exists():
         output_dir.mkdir(parents=True)
     
-    # Polygonize all prediction files if orig file doesn't exist yet
-    geoms_orig_path = output_dir / output_filepath.name
-    if not geoms_orig_path.exists():
+    # If all output files exist already, return
+    all_outputs_exist = True
+    for output_suffix in ['', '_union', '_simpl']:
+        path = output_dir / f"{output_filepath.stem}{output_suffix}{output_filepath.suffix}"
+        if not path.exists():
+            all_outputs_exist = False
+            break
+    if all_outputs_exist is True:
+        logger.info(f"All output vector files variants of {output_filepath} exist already")
+        return
+
+    ##### Now the real work #####
+    # Loop through the classes that were predicted 
+    for classid, (classname) in enumerate(classes):
+        # classid 0 is the background by convention, ignore it!
+        if classid == 0:
+            continue
+
+        # Polygonize all prediction files if orig file doesn't exist yet
+        if len(classes) <= 2:
+            geoms_orig_path = output_dir / output_filepath.name
+        else:
+            geoms_orig_path = output_dir / f"{output_filepath.stem}_{classname}{output_filepath.suffix}"
+        
         try:
-            polygonize_prediction_files(
-                    input_dir=input_dir,
-                    output_filepath=geoms_orig_path,
-                    input_ext=input_ext,
-                    border_pixels_to_ignore=border_pixels_to_ignore,
-                    evaluate_mode=evaluate_mode,
-                    cancel_filepath=cancel_filepath,
-                    force=force)               
+            # Polygonize the prediction files
+            if not geoms_orig_path.exists():
+                polygonize_prediction_files(
+                        input_dir=input_dir,
+                        output_filepath=geoms_orig_path,
+                        input_ext=input_ext,
+                        classname=classname,
+                        border_pixels_to_ignore=border_pixels_to_ignore,
+                        evaluate_mode=evaluate_mode,
+                        cancel_filepath=cancel_filepath,
+                        force=force)               
+            else:
+                logger.info(f"Output file exists already, so continue postprocess: {geoms_orig_path}")
+
+            # If the cancel file exists, stop processing...
+            if cancel_filepath is not None and cancel_filepath.exists():
+                logger.info(f"Cancel file found, so stop: {cancel_filepath}")
+                return
+            
+            clean_vectordata(
+                input_path=geoms_orig_path,
+                output_path=geoms_orig_path,
+                postprocess_params=postprocess_params)
+
         except RuntimeWarning as ex:
             logger.warn(f"No prediction files found to merge, ex: {ex}")
             if str(ex) == "NOFILESFOUND":
                 logger.warn("No prediction files found to merge")
-                return
-    else:
-        logger.info(f"Output file exists already, so continue postprocess: {geoms_orig_path}")
-
-    # If the cancel file exists, stop processing...
-    if cancel_filepath is not None and cancel_filepath.exists():
-        logger.info(f"Cancel file found, so stop: {cancel_filepath}")
-        return
+                continue
     
-    clean_vectordata(
-        input_path=geoms_orig_path,
-        output_path=geoms_orig_path,
-        postprocess_params=postprocess_params)
+    
 
 def clean_vectordata(
         input_path: Path,
@@ -123,19 +148,23 @@ def clean_vectordata(
         force: bool = False):
 
     # Dissolve the data
-    tiles_path = postprocess_params['dissolve_tiles_path']
-    clip_on_tiles = False
-    if tiles_path is not None:
-        clip_on_tiles = True
-    geoms_dissolve_filepath = output_path.parent / f"{output_path.stem}_union{output_path.suffix}"
-    geofileops.dissolve(
-            input_path=input_path,
-            tiles_path=tiles_path,
-            output_path=geoms_dissolve_filepath,
-            explodecollections=True,
-            clip_on_tiles=clip_on_tiles,
-            force=force)
-
+    if postprocess_params['dissolve']:
+        tiles_path = postprocess_params['dissolve_tiles_path']
+        clip_on_tiles = False
+        if tiles_path is not None:
+            clip_on_tiles = True
+        curr_output_path = output_path.parent / f"{output_path.stem}_union{output_path.suffix}"
+        geofileops.dissolve(
+                input_path=input_path,
+                tiles_path=tiles_path,
+                output_path=curr_output_path,
+                explodecollections=True,
+                clip_on_tiles=clip_on_tiles,
+                force=force)
+        curr_input_path = curr_output_path
+    else:
+        curr_input_path = input_path
+    
     # If the cancel file exists, stop processing...
     if cancel_filepath is not None and cancel_filepath.exists():
         logger.info(f"Cancel file found, so stop: {cancel_filepath}")
@@ -165,7 +194,7 @@ def clean_vectordata(
     geoms_simpl_filepath = output_path.parent / f"{output_path.stem}_simpl{output_path.suffix}"
     if force or not geoms_simpl_filepath.exists():
         geofileops.simplify(
-                input_path=geoms_dissolve_filepath,
+                input_path=curr_input_path,
                 output_path=geoms_simpl_filepath,
                 tolerance=0.5,
                 force=force)
@@ -178,6 +207,7 @@ def polygonize_prediction_files(
             input_dir: Path,
             output_filepath: Path,
             input_ext: str,
+            classname: str,
             border_pixels_to_ignore: int = 0,
             apply_on_border_distance: float = None,
             evaluate_mode: bool = False,
@@ -217,7 +247,7 @@ def polygonize_prediction_files(
 
     # Get list of all files to process...
     logger.info(f"List all files to be merged in {input_dir}")
-    filepaths = sorted(list(input_dir.rglob(f"*_pred*{input_ext}")))
+    filepaths = sorted(list(input_dir.rglob(f"*_{classname}_pred*{input_ext}")))
 
     # Check if files were found...
     nb_files = len(filepaths)
@@ -327,6 +357,7 @@ def polygonize_prediction_files(
             # If we get here, file is normally created successfully, so rename to real output
             if output_tmp_file is not None:
                 output_tmp_file.close()
+                output_tmp_file = None
                 os.rename(output_tmp_filepath, output_filepath)
     except Exception as ex:
         if output_tmp_file is not None:
@@ -365,6 +396,9 @@ def postprocess_for_evaluation(
         image_transform,
         image_pred_filepath: Path,
         image_pred_uint8_cleaned_bin: np.array,
+        class_id: int,
+        class_name: str,
+        nb_classes: int,
         output_dir: Path,
         output_suffix: str = None,
         input_image_dir: Optional[Path] = None,
@@ -447,17 +481,28 @@ def postprocess_for_evaluation(
                 mask_arr[:,0:border_pixels_to_ignore] = 0    # Top border
                 mask_arr[:,-border_pixels_to_ignore:] = 0    # Bottom border
                 
+            # If there are more than 2 classes, extract the seperate masks
+            # per class with one-hot encoding
+            if nb_classes > 2:
+                mask_categorical_arr = tf.keras.utils.to_categorical(mask_arr, nb_classes, dtype=rio.uint8)
+                mask_arr = (mask_categorical_arr[:,:,class_id]) * 255
+                                
             #similarity = jaccard_similarity(mask_arr, image_pred)
             # Use accuracy as similarity... is more practical than jaccard
             similarity = np.equal(mask_arr, image_pred_uint8_cleaned_bin
                                  ).sum()/image_pred_uint8_cleaned_bin.size
             pred_prefix_str = f"{similarity:0.3f}_"
             
-            # Copy mask file if the file doesn't exist yet
+            # Write mask
             mask_copy_dest_filepath = (output_dir / 
-                    f"{pred_prefix_str}{image_filepath.stem}_mask{mask_filepath.suffix}")
-            if not mask_copy_dest_filepath.exists():
-                shutil.copyfile(mask_filepath, mask_copy_dest_filepath)
+                    f"{pred_prefix_str}{image_filepath.stem}_{class_name}_mask.tif")
+            #if not mask_copy_dest_filepath.exists():     
+            with rio.open(mask_copy_dest_filepath, 'w', driver='GTiff', 
+                    compress='lzw',
+                    height=mask_arr.shape[1], width=mask_arr.shape[0], 
+                    count=1, dtype=rio.uint8, 
+                    crs=image_crs, transform=image_transform) as dst:
+                dst.write(mask_arr, 1)
 
         else:
             # If all_black, no need to calculate again
@@ -489,7 +534,7 @@ def postprocess_for_evaluation(
 
         # Rename the prediction file so it also contains the prefix,... 
         if image_pred_filepath is not None:
-            image_dest_filepath = Path(f"{str(output_basefilepath)}_pred{image_filepath.suffix}")
+            image_dest_filepath = Path(f"{str(output_basefilepath)}_pred{image_pred_filepath.suffix}")
             if not image_dest_filepath.exists():
                 shutil.move(str(image_pred_filepath), image_dest_filepath)
 
@@ -498,11 +543,12 @@ def postprocess_for_evaluation(
             logger.debug("All black prediction, no use proceding")
             return 
         
-        polygonize_pred_for_evaluation(
-                image_pred_uint8_bin=image_pred_uint8_cleaned_bin,
-                image_crs=image_crs,
-                image_transform=image_transform,
-                output_basefilepath=output_basefilepath)
+        # Write a cleaned-up version for evaluation as well 
+        #polygonize_pred_for_evaluation(
+        #        image_pred_uint8_bin=image_pred_uint8_cleaned_bin,
+        #        image_crs=image_crs,
+        #        image_transform=image_transform,
+        #        output_basefilepath=output_basefilepath)
     
     except Exception as ex:
         message = f"Exception postprocessing prediction for {image_filepath}\n: file {image_pred_filepath}!!!"
@@ -698,6 +744,174 @@ def polygonize_pred(
     except Exception as ex:
         message = f"Exception while polygonizing to file {output_basefilepath}"
         raise Exception(message) from ex
+
+def clean_and_save_prediction(
+        image_image_filepath: Path,
+        image_crs: str,
+        image_transform: str,
+        output_dir: Path,
+        image_pred_arr: np.array,
+        classes: list,
+        input_image_dir: Optional[Path] = None,
+        input_mask_dir: Optional[Path] = None,
+        border_pixels_to_ignore: int = 0,
+        min_pixelvalue_for_save: int = 127,
+        evaluate_mode: bool = False,
+        force: bool = False) -> bool:
+
+    # If nb. channels in prediction > 1, skip the first as it is the background
+    image_pred_shape = image_pred_arr.shape
+    nb_channels = image_pred_shape[2]
+    if nb_channels > 1:
+        channel_start = 1
+    else:
+        channel_start = 0
+
+    for channel_id in range(channel_start, nb_channels):
+        # TODO add proper support for multiple channels!
+        image_pred_curr_arr = image_pred_arr[:,:,channel_id]
+
+        # Clean prediction
+        image_pred_uint8_cleaned_curr = clean_prediction(
+                image_pred_arr=image_pred_curr_arr, 
+                border_pixels_to_ignore=border_pixels_to_ignore)
+        
+        # If the cleaned result contains useful values or in evaluate mode... save
+        if(min_pixelvalue_for_save == 0 
+           or np.any(image_pred_uint8_cleaned_curr >= min_pixelvalue_for_save)
+           or evaluate_mode is True):
+
+            # Find the class name in the classes list
+            class_name = None
+            for class_id, (classname) in enumerate(classes):
+                if class_id == channel_id:
+                    class_name = classname
+                    break
+            if class_name is None:
+                raise Exception(f"No classname found for channel_id {channel_id}")
+        
+            # Now save prediction
+            output_suffix=f"_{class_name}"
+            image_pred_filepath = save_prediction_uint8(
+                    image_filepath=image_image_filepath,
+                    image_pred_uint8_cleaned=image_pred_uint8_cleaned_curr,
+                    image_crs=image_crs,
+                    image_transform=image_transform,
+                    output_dir=output_dir,
+                    output_suffix=output_suffix,
+                    force=force)
+
+            # Postprocess for evaluation
+            if evaluate_mode is True:
+                # Create binary version and postprocess
+                image_pred_uint8_cleaned_bin = to_binary_uint8(image_pred_uint8_cleaned_curr, 125)                       
+                postprocess_for_evaluation(
+                        image_filepath=image_image_filepath,
+                        image_crs=image_crs,
+                        image_transform=image_transform,
+                        image_pred_filepath=image_pred_filepath,
+                        image_pred_uint8_cleaned_bin=image_pred_uint8_cleaned_bin,
+                        output_dir=output_dir,
+                        output_suffix=output_suffix,
+                        input_image_dir=input_image_dir,
+                        input_mask_dir=input_mask_dir,
+                        class_id=channel_id,
+                        class_name=class_name,
+                        nb_classes=nb_channels,
+                        border_pixels_to_ignore=border_pixels_to_ignore,
+                        force=force)
+
+    return True
+
+def clean_prediction(
+        image_pred_arr: np.array,
+        border_pixels_to_ignore: int = 0,
+        output_color_depth: str = 'binary') -> np.array:
+    """
+    Cleans a prediction result and returns a cleaned, uint8 array.
+    
+    Args:
+        image_pred_arr (np.array): The prediction as returned by keras.
+        border_pixels_to_ignore (int, optional): Border pixels to ignore. Defaults to 0.
+        output_color_depth (str, optional): Color depth desired. Defaults to '2'.
+            * binary: 0 or 255
+            * full: 256 different values
+    
+    Returns:
+        np.array: The cleaned result.
+    """
+
+    # Input should be float32
+    if image_pred_arr.dtype not in [np.float32, np.uint8]:
+        raise Exception(f"image prediction is in an unsupported type: {image_pred_arr.dtype}") 
+    if output_color_depth not in ['binary', 'full']:
+        raise Exception(f"Unsupported output_color_depth: {output_color_depth}")
+
+    # Reshape from 3 to 2 dims if necessary (width, height, nb_channels).
+    # Check the number of channels of the output prediction
+    image_pred_shape = image_pred_arr.shape
+    if len(image_pred_shape) > 2:
+        n_channels = image_pred_shape[2]
+        if n_channels > 1:
+            raise Exception("Invalid input, should be one channel!")
+        # Reshape array from 3 dims (width, height, nb_channels) to 2.
+        image_pred_uint8 = image_pred_arr.reshape((image_pred_shape[0], image_pred_shape[1]))   
+
+    # Convert to uint8 if necessary
+    if image_pred_arr.dtype == np.float32:
+        image_pred_uint8 = (image_pred_arr * 255).astype(np.uint8)
+    else:
+        image_pred_uint8 = image_pred_arr
+
+    # Convert to binary if needed
+    if output_color_depth == 'binary':
+        image_pred_uint8[image_pred_uint8 >= 127] = 255
+        image_pred_uint8[image_pred_uint8 < 127] = 0
+    
+    # Make the pixels at the borders of the prediction black so they are ignored
+    image_pred_uint8_cropped = image_pred_uint8
+    if border_pixels_to_ignore and border_pixels_to_ignore > 0:
+        image_pred_uint8_cropped[0:border_pixels_to_ignore,:] = 0    # Left border
+        image_pred_uint8_cropped[-border_pixels_to_ignore:,:] = 0    # Right border
+        image_pred_uint8_cropped[:,0:border_pixels_to_ignore] = 0    # Top border
+        image_pred_uint8_cropped[:,-border_pixels_to_ignore:] = 0    # Bottom border
+    
+    return image_pred_uint8_cropped
+
+def save_prediction_uint8(
+        image_filepath: Path,
+        image_pred_uint8_cleaned: np.array,
+        image_crs: str,
+        image_transform: str,
+        output_dir: Path,
+        output_suffix: str = '',
+        border_pixels_to_ignore: int = None,
+        force: bool = False) -> Path:
+
+    ##### Init #####
+    # If no decent transform metadata, stop!
+    if image_transform is None or image_transform[0] == 0:
+        message = f"No transform found for {image_filepath}: {image_transform}"
+        logger.error(message)
+        raise Exception(message)
+
+    # Make sure the output dir exists...
+    if not output_dir.exists():
+        output_dir.mkdir()
+    
+    # Write prediction to file
+    output_filepath = output_dir / f"{image_filepath.stem}{output_suffix}_pred.tif"
+    logger.debug("Save +- original prediction")
+    image_shape = image_pred_uint8_cleaned.shape
+    image_width = image_shape[0]
+    image_height = image_shape[1]
+    with rio.open(str(output_filepath), 'w', driver='GTiff', tiled='no',
+                  compress='lzw', predictor=2, num_threads=4,
+                  height=image_height, width=image_width, 
+                  count=1, dtype=rio.uint8, crs=image_crs, transform=image_transform) as dst:
+        dst.write(image_pred_uint8_cleaned, 1)
+    
+    return output_filepath
 
 #-------------------------------------------------------------
 # Helpers for working with Affine objects...                    
