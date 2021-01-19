@@ -8,7 +8,6 @@ import datetime
 import itertools as it
 import logging
 import math
-import os
 from pathlib import Path
 import random
 import time
@@ -17,6 +16,7 @@ from typing import List, Optional, Tuple
 import owslib
 import owslib.wms
 import owslib.util
+import pycron
 import pyproj
 import rasterio as rio
 import geopandas as gpd
@@ -67,7 +67,8 @@ def get_images_for_grid(
         image_pixel_height: int = 1024,
         image_pixels_ignore_border: int = 0,
         nb_concurrent_calls: int = 1,
-        random_sleep: float = 0.0,        
+        random_sleep: float = 0.0,
+        cron_schedule: str = None,     
         image_format: str = FORMAT_GEOTIFF,
         image_format_save: str = None,
         tiff_compress: str = 'lzw',
@@ -190,8 +191,20 @@ def get_images_for_grid(
                 
             logger.info(f"Start processing column {col} ({output_dir.name})")
             for row in range(0, rows):
+
+                # If a cron_schedule is specified, check if we should be running
+                if cron_schedule is not None:
+                    # Sleep till the schedule becomes active
+                    first_time = True
+                    while not pycron.is_now(cron_schedule):
+                        # The first time, log message that we are going to sleep...
+                        if first_time is True:
+                            logger.info(f"According to the schedule, we need to sleep: {cron_schedule}")
+                            first_time = False
+                        time.sleep(60)
+
                 nb_processed += 1
-                
+
                 # Calculate y bounds
                 image_ymin = row * crs_height + image_gen_bounds[1]
                 image_ymax = (row + 1) * crs_height + image_gen_bounds[1]
@@ -236,7 +249,7 @@ def get_images_for_grid(
                         nb_ignore_in_progress += 1
                         logger.debug("    -> image doesn't overlap with roi, so skip")
                         image_to_be_skipped = True                                      
-               
+
                 # If the image doesn't need to be skipped... append the image 
                 # info to the batch arrays so they can be treated in 
                 # bulk if the batch size is reached

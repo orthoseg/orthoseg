@@ -14,6 +14,8 @@ from orthoseg.helpers import config_helper as conf
 from orthoseg.helpers import log_helper
 from orthoseg.util import ows_util
 
+logger = None
+
 def load_images_argstr(argstr):
     args = shlex.split(argstr)
     load_images_args(args)
@@ -97,6 +99,10 @@ def load_images(
         column_start = 0
         nb_images_to_skip = 0
     
+    # Get the download cron schedule
+    download_cron_schedule = conf.download['cron_schedule']
+
+    # Get the layer info
     predict_layer = conf.predict['image_layer']
     wms_server_url = conf.image_layers[predict_layer]['wms_server_url']
     wms_version = conf.image_layers[predict_layer]['wms_version']
@@ -111,6 +117,7 @@ def load_images(
     image_pixels_ignore_border = conf.image_layers[predict_layer]['image_pixels_ignore_border']
     roi_filepath = conf.image_layers[predict_layer]['roi_filepath']
 
+    # Now we are ready to get the images...
     ows_util.get_images_for_grid(
             wms_server_url=wms_server_url,
             wms_version=wms_version,
@@ -129,6 +136,7 @@ def load_images(
             image_pixels_ignore_border=image_pixels_ignore_border,
             nb_concurrent_calls=nb_concurrent_calls,
             random_sleep=random_sleep,
+            cron_schedule=download_cron_schedule,
             image_format=image_format,
             pixels_overlap=image_pixels_overlap,
             column_start=column_start,

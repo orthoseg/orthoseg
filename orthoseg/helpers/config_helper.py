@@ -55,7 +55,9 @@ def read_project_config(
     global general
     general = config['general']
     global model
-    model = config['model']    
+    model = config['model'] 
+    global download
+    download = config['download']
     global train
     train = config['train']
     global predict
