@@ -210,8 +210,6 @@ def polygonize_prediction_files(
             input_ext: str,
             classname: str,
             border_pixels_to_ignore: int = 0,
-            apply_on_border_distance: float = None,
-            evaluate_mode: bool = False,
             cancel_filepath: Optional[Path] = None,
             force: bool = False):
     """
@@ -223,8 +221,6 @@ def polygonize_prediction_files(
     Args
         input_dir:
         output_filepath:
-        apply_on_border_distance:
-        evaluate_mode: True to run in evaluate mode
         cancel_filepath: If the file in this path exists, processing stops asap
         force: False to skip images that already have a prediction, true to
                ignore existing predictions and overwrite them
