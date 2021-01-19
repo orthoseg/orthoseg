@@ -189,7 +189,7 @@ def get_images_for_grid(
             if not output_dir.exists():
                 output_dir.mkdir()
                 
-            logger.info(f"Start processing column {col} ({output_dir.name})")
+            logger.debug(f"load_images to {output_image_dir.parent.name}/{output_image_dir.name}, column {col} ({output_dir.name})")
             for row in range(0, rows):
 
                 # If a cron_schedule is specified, check if we should be running
@@ -302,7 +302,7 @@ def get_images_for_grid(
                         nb_per_hour_lastbatch = (nb_images_in_batch/time_passed_lastbatch_s) * 3600
                         hours_to_go = (int)((nb_todo - nb_processed)/nb_per_hour)
                         min_to_go = (int)((((nb_todo - nb_processed)/nb_per_hour)%1)*60)
-                        print(f"\r{hours_to_go:3d}:{min_to_go:2d} left for {nb_todo-nb_processed} images at {nb_per_hour:0.0f}/h ({nb_per_hour_lastbatch:0.0f}/h last batch), with {nb_ignore_in_progress} skipped",
+                        print(f"\rload_images to {output_image_dir.parent.name}/{output_image_dir.name}, {hours_to_go:3d}:{min_to_go:2d} left for {nb_todo-nb_processed} images at {nb_per_hour:0.0f}/h ({nb_per_hour_lastbatch:0.0f}/h last batch), with {nb_ignore_in_progress} skipped",
                               end='', flush=True)
                     
                     # Reset variable for next batch
