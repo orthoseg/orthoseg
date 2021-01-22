@@ -102,7 +102,7 @@ def get_images_for_grid(
                                 roi_bounds[1]-((roi_bounds[1]-grid_ymin)%crs_height),
                                 roi_bounds[2]+(grid_xmin-((roi_bounds[2]-grid_xmin)%crs_width)),
                                 roi_bounds[3]+(grid_ymin-((roi_bounds[3]-grid_ymin)%crs_height)))
-            logger.info(f"roi_bounds: {roi_bounds}, image_gen_bounds: {image_gen_bounds}")
+            logger.debug(f"roi_bounds: {roi_bounds}, image_gen_bounds: {image_gen_bounds}")
         
         # If there are large objects in the roi, segment them to speed up
         # TODO: implement usefull check to see if segmenting is usefull...
@@ -199,7 +199,9 @@ def get_images_for_grid(
                     while not pycron.is_now(cron_schedule):
                         # The first time, log message that we are going to sleep...
                         if first_time is True:
-                            logger.info(f"According to the schedule, we need to sleep: {cron_schedule}")
+                            # Send a newline to the output, because the progress messages don't do newlines 
+                            print()
+                            logger.info(f"There is a time schedule specified, and we need to sleep: {cron_schedule}")
                             first_time = False
                         time.sleep(60)
 
