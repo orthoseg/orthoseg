@@ -170,7 +170,11 @@ def predict(
             model_for_predict = model
 
     # Prepare some extra parameters
-    prediction_cleanup_params = conf.predict.getdict('prediction_cleanup_params')
+    # Prepare some parameters for the postprocessing
+    prediction_cleanup_params = {
+                "simplify_algorythm": conf.predict.get('simplify_algorythm'),
+                "simplify_tolerance": conf.postprocess.getfloat('simplify_tolerance'),
+            }
 
     # Predict for entire dataset
     # TODO: read classes from file with the model, instead of from config 
