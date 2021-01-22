@@ -177,6 +177,7 @@ def predict_dir(
             
             # If the cancel file exists, stop processing...
             if cancel_filepath is not None and cancel_filepath.exists():
+                print()
                 logger.info(f"Cancel file found, so stop: {cancel_filepath}")
                 break
 
@@ -338,7 +339,7 @@ def predict_dir(
                         nb_per_hour_lastbatch = (nb_images_in_batch/time_passed_lastbatch_s) * 3600
                         hours_to_go = (int)((nb_to_process - image_id)/nb_per_hour)
                         min_to_go = (int)((((nb_to_process - image_id)/nb_per_hour)%1)*60)
-                        message = f"{hours_to_go:3d}:{min_to_go:2d} left for {nb_todo-image_id} todo at {nb_per_hour:0.0f}/h ({nb_per_hour_lastbatch:0.0f}/h last batch) to {output_image_dir.name}"
+                        message = f"predict_dir to {output_image_dir.parent.name}/{output_image_dir.name},  {hours_to_go:3d}:{min_to_go:2d} left for {nb_todo-image_id} todo at {nb_per_hour:0.0f}/h ({nb_per_hour_lastbatch:0.0f}/h last batch)"
                         print(f"\r{message}", end='', flush=True)
 
                         # Once every 15 minutes, log progress to log file
@@ -346,6 +347,7 @@ def predict_dir(
                         if progress_log_time is not None:
                             time_passed_progress_log_s = (datetime.datetime.now()-progress_log_time).total_seconds()
                         if progress_log_time is None or time_passed_progress_log_s > (15*60):
+                            print()
                             logger.info(message)
                             progress_log_time = datetime.datetime.now()
         
