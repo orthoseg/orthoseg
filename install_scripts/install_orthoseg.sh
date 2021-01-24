@@ -80,7 +80,7 @@ then
         [[ "$0" = "$BASH_SOURCE" ]] && exit 1 || return 1 # handle exits from shell or function but don't exit interactive shell
     elif [[ $REPLY =~ ^[Yy]$ ]]
     then  
-      conda create --name "$envname_backup" --clone "$envname"
+      conda create --name "$envname_backup" --clone "$envname" --offline
     fi
   else 
     echo "No existing environment $envname found to backup"
@@ -90,6 +90,12 @@ fi
 echo
 echo Create/overwrite environment
 echo -------------------------------------
+if [[ -d "$condadir/envs/$envname/" ]]
+then
+  echo "First remove conda environment $envname"
+  conda env remove -y --name $envname
+fi
+echo "Create and install conda environment $envname"
 conda create -y --name $envname
 conda activate $envname
 conda config --env --add channels conda-forge
@@ -99,6 +105,9 @@ conda install -y python=3.8 pillow rasterio geopandas=0.8.1 pygeos owslib cudato
 # For the following packages, no conda package is available or -for tensorflow- no recent version.
 if [[ ! $fordev =~ ^[Yy]$ ]]
 then
+  echo
+  echo "Install necessary pip packages"
+  echo
   pip install orthoseg
 else
   echo
