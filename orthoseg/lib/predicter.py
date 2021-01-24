@@ -5,8 +5,10 @@ Module with high-level operations to segment images.
 
 from concurrent import futures
 import datetime
+import json
 import logging
 from pathlib import Path
+import shutil
 import tempfile
 from typing import List, Optional
 
@@ -17,7 +19,6 @@ import rasterio.plot as rio_plot
 from tensorflow import keras as kr
 
 import orthoseg.lib.postprocess_predictions as postp
-import json
 
 #-------------------------------------------------------------
 # First define/init some general variables/constants
@@ -358,6 +359,7 @@ def predict_dir(
             if image_id == (nb_todo-1) and pred_tmp_output_path.exists():
                 geofile.move(pred_tmp_output_path, output_vector_path)
                 geofile.rename_layer(output_vector_path, output_vector_path.stem)
+                shutil.rmtree(output_image_dir)
 
 def read_image(
         image_filepath: Path,
