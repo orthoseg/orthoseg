@@ -173,7 +173,7 @@ def predict(
     # Prepare some parameters for the postprocessing
     prediction_cleanup_params = {
                 "simplify_algorythm": conf.predict.get('simplify_algorythm'),
-                "simplify_tolerance": conf.postprocess.getfloat('simplify_tolerance'),
+                "simplify_tolerance": conf.predict.getfloat('simplify_tolerance'),
             }
 
     # Predict for entire dataset
