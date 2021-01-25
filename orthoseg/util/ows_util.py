@@ -233,7 +233,7 @@ def get_images_for_grid(
                     # If we need to skip images, do so...
                     nb_ignore_in_progress += 1
                     image_to_be_skipped = True
-                elif not force and output_filepath.exists():
+                elif not force and output_filepath.exists() and output_filepath.stat().st_size > 0:
                     # Image exists already
                     nb_ignore_in_progress += 1
                     image_to_be_skipped = True
@@ -359,7 +359,7 @@ def getmap_to_file(
     output_filepath = output_dir / output_filename
 
     # If force is false and file exists already, stop...
-    if force == False and output_filepath.exists():
+    if force == False and output_filepath.exists() and output_filepath.stat().st_size > 0:
         logger.debug(f"File already exists, skip: {output_filepath}")
         return None
 
