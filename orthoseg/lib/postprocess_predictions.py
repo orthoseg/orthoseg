@@ -808,14 +808,15 @@ def polygonize_pred(
         # by the min pixel size, rounded up in centimeter
         if prediction_cleanup_params is not None:
             # If a simplify is asked... 
-            if 'simplify' in prediction_cleanup_params:
+            if 'simplify_algorythm' in prediction_cleanup_params:
                 # Define the bounds of the image as linestring, so points on this 
                 # border are preserved during the simplify
                 border_lines = sh_geom.LineString(sh_geom.box(*border_bounds).exterior.coords)
                 geoms_gdf.geometry = geoms_gdf.geometry.apply(
                         lambda geom: gfo_vector_util.simplify_ext(
                                 geometry=geom, 
-                                tolerance=prediction_cleanup_params['simplify']['tolerance'], 
+                                algorythm=prediction_cleanup_params['simplify_algorythm'],
+                                tolerance=prediction_cleanup_params['simplify_tolerance'], 
                                 keep_points_on=border_lines))
                 
                 # Remove geom rows that became empty after simplify + explode
