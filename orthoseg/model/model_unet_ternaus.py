@@ -12,7 +12,7 @@ import tensorflow as tf
 import tensorflow.keras as kr
 
 #from keras.models import Model
-from tensorflow.keras.layers import Input, merge, Convolution2D, MaxPooling2D, UpSampling2D, Cropping2D
+from tensorflow.keras.layers import Input, Convolution2D, MaxPooling2D, UpSampling2D, Cropping2D
 
 from tensorflow.keras import backend as K
 
@@ -70,79 +70,79 @@ def get_model(input_width=256, input_height=256, nb_channels=3, nb_classes=1,
     
     inputs = kr.layers.Input((input_width, input_height, nb_channels))
     conv1 = kr.layers.Conv2D(32, 3, activation='relu', padding='same', kernel_initializer='he_uniform')(inputs)
-    conv1 = kr.layers.normalization.BatchNormalization(axis=-1)(conv1)
+    conv1 = kr.layers.BatchNormalization(axis=-1)(conv1)
     #conv1 = keras.layers.advanced_activations.ELU()(conv1)
     conv1 = kr.layers.Conv2D(32, 3, activation='relu', padding='same', kernel_initializer='he_uniform')(conv1)
-    conv1 = kr.layers.normalization.BatchNormalization(axis=-1)(conv1)
+    conv1 = kr.layers.BatchNormalization(axis=-1)(conv1)
     #conv1 = kr.layers.advanced_activations.ELU()(conv1)
     pool1 = kr.layers.MaxPooling2D(pool_size=(2, 2))(conv1)
 
     conv2 = kr.layers.Conv2D(64, 3, activation='relu', padding='same', kernel_initializer='he_uniform')(pool1)
-    conv2 = kr.layers.normalization.BatchNormalization(axis=-1)(conv2)
+    conv2 = kr.layers.BatchNormalization(axis=-1)(conv2)
     #conv2 = keras.layers.advanced_activations.ELU()(conv2)
     conv2 = kr.layers.Conv2D(64, 3, activation='relu', padding='same', kernel_initializer='he_uniform')(conv2)
-    conv2 = kr.layers.normalization.BatchNormalization(axis=-1)(conv2)
+    conv2 = kr.layers.BatchNormalization(axis=-1)(conv2)
     #conv2 = kr.layers.advanced_activations.ELU()(conv2)
     pool2 = kr.layers.MaxPooling2D(pool_size=(2, 2))(conv2)
 
     conv3 = kr.layers.Conv2D(128, 3, activation='relu', padding='same', kernel_initializer='he_uniform')(pool2)
-    conv3 = kr.layers.normalization.BatchNormalization(axis=-1)(conv3)
+    conv3 = kr.layers.BatchNormalization(axis=-1)(conv3)
     #conv3 = keras.layers.advanced_activations.ELU()(conv3)
     conv3 = kr.layers.Conv2D(128, 3, activation='relu', padding='same', kernel_initializer='he_uniform')(conv3)
-    conv3 = kr.layers.normalization.BatchNormalization(axis=-1)(conv3)
+    conv3 = kr.layers.BatchNormalization(axis=-1)(conv3)
     #conv3 = kr.layers.advanced_activations.ELU()(conv3)
     pool3 = kr.layers.MaxPooling2D(pool_size=(2, 2))(conv3)
 
     conv4 = kr.layers.Conv2D(256, 3, activation='relu', padding='same', kernel_initializer='he_uniform')(pool3)
-    conv4 = kr.layers.normalization.BatchNormalization(axis=-1)(conv4)
+    conv4 = kr.layers.BatchNormalization(axis=-1)(conv4)
     #conv4 = keras.layers.advanced_activations.ELU()(conv4)
     conv4 = kr.layers.Conv2D(256, 3, activation='relu', padding='same', kernel_initializer='he_uniform')(conv4)
-    conv4 = kr.layers.normalization.BatchNormalization(axis=-1)(conv4)
+    conv4 = kr.layers.BatchNormalization(axis=-1)(conv4)
     #conv4 = keras.layers.advanced_activations.ELU()(conv4)
     pool4 = kr.layers.MaxPooling2D(pool_size=(2, 2))(conv4)
 
     conv5 = kr.layers.Conv2D(512, 3, activation='relu', padding='same', kernel_initializer='he_uniform')(pool4)
-    conv5 = kr.layers.normalization.BatchNormalization(axis=-1)(conv5)
+    conv5 = kr.layers.BatchNormalization(axis=-1)(conv5)
     #conv5 = keras.layers.advanced_activations.ELU()(conv5)
     conv5 = kr.layers.Conv2D(512, 3, activation='relu', padding='same', kernel_initializer='he_uniform')(conv5)
-    conv5 = kr.layers.normalization.BatchNormalization(axis=-1)(conv5)
+    conv5 = kr.layers.BatchNormalization(axis=-1)(conv5)
     #conv5 = keras.layers.advanced_activations.ELU()(conv5)
 
     up6 = kr.layers.Concatenate(axis=3)([kr.layers.UpSampling2D(size=(2, 2))(conv5), conv4])
     #up6 = merge([kr.layers.UpSampling2D(size=(2, 2))(conv5), conv4], mode='concat', concat_axis=1)
     conv6 = kr.layers.Conv2D(256, 3, activation='relu', padding='same', kernel_initializer='he_uniform')(up6)
-    conv6 = kr.layers.normalization.BatchNormalization(axis=-1)(conv6)
+    conv6 = kr.layers.BatchNormalization(axis=-1)(conv6)
     #conv6 = keras.layers.advanced_activations.ELU()(conv6)
     conv6 = kr.layers.Conv2D(256, 3, activation='relu', padding='same', kernel_initializer='he_uniform')(conv6)
-    conv6 = kr.layers.normalization.BatchNormalization(axis=-1)(conv6)
+    conv6 = kr.layers.BatchNormalization(axis=-1)(conv6)
     #conv6 = keras.layers.advanced_activations.ELU()(conv6)
 
     up7 = kr.layers.Concatenate(axis=3)([kr.layers.UpSampling2D(size=(2, 2))(conv6), conv3])
     #up7 = kr.layers.merge([kr.layers.UpSampling2D(size=(2, 2))(conv6), conv3], mode='concat', concat_axis=1)
     conv7 = kr.layers.Conv2D(128, 3, activation='relu', padding='same', kernel_initializer='he_uniform')(up7)
-    conv7 = kr.layers.normalization.BatchNormalization(axis=-1)(conv7)
+    conv7 = kr.layers.BatchNormalization(axis=-1)(conv7)
     #conv7 = keras.layers.advanced_activations.ELU()(conv7)
     conv7 = kr.layers.Conv2D(128, 3, activation='relu', padding='same', kernel_initializer='he_uniform')(conv7)
-    conv7 = kr.layers.normalization.BatchNormalization(axis=-1)(conv7)
+    conv7 = kr.layers.BatchNormalization(axis=-1)(conv7)
     #conv7 = keras.layers.advanced_activations.ELU()(conv7)
 
     up8 = kr.layers.Concatenate(axis=3)([kr.layers.UpSampling2D(size=(2, 2))(conv7), conv2])
     #up8 = kr.layers.merge([kr.layers.UpSampling2D(size=(2, 2))(conv7), conv2], mode='concat', concat_axis=1)
     conv8 = kr.layers.Conv2D(64, 3, activation='relu', padding='same', kernel_initializer='he_uniform')(up8)
-    conv8 = kr.layers.normalization.BatchNormalization(axis=-1)(conv8)
+    conv8 = kr.layers.BatchNormalization(axis=-1)(conv8)
     #conv8 = keras.layers.advanced_activations.ELU()(conv8)
     conv8 = kr.layers.Conv2D(64, 3, activation='relu', padding='same', kernel_initializer='he_uniform')(conv8)
-    conv8 = kr.layers.normalization.BatchNormalization(axis=-1)(conv8)
+    conv8 = kr.layers.BatchNormalization(axis=-1)(conv8)
     #conv8 = keras.layers.advanced_activations.ELU()(conv8)
 
     up9 = kr.layers.Concatenate(axis=3)([kr.layers.UpSampling2D(size=(2, 2))(conv8), conv1])
     #up9 = kr.layers.merge([kr.layers.UpSampling2D(size=(2, 2))(conv8), conv1], mode='concat', concat_axis=1)
     conv9 = kr.layers.Conv2D(32, 3, activation='relu', padding='same', kernel_initializer='he_uniform')(up9)
-    conv9 = kr.layers.normalization.BatchNormalization(axis=-1)(conv9)
+    conv9 = kr.layers.BatchNormalization(axis=-1)(conv9)
     #conv9 = keras.layers.advanced_activations.ELU()(conv9)
     conv9 = kr.layers.Conv2D(32, 3, activation='relu', padding='same', kernel_initializer='he_uniform')(conv9)
     #crop9 = kr.layers.Cropping2D(cropping=((16, 16), (16, 16)))(conv9)
-    conv9 = kr.layers.normalization.BatchNormalization(axis=-1)(conv9)
+    conv9 = kr.layers.BatchNormalization(axis=-1)(conv9)
     #conv9 = keras.layers.advanced_activations.ELU()(conv9)
     
     # TODO: crop9 vervangen door conv9 als batnormalisation terug aan
@@ -163,14 +163,13 @@ def get_model(input_width=256, input_height=256, nb_channels=3, nb_classes=1,
 
     return model
 
-
+'''
 def flip_axis(x, axis):
     x = np.asarray(x).swapaxes(axis, 0)
     x = x[::-1, ...]
     x = x.swapaxes(0, axis)
     return x
 
-'''
 def form_batch(X, y, batch_size):
     X_batch = np.zeros((batch_size, num_channels, img_rows, img_cols))
     y_batch = np.zeros((batch_size, num_mask_channels, img_rows, img_cols))

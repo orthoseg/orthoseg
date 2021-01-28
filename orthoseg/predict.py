@@ -12,6 +12,7 @@ import sys
 #os.environ["CUDA_VISIBLE_DEVICES"] = "-1" # Disable using GPU
 import tensorflow as tf
 from tensorflow import keras as kr  
+from tensorflow.keras import utils as kr_utils  
 
 from orthoseg.helpers import config_helper as conf
 from orthoseg.helpers import log_helper
@@ -162,7 +163,7 @@ def predict(
     else:
         # If multiple GPU's available, create multi_gpu_model
         try:
-            model_for_predict = kr.utils.multi_gpu_model(model, gpus=nb_gpu, cpu_relocation=True)
+            model_for_predict = kr_utils.multi_gpu_model(model, gpus=nb_gpu, cpu_relocation=True)
             logger.info(f"Predict using multiple GPUs: {nb_gpu}, batch size becomes: {batch_size*nb_gpu}")
             batch_size *= nb_gpu
         except ValueError:

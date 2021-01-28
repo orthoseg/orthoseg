@@ -122,7 +122,7 @@ def train(
         train_log_csv = pd.read_csv(csv_log_filepath, sep=';')
         logger.debug(f"train_log csv contents:\n{train_log_csv}")
         start_epoch = train_log_csv['epoch'].max()
-        hyperparams.train.optimizer_params['learning_rate'] = train_log_csv['lr'].min()
+        hyperparams.train.optimizer_params['learning_rate'] = train_log_csv['lr'].to_numeric().min()
     logger.info(f"start_epoch: {start_epoch}, learning_rate: {hyperparams.train.optimizer_params['learning_rate']}")
        
     # If no existing model provided, create it from scratch
@@ -140,7 +140,7 @@ def train(
             model_save_dir.mkdir(parents=True)
         if not model_json_filepath.exists():
             with model_json_filepath.open('w') as dst:
-                dst.write(model.to_json())
+                dst.write(str(model.to_json()))
     else:
         # If a preload model is provided, load that if it exists...
         if not model_preload_filepath.exists():
@@ -352,7 +352,10 @@ def create_train_generator(
     train_generator = zip(image_generator, mask_generator)
 
     for batch_id, (image, mask) in enumerate(train_generator):
-        
+        # Cast to arrays to evade type errors
+        image = np.array(image)
+        mask = np.array(mask)
+
         # One-hot encode mask if multiple classes
         if nb_classes > 1:
             mask = kr.utils.to_categorical(mask, nb_classes)

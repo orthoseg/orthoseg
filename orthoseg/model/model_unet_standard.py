@@ -12,9 +12,10 @@ TODO: review code and cleanup due to introduction of model factory
 """
 
 import logging
-from tensorflow import keras as kr
-#import keras as kr
+
 import numpy as np
+import tensorflow as tf
+from tensorflow import keras as kr
 
 #-------------------------------------------------------------
 # First define/init some general variables/constants
@@ -159,19 +160,23 @@ def get_model(input_width=256, input_height=256, nb_channels=3, nb_classes=1,
         
     return model
 
-def load_unet_model(filepath: str,
-                    learning_rate: float = None):
+'''
+def load_unet_model(
+        filepath: str,
+        learning_rate: float = None):
     logger.info(f"Load model from {filepath}")
-    model = kr.models.load_model(filepath,
-                                 custom_objects={'jaccard_coef': jaccard_coef,
-                                                 'jacard_coef_flat': jacard_coef_flat,
-                                                 'jaccard_coef_int': jaccard_coef_int,
-                                                 'dice_coef': dice_coef,
-                                                 'dice_coef_loss_bce': dice_coef_loss_bce})
+    model = kr.models.load_model(
+            filepath,
+            custom_objects={'jaccard_coef': jaccard_coef,
+                            'jacard_coef_flat': jacard_coef_flat,
+                            'jaccard_coef_int': jaccard_coef_int,
+                            'dice_coef': dice_coef,
+                            'dice_coef_loss_bce': dice_coef_loss_bce})
     if learning_rate:
         kr.backend.set_value(model.optimizer.lr, learning_rate)
         
     return model
+'''
 
 #------------------------------------------
 # Loss functions
@@ -183,16 +188,16 @@ def dice_coef_loss(y_true, y_pred):
 def bootstrapped_crossentropy(y_true, y_pred, bootstrap_type='hard', alpha=0.95):
     target_tensor = y_true
     prediction_tensor = y_pred
-    _epsilon = kr.backend.tensorflow_backend._to_tensor(kr.backend.epsilon(), prediction_tensor.dtype.base_dtype)
-    prediction_tensor = kr.backend.tf.clip_by_value(prediction_tensor, _epsilon, 1 - _epsilon)
-    prediction_tensor = kr.backend.tf.log(prediction_tensor / (1 - prediction_tensor))
+    _epsilon = tf.convert_to_tensor(kr.backend.epsilon(), prediction_tensor.dtype.base_dtype)
+    prediction_tensor = tf.clip_by_value(prediction_tensor, _epsilon, 1 - _epsilon)
+    prediction_tensor = tf.math.log(prediction_tensor / (1 - prediction_tensor))
 
     if bootstrap_type == 'soft':
-        bootstrap_target_tensor = alpha * target_tensor + (1.0 - alpha) * kr.backend.tf.sigmoid(prediction_tensor)
+        bootstrap_target_tensor = alpha * target_tensor + (1.0 - alpha) * tf.sigmoid(prediction_tensor)
     else:
-        bootstrap_target_tensor = alpha * target_tensor + (1.0 - alpha) * kr.backend.tf.cast(
-            kr.backend.tf.sigmoid(prediction_tensor) > 0.5, kr.backend.tf.float32)
-    return kr.backend.mean(kr.backend.tf.nn.sigmoid_cross_entropy_with_logits(
+        bootstrap_target_tensor = alpha * target_tensor + (1.0 - alpha) * tf.cast(
+            tf.sigmoid(prediction_tensor) > 0.5, tf.float32)
+    return kr.backend.mean(tf.nn.sigmoid_cross_entropy_with_logits(
         labels=bootstrap_target_tensor, logits=prediction_tensor))
 
 def dice_coef_loss_bce(y_true, y_pred):

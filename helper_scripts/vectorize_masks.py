@@ -12,6 +12,7 @@ from pathlib import Path
 
 import rasterio as rio
 import rasterio.features as rio_features
+import rasterio.transform as rio_transform
 import shapely as sh
 import shapely.geometry as sh_geom
 import geopandas as gpd
@@ -53,7 +54,7 @@ def vectorize_masks(input_image_dir: Path,
             else:
                 label_type = ""
             
-            mask_transform = rio.transform.from_bounds(
+            mask_transform = rio_transform.from_bounds(
                     xmin, ymin, xmax, ymax, pixel_width, pixel_height)
                 
         except:
@@ -85,7 +86,7 @@ def vectorize_masks(input_image_dir: Path,
         geoms = []
         for shape in list(shapes):
             geom, value = shape
-            geom_sh = sh.geometry.shape(geom)
+            geom_sh = sh_geom.shape(geom)
             geoms.append(geom_sh)
             
         # If there are polygons found, convert to positive mask records

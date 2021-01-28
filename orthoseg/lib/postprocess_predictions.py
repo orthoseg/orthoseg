@@ -24,7 +24,9 @@ import numpy as np
 import pandas as pd
 import rasterio as rio
 import rasterio.features as rio_features
+import rasterio.transform as rio_transform
 import shapely as sh
+import shapely.geometry as sh_geom
 import tensorflow as tf
 
 from orthoseg.util import vector_util
@@ -363,7 +365,7 @@ def polygonize_prediction_files(
     
 def read_prediction_file(
         filepath: Path,
-        border_pixels_to_ignore: int = 0) -> gpd.geodataframe:
+        border_pixels_to_ignore: int = 0) -> Optional[gpd.GeoDataFrame]:
     ext_lower = filepath.suffix.lower()
     if ext_lower == '.geojson':
         return geofile.read_file(filepath)
@@ -373,8 +375,8 @@ def read_prediction_file(
         raise Exception(f"Unsupported extension: {ext_lower}")
 
 def to_binary_uint8(
-        in_arr: np.array, 
-        thresshold_ok: int = 128) -> np.array:
+        in_arr: np.ndarray, 
+        thresshold_ok: int = 128) -> np.ndarray:
 
     # Check input parameters
     if in_arr.dtype != np.uint8:
@@ -392,7 +394,7 @@ def postprocess_for_evaluation(
         image_crs: str,
         image_transform,
         image_pred_filepath: Path,
-        image_pred_uint8_cleaned_bin: np.array,
+        image_pred_uint8_cleaned_bin: np.ndarray,
         class_id: int,
         class_name: str,
         nb_classes: int,
@@ -432,8 +434,9 @@ def postprocess_for_evaluation(
         output_dir.mkdir(parents=True, exist_ok=True)
                 
         # Determine the prefix to use for the output filenames
-        pred_prefix_str = ''            
-        def jaccard_similarity(im1, im2):
+        pred_prefix_str = ''
+        '''
+        def jaccard_similarity(im1: np.ndarray, im2: np.ndarray):
             if im1.shape != im2.shape:
                 message = f"Shape mismatch: input have different shape: im1: {im1.shape}, im2: {im2.shape}"
                 logger.critical(message)
@@ -449,6 +452,7 @@ def postprocess_for_evaluation(
             else:
                 sum_intersect = intersection.sum()
                 return sum_intersect/sum_union
+        '''
 
         # If there is a mask dir specified... use the groundtruth mask
         if input_mask_dir is not None and input_mask_dir.exists():
@@ -486,8 +490,8 @@ def postprocess_for_evaluation(
                                 
             #similarity = jaccard_similarity(mask_arr, image_pred)
             # Use accuracy as similarity... is more practical than jaccard
-            similarity = np.equal(mask_arr, image_pred_uint8_cleaned_bin
-                                 ).sum()/image_pred_uint8_cleaned_bin.size
+            similarity = np.array(np.equal(mask_arr, image_pred_uint8_cleaned_bin
+                                 )).sum()/image_pred_uint8_cleaned_bin.size
             pred_prefix_str = f"{similarity:0.3f}_"
             
             # Write mask
@@ -571,7 +575,7 @@ def polygonize_pred_for_evaluation(
         # Convert shapes to geopandas geodataframe 
         geoms = []
         for geom, _ in polygonized_records:
-            geoms.append(sh.geometry.shape(geom))   
+            geoms.append(sh_geom.shape(geom))   
         geoms_gdf = gpd.GeoDataFrame(geoms, columns=['geometry'])
         geoms_gdf.crs = image_crs
 
@@ -628,8 +632,8 @@ def polygonize_pred_for_evaluation(
                 logger.debug('Before writing simpl with visvangali algo rasterized file')
                 image_pred_simpl_filepath = f"{str(output_basefilepath)}_pred_cleaned_simpl_vis.tif"
                 with rio.open(image_pred_simpl_filepath, 'w', driver='GTiff', compress='lzw',
-                                height=image_height, width=image_width, 
-                                count=1, dtype=rio.uint8, crs=image_crs, transform=image_transform) as dst:
+                              height=image_height, width=image_width, 
+                              count=1, dtype=rio.uint8, crs=image_crs, transform=image_transform) as dst:
                     # this is where we create a generator of geom, value pairs to use in rasterizing
                     logger.debug('Before rasterize')
                     burned = rio_features.rasterize(
@@ -646,7 +650,7 @@ def polygonize_pred_for_evaluation(
 def polygonize_pred_from_file(
         image_pred_filepath: Path,
         border_pixels_to_ignore: int = 0,
-        save_to_file: bool = False) -> gpd.geodataframe:
+        save_to_file: bool = False) -> Optional[gpd.GeoDataFrame]:
 
     try:
         with rio.open(image_pred_filepath) as image_ds:
@@ -714,7 +718,7 @@ def polygonize_pred_multiclass(
         min_pixelvalue_for_save,
         classes: list,
         prediction_cleanup_params: dict = None,
-        border_pixels_to_ignore: int = 0) -> gpd.geodataframe:
+        border_pixels_to_ignore: int = 0) -> Optional[gpd.GeoDataFrame]:
 
     # Init
     result_gdf = None
@@ -768,7 +772,7 @@ def polygonize_pred(
         classname: str = None,
         output_basefilepath: Optional[Path] = None,
         prediction_cleanup_params: dict = None,
-        border_pixels_to_ignore: int = 0) -> gpd.geodataframe:
+        border_pixels_to_ignore: int = 0) -> Optional[gpd.GeoDataFrame]:
 
     # Polygonize result
     try:
@@ -783,7 +787,7 @@ def polygonize_pred(
         # Convert shapes to geopandas geodataframe 
         geoms = []
         for geom, _ in polygonized_records:
-            geoms.append(sh.geometry.shape(geom))   
+            geoms.append(sh_geom.shape(geom))   
         geoms_gdf = gpd.GeoDataFrame(geoms, columns=['geometry'])
         geoms_gdf.crs = image_crs
 
@@ -791,7 +795,7 @@ def polygonize_pred(
         image_shape = image_pred_uint8_bin.shape
         image_width = image_shape[0]
         image_height = image_shape[1]
-        image_bounds = rio.transform.array_bounds(
+        image_bounds = rio_transform.array_bounds(
                 image_height, image_width, image_transform)
         x_pixsize = get_pixelsize_x(image_transform)
         y_pixsize = get_pixelsize_y(image_transform)
@@ -847,7 +851,7 @@ def clean_and_save_prediction(
         image_crs: str,
         image_transform: str,
         output_dir: Path,
-        image_pred_arr: np.array,
+        image_pred_arr: np.ndarray,
         classes: list,
         input_image_dir: Optional[Path] = None,
         input_mask_dir: Optional[Path] = None,
@@ -921,9 +925,9 @@ def clean_and_save_prediction(
     return True
 
 def clean_prediction(
-        image_pred_arr: np.array,
+        image_pred_arr: np.ndarray,
         border_pixels_to_ignore: int = 0,
-        output_color_depth: str = 'binary') -> np.array:
+        output_color_depth: str = 'binary') -> np.ndarray:
     """
     Cleans a prediction result and returns a cleaned, uint8 array.
     
@@ -952,11 +956,11 @@ def clean_prediction(
         if n_channels > 1:
             raise Exception("Invalid input, should be one channel!")
         # Reshape array from 3 dims (width, height, nb_channels) to 2.
-        image_pred_uint8 = image_pred_arr.reshape((image_pred_shape[0], image_pred_shape[1]))   
+        image_pred_uint8 = np.reshape(image_pred_arr, (image_pred_shape[0], image_pred_shape[1]))   
 
     # Convert to uint8 if necessary
     if image_pred_arr.dtype == np.float32:
-        image_pred_uint8 = (image_pred_arr * 255).astype(np.uint8)
+        image_pred_uint8 = np.array((image_pred_arr * 255), dtype=np.uint8)
     else:
         image_pred_uint8 = image_pred_arr
 
@@ -977,7 +981,7 @@ def clean_prediction(
 
 def save_prediction_uint8(
         image_filepath: Path,
-        image_pred_uint8_cleaned: np.array,
+        image_pred_uint8_cleaned: np.ndarray,
         image_crs: str,
         image_transform: str,
         output_dir: Path,

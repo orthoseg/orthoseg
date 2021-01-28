@@ -4,8 +4,9 @@ Modile with generic Utility functions for vector manipulations.
 """
 
 import logging
+import math
 from pathlib import Path
-from typing import Tuple
+from typing import Tuple, Union
 
 from geofileops import geofile
 import geopandas as gpd
@@ -24,7 +25,7 @@ logger = logging.getLogger(__name__)
 def calc_onborder(
         geoms_gdf: gpd.GeoDataFrame,
         border_bounds: Tuple[float, float, float, float],
-        onborder_column_name: str = "onborder"):
+        onborder_column_name: str = "onborder") -> gpd.GeoDataFrame:
     """
     Add/update a column to the GeoDataFrame with:
         * 0 if the polygon isn't on the border and 
@@ -63,8 +64,8 @@ def create_grid(xmin: float,
                 cell_width: float,
                 cell_height: float) -> gpd.GeoDataFrame:
     
-    rows = int(np.ceil((ymax-ymin) / cell_height))
-    cols = int(np.ceil((xmax-xmin) / cell_width))
+    rows = math.ceil((ymax-ymin) / cell_height)
+    cols = math.ceil((xmax-xmin) / cell_width)
      
     polygons = []
     cell_left = xmin

@@ -205,7 +205,7 @@ def get_tasks(filepath: Path):
         if column != column_stripped:
             tasks_df.rename(columns={column:column_stripped}, inplace=True)
         if tasks_df[column_stripped].dtype in ('str', 'object'):
-            tasks_df[column_stripped] = tasks_df[column_stripped].astype(str).str.strip()
+            tasks_df[column_stripped] = tasks_df[column_stripped].astype("string").str.strip()
 
     # Check mandatory columns
     mandatory_columns = ['active', 'config', 'action']

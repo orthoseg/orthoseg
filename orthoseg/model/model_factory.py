@@ -12,7 +12,7 @@ https://github.com/qubvel/segmentation_models
 import json
 import logging
 from pathlib import Path
-from typing import List
+from typing import Any, List
 
 from tensorflow import keras as kr
 import numpy as np
@@ -152,7 +152,7 @@ def compile_model(
     """
 
     # If no merics specified, use default ones
-    metric_funcs: List[str] = []
+    metric_funcs: List[Any] = []
     if metrics is None:
         if loss in ['categorical_crossentropy', 'weighted_categorical_crossentropy']:
             metric_funcs.append('categorical_accuracy')

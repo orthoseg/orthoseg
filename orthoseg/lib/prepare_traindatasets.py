@@ -18,8 +18,10 @@ import pandas as pd
 import geopandas as gpd
 import numpy as np
 import owslib
+import owslib.wms
 import rasterio as rio
 import rasterio.features as rio_features
+import rasterio.profiles as rio_profiles
 import shapely.geometry as sh_geom
 
 from orthoseg.util import ows_util
@@ -185,12 +187,15 @@ def prepare_traindatasets(
             logger.warn(f"No label data found in {label_file.polygons_path}")
 
     # Get the crs to use from the input vectors...
+    img_crs = None
     try:
         img_crs = labellocations_gdf.crs
     except Exception as ex:
         logger.exception(f"Error getting crs from labellocations, labellocation_gdf.crs: {labellocations_gdf.crs}")
         raise ex
-    
+    if img_crs is None:
+        raise Exception(f"Error getting crs from labellocations, labellocation_gdf.crs: {labellocations_gdf.crs}")
+
     # Create list with only the input labels that need to be burned in the mask
     # TODO: think about a mechanism to ignore label_name's if specified...
     if labelpolygons_gdf is not None and labelname_column in labelpolygons_gdf.columns:
@@ -409,7 +414,7 @@ def create_masks_for_images(
 def _create_mask(
         input_image_filepath: Path,
         output_mask_filepath: Path,
-        labels_to_burn_gdf: gpd.geodataframe,
+        labels_to_burn_gdf: gpd.GeoDataFrame,
         nb_classes: int = 1,
         output_imagecopy_filepath: Optional[Path] = None,
         minimum_pct_labeled: float = 0.0,
@@ -431,10 +436,10 @@ def _create_mask(
     # Prepare the file profile for the mask depending on output type
     output_ext_lower = output_mask_filepath.suffix.lower()
     if output_ext_lower == '.tif':
-        image_output_profile = rio.profiles.DefaultGTiffProfile(
+        image_output_profile = rio_profiles.DefaultGTiffProfile(
                 count=1, transform=image_transform_affine, crs=image_input_profile['crs'])
     if output_ext_lower == '.png':
-        image_output_profile = rio.profiles.Profile(driver='PNG', count=1)
+        image_output_profile = rio_profiles.Profile(driver='PNG', count=1)
     else:
         raise Exception(f"Unsupported mask extension (should be a lossless format!): {output_ext_lower}")
     image_output_profile.update(

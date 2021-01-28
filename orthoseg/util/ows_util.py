@@ -11,7 +11,7 @@ import math
 from pathlib import Path
 import random
 import time
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 
 import owslib
 import owslib.wms
@@ -19,6 +19,9 @@ import owslib.util
 import pycron
 import pyproj
 import rasterio as rio
+from rasterio import profiles as rio_profiles
+from rasterio import transform as rio_transform
+from rasterio import windows as rio_windows
 import geopandas as gpd
 import shapely.geometry as sh_geom
 
@@ -126,7 +129,7 @@ def get_images_for_grid(
             
             # Explode possible multipolygons to polygons
             roi_gdf = roi_gdf.reset_index(drop=True).explode()
-                        
+            
             #roi_gdf.to_file("X:\\Monitoring\\OrthoSeg\\roi_gridded.shp")
             
     # Check if the image_gen_bounds are compatible with the grid...
@@ -244,7 +247,7 @@ def get_images_for_grid(
                     
                     spatial_index = roi_gdf.sindex
                     possible_matches_index = list(spatial_index.intersection(image_shape.bounds))
-                    possible_matches = roi_gdf.iloc[possible_matches_index]
+                    possible_matches = roi_gdf.loc[possible_matches_index]
                     precise_matches = possible_matches[possible_matches.intersects(image_shape)]
                     
                     if len(precise_matches) == 0:
@@ -440,7 +443,7 @@ def getmap_to_file(
             if image_pixels_ignore_border == 0:
                 image_data = image_ds.read()
             else:
-                image_data = image_ds.read(window=rio.windows.Window(
+                image_data = image_ds.read(window=rio_windows(
                         image_pixels_ignore_border, image_pixels_ignore_border, 
                         size[0], size[1]))
 
@@ -454,7 +457,7 @@ def getmap_to_file(
 
             # If profile format is not gtiff, create new profile
             if image_profile_orig['driver'] != 'GTiff':
-                image_profile_gtiff = rio.profiles.DefaultGTiffProfile.defaults
+                image_profile_gtiff = rio_profiles.DefaultGTiffProfile.defaults
 
                 # Copy appropriate info from source file
                 image_profile_gtiff.update(
@@ -484,7 +487,7 @@ def getmap_to_file(
 
             # Add transform and crs to the profile
             image_profile.update(
-                    transform = rio.transform.Affine(
+                    transform = rio_transform.Affine(
                                 crs_pixel_x_size, 0, bbox[0],
                                 0 , crs_pixel_y_size, bbox[3]),
                     crs=crs)
@@ -524,7 +527,7 @@ def getmap_to_file(
                 if image_pixels_ignore_border == 0:
                     image_data = image_ds.read()
                 else:
-                    image_data = image_ds.read(window=rio.windows.Window(
+                    image_data = image_ds.read(window=rio_windows(
                             image_pixels_ignore_border, image_pixels_ignore_border, 
                             size[0], size[1]))
             
@@ -539,7 +542,7 @@ def getmap_to_file(
                     compress=tiff_compress
                 else:
                     raise Exception(f"Unsupported image_format_save: {image_format_save}")
-                image_profile_output = rio.profiles.Profile(
+                image_profile_output = rio_profiles.Profile(
                         width=size[0], height=size[1], count=image_profile_orig['count'],
                         nodata=image_profile_orig['nodata'], dtype=image_profile_orig['dtype'],
                         compress=compress, driver=driver)
@@ -605,7 +608,7 @@ def get_world_ext_for_image_format(image_format: str) -> str:
     else:
         raise Exception(f"get_world_ext_for_image_format for image format {image_format} is not implemented!")
 
-def get_cleaned_write_profile(profile: dict) -> dict:
+def get_cleaned_write_profile(profile: rio_profiles.Profile) -> Union[dict, rio_profiles.Profile]:
 
     # Depending on the driver, different profile keys are supported    
     if profile['driver'] == 'JPEG':

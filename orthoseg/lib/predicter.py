@@ -15,7 +15,9 @@ from typing import List, Optional
 from geofileops import geofile
 import numpy as np
 import rasterio as rio
+import rasterio.crs as rio_crs
 import rasterio.plot as rio_plot
+import tensorflow as tf
 from tensorflow import keras as kr
 
 import orthoseg.lib.postprocess_predictions as postp
@@ -249,8 +251,10 @@ def predict_dir(
                 curr_batch_image_pred_arr = model.predict_on_batch(curr_batch_image_arr)
                 
                 # In tf 2.1 a tf.tensor object is returned, but we want an ndarray
-                if type(curr_batch_image_pred_arr) is not np.ndarray:
-                    curr_batch_image_pred_arr = curr_batch_image_pred_arr.numpy()
+                if type(curr_batch_image_pred_arr) is tf.Tensor:
+                    curr_batch_image_pred_arr = np.array(curr_batch_image_pred_arr.numpy())
+                else:
+                    curr_batch_image_pred_arr = np.array(curr_batch_image_pred_arr)
                 perfinfo += f", predict took {datetime.datetime.now()-perf_start_time}"
                 
                 ## Save predictions ##
@@ -356,7 +360,9 @@ def predict_dir(
                 curr_batch_image_infos = []
 
             # If we are ready, rename to real output file
-            if image_id == (nb_todo-1) and pred_tmp_output_path.exists():
+            if(image_id == (nb_todo-1) 
+               and output_vector_path is not None 
+               and pred_tmp_output_path is not None and pred_tmp_output_path.exists()):
                 geofile.move(pred_tmp_output_path, output_vector_path)
                 geofile.rename_layer(output_vector_path, output_vector_path.stem)
                 shutil.rmtree(output_image_dir)
@@ -395,7 +401,7 @@ def read_image(
     # file and/or if one was provided
     if image_crs is None:
         if projection_if_missing is not None:
-            image_crs = rio.crs.CRS.from_string(projection_if_missing)
+            image_crs = rio_crs.CRS.from_string(projection_if_missing)
         else:
             message = f"Image doesn't contain projection and no projection_if_missing provided!: {image_filepath}"
             logger.error(message)
