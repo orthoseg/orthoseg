@@ -186,22 +186,33 @@ def predict_dir(
 
             # If force is false and prediction exists... skip
             if force is False:
-               if image_filepath.name in image_done_filenames:
-                   logger.debug(f"Predict for image has already been done before and force is False, so skip: {image_filepath.name}")
-                   nb_to_process -= 1
-                   continue
+                if image_filepath.name in image_done_filenames:
+                    logger.debug(f"Predict for image has already been done before and force is False, so skip: {image_filepath.name}")
+                    nb_to_process -= 1
+                    continue
                     
             # Prepare the filepath for the output
+            output_suffix = '.tif'
             if evaluate_mode:
                 # In evaluate mode, put everyting in output base dir for easier 
                 # comparison
-                tmp_output_filepath = output_image_dir / image_filepath.stem
+                output_image_pred_dir = output_image_dir
+                
+                # Check if output exists already
+                output_files = list(output_image_dir.glob(f"{image_filepath.stem}*_pred{output_suffix}"))
+                if len(output_files) > 0:
+                    logger.debug(f"Predict for image has already been done before and force is False, so skip: {image_filepath.name}")
+                    nb_to_process -= 1
+                    continue
+
+                # Prepare complete filepath for image prediction
+                output_image_pred_path = output_image_dir / image_filepath.stem
             else:
+                # If saving predictions to images for real, keep hierarchic structure if present
                 tmp_output_filepath = Path(str(image_filepath).replace(str(input_image_dir), str(output_image_dir)))
-                tmp_output_filepath = tmp_output_filepath.parent / tmp_output_filepath.stem
-            output_dir = tmp_output_filepath.parent
-            output_pred_filepath = output_dir / f"{tmp_output_filepath.stem}_pred.tif"
-            
+                output_image_pred_dir = tmp_output_filepath.parent
+                output_image_pred_path = output_image_pred_dir / f"{image_filepath.stem}_pred{output_suffix}"
+               
             # Init start time after first batch is ready, as it is really slow
             if start_time is None and start_time_batch_read is not None:
                 start_time = datetime.datetime.now()
@@ -211,8 +222,8 @@ def predict_dir(
             # bulk if the batch size is reached
             logger.debug(f"Start predict for image {image_filepath}")                   
             curr_batch_image_infos.append({'input_image_filepath': image_filepath,
-                                           'output_pred_filepath': output_pred_filepath,
-                                           'output_dir': output_dir})
+                                           'output_pred_filepath': output_image_pred_path,
+                                           'output_image_pred_dir': output_image_pred_dir})
             
             # If the batch size is reached or we are at the last images
             nb_images_in_batch = len(curr_batch_image_infos)
@@ -238,7 +249,7 @@ def predict_dir(
                     curr_batch_image_infos_ext.append(
                             {'input_image_filepath': curr_batch_image_infos[batch_image_id]['input_image_filepath'],
                              'output_pred_filepath': curr_batch_image_infos[batch_image_id]['output_pred_filepath'],
-                             'output_dir': curr_batch_image_infos[batch_image_id]['output_dir'],
+                             'output_image_pred_dir': curr_batch_image_infos[batch_image_id]['output_image_pred_dir'],
                              'image_crs': read_result['image_crs'],
                              'image_transform': read_result['image_transform']})
                     curr_batch_image_list.append(read_result['image_data']) 
@@ -273,7 +284,7 @@ def predict_dir(
                                     image_crs=image_info['image_crs'],
                                     image_transform=image_info['image_transform'],
                                     image_pred_arr=curr_batch_image_pred_arr[batch_image_id],
-                                    output_dir=image_info['output_dir'],
+                                    output_dir=image_info['output_image_pred_dir'],
                                     input_image_dir=input_image_dir,
                                     input_mask_dir=input_mask_dir,
                                     border_pixels_to_ignore=border_pixels_to_ignore,
