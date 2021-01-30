@@ -342,9 +342,9 @@ def predict_dir(
                     if time_passed_s > 0 and time_passed_lastbatch_s > 0:
                         nb_per_hour = (nb_processed/time_passed_s) * 3600
                         nb_per_hour_lastbatch = (nb_images_in_batch/time_passed_lastbatch_s) * 3600
-                        hours_to_go = (int)((nb_to_process)/nb_per_hour)
-                        min_to_go = (int)((((nb_to_process)/nb_per_hour)%1)*60)
-                        message = f"predict_dir to {output_image_dir.parent.name}/{output_image_dir.name},  {hours_to_go:3d}:{min_to_go:2d} left for {nb_to_process} todo at {nb_per_hour:0.0f}/h ({nb_per_hour_lastbatch:0.0f}/h last batch)"
+                        hours_to_go = (int)((nb_to_process-nb_processed)/nb_per_hour)
+                        min_to_go = (int)((((nb_to_process-nb_processed)/nb_per_hour)%1)*60)
+                        message = f"predict_dir to {output_image_dir.parent.name}/{output_image_dir.name},  {hours_to_go:3d}:{min_to_go:2d} left for {nb_to_process-nb_processed} todo at {nb_per_hour:0.0f}/h ({nb_per_hour_lastbatch:0.0f}/h last batch)"
                         print(f"\r{message}", end='', flush=True)
 
                         # Once every 15 minutes, log progress to log file
