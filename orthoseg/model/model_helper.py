@@ -7,7 +7,7 @@ import json
 import logging
 from pathlib import Path
 import shutil
-from typing import Optional
+from typing import List, Optional
 
 import pandas as pd 
 from tensorflow import keras as kr
@@ -183,20 +183,6 @@ class HyperParams:
     def toJSON(self):
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
 
-def get_max_data_version(model_dir: Path) -> int:
-    """
-    Get the maximum data version a model exists for in the model_dir.
-    
-    Args
-        model_dir: the dir to search models in
-    """
-    models_df = get_models(model_dir)
-    if models_df is not None and len(models_df.index) > 0:
-        traindata_id_max = models_df['traindata_id'].max()
-        return int(traindata_id_max)
-    else:
-        return -1
-
 def format_model_basefilename(
         segment_subject: str,
         traindata_id: int,
@@ -335,7 +321,7 @@ def get_models(
         segment_subject: str = None,
         traindata_id: int = None,
         architecture_id: int = None,
-        trainparams_id: int = None) -> pd.DataFrame:
+        trainparams_id: int = None) -> List[dict]:
     """
     Return the list of models in the model_dir passed. It is returned as a 
     dataframe with the columns as returned in parse_model_filename()
@@ -360,20 +346,23 @@ def get_models(
         model_info = parse_model_filename(model_path)
         if model_info is not None:
             model_info_list.append(model_info)
-    model_info_df = pd.DataFrame(model_info_list)
 
     # Filter, if filters provided
-    if len(model_info_df) > 0:
+    if len(model_info_list) > 0:
         if segment_subject is not None:
-            model_info_df = model_info_df.loc[model_info_df['segment_subject'] == segment_subject]
+            model_info_list = [model_info for model_info in model_info_list 
+                               if model_info['segment_subject'] == segment_subject]
         if traindata_id is not None:
-            model_info_df = model_info_df.loc[model_info_df['traindata_id'] == traindata_id]
+            model_info_list = [model_info for model_info in model_info_list 
+                               if model_info['traindata_id'] == traindata_id]
         if trainparams_id is not None:
-            model_info_df = model_info_df.loc[model_info_df['trainparams_id'] == trainparams_id]
+            model_info_list = [model_info for model_info in model_info_list 
+                               if model_info['trainparams_id'] == trainparams_id]
         if architecture_id is not None:
-            model_info_df = model_info_df.loc[model_info_df['architecture_id'] == architecture_id]
+            model_info_list = [model_info for model_info in model_info_list 
+                               if model_info['architecture_id'] == architecture_id]
 
-    return model_info_df
+    return model_info_list
 
 def get_best_model(
         model_dir: Path,
@@ -399,25 +388,39 @@ def get_best_model(
         A dictionary with the info of the best model, or None if no model was found
     """
     # Get list of existing models for this train dataset
-    model_info_df = get_models(
+    model_info_list = get_models(
             model_dir=model_dir,
             segment_subject=segment_subject,
             traindata_id=traindata_id,
             architecture_id=architecture_id,
             trainparams_id=trainparams_id)
     
-    # If no traindata_id provided, take highest data version
-    if traindata_id is None:
-        max_data_version = get_max_data_version(model_dir)
-        if max_data_version == -1:
-            return None
-        model_info_df = model_info_df.loc[model_info_df['traindata_id'] == max_data_version]
-    
-    if len(model_info_df) > 0:
-        model_info_df = model_info_df.reset_index()     
-        return model_info_df.loc[model_info_df['acc_combined'].values.argmax()]
-    else:
+    # If nothing found, return None
+    if len(model_info_list) == 0:
         return None
+
+    # If no traindata_id provided, find highest traindata id
+    max_traindata_id = -1
+    for model_info in model_info_list:
+        if model_info['traindata_id'] > max_traindata_id:
+            max_traindata_id = model_info['traindata_id']
+    
+    # Get the list of newest model
+    newest_model_info_list = [model_info for model_info in model_info_list 
+                              if model_info['traindata_id'] == max_traindata_id]
+
+    # If only one result, return it
+    if len(newest_model_info_list) == 1:
+        return newest_model_info_list[0]
+    else:
+        max_acc_combined = -1
+        max_acc_combined_idx = -1
+        for model_info_idx, model_info in model_info_list:
+            if model_info['acc_combined'] > max_acc_combined:
+                max_acc_combined = model_info['acc_combined']
+                max_acc_combined_idx = model_info_idx
+    
+        return model_info_list[max_acc_combined_idx]
     
 class ModelCheckpointExt(kr.callbacks.Callback):
     
@@ -573,11 +576,12 @@ def save_and_clean_models(
         raise Exception(f"Invalid value for save_format: {save_format}, should be one of {save_format_values}")
             
     # Get a list of all existing models
-    model_info_df = get_models(
+    model_info_list = get_models(
             model_dir=model_save_dir, 
             segment_subject=segment_subject,
             traindata_id=traindata_id,
             trainparams_id=trainparams_id)
+    model_info_df = pd.DataFrame(model_info_list)
 
     # If there is a new model passed as param, add it to the list
     new_model_path = None

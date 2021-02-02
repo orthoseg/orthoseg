@@ -71,22 +71,23 @@ def predict(
     logger = log_helper.main_log_init(conf.dirs.getpath('log_dir'), __name__)      
     logger.debug(f"Config used: \n{conf.pformat_config()}")
     
-    # Check if the input inmages dir exists
+    # Read some config, and check if values are ok
+    image_layer = conf.image_layers[conf.predict['image_layer']]
+    if image_layer is None:
+        raise Exception(f"STOP: image_layer to predict is not specified in config: {image_layer}")
     input_image_dir = conf.dirs.getpath('predict_image_input_dir')
     if not input_image_dir.exists():
         raise Exception(f"STOP: input image dir doesn't exist: {input_image_dir}")
-    
+
     # TODO: add something to delete old data, predictions???
 
     # Create base filename of model to use
     # TODO: is force data version the most logical, or rather implement 
     #       force weights file or ?
+    traindata_id = None
     force_model_traindata_id = conf.train.getint('force_model_traindata_id')
-    if force_model_traindata_id > -1:
+    if force_model_traindata_id is not None and force_model_traindata_id > -1:
         traindata_id = force_model_traindata_id 
-    else:
-        traindata_id = mh.get_max_data_version(model_dir=conf.dirs.getpath('model_dir'))
-        #logger.info(f"max model_traindata_id found: {model_traindata_id}")
     
     # Get the best model that already exists for this train dataset
     trainparams_id = conf.train.getint('trainparams_id')
@@ -170,22 +171,19 @@ def predict(
             logger.info("Predict using single GPU or CPU")
             model_for_predict = model
 
-    # Prepare some extra parameters
     # Prepare some parameters for the postprocessing
     prediction_cleanup_params = {
                 "simplify_algorythm": conf.predict.get('simplify_algorythm'),
                 "simplify_tolerance": conf.predict.getfloat('simplify_tolerance'),
             }
 
-    # Predict for entire dataset
-    # TODO: read classes from file with the model, instead of from config 
-    image_layer = conf.image_layers[conf.predict['image_layer']]
+    # Prepare the output dirs/paths
     predict_output_dir = Path(f"{conf.dirs['predict_image_output_basedir']}_{predict_out_subdir}")
-    
     output_dir = conf.dirs.getpath('output_vector_dir') / conf.predict['image_layer']
     output_vector_name = f"{best_model['basefilename']}_{best_model['epoch']}_{conf.predict['image_layer']}"
     output_vector_path = output_dir / f"{output_vector_name}.gpkg"
     
+    # Predict for entire dataset
     predicter.predict_dir(
             model=model_for_predict,
             input_image_dir=input_image_dir,
