@@ -19,6 +19,7 @@ import geopandas as gpd
 import numpy as np
 import owslib
 import owslib.wms
+from PIL import Image
 import rasterio as rio
 import rasterio.features as rio_features
 import rasterio.profiles as rio_profiles
@@ -466,11 +467,10 @@ def _create_mask(
         if (nb_pixels_data / nb_pixels < minimum_pct_labeled):
             return False
 
-    # Write the labeled mask
-    image_output_profile = ows_util.get_cleaned_write_profile(image_output_profile)
-    with rio.open(str(output_mask_filepath), 'w', **image_output_profile) as mask_ds:
-        mask_ds.write(mask_arr, 1)
-        
+    # Write the labeled mask as .png (so without transform/crs info)
+    im = Image.fromarray(mask_arr)
+    im.save(output_mask_filepath)
+    
     return True
 
 if __name__ == "__main__":
