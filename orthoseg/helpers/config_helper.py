@@ -71,15 +71,10 @@ def read_project_config(
 
     # Some checks to make sure the config is loaded properly
     segment_subject = general.get('segment_subject')
-    if segment_subject == 'MUST_OVERRIDE':
+    if segment_subject is None or segment_subject  == 'MUST_OVERRIDE':
         raise Exception(f"Projectconfig parameter general.segment_subject needs to be overruled to a proper name in a specific project config file, \nwith config_filepaths {config_filepaths}")
     elif any(illegal_character in segment_subject for illegal_character in illegal_chars_in_codes):
         raise Exception(f"Projectconfig parameter general.segment_subject ({segment_subject}) should not contain any of the following characters: {illegal_chars_in_codes}")
-
-    if train.get('image_layer') == 'MUST_OVERRIDE':
-        raise Exception(f"Projectconfig parameter train.image_layer needs to be overruled in the projects dir overrule file or in the specific project config file!")
-    if predict.get('image_layer') == 'MUST_OVERRIDE':
-        raise Exception(f"Projectconfig parameter predict.image_layer needs to be overruled in the projects dir overrule file or in the specific project config file!")
 
     # If the projects_dir parameter is a relative path, resolve it towards the location of
     # the project config file.
