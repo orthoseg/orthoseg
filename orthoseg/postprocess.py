@@ -11,7 +11,7 @@ import sys
 from orthoseg.helpers import config_helper as conf
 from orthoseg.helpers import log_helper
 from orthoseg.lib import postprocess_predictions as postp
-import json
+import orthoseg.model.model_helper as mh
 
 # Define global variables
 logger = None
@@ -65,53 +65,37 @@ def postprocess(
     logger = log_helper.main_log_init(conf.dirs.getpath('log_dir'), __name__)      
     logger.debug(f"Config used: \n{conf.pformat_config()}")
 
-    # Input dir = the "most recent" prediction result dir for this subject 
-    prediction_basedir = Path(f"{conf.dirs['predict_image_output_basedir']}_{conf.general['segment_subject']}_")
-    searchstring = f"{prediction_basedir.name}*/"
-    prediction_dirs = sorted(prediction_basedir.parent.glob(searchstring), reverse=True)
-    if len(prediction_dirs) == 0:
-        raise Exception(f"STOP: No prediction dirs found with search string {searchstring} in {prediction_basedir.parent}")        
-    input_dir = prediction_dirs[0]
-	
-    # Format output dir, partly based on input dir
-    # Remove first 2 field from the input dir to get the model info
-    input_dir_splitted = input_dir.name.split('_')
-    model_info = []
-    for i, input_dir_field in enumerate(input_dir_splitted):
-        if i >= 2:
-            model_info.append(input_dir_field)
+    # Create base filename of model to use
+    # TODO: is force data version the most logical, or rather implement 
+    #       force weights file or ?
+    traindata_id = None
+    force_model_traindata_id = conf.train.getint('force_model_traindata_id')
+    if force_model_traindata_id is not None and force_model_traindata_id > -1:
+        traindata_id = force_model_traindata_id 
     
-    output_dir = conf.dirs.getpath('output_vector_dir') / conf.predict['image_layer']
-    output_vector_name = f"{'_'.join(model_info)}_{conf.predict['image_layer']}"
-    output_filepath = output_dir / f"{output_vector_name}.gpkg"
-
-    # If a prediction config file exists, get prediction-specific config from it     
-    prediction_config_path = input_dir / "prediction_config.json"
-    if prediction_config_path.exists():
-        with open(prediction_config_path, 'r') as pred_conf_file:
-            pred_config_str = pred_conf_file.read()
-            pred_config = json.loads(pred_config_str)
-            border_pixels_to_ignore = pred_config['border_pixels_to_ignore']
-            classes = pred_config['classes']
-    else:
-        border_pixels_to_ignore = conf.predict.getint('image_pixels_overlap')
-        classes = [classname for classname in conf.train.getdict('classes')]
-
+    # Get the best model that already exists for this train dataset
+    trainparams_id = conf.train.getint('trainparams_id')
+    best_model = mh.get_best_model(
+            model_dir=conf.dirs.getpath('model_dir'), 
+            segment_subject=conf.general['segment_subject'],
+            traindata_id=traindata_id,
+            trainparams_id=trainparams_id)
+    
+    # Input file  the "most recent" prediction result dir for this subject 
+    output_vector_dir = conf.dirs.getpath('output_vector_dir') / conf.predict['image_layer']
+    output_vector_name = f"{best_model['basefilename']}_{best_model['epoch']}_{conf.predict['image_layer']}"
+    output_vector_path = output_vector_dir / f"{output_vector_name}.gpkg"
+    	    
     # Prepare some parameters for the postprocessing
-    postprocess_params = {
-                "dissolve": conf.postprocess.getboolean('dissolve'),
-                "dissolve_tiles_path": conf.postprocess.getpath('dissolve_tiles_path'),
-            }
+    dissolve = conf.postprocess.getboolean('dissolve')
+    dissolve_tiles_path = conf.postprocess.getpath('dissolve_tiles_path')
                 
     ##### Go! #####
     postp.postprocess_predictions(
-            input_dir=input_dir,
-            output_filepath=output_filepath,
-            input_ext='.tif',
-            postprocess_params=postprocess_params,
-            classes=classes,
-            border_pixels_to_ignore=border_pixels_to_ignore,
-            evaluate_mode=False,
+            input_path=output_vector_path,
+            output_path=output_vector_path,
+            dissolve=dissolve,
+            dissolve_tiles_path=dissolve_tiles_path,
             force=False)
 
 #-------------------------------------------------------------

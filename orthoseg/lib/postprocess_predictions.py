@@ -3,20 +3,14 @@
 Module with functions for post-processing prediction masks towards polygons.
 """
 
-from concurrent import futures
 import logging
-import math
-import multiprocessing
-import os
 from pathlib import Path
 import shapely.geometry as sh_geom
 import shutil
-import sys
 from typing import Optional
 
 # Evade having many info warnings about self intersections from shapely
 logging.getLogger('shapely.geos').setLevel(logging.WARNING)
-import fiona
 from geofileops import geofileops
 from geofileops import geofile
 import geopandas as gpd
@@ -48,321 +42,89 @@ logger = logging.getLogger(__name__)
 #-------------------------------------------------------------
 
 def postprocess_predictions(
-        input_dir: Path,
-        output_filepath: Path,
-        input_ext: str,
-        postprocess_params: dict,
-        classes: list,
-        border_pixels_to_ignore: int = 0,
-        evaluate_mode: bool = False,
-        cancel_filepath: Optional[Path] = None,
+        input_path: Path,
+        output_path: Path,
+        dissolve: bool,
+        dissolve_tiles_path: Optional[Path] = None,
         force: bool = False):
     """
-    Merges all geojson files in input dir (recursively), unions them, and 
-    does general cleanup on them.
-    
-    Outputs actually several files. The output files will have a suffix 
-    to the general output_filepath provided depending on the type of the 
-    output file.
-    
+    Postprocesses the input prediction as specified. 
+        
     Args
         input_dir: the dir where all geojson files can be found. All geojson 
                 files will be searched for recursively.
         output_filepath: the filepath where the output file(s) will be written.
-        classes (list): Classes that were predicted (in correct order!). 
-        evaluate_mode: True to apply the logic to a subset of the files. 
-        cancel_filepath: If the file in this path exists, processing stops asap
+        dissolve (bool): True if a dissolve needs to be applied
+        dissolve_tiles_path (PathLike, optional): Path to a geofile containing 
+            the tiles to be used for the dissolve. Defaults to None.
         force: False to skip results that already exist, true to
                ignore existing results and overwrite them           
     """
-    
-    ##### Init #####
-    # Prepare output dir
-    eval_suffix = ""
-    output_dir = output_filepath.parent
-    if evaluate_mode:
-        eval_suffix = "_eval"
-        output_dir = output_dir.parent / (output_dir.name + eval_suffix)
-    if not output_dir.exists():
-        output_dir.mkdir(parents=True)
-    
-    # If all output files exist already, return
-    all_outputs_exist = True
-    for output_suffix in ['', '_union', '_simpl']:
-        path = output_dir / f"{output_filepath.stem}{output_suffix}{output_filepath.suffix}"
-        if not path.exists():
-            all_outputs_exist = False
-            break
-    if all_outputs_exist is True:
-        logger.info(f"All output vector files variants of {output_filepath} exist already")
-        return
+    # Init
+    if not input_path.exists():
+        raise Exception(f"input_path does not exist: {input_path}")
 
-    ##### Now the real work #####
-    # Loop through the classes that were predicted 
-    for classid, (classname) in enumerate(classes):
-        # classid 0 is the background by convention, ignore it!
-        if classid == 0:
-            continue
-
-        # Polygonize all prediction files if orig file doesn't exist yet
-        if len(classes) <= 2:
-            geoms_orig_path = output_dir / output_filepath.name
-        else:
-            geoms_orig_path = output_dir / f"{output_filepath.stem}_{classname}{output_filepath.suffix}"
-        
-        try:
-            # Polygonize the prediction files
-            if not geoms_orig_path.exists():
-                polygonize_prediction_files(
-                        input_dir=input_dir,
-                        output_filepath=geoms_orig_path,
-                        input_ext=input_ext,
-                        classname=classname,
-                        border_pixels_to_ignore=border_pixels_to_ignore,
-                        evaluate_mode=evaluate_mode,
-                        cancel_filepath=cancel_filepath,
-                        force=force)               
-            else:
-                logger.info(f"Output file exists already, so continue postprocess: {geoms_orig_path}")
-
-            # If the cancel file exists, stop processing...
-            if cancel_filepath is not None and cancel_filepath.exists():
-                logger.info(f"Cancel file found, so stop: {cancel_filepath}")
-                return
-            
-            clean_vectordata(
-                input_path=geoms_orig_path,
-                output_path=geoms_orig_path,
-                postprocess_params=postprocess_params)
-
-        except RuntimeWarning as ex:
-            logger.warn(f"No prediction files found to merge, ex: {ex}")
-            if str(ex) == "NOFILESFOUND":
-                logger.warn("No prediction files found to merge")
-                continue
-    
-    
-
-def clean_vectordata(
-        input_path: Path,
-        output_path: Path,
-        postprocess_params: dict,
-        cancel_filepath: Optional[Path] = None,
-        force: bool = False):
-
-    # Dissolve the data
-    if postprocess_params['dissolve']:
-        tiles_path = postprocess_params['dissolve_tiles_path']
+    # Dissolve the predictions if needed
+    if dissolve:
         clip_on_tiles = False
-        if tiles_path is not None:
+        if dissolve_tiles_path is not None:
             clip_on_tiles = True
-        curr_output_path = output_path.parent / f"{output_path.stem}_union{output_path.suffix}"
+        curr_output_path = output_path.parent / f"{output_path.stem}_dissolve{output_path.suffix}"
+        
+        # If column classname present, group on it...
+        layerinfo = geofile.get_layerinfo(input_path)
+        if 'classname' in layerinfo.columns:
+            groupby_columns = ['classname']
+            columns = groupby_columns
+        else:
+            groupby_columns = None
+            columns = []
+
+        # Now we can dissolve
         geofileops.dissolve(
                 input_path=input_path,
-                tiles_path=tiles_path,
+                tiles_path=dissolve_tiles_path,
                 output_path=curr_output_path,
+                groupby_columns=groupby_columns,
+                columns=columns,
                 explodecollections=True,
                 clip_on_tiles=clip_on_tiles,
                 force=force)
-        curr_input_path = curr_output_path
-    else:
-        curr_input_path = input_path
-    
-    # If the cancel file exists, stop processing...
-    if cancel_filepath is not None and cancel_filepath.exists():
-        logger.info(f"Cancel file found, so stop: {cancel_filepath}")
-        return
 
-    '''
-    # Retain only geoms > 5m²
-    geoms_gt5m2_filepath = output_path.parent / f"{output_path.stem}_union_gt5m2{output_path.suffix}"
-    geoms_gt5m2_gdf = None
-    if force or not geoms_gt5m2_filepath.exists():
-        geoms_union_gdf = geofile.read_file(geoms_union_filepath)
-        geoms_union_gdf.reset_index(inplace=True)
-        geoms_gt5m2_gdf = geoms_union_gdf.loc[(geoms_union_gdf.geometry.area > 5)].copy()
-        # TODO: setting the CRS here hardcoded should be removed
-        if geoms_gt5m2_gdf.crs is None:
-            message = "No crs available!!!"
-            logger.error(message)
-            #raise Exception(message)
-        
-        # Qgis wants unique id column, otherwise weird effects!
-        geoms_gt5m2_gdf.reset_index(inplace=True, drop=True)
-        geoms_gt5m2_gdf.loc[:, 'id'] = geoms_gt5m2_gdf.index 
-        geofile.to_file(geoms_gt5m2_gdf, geoms_gt5m2_filepath)
-    '''
-
-    # Simplify 
-    geoms_simpl_filepath = output_path.parent / f"{output_path.stem}_simpl{output_path.suffix}"
-    if force or not geoms_simpl_filepath.exists():
-        geofileops.simplify(
-                input_path=curr_input_path,
-                output_path=geoms_simpl_filepath,
-                tolerance=0.5,
-                force=force)
-        geofile.add_column(path=geoms_simpl_filepath, 
+        # Add columns with area and nbcoords
+        # Terrible performance using geofileops with libspatialite < 5.0.0,
+        # so temporary calculate it using geopandas.
+        """
+        geofile.add_column(path=curr_output_path, 
                 name='area', type='real', expression='ST_Area(geom)')
-        geofile.add_column(path=geoms_simpl_filepath, 
-                name='nbcoords', type='integer', expression='ST_NumPoints(geom)')
+        geofile.add_column(path=curr_output_path, 
+                name='nbcoords', type='integer', expression='ST_NPoints(geom)')
+        """
 
-def polygonize_prediction_files(
-            input_dir: Path,
-            output_filepath: Path,
-            input_ext: str,
-            classname: str,
-            border_pixels_to_ignore: int = 0,
-            cancel_filepath: Optional[Path] = None,
-            force: bool = False):
-    """
-    Polygonizes all prediction files in input dir (recursively) and writes it to ones file.
-    
-    Returns the resulting GeoDataFrame or None if the output file already 
-    exists.
-    
-    Args
-        input_dir:
-        output_filepath:
-        cancel_filepath: If the file in this path exists, processing stops asap
-        force: False to skip images that already have a prediction, true to
-               ignore existing predictions and overwrite them
-    """
-    ##### Init #####
-    # Check if we need to do anything anyway
-    if not force and output_filepath.exists():
-        logger.info(f"Force is false and output file exists already, skip: {output_filepath}")
-        return None
+        diss_gdf = geofile.read_file(curr_output_path)
+        diss_gdf['area'] = diss_gdf.geometry.area
 
-    # Check if we are in interactive mode, because otherwise the ProcessExecutor 
-    # hangs
-    if sys.__stdin__.isatty():
-        logger.warn(f"Running in interactive mode???")
-        #raise Exception("You cannot run this in interactive mode, because it doens't support multiprocessing.")
+        def numberpoints(geometry: sh_geom.base.BaseGeometry) -> int:
+            
+            nb_points = 0
+            if(isinstance(geometry, sh_geom.multipolygon.MultiPolygon)):
+                for polygon in geometry:
+                    nb_points += len(polygon.exterior.coords)
+                    for ring in polygon.interiors:
+                        nb_points += len(ring.coords)
+            elif(isinstance(geometry, sh_geom.polygon.Polygon)):
+                nb_points += len(geometry.exterior.coords)
+                for ring in geometry.interiors:
+                    nb_points += len(ring.coords)
+            else:
+                raise Exception(f"geometry type is not supported: {geometry.geom_type}")
+            
+            return nb_points
 
-    # Make sure the output dir exists
-    output_dir = output_filepath.parent
-    if not output_dir.exists():
-        output_dir.mkdir()
+        diss_gdf['nbcoords'] = diss_gdf.geometry.apply(lambda geom: numberpoints(geom))
+        geofile.remove(curr_output_path)
+        geofile.to_file(diss_gdf, curr_output_path)
 
-    # Get list of all files to process...
-    logger.info(f"List all files to be merged in {input_dir}")
-    filepaths = sorted(list(input_dir.rglob(f"*_{classname}_pred*{input_ext}")))
-
-    # Check if files were found...
-    nb_files = len(filepaths)
-    if nb_files == 0:
-        logger.warn("No files found to process... so return")
-        raise RuntimeWarning("NOFILESFOUND")
-    logger.info(f"Found {nb_files} files to process")
-
-    # First write to tmp output file so it is clear if the file was ready or not
-    layer = output_filepath.stem
-    output_tmp_filepath = output_filepath.parent / f"{output_filepath.stem}_BUSY{output_filepath.suffix}"
-    output_tmp_file = None
-    if output_tmp_filepath.exists():
-        output_tmp_filepath.unlink()
-
-    # Loop through all files to be processed...
-    try:       
-        max_parallel = multiprocessing.cpu_count()
-        with futures.ProcessPoolExecutor(max_parallel) as read_pool:
-
-            future_to_filepath_queue = {}
-            geoms_gdf = None
-            nb_files_done = 0
-            nb_files_in_queue = 0
-            next_file_to_queue = 0
-            max_files_in_queue = max_parallel * 2
-
-            # Loop till all files are done
-            while nb_files_done <= (nb_files-1):
-
-                # If the cancel file exists, stop processing...
-                if cancel_filepath is not None and cancel_filepath.exists():
-                    logger.info(f"Cancel file found, so stop: {cancel_filepath}")
-                    return
-
-                # If the queue isn't complely filled or all files are being treated, 
-                # add files to processing queue
-                while(nb_files_in_queue < max_files_in_queue
-                      and next_file_to_queue < nb_files):
-                    
-                    # Read prediction file
-                    future = read_pool.submit(
-                            read_prediction_file, 
-                            filepaths[next_file_to_queue],
-                            border_pixels_to_ignore)
-                    future_to_filepath_queue[future] = filepaths[next_file_to_queue]
-                    nb_files_in_queue += 1
-                    next_file_to_queue += 1
-
-                # Get the futures that are ready from the queue, and process the result
-                futures_done = futures.wait(future_to_filepath_queue, return_when='FIRST_COMPLETED').done
-                for future in futures_done:
-                    # Get result
-                    nb_files_done += 1
-
-                    #logger.info(f"Ready processing {future_to_filepath[future]}")
-                    try:
-                        geoms_file_gdf = future.result()
-
-                        if geoms_file_gdf is None:
-                            continue
-                        if geoms_gdf is None:
-                            # Check if the input has a crs
-                            if geoms_file_gdf.crs is None:
-                                #geoms_file_gdf.crs = pyproj.CRS.from_user_input("EPSG:31370")
-                                raise Exception("STOP: input does not have a crs!") 
-                            geoms_gdf = geoms_file_gdf
-                        else:
-                            geoms_gdf = gpd.GeoDataFrame(
-                                    pd.concat([geoms_gdf, geoms_file_gdf], ignore_index=True), 
-                                    crs=geoms_gdf.crs)
-                        
-                    except Exception as ex:
-                        logger.exception(f"Error reading {future_to_filepath_queue[future]}")
-                    finally:
-                        # Remove processed future from queue
-                        nb_files_in_queue -= 1
-                        del future_to_filepath_queue[future]
-                    
-                    # If all files are treated or enough geoms are read, write to file
-                    if geoms_gdf is not None:
-                        nb_geoms_ready_to_write = len(geoms_gdf)
-                    else:
-                        nb_geoms_ready_to_write = 0
-                    if nb_files_done%100 == 0:
-                        logger.debug(f"{nb_files_done} of {nb_files} processed ({(nb_files_done*100/nb_files):0.0f}%), {nb_geoms_ready_to_write} ready to write")
-                    if(nb_geoms_ready_to_write > 0
-                       and (nb_files_done == (nb_files-1)
-                            or nb_geoms_ready_to_write > 10000)):
-                        try:
-                            # If output file isn't created yet, do so...
-                            if output_tmp_file is None:
-                                # Open the destination file
-                                output_tmp_file = fiona.open(
-                                        output_tmp_filepath, 'w', 
-                                        driver=geofile.get_driver(output_tmp_filepath), 
-                                        layer=layer, crs=geoms_gdf.crs.to_wkt(), 
-                                        schema=gpd.io.file.infer_schema(geoms_gdf))
-                            
-                            # Now write to file
-                            output_tmp_file.writerecords(geoms_gdf.iterfeatures())
-                            geoms_gdf = None
-                            logger.info(f"{nb_files_done} of {nb_files} processed + saved ({(nb_files_done*100/nb_files):0.0f}%)")
-                        except Exception as ex:
-                            raise Exception(f"Error saving gdf to {output_tmp_filepath}") from ex
-
-            # If we get here, file is normally created successfully, so rename to real output
-            if output_tmp_file is not None:
-                output_tmp_file.close()
-                output_tmp_file = None
-                os.rename(output_tmp_filepath, output_filepath)
-    except Exception as ex:
-        if output_tmp_file is not None:
-            output_tmp_file.close()      
-        raise Exception(f"Error creating file {output_tmp_filepath}") from ex
-    
 def read_prediction_file(
         filepath: Path,
         border_pixels_to_ignore: int = 0) -> Optional[gpd.GeoDataFrame]:
@@ -482,9 +244,9 @@ def postprocess_for_evaluation(
                 mask_arr[:,0:border_pixels_to_ignore] = 0    # Top border
                 mask_arr[:,-border_pixels_to_ignore:] = 0    # Bottom border
                 
-            # If there are more than 2 classes, extract the seperate masks
+            # If there is more than 1 class, extract the seperate masks
             # per class with one-hot encoding
-            if nb_classes > 2:
+            if nb_classes > 1:
                 mask_categorical_arr = tf.keras.utils.to_categorical(mask_arr, nb_classes, dtype=rio.uint8)
                 mask_arr = (mask_categorical_arr[:,:,class_id]) * 255
                                 
@@ -690,7 +452,7 @@ def polygonize_pred_multiclass_to_file(
         image_transform,
         min_pixelvalue_for_save,
         classes: list,
-        output_path: Path,
+        output_vector_path: Path,
         prediction_cleanup_params: dict = None,
         border_pixels_to_ignore: int = 0) -> bool:
 
@@ -706,7 +468,7 @@ def polygonize_pred_multiclass_to_file(
 
     # If there were polygons, save them...
     if result_gdf is not None:
-        geofile.to_file(result_gdf, output_path, append=True, index=False)
+        geofile.to_file(result_gdf, output_vector_path, append=True, index=False)
         return True
     else:
         return False
@@ -826,7 +588,7 @@ def polygonize_pred(
                 geoms_gdf = geoms_gdf[~geoms_gdf.isna()]  
                 if len(geoms_gdf) == 0:
                     return None
-                geoms_gdf = geoms_gdf.reset_index(drop=True).explode()
+                geoms_gdf = gpd.GeoDataFrame(geoms_gdf.reset_index(drop=True), crs=geoms_gdf.crs).explode()
 
         # Now we can calculate the "onborder" property
         geoms_gdf = vector_util.calc_onborder(geoms_gdf, border_bounds)
@@ -870,7 +632,6 @@ def clean_and_save_prediction(
         channel_start = 0
 
     for channel_id in range(channel_start, nb_channels):
-        # TODO add proper support for multiple channels!
         image_pred_curr_arr = image_pred_arr[:,:,channel_id]
 
         # Clean prediction

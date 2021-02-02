@@ -6,6 +6,8 @@ Tests for functionalities in orthoseg.lib.postprocess_predictions.
 from pathlib import Path
 import sys
 
+import geopandas as gpd
+
 from geofileops import geofile
 
 # Add path so the local orthoseg packages are found 
@@ -26,6 +28,7 @@ def test_read_prediction_file():
     pred_comparison_gdf = geofile.read_file(pred_comparison_path)
 
     # Now compare they are the same
+    assert pred_raster_gdf is not None
     assert len(pred_raster_gdf) == len(pred_comparison_gdf)
 
 def test_clean_vectordata(tmpdir):
@@ -36,19 +39,19 @@ def test_clean_vectordata(tmpdir):
     input2_path = get_testdata_dir() / '129568_185248_130592_186272_4096_4096_1_pred.gpkg'
     input1_gdf = geofile.read_file(input1_path)
     input2_gdf = geofile.read_file(input2_path)
-    input_gdf = input1_gdf.append(input2_gdf)
+    input_gdf = gpd.GeoDataFrame(input1_gdf.append(input2_gdf), crs=input1_gdf.crs)
     input_path = temp_dir / "vector_input.gpkg"
     geofile.to_file(input_gdf, input_path)
     output_path = temp_dir / input_path.name
-    postprocess_params = {"dissolve_tiles_path": None}
-    post_pred.clean_vectordata(
+    post_pred.postprocess_predictions(
             input_path=input_path, 
-            output_path=output_path, 
-            postprocess_params=postprocess_params,
+            output_path=output_path,
+            dissolve=True,
+            dissolve_tiles_path=None,
             force=True)
 
     # Read result and check
-    geoms_simpl_filepath = output_path.parent / f"{output_path.stem}_simpl{output_path.suffix}"
+    geoms_simpl_filepath = output_path.parent / f"{output_path.stem}_dissolve{output_path.suffix}"
     result_gdf = geofile.read_file(geoms_simpl_filepath)
 
     assert len(result_gdf) == 616
