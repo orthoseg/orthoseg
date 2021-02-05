@@ -1,1 +1,2 @@
 include orthoseg/project_defaults.ini
+include version.txt
