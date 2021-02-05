@@ -37,6 +37,17 @@ def read_project_config(
             logger.warning(f"config_filepath does not exist: {config_filepath}")
 
     # Read the configuration
+    def safe_math_eval(string):
+        if string is None:
+            return None
+            
+        allowed_chars = "0123456789+-*(). /"
+        for char in string:
+            if char not in allowed_chars:
+                raise Exception("Unsafe eval")
+
+        return eval(string)
+
     global config
     config = configparser.ConfigParser(
             interpolation=configparser.ExtendedInterpolation(),
@@ -44,7 +55,8 @@ def read_project_config(
                         'listint': lambda x: [int(i.strip()) for i in x.split(',')],
                         'listfloat': lambda x: [float(i.strip()) for i in x.split(',')],
                         'dict': lambda x: None if x is None else json.loads(x),
-                        'path': lambda x: None if x is None else Path(x)},
+                        'path': lambda x: None if x is None else Path(x),
+                        'eval': lambda x: safe_math_eval(x)},
             allow_no_value=True)
 
     config.read(config_filepaths)
