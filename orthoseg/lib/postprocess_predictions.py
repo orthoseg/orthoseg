@@ -7,7 +7,9 @@ import logging
 from pathlib import Path
 import shapely.geometry as sh_geom
 import shutil
-from typing import Optional
+from typing import List, Optional
+
+from shapely.geometry import geo
 
 # Evade having many info warnings about self intersections from shapely
 logging.getLogger('shapely.geos').setLevel(logging.WARNING)
@@ -46,14 +48,16 @@ def postprocess_predictions(
         output_path: Path,
         dissolve: bool,
         dissolve_tiles_path: Optional[Path] = None,
-        force: bool = False):
+        simplify_algorithm: Optional[geofileops.SimplifyAlgorithm] = None,
+        simplify_tolerance: float = 1,
+        simplify_lookahead: int = 8,
+        force: bool = False) -> List[Path]:
     """
     Postprocesses the input prediction as specified. 
         
     Args
-        input_dir: the dir where all geojson files can be found. All geojson 
-                files will be searched for recursively.
-        output_filepath: the filepath where the output file(s) will be written.
+        input_path: path to the 'raw' prediction vector file.
+        output_path: the base path where the output file(s) will be written to.
         dissolve (bool): True if a dissolve needs to be applied
         dissolve_tiles_path (PathLike, optional): Path to a geofile containing 
             the tiles to be used for the dissolve. Defaults to None.
@@ -64,6 +68,16 @@ def postprocess_predictions(
     if not input_path.exists():
         raise Exception(f"input_path does not exist: {input_path}")
 
+    # The return value is the list of paths created
+    output_paths = []
+
+    # Because the geo operations will be applied sequentially if applicable, 
+    # both the input path and output path will build on the result of the 
+    # previous operation. 
+    # Set the initial values to the ones passed in as parameters.  
+    curr_input_path = input_path
+    curr_output_path = output_path
+
     # Dissolve the predictions if needed
     if dissolve:
         clip_on_tiles = False
@@ -71,59 +85,82 @@ def postprocess_predictions(
             clip_on_tiles = True
         curr_output_path = output_path.parent / f"{output_path.stem}_dissolve{output_path.suffix}"
         
-        # If column classname present, group on it...
-        layerinfo = geofile.get_layerinfo(input_path)
-        if 'classname' in layerinfo.columns:
-            groupby_columns = ['classname']
-            columns = groupby_columns
-        else:
-            groupby_columns = None
-            columns = []
-
-        # Now we can dissolve
-        geofileops.dissolve(
-                input_path=input_path,
-                tiles_path=dissolve_tiles_path,
-                output_path=curr_output_path,
-                groupby_columns=groupby_columns,
-                columns=columns,
-                explodecollections=True,
-                clip_on_tiles=clip_on_tiles,
-                force=force)
-
-        # Add columns with area and nbcoords
-        # Terrible performance using geofileops with libspatialite < 5.0.0,
-        # so temporary calculate it using geopandas.
-        """
-        geofile.add_column(path=curr_output_path, 
-                name='area', type='real', expression='ST_Area(geom)')
-        geofile.add_column(path=curr_output_path, 
-                name='nbcoords', type='integer', expression='ST_NPoints(geom)')
-        """
-
-        diss_gdf = geofile.read_file(curr_output_path)
-        diss_gdf['area'] = diss_gdf.geometry.area
-
-        def numberpoints(geometry: sh_geom.base.BaseGeometry) -> int:
-            
-            nb_points = 0
-            if(isinstance(geometry, sh_geom.multipolygon.MultiPolygon)):
-                for polygon in geometry:
-                    nb_points += len(polygon.exterior.coords)
-                    for ring in polygon.interiors:
-                        nb_points += len(ring.coords)
-            elif(isinstance(geometry, sh_geom.polygon.Polygon)):
-                nb_points += len(geometry.exterior.coords)
-                for ring in geometry.interiors:
-                    nb_points += len(ring.coords)
+        # If the dissolved file doesn't exist yet, go for it... 
+        if not curr_output_path.exists():
+            # If column classname present, group on it...
+            layerinfo = geofile.get_layerinfo(input_path)
+            if 'classname' in layerinfo.columns:
+                groupby_columns = ['classname']
             else:
-                raise Exception(f"geometry type is not supported: {geometry.geom_type}")
-            
-            return nb_points
+                groupby_columns = []
+            columns = groupby_columns
 
-        diss_gdf['nbcoords'] = diss_gdf.geometry.apply(lambda geom: numberpoints(geom))
-        geofile.remove(curr_output_path)
-        geofile.to_file(diss_gdf, curr_output_path)
+            # Now we can dissolve
+            geofileops.dissolve(
+                    input_path=input_path,
+                    tiles_path=dissolve_tiles_path,
+                    output_path=curr_output_path,
+                    groupby_columns=groupby_columns,
+                    columns=columns,
+                    explodecollections=True,
+                    clip_on_tiles=clip_on_tiles,
+                    force=force)
+
+            # Add/recalculate columns with area and nbcoords
+            # Terrible performance using geofileops with libspatialite < 5.0.0,
+            # so temporary calculate it using geopandas.
+            """
+            geofile.add_column(path=curr_output_path, 
+                    name='area', type='real', expression='ST_Area(geom)')
+            geofile.add_column(path=curr_output_path, 
+                    name='nbcoords', type='integer', expression='ST_NPoints(geom)')
+            """
+
+            diss_gdf = geofile.read_file(curr_output_path)
+            diss_gdf['area'] = diss_gdf.geometry.area
+            diss_gdf['nbcoords'] = diss_gdf.geometry.apply(lambda geom: gfo_vector_util.numberpoints(geom))
+            geofile.remove(curr_output_path)
+            geofile.to_file(diss_gdf, curr_output_path)
+
+        # The curr_output_path becomes the new current input path 
+        curr_input_path = curr_output_path
+        output_paths.append(curr_output_path)
+
+    # If a simplify algorithm is specified, simplify!
+    if simplify_algorithm is not None:
+        curr_input_path = curr_output_path
+        curr_output_path = curr_output_path.parent / f"{curr_output_path.stem}_simpl{curr_output_path.suffix}"
+        
+        # If the simplified file doesn't exist yet, go for it... 
+        if not curr_output_path.exists():
+            # Simplify!
+            geofileops.simplify(
+                    input_path=curr_input_path,
+                    output_path=curr_output_path,
+                    algorithm=simplify_algorithm,
+                    tolerance=simplify_tolerance,
+                    lookahead=simplify_lookahead)
+            
+            # Add/recalculate columns with area and nbcoords
+            # Terrible performance using geofileops with libspatialite < 5.0.0,
+            # so temporary calculate it using geopandas.
+            """
+            geofile.add_column(path=curr_output_path, 
+                    name='area', type='real', expression='ST_Area(geom)')
+            geofile.add_column(path=curr_output_path, 
+                    name='nbcoords', type='integer', expression='ST_NPoints(geom)')
+            """
+
+            diss_gdf = geofile.read_file(curr_output_path)
+            diss_gdf['area'] = diss_gdf.geometry.area
+            diss_gdf['nbcoords'] = diss_gdf.geometry.apply(lambda geom: gfo_vector_util.numberpoints(geom))
+            geofile.remove(curr_output_path)
+            geofile.to_file(diss_gdf, curr_output_path)
+
+        curr_input_path = curr_output_path
+        output_paths.append(curr_output_path)
+        
+    return output_paths
 
 def read_prediction_file(
         filepath: Path,
@@ -570,14 +607,14 @@ def polygonize_pred(
         # by the min pixel size, rounded up in centimeter
         if prediction_cleanup_params is not None:
             # If a simplify is asked... 
-            if 'simplify_algorythm' in prediction_cleanup_params:
+            if 'simplify_algorithm' in prediction_cleanup_params:
                 # Define the bounds of the image as linestring, so points on this 
                 # border are preserved during the simplify
                 border_lines = sh_geom.LineString(sh_geom.box(*border_bounds).exterior.coords)
                 geoms_gdf.geometry = geoms_gdf.geometry.apply(
                         lambda geom: gfo_vector_util.simplify_ext(
                                 geometry=geom, 
-                                algorythm=prediction_cleanup_params['simplify_algorythm'],
+                                algorithm=prediction_cleanup_params['simplify_algorithm'],
                                 tolerance=prediction_cleanup_params['simplify_tolerance'], 
                                 keep_points_on=border_lines))
                 

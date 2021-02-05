@@ -8,6 +8,8 @@ from pathlib import Path
 import shlex
 import sys
 
+from geofileops import geofileops
+
 from orthoseg.helpers import config_helper as conf
 from orthoseg.helpers import log_helper
 from orthoseg.lib import postprocess_predictions as postp
@@ -89,13 +91,23 @@ def postprocess(
     # Prepare some parameters for the postprocessing
     dissolve = conf.postprocess.getboolean('dissolve')
     dissolve_tiles_path = conf.postprocess.getpath('dissolve_tiles_path')
-                
+    simplify_algorithm = conf.postprocess.get('simplify_algorithm')
+    if simplify_algorithm is not None:
+        simplify_algorithm = geofileops.SimplifyAlgorithm[simplify_algorithm]
+    simplify_tolerance = conf.postprocess.geteval('simplify_tolerance')
+    simplify_lookahead = conf.postprocess.get('simplify_lookahead')
+    if simplify_lookahead is not None:
+        simplify_lookahead = int(simplify_lookahead)
+
     ##### Go! #####
     postp.postprocess_predictions(
             input_path=output_vector_path,
             output_path=output_vector_path,
             dissolve=dissolve,
             dissolve_tiles_path=dissolve_tiles_path,
+            simplify_algorithm=simplify_algorithm,
+            simplify_tolerance=simplify_tolerance,
+            simplify_lookahead=simplify_lookahead,
             force=False)
 
 #-------------------------------------------------------------
