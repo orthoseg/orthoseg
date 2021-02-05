@@ -12,7 +12,8 @@ import sys
 #os.environ["CUDA_VISIBLE_DEVICES"] = "-1" # Disable using GPU
 import tensorflow as tf
 from tensorflow import keras as kr  
-from tensorflow.keras import utils as kr_utils  
+from tensorflow.keras import utils as kr_utils
+from tensorflow.python.training.tracking.base import no_manual_dependency_tracking_scope  
 
 from orthoseg.helpers import config_helper as conf
 from orthoseg.helpers import log_helper
@@ -173,10 +174,10 @@ def predict(
             logger.info("Predict using single GPU or CPU")
             model_for_predict = model
 
-    # Prepare some parameters for the postprocessing
+    # Prepare some parameters for gthe postprocessing
     simplify_algorithm = conf.predict.get('simplify_algorithm')
     if simplify_algorithm is not None:
-        geofileops.SimplifyAlgorithm[simplify_algorithm]
+        simplify_algorithm = geofileops.SimplifyAlgorithm[simplify_algorithm]
     prediction_cleanup_params = {
                 "simplify_algorithm": simplify_algorithm,
                 "simplify_tolerance": conf.predict.geteval('simplify_tolerance'),
