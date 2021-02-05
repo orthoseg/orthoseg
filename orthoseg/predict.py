@@ -20,6 +20,8 @@ from orthoseg.lib import predicter
 import orthoseg.model.model_factory as mf
 import orthoseg.model.model_helper as mh
 
+from geofileops import geofileops
+
 # Global variable
 logger = None
 
@@ -172,9 +174,13 @@ def predict(
             model_for_predict = model
 
     # Prepare some parameters for the postprocessing
+    simplify_algorithm = conf.predict.get('simplify_algorithm')
+    if simplify_algorithm is not None:
+        geofileops.SimplifyAlgorithm[simplify_algorithm]
     prediction_cleanup_params = {
-                "simplify_algorythm": conf.predict.get('simplify_algorythm'),
-                "simplify_tolerance": conf.predict.getfloat('simplify_tolerance'),
+                "simplify_algorithm": simplify_algorithm,
+                "simplify_tolerance": conf.predict.geteval('simplify_tolerance'),
+                "simplify_lookahead": conf.predict.getint('simplify_lookahead'),
             }
 
     # Prepare the output dirs/paths
