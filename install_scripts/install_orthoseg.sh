@@ -94,31 +94,58 @@ if [[ -d "$condadir/envs/$envname/" ]]
 then
   echo "First remove conda environment $envname"
   conda env remove -y --name $envname
+
+  echo "Also really delete the env directory, to evade locked file errors"
+  rm -rf $condadir/envs/$envname
 fi
 echo "Create and install conda environment $envname"
 conda create -y --name $envname
 conda activate $envname
 conda config --env --add channels conda-forge
 conda config --env --set channel_priority strict
-conda install -y python=3.8 pillow rasterio geopandas=0.8.1 pygeos owslib cudatoolkit=11 cudnn hdf5=1.10.5
+
+# Reasons for the dependencies/versions...
+# python: 3.8 is highest version supported by tensorflow, and I might use 3.8 syntax somewhere (not sure) 
+# owslib: download images from WMS servers
+# pillow: ?
+# rasterio: tested till version 1.2
+# geopandas: >= 0.8 can use pygeos for better performance
+# pygeos: for geofileops, improves performance of geopandas operations
+# pyproj: for geofileops
+# libspatialite: for geofileops, > 5 is (a lot) better 
+# cudatoolkit: for tensorflow+GPU, 11 needed for tensorflow >= 2.4
+# cudnn: for tensorflow+GPU
+# numpy: for tensorflow: needs 1.19.5, otherwise replaced with pip version: gives issues in geofileops 
+# hdf5: for tensorflow: needs 1.10.5, otherwise ugly warnings and BOOM! 
+conda install -y python=3.8 owslib pillow "rasterio>=1.0,<1.3" "geopandas>=0.8,<0.9" pygeos pyproj cudatoolkit=11 cudnn "numpy>=1.19,<1.20" "hdf5<=1.10.5"
 
 # For the following packages, no conda package is available or -for tensorflow- no recent version.
 if [[ ! $fordev =~ ^[Yy]$ ]]
 then
   echo
-  echo "Install necessary pip packages"
+  echo "Install the pip package"
   echo
   pip install orthoseg
 else
   echo
-  echo Prepare for development: only install dependencies + install dev tools
+  echo "Prepare for development: install dev tools"
   echo
   conda install -y pylint pytest rope
-  pip install "tensorflow>=2.4,<=2.5" "segmentation-models>=1.0,<1.1" "geofileops>=0.1.2,<0.2" "pycron" 
+ 
+  echo
+  echo "Prepare for development: install dependencies that need pip"
+  echo
+  # Reasons for the version specifications...
+  # tensorflow: tested till version 2.4
+  # geofileops: simplify algorythms used supported from 2.0
+  pip install "segmentation-models>=1.0,<1.1" "geofileops>=0.2a2" "pycron" "tensorflow>=2.4,<=2.5"  
 fi
 
-# Deactivate new env + base
+# Deactivate new env
 conda deactivate
+
+# Clean the cache dir + deactivate base env
+#conda clean --all
 conda deactivate
 
 # Pause
