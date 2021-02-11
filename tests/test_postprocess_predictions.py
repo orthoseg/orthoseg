@@ -2,16 +2,18 @@
 """
 Tests for functionalities in orthoseg.lib.postprocess_predictions.
 """
-
+import os
 from pathlib import Path
 import sys
 
-import geopandas as gpd
+# Make hdf5 version warning non-blocking
+os.environ['HDF5_DISABLE_VERSION_CHECK'] = '1'
 
+import geopandas as gpd
 from geofileops import geofile
 
 # Add path so the local orthoseg packages are found 
-sys.path.insert(0, str(Path(__file__).resolve().parent / '..'))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from orthoseg.lib import postprocess_predictions as post_pred
 
 def get_testdata_dir() -> Path:
