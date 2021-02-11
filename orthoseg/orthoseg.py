@@ -57,31 +57,30 @@ def main():
         parser.print_help()
         sys.exit(1)
     
-    # Find the config filepaths to use
-    config_filepaths = []
-    script_dir = Path(__file__).resolve().parent
-    config_defaults_path = script_dir / 'project_defaults.ini'
-    if config_defaults_path.exists():
-        config_filepaths.append(config_defaults_path)
-    else:
-        print(f"Warning: default project settings not found: {config_defaults_path}")
-    config_defaults_overrule_path = tasks_path.parent / 'project_defaults_overrule.ini'
-    if config_defaults_overrule_path.exists():
-        config_filepaths.append(config_defaults_overrule_path)
-    else:
-        print(f"Warning: default overrule project settings not found: {config_defaults_overrule_path}")
-
     # Run!
-    run_tasks(
-            tasks_path=tasks_path,
-            config_filepaths=config_filepaths)
+    run_tasks(tasks_path=tasks_path)
 
 def run_tasks(
         tasks_path: Path,
-        config_filepaths: List[Path],
+        config_filepaths: List[Path] = None,
         stop_on_error: bool = False):
 
     ##### Init #####
+    # Find the config filepaths to use
+    if config_filepaths is None:
+        config_filepaths = []
+        script_dir = Path(__file__).resolve().parent
+        config_defaults_path = script_dir / 'project_defaults.ini'
+        if config_defaults_path.exists():
+            config_filepaths.append(config_defaults_path)
+        else:
+            print(f"Warning: default project settings not found: {config_defaults_path}")
+        config_defaults_overrule_path = tasks_path.parent / 'project_defaults_overrule.ini'
+        if config_defaults_overrule_path.exists():
+            config_filepaths.append(config_defaults_overrule_path)
+        else:
+            print(f"Warning: default overrule project settings not found: {config_defaults_overrule_path}")
+
     # Read the configuration
     global runner_config
     runner_config = configparser.ConfigParser(

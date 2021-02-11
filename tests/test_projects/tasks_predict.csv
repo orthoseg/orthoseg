@@ -1,0 +1,6 @@
+active , config                             , action
+0      , footballfields/footballfields.ini  , load_images
+0      , footballfields/footballfields.ini  , load_testsample_images
+0      , footballfields/footballfields.ini  , train
+1      , footballfields/footballfields.ini  , predict
+0      , footballfields/footballfields.ini  , postprocess

@@ -1,25 +1,27 @@
+# Exclude some project files
 .vscode/*
+orthoseg_code_ws.code-workspace
+orthoseg.code-workspace
+
+# Exclude some generic dirs/files
+tmp/
+*.pyc
+*.log
+*/__pycache__/
+
+# Exclude dirs related to the packaging for pypi
 build/
 orthoseg.egg-info/
 dist/
 
-orthoseg/bin/taskrunner.ini
-orthoseg/bin/taskrunner_sampleproject.ini
-orthoseg_code_ws.code-workspace
-
+# Exclude sample_projects subdirs we don't want in git
 sample_projects/_image_cache
 sample_projects/footballfields/models
 sample_projects/footballfields/output_vector
 sample_projects/footballfields/training
 
-# Exclude all project except project_template and footballfields/labels
-#projects/*
-#!projects/project_template
-#!projects/footballfields/labels
-#!projects/footballfields/orthoseg_footballfields.qgz
-
-tmp/
-*.pyc
-*.log
-*/__pycache__/
-orthoseg.code-workspace
+# Exclude tests/test_projects subdirs we don't want in git
+tests/test_projects/_image_cache
+tests/test_projects/footballfields/models
+tests/test_projects/footballfields/output_vector
+tests/test_projects/footballfields/training
