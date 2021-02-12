@@ -135,7 +135,7 @@ def get_images_for_grid(
     # Check if the image_gen_bounds are compatible with the grid...
     if (image_gen_bounds[0]-grid_xmin)%crs_width != 0:
         xmin_new = image_gen_bounds[0] - ((image_gen_bounds[0]-grid_xmin)%crs_width)
-        logger.warning(f"xmin {image_gen_bounds[0]} in compatible with grid, {xmin_new} will be used")
+        logger.warning(f"xmin {image_gen_bounds[0]} incompatible with grid, {xmin_new} will be used")
         image_gen_bounds = (xmin_new, image_gen_bounds[1], image_gen_bounds[2], image_gen_bounds[3])
     if (image_gen_bounds[1]-grid_ymin)%crs_height != 0:
         ymin_new = image_gen_bounds[1] - ((image_gen_bounds[1]-grid_ymin)%crs_height)

@@ -14,8 +14,8 @@ import shapely.geometry as sh_geom
 
 from geofileops import geofile
 
-# Because orthoseg isn't installed as package + it is higher in dir hierarchy, add root to sys.path
-[sys.path.append(i) for i in ['.', '..']]
+# Add path so the local orthoseg packages are found 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from orthoseg.helpers import config_helper as conf
 from orthoseg.helpers import log_helper
 

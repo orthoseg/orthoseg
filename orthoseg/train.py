@@ -60,9 +60,6 @@ def train(
             the path specified in files.image_layers_config_filepath in the project config will be used. 
             Defaults to None.
     """
-    # TODO: when predicting, read classes from file with the model, instead of from config 
-    # TODO: when training write classes to config file with model!
-
     ##### Init #####   
     # Load config
     config_filepaths = conf.search_projectconfig_files(projectconfig_path=projectconfig_path)
@@ -191,7 +188,7 @@ def train(
         elif conf.train.getboolean('force_train') is True:
             train_needed = True
         else:
-            logger.info("JUST PREDICT, without training: preload_existing_model is false and model found")
+            logger.info("JUST PREDICT, without training: resume_train is false and model found")
             train_needed = False
     else:
         # We want to preload an existing model and models were found
