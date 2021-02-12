@@ -8,7 +8,10 @@ import json
 import logging
 from pathlib import Path
 import pprint
-from typing import List
+import tempfile
+from typing import List, Optional
+
+from orthoseg.lib import postprocess_predictions
 
 #-------------------------------------------------------------
 # First define/init some general variables/constants
@@ -47,6 +50,15 @@ def read_project_config(
 
         return eval(string)
 
+    def to_path(pathlike: str) -> Optional[Path]:
+        if pathlike is None: 
+            return None
+        else:
+            if '{tempdir}' in pathlike:
+                return Path(pathlike.format(tempdir=tempfile.gettempdir()))
+            else:
+                return Path(pathlike)
+
     global config
     config = configparser.ConfigParser(
             interpolation=configparser.ExtendedInterpolation(),
@@ -54,7 +66,7 @@ def read_project_config(
                         'listint': lambda x: [int(i.strip()) for i in x.split(',')],
                         'listfloat': lambda x: [float(i.strip()) for i in x.split(',')],
                         'dict': lambda x: None if x is None else json.loads(x),
-                        'path': lambda x: None if x is None else Path(x),
+                        'path': lambda x: to_path(x),
                         'eval': lambda x: safe_math_eval(x)},
             allow_no_value=True)
 

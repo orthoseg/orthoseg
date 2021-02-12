@@ -135,6 +135,7 @@ def train(
                 classes=classes,
                 image_layers=conf.image_layers,
                 training_dir=conf.dirs.getpath('training_dir'),
+                training_imagedata_dir=conf.dirs.getpath('training_imagedata_dir'),
                 labelname_column=conf.train.get('labelname_column'),
                 image_pixel_x_size=conf.train.getfloat('image_pixel_x_size'),
                 image_pixel_y_size=conf.train.getfloat('image_pixel_y_size'),

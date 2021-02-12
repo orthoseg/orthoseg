@@ -54,14 +54,12 @@ def prepare_traindatasets(
         classes: dict,
         image_layers: dict,
         training_dir: Path,
+        training_imagedata_dir: Path,
         labelname_column: str,
         image_pixel_x_size: float = 0.25,
         image_pixel_y_size: float = 0.25,
         image_pixel_width: int = 512,
         image_pixel_height: int = 512,
-        max_samples: int = 5000,
-        output_filelist_csv: str = '',
-        output_keep_nested_dirs: bool = False,
         force: bool = False) -> Tuple[Path, int]:
     """
     This function prepares training data for the vector labels provided.
@@ -71,11 +69,11 @@ def prepare_traindatasets(
         * create the corresponding label mask for each orthophoto
         
     Returns a tuple with (output_dir, dataversion):
-            output_dir: the dir where the traindataset was created/found
-            dataversion: a version number for the dataset created/found
+        output_dir: the dir where the traindataset was created/found
+        dataversion: a version number for the dataset created/found
 
     Args
-        label_files (List[LabelFiles]): paths to the files with label polygons and locations to generate images for
+        label_infos (List[LabelInfo]): paths to the files with label polygons and locations to generate images for
         labelname_column: the column wqhere the label names are stored in the polygon files
         wms_server_url: WMS server where the images can be fetched from
         wms_layername: layername on the WMS server to use
@@ -92,15 +90,7 @@ def prepare_traindatasets(
     output_dirs = [output_dir for output_dir in output_dirs if not '_BUSY' in output_dir.name]
     logger.info(f"output_dirs: {output_dirs}")
     if len(output_dirs) == 0:
-        output_legacy_train_dirs = training_dir.glob(f"train_[0-9]*/")
-        output_legacy_train_dirs = [output_dir for output_dir in output_legacy_train_dirs if output_dir.name.endswith('_BUSY') is False]
-        if len(output_legacy_train_dirs) == 0:
-            dataversion_new = 1
-        else:
-            # Get the output dir with the highest version (=first if sorted desc)
-            output_legacy_dir_mostrecent = sorted(output_legacy_train_dirs, reverse=True)[0]
-            dataversion_mostrecent = int(output_legacy_dir_mostrecent.name.split('_')[1])
-            dataversion_new = dataversion_mostrecent + 1
+        dataversion_new = 1
     else:
         # Get the output dir with the highest version (=first if sorted desc)
         output_dir_mostrecent = sorted(output_dirs, reverse=True)[0]
@@ -121,33 +111,13 @@ def prepare_traindatasets(
                 reuse = False
                 break
         if reuse == True:
-            return (output_dir_mostrecent, dataversion_mostrecent)
+            dataversion_new = dataversion_mostrecent
         else:
             dataversion_new = dataversion_mostrecent + 1
-    
-    # Prepare the output basedir...
-    output_tmp_basedir = None
-    for i in range(100):
-        output_tmp_basedir = training_dir / f"{dataversion_new:02d}_BUSY_{i:02d}"
-        if output_tmp_basedir.exists():
-            try:
-                shutil.rmtree(output_tmp_basedir)
-            except:
-                output_tmp_basedir = None
-        if not output_tmp_basedir.exists():
-            try:
-                output_tmp_basedir.mkdir(parents=True)
-                break
-            except:
-                output_tmp_basedir = None
-        else:
-            output_tmp_basedir = None
-    
-    # If no output tmp dir could be found... stop...
-    if output_tmp_basedir is None:
-        raise Exception(f"Error creating output_tmp_basedir in {training_dir}")
-    
+        
     # Process all input files
+    output_dir = training_dir / f"{dataversion_new:02d}"
+    output_dir.mkdir(parents=True, exist_ok=True)
     labellocations_gdf = None
     labelpolygons_gdf = None
     logger.info(f"Label info: \n{pprint.pformat(label_infos, indent=4)}")
@@ -155,8 +125,8 @@ def prepare_traindatasets(
 
         # Copy the vector files to the dest dir so we keep knowing which files 
         # were used to create the dataset
-        geofile.copy(label_file.locations_path, output_tmp_basedir)
-        geofile.copy(label_file.polygons_path, output_tmp_basedir)
+        geofile.copy(label_file.locations_path, output_dir)
+        geofile.copy(label_file.polygons_path, output_dir)
 
         # Read label data and append to general dataframes
         logger.debug(f"Read label locations from {label_file.locations_path}")
@@ -225,15 +195,41 @@ def prepare_traindatasets(
         raise Exception(f"Column {labelname_column} is mandatory in labeldata if multiple classes specified: {classes}")
 
     # Prepare the different traindata types
+    output_imagedata_dir = training_imagedata_dir / f"{dataversion_new:02d}"
     for traindata_type in ['train', 'validation', 'test']:
-                   
-        # Create the output dir's if they don't exist yet...
-        output_tmp_dir = output_tmp_basedir / traindata_type
-        output_tmp_image_dir = output_tmp_dir / 'image'
-        output_tmp_mask_dir = output_tmp_dir / 'mask'
+
+        # If traindata exists already... continue
+        output_imagedatatype_dir = output_imagedata_dir / traindata_type
+        if output_imagedatatype_dir.exists():
+            continue
+
+        # If not, prepare tmp output imagedata dir...
+        output_imagedatatype_tmp_dir = None
+        for i in range(100):
+            output_imagedatatype_tmp_dir = output_imagedata_dir / f"{traindata_type}_BUSY_{i:02d}"
+            if output_imagedatatype_tmp_dir.exists():
+                try:
+                    shutil.rmtree(output_imagedatatype_tmp_dir)
+                except:
+                    output_imagedatatype_tmp_dir = None
+            if not output_imagedatatype_tmp_dir.exists():
+                try:
+                    output_imagedatatype_tmp_dir.mkdir(parents=True)
+                    break
+                except:
+                    output_imagedatatype_tmp_dir = None
+            else:
+                output_imagedatatype_tmp_dir = None
+        
+        # If no output tmp dir could be found... stop...
+        if output_imagedatatype_tmp_dir is None:
+            raise Exception(f"Error creating output_imagedata_tmp_dir in {training_imagedata_dir}")
+
+        output_imagedata_tmp_image_dir = output_imagedatatype_tmp_dir / 'image'
+        output_imagedata_tmp_mask_dir = output_imagedatatype_tmp_dir / 'mask'
 
         # Create output dirs...
-        for dir in [output_tmp_dir, output_tmp_mask_dir, output_tmp_image_dir]:
+        for dir in [output_imagedatatype_tmp_dir, output_imagedata_tmp_mask_dir, output_imagedata_tmp_image_dir]:
             if dir and not dir.exists():
                 dir.mkdir(parents=True)
 
@@ -280,7 +276,7 @@ def prepare_traindatasets(
                         wms=wms_servers[image_layer],
                         layers=image_layers[image_layer]['wms_layernames'],
                         styles=image_layers[image_layer]['wms_layerstyles'],
-                        output_dir=output_tmp_image_dir,
+                        output_dir=output_imagedata_tmp_image_dir,
                         crs=img_crs,
                         bbox=img_bbox.bounds,
                         size=(image_pixel_width, image_pixel_height),
@@ -295,7 +291,7 @@ def prepare_traindatasets(
                 if image_filepath is not None:
                     # Mask should not be in a lossy format!
                     mask_filepath = Path(str(image_filepath)
-                            .replace(str(output_tmp_image_dir), str(output_tmp_mask_dir))
+                            .replace(str(output_imagedata_tmp_image_dir), str(output_imagedata_tmp_mask_dir))
                             .replace('.jpg', '.png'))
                     nb_classes = len(classes)
                     # Only keep the labels that are meant for this image layer
@@ -319,15 +315,14 @@ def prepare_traindatasets(
                     min_to_go = (int)((((nb_todo - i)/processed_per_hour)%1)*60)
                     print(f"\r{hours_to_go:3d}:{min_to_go:2d} left for {nb_todo-i} of {nb_todo} at {processed_per_hour:0.0f}/h", 
                           end="", flush=True)
+        
+            # If everything went fine, rename output_imagedata_tmp_dir to the final output_imagedata_dir
+            os.rename(output_imagedatatype_tmp_dir, output_imagedatatype_dir)
         except Exception as ex:
             message = "Error preparing dataset!"
             raise Exception(message) from ex
 
-    # If everything went fine, rename output_tmp_dir to the final output_dir
-    output_basedir = training_dir / f"{dataversion_new:02d}"
-    os.rename(output_tmp_basedir, output_basedir)
-
-    return (output_basedir, dataversion_new)
+    return (output_imagedata_dir, dataversion_new)
 
 ''' Not maintained!
 def create_masks_for_images(
