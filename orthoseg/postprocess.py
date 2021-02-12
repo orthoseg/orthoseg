@@ -87,7 +87,7 @@ def postprocess(
             trainparams_id=trainparams_id)
     
     # Input file  the "most recent" prediction result dir for this subject 
-    output_vector_dir = conf.dirs.getpath('output_vector_dir') / conf.predict['image_layer']
+    output_vector_dir = conf.dirs.getpath('output_vector_dir')
     output_vector_name = f"{best_model['basefilename']}_{best_model['epoch']}_{conf.predict['image_layer']}"
     output_vector_path = output_vector_dir / f"{output_vector_name}.gpkg"
     	    

@@ -188,10 +188,10 @@ def predict(
             }
 
     # Prepare the output dirs/paths
-    predict_output_dir = Path(f"{conf.dirs['predict_image_output_basedir']}_{predict_out_subdir}")
-    output_dir = conf.dirs.getpath('output_vector_dir') / conf.predict['image_layer']
+    predict_output_dir = Path(f"{str(conf.dirs.getpath('predict_image_output_basedir'))}_{predict_out_subdir}")
+    output_vector_dir = conf.dirs.getpath('output_vector_dir')
     output_vector_name = f"{best_model['basefilename']}_{best_model['epoch']}_{conf.predict['image_layer']}"
-    output_vector_path = output_dir / f"{output_vector_name}.gpkg"
+    output_vector_path = output_vector_dir / f"{output_vector_name}.gpkg"
     
     # Predict for entire dataset
     predicter.predict_dir(
