@@ -15,14 +15,14 @@ from pathlib import Path
 import pprint
 import smtplib
 import traceback
-from typing import List
+from typing import Any, List, Optional, Tuple
+
+import pandas as pd
 
 # Because orthoseg isn't installed as package + it is higher in dir hierarchy, add root to sys.path
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent / '..'))
-
-import pandas as pd
-
+from orthoseg.helpers import log_helper
 from orthoseg.util import git_downloader
 
 def main():
@@ -66,74 +66,13 @@ def run_tasks(
         stop_on_error: bool = False):
 
     ##### Init #####
-    # Find the config filepaths to use
-    if config_filepaths is None:
-        config_filepaths = []
-        script_dir = Path(__file__).resolve().parent
-        config_defaults_path = script_dir / 'project_defaults.ini'
-        if config_defaults_path.exists():
-            config_filepaths.append(config_defaults_path)
-        else:
-            print(f"Warning: default project settings not found: {config_defaults_path}")
-        config_defaults_overrule_path = tasks_path.parent / 'project_defaults_overrule.ini'
-        if config_defaults_overrule_path.exists():
-            config_filepaths.append(config_defaults_overrule_path)
-        else:
-            print(f"Warning: default overrule project settings not found: {config_defaults_overrule_path}")
-
-    # Read the configuration
+    # Init config, logging,...
     global runner_config
-    runner_config = configparser.ConfigParser(
-            interpolation=configparser.ExtendedInterpolation(),
-            converters={'list': lambda x: [i.strip() for i in x.split(',')],
-                        'listint': lambda x: [int(i.strip()) for i in x.split(',')],
-                        'dict': lambda x: json.loads(x),
-                        'path': lambda x: None if x is None else Path(x)},
-            allow_no_value=True)
-    runner_config.read(config_filepaths)
+    runner_config, log_dir = init_orthoseg(tasks_path, config_filepaths)
+    nb_logfiles_tokeep = runner_config['logging'].getint('nb_logfiles_tokeep')
+    if log_dir is not None:
+        log_helper.clean_log_dir(log_dir, nb_logfiles_tokeep)
 
-    # Init logging
-    logconfig_dict = runner_config['logging'].getdict('logconfig')
-
-    # If there are file handlers, replace possible placeholders + make sure log dir exists
-    for handler in logconfig_dict['handlers']:
-        if "filename" in logconfig_dict['handlers'][handler]:
-            # Format the filename
-            log_path = Path(logconfig_dict['handlers'][handler]['filename'].format(
-                    iso_datetime=f"{datetime.datetime.now():%Y-%m-%d_%H-%M-%S}"))
-
-            # If the log_path is a relative path, resolve it towards the location of
-            # the tasks file.
-            if not log_path.is_absolute():
-                log_path = tasks_path.parent / log_path
-                print(f"Parameter logconfig.handlers.{handler}.filename was relative, so is now resolved to {log_path}")
-
-            logconfig_dict['handlers'][handler]['filename'] = log_path.as_posix()
-
-            # Also make sure the log dir exists
-            log_path.parent.mkdir(parents=True, exist_ok=True)
-
-    # Now load the log config
-    logging.config.dictConfig(logconfig_dict)
-    global logger
-    logger = logging.getLogger()
-    #logger.info(f"Config files used for orthoseg task loop: {config_filepaths}")
-        
-    # Make sure GDAL is properly set up
-    if os.environ.get('GDAL_DATA') is None:
-        logger.info(f"environment: {pprint.pformat(os.environ)}")
-        #os.environ['GDAL_DATA'] = r"C:\Tools\miniconda3\envs\orthoseg\Library\share\gdal"
-        os.environ['GDAL_DATA'] = r"C:\Users\pierog\Miniconda3\envs\orthosegdev\Library\share\gdal"
-        logger.warn(f"Environment variable GDAL_DATA was not set, so set to {os.environ['GDAL_DATA']}")
-    if os.environ.get('PROJ_LIB') is None:
-        #os.environ['PROJ_LIB'] = r"C:\Tools\miniconda3\envs\orthoseg\Library\share\proj"
-        os.environ['PROJ_LIB'] = r"C:\Users\pierog\Miniconda3\envs\orthosegdev\Library\share\proj"
-        logger.warn(f"Environment variable PROJ_LIB was not set, so set to {os.environ['PROJ_LIB']}")
-    
-    proj_db_path = Path(os.environ['PROJ_LIB']) / 'proj.db'
-    if not proj_db_path.exists():
-        raise Exception(f"There must be something wrong with the GDAL installation. proj.db file not found in {os.environ['PROJ_LIB']}")
-        
     # Read the tasks that need to be ran in the run_tasks file
     tasks_df = get_tasks(tasks_path)
 
@@ -192,7 +131,99 @@ def run_tasks(
             sendmail(subject=message, body=f"Exception: {ex}\n\n {traceback.format_exc()}")
             if stop_on_error:
                 raise Exception(message) from ex
+    
+def init_orthoseg(
+        tasks_path: Path,
+        config_filepaths: List[Path] = None) -> Tuple[configparser.ConfigParser, Optional[Path]]:
+    """
+    Load orthoseg config and init logging. 
 
+    Args:
+        tasks_path (Path): the path to the tasks file.
+        config_filepaths (List[Path], optional): list of config files to load. 
+            If not provided, the default config files will be loaded. 
+            Defaults to None.
+
+    Raises:
+        Exception: [description]
+        Exception: [description]
+        Exception: [description]
+
+    Returns:
+        [type]: [description]
+    """
+
+    # Find the config filepaths to use
+    if config_filepaths is None:
+        config_filepaths = []
+        script_dir = Path(__file__).resolve().parent
+        config_defaults_path = script_dir / 'project_defaults.ini'
+        if config_defaults_path.exists():
+            config_filepaths.append(config_defaults_path)
+        else:
+            print(f"Warning: default project settings not found: {config_defaults_path}")
+        config_defaults_overrule_path = tasks_path.parent / 'project_defaults_overrule.ini'
+        if config_defaults_overrule_path.exists():
+            config_filepaths.append(config_defaults_overrule_path)
+        else:
+            print(f"Warning: default overrule project settings not found: {config_defaults_overrule_path}")
+
+    # Read the configuration
+    runner_config = configparser.ConfigParser(
+            interpolation=configparser.ExtendedInterpolation(),
+            converters={'list': lambda x: [i.strip() for i in x.split(',')],
+                        'listint': lambda x: [int(i.strip()) for i in x.split(',')],
+                        'dict': lambda x: json.loads(x),
+                       'path': lambda x: None if x is None else Path(x)},
+            allow_no_value=True)
+    runner_config.read(config_filepaths)
+
+    # Init logging
+    logconfig_dict = runner_config['logging'].getdict('logconfig')
+
+    # If there are file handlers, replace possible placeholders + make sure log dir exists
+    log_dir = None
+    for handler in logconfig_dict['handlers']:
+        if "filename" in logconfig_dict['handlers'][handler]:
+            # Format the filename
+            log_path = Path(logconfig_dict['handlers'][handler]['filename'].format(
+                    iso_datetime=f"{datetime.datetime.now():%Y-%m-%d_%H-%M-%S}"))
+
+            # If the log_path is a relative path, resolve it towards the location of
+            # the tasks file.
+            if not log_path.is_absolute():
+                log_path = tasks_path.parent / log_path
+                print(f"Parameter logconfig.handlers.{handler}.filename was relative, so is now resolved to {log_path}")
+
+            logconfig_dict['handlers'][handler]['filename'] = log_path.as_posix()
+
+            # Also make sure the log dir exists
+            log_dir = log_path.parent
+            log_dir.mkdir(parents=True, exist_ok=True)
+
+    # Now load the log config
+    logging.config.dictConfig(logconfig_dict)
+    global logger
+    logger = logging.getLogger()
+    #logger.info(f"Config files used for orthoseg task loop: {config_filepaths}")
+        
+    # Make sure GDAL is properly set up
+    if os.environ.get('GDAL_DATA') is None:
+        logger.info(f"environment: {pprint.pformat(os.environ)}")
+        #os.environ['GDAL_DATA'] = r"C:\Tools\miniconda3\envs\orthoseg\Library\share\gdal"
+        os.environ['GDAL_DATA'] = r"C:\Users\pierog\Miniconda3\envs\orthosegdev\Library\share\gdal"
+        logger.warn(f"Environment variable GDAL_DATA was not set, so set to {os.environ['GDAL_DATA']}")
+    if os.environ.get('PROJ_LIB') is None:
+        #os.environ['PROJ_LIB'] = r"C:\Tools\miniconda3\envs\orthoseg\Library\share\proj"
+        os.environ['PROJ_LIB'] = r"C:\Users\pierog\Miniconda3\envs\orthosegdev\Library\share\proj"
+        logger.warn(f"Environment variable PROJ_LIB was not set, so set to {os.environ['PROJ_LIB']}")
+    
+    proj_db_path = Path(os.environ['PROJ_LIB']) / 'proj.db'
+    if not proj_db_path.exists():
+        raise Exception(f"There must be something wrong with the GDAL installation. proj.db file not found in {os.environ['PROJ_LIB']}")
+
+    return (runner_config, log_dir)
+        
 def get_tasks(filepath: Path):
     
     # Read

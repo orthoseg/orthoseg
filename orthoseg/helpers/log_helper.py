@@ -13,8 +13,9 @@ from pathlib import Path
 # Init logging
 #-------------------------------------------------------------
 
-def main_log_init(log_dir: Path,
-                  log_basefilename: str):
+def main_log_init(
+        log_dir: Path,
+        log_basefilename: str):
 
     # Check input parameters
     if not log_dir:
@@ -53,6 +54,29 @@ def main_log_init(log_dir: Path,
     logger.addHandler(fh)
     
     return logger
+
+def clean_log_dir(
+        log_dir: Path,
+        nb_logfiles_tokeep: int,
+        pattern: str = '*.*'):
+    """
+    Clean a log dir.
+
+    Args:
+        log_dir (Path): dir with log files to clean.
+        nb_logfiles_tokeep (int): the number of log files to keep. 
+        pattern (str, optional): pattern of the file names of the log files. 
+            Defaults to '*.*'.
+    """
+    # Check input params
+    if log_dir is None or log_dir.exists() is False:
+        return
+    
+    # List log files and remove the ones that are too much 
+    files = sorted(list(log_dir.glob(pattern)), reverse=True)
+    if len(files) > nb_logfiles_tokeep:
+        for file_index in range(nb_logfiles_tokeep, len(files)):
+            files[file_index].unlink()
 
 # If the script is ran directly...
 if __name__ == '__main__':

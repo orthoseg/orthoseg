@@ -6,7 +6,6 @@ Module with specific helper functions to manage the configuration of orthoseg.
 import configparser
 import json
 import logging
-from orthoseg.lib import postprocess_predictions
 from pathlib import Path
 import pprint
 from typing import List
@@ -80,6 +79,8 @@ def read_project_config(
     dirs = config['dirs']
     global files
     files = config['files']
+    global logging
+    logging = config['logging']
 
     # Some checks to make sure the config is loaded properly
     segment_subject = general.get('segment_subject')
@@ -164,7 +165,7 @@ def pformat_config():
     message = f"Config files used: {pprint.pformat(config_filepaths_used)} \n"
     message += f"Layer config file used: {layer_config_filepath_used} \n"
     message += "Config info listing:\n"
-    message += pprint.pformat({section: dict(config[section]) for section in config.sections()})
+    message += pprint.pformat(as_dict())
     message += "Layer config info listing:\n"
     message += pprint.pformat(image_layers)
     return message
