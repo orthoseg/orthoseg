@@ -415,7 +415,7 @@ def get_best_model(
     else:
         max_acc_combined = -1
         max_acc_combined_idx = -1
-        for model_info_idx, model_info in model_info_list:
+        for model_info_idx, model_info in enumerate(model_info_list):
             if model_info['acc_combined'] > max_acc_combined:
                 max_acc_combined = model_info['acc_combined']
                 max_acc_combined_idx = model_info_idx

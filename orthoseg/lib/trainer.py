@@ -122,9 +122,9 @@ def train(
         train_log_csv = pd.read_csv(csv_log_filepath, sep=';')
         logger.debug(f"train_log csv contents:\n{train_log_csv}")
         start_epoch = train_log_csv['epoch'].max()
-        hyperparams.train.optimizer_params['learning_rate'] = train_log_csv['lr'].to_numeric().min()
+        hyperparams.train.optimizer_params['learning_rate'] = float(pd.to_numeric(train_log_csv['lr'], downcast='float').min())
     logger.info(f"start_epoch: {start_epoch}, learning_rate: {hyperparams.train.optimizer_params['learning_rate']}")
-       
+    
     # If no existing model provided, create it from scratch
     if not model_preload_filepath:
         # Get the model we want to use
