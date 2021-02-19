@@ -65,7 +65,7 @@ def load_images(
     # Main initialisation of the logging
     log_helper.clean_log_dir(
             log_dir=conf.dirs.getpath('log_dir'),
-            nb_logfiles_tokeep=conf.logging.getint('logfiles_tokeep'))     
+            nb_logfiles_tokeep=conf.logging.getint('nb_logfiles_tokeep'))     
     global logger
     logger = log_helper.main_log_init(conf.dirs.getpath('log_dir'), __name__)
     logger.debug(f"Config used: \n{conf.pformat_config()}")
