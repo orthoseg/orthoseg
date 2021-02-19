@@ -128,12 +128,12 @@ then
   pip install orthoseg
 else
   echo
-  echo "Prepare for development: install dev tools"
+  echo "Prepare for development: conda install dev tools"
   echo
   conda install -y pylint pytest rope
  
   echo
-  echo "Prepare for development: install dependencies that need pip"
+  echo "Prepare for development: pip install dependencies that need pip"
   echo
   # Reasons for the version specifications...
   # tensorflow: tested till version 2.4
