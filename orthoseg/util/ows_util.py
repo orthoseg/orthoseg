@@ -117,20 +117,14 @@ def get_images_for_grid(
                     xmin=image_gen_bounds[0], ymin=image_gen_bounds[1], 
                     xmax=image_gen_bounds[2], ymax=image_gen_bounds[3],
                     cell_width=4000, cell_height=4000)
-            """
-            grid = vector_util.create_grid3(
-                    total_boundsxmin=image_gen_bounds,
-                    width=4000, height=4000)
-            """
 
             # Create intersection layer between grid and roi
             #roi_gdf = roi_gdf.geometry.intersection(grid.geometry)
             roi_gdf = gpd.overlay(grid, roi_gdf, how='intersection')
             
             # Explode possible multipolygons to polygons
-            roi_gdf = roi_gdf.reset_index(drop=True).explode()
-            
-            #roi_gdf.to_file("X:\\Monitoring\\OrthoSeg\\roi_gridded.shp")
+            roi_gdf = roi_gdf.reset_index(drop=True).explode().reset_index(drop=True)
+            #roi_gdf.to_file("X:\\Monitoring\\OrthoSeg\\roi_gridded.gpkg")
             
     # Check if the image_gen_bounds are compatible with the grid...
     if (image_gen_bounds[0]-grid_xmin)%crs_width != 0:
