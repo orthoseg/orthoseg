@@ -8,6 +8,7 @@ tmp/
 *.pyc
 *.log
 */__pycache__/
+.coverage*
 
 # Exclude dirs related to the packaging for pypi
 build/
