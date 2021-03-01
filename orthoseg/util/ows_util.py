@@ -89,12 +89,14 @@ def get_images_for_grid(
 
     crs_width = math.fabs(image_pixel_width*image_crs_pixel_x_size)   # tile width in units of crs => 500 m
     crs_height = math.fabs(image_pixel_height*image_crs_pixel_y_size) # tile height in units of crs => 500 m
-    
+    if cron_schedule is not None:
+        logger.info(f"A cron_schedule was specified, so the download will only proceed in the specified time range: {cron_schedule}")
+
     # Read the region of interest file if provided
     roi_gdf = None
     if image_gen_roi_filepath is not None:
-        # Open vector layer
-        logger.info(f"Open vector file {image_gen_roi_filepath}")
+        # Read roi
+        logger.info(f"Read region of interest from {image_gen_roi_filepath}")
         roi_gdf = gpd.read_file(str(image_gen_roi_filepath))
                 
         # If the generate_window wasn't specified, calculate the bounds
@@ -108,7 +110,6 @@ def get_images_for_grid(
             logger.debug(f"roi_bounds: {roi_bounds}, image_gen_bounds: {image_gen_bounds}")
         
         # If there are large objects in the roi, segment them to speed up
-        # TODO: implement usefull check to see if segmenting is usefull...
         # TODO: support creating a grid in latlon????
         if crs.is_projected:
             
