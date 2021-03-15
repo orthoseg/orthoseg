@@ -114,7 +114,10 @@ def vectorize_masks(input_image_dir: Path,
     
     # Cleanup data (dissolve + simplify)
     labels_gdf = labels_gdf.dissolve(by=['descr', 'burninmask', 'usebounds'])
-    labels_gdf = labels_gdf.reset_index().explode()
+    labels_gdf.reset_index(inplace=True)
+    # assert to evade pyLance warning
+    assert isinstance(labels_gdf, gpd.GeoDataFrame)
+    labels_gdf = labels_gdf.explode()
     labels_gdf.geometry = labels_gdf.geometry.simplify(0.5)
     #labels_gdf['geometry'] = labels_gdf.geometry.apply(lambda geom: vh.simplify_visval(geom, 2))
         

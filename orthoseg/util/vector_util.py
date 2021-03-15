@@ -55,7 +55,8 @@ def calc_onborder(
             
             geoms_gdf.loc[i, onborder_column_name] = onborder
 
-    return geoms_gdf.reset_index(drop=True)
+    geoms_gdf.reset_index(drop=True, inplace=True)
+    return geoms_gdf
 
 def create_grid(xmin: float,
                 ymin: float,
