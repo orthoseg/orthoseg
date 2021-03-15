@@ -476,7 +476,7 @@ def getmap_to_file(
                 elif len(layersource.bands) == 1 and layersource.bands[0] == -1:
                     # If 1 band, -1 specified: dirty hack to use greyscale version of rgb image
                     image_data_tmp = image_ds.read()
-                    image_data_grey = np.mean(image_data_tmp, dtype=image_data_tmp.dtype, axis=0)
+                    image_data_grey = np.mean(image_data_tmp, axis=0).astype(image_data_tmp.dtype)
                     new_shape = (1, image_data_grey.shape[0], image_data_grey.shape[1])
                     image_data_grey = np.reshape(image_data_grey, new_shape)
                     if image_data_output is None:
@@ -487,7 +487,8 @@ def getmap_to_file(
                     # If bands specified, only read the bands to keep...
                     for band in layersource.bands:
                         # Read the band needed + reshape
-                        image_data_curr = image_ds.read(band)
+                        # Remark: rasterio uses 1-based indexing instead of 0-based!!! 
+                        image_data_curr = image_ds.read(band+1)
                         new_shape = (1, image_data_curr.shape[0], image_data_curr.shape[1])
                         image_data_curr = np.reshape(image_data_curr, new_shape)
 

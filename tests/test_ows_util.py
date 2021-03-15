@@ -59,6 +59,39 @@ def test_getmap_to_file(tmpdir):
 
     assert image_filepath.exists() is True
 
+    ### Test creating greyscale image ### 
+    wms_version = '1.3.0'
+    auth = owslib.util.Authentication()
+    # WMS server for skyview and hillshade
+    wms_server_url_dhm = 'https://geoservices.informatievlaanderen.be/raadpleegdiensten/DHMV/wms?'
+    wms_service_dhm = owslib.wms.WebMapService(wms_server_url_dhm, version=wms_version, auth=auth)
+    # WMS server for rgb images taken together with dhm2
+    wms_server_url_dhm_ortho = 'https://geoservices.informatievlaanderen.be/raadpleegdiensten/ogw/wms?'
+    wms_service_dhm_ortho = owslib.wms.WebMapService(wms_server_url_dhm_ortho, version=wms_version, auth=auth)
+
+    # Three different layers, just use one band from each of them
+    layersources = []
+    layersources.append(
+            ows_util.LayerSource(
+                    wms_service=wms_service_dhm_ortho,
+                    layernames=['OGWRGB13_15VL'],
+                    bands=[-1]))
+
+    # Now get the image...
+    image_filepath = ows_util.getmap_to_file(
+            layersources=layersources,
+            output_dir=tmpdir,
+            crs=projection,
+            bbox=bbox,
+            size=(image_pixel_width, image_pixel_height),
+            image_format=ows_util.FORMAT_PNG,
+            #image_format_save=ows_util.FORMAT_TIFF,
+            image_pixels_ignore_border=0,
+            transparent=False,
+            layername_in_filename=True)
+
+    assert image_filepath.exists() is True
+
     ### Test combining bands of 3 different WMS layers ### 
     wms_version = '1.3.0'
     auth = owslib.util.Authentication()
@@ -75,12 +108,12 @@ def test_getmap_to_file(tmpdir):
             ows_util.LayerSource(
                     wms_service=wms_service_dhm,
                     layernames=['DHMV_II_SVF_25cm'],
-                    bands=[1]))
+                    bands=[0]))
     layersources.append(
             ows_util.LayerSource(
                     wms_service=wms_service_dhm,
                     layernames=['DHMV_II_HILL_25cm'],
-                    bands=[1]))
+                    bands=[0]))
     layersources.append(
             ows_util.LayerSource(
                     wms_service=wms_service_dhm_ortho,
