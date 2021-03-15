@@ -14,6 +14,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 def get_testdata_dir() -> Path:
     return Path(__file__).resolve().parent / 'data'
 
+def get_testprojects_dir() -> Path:
+    return Path(__file__).resolve().parent / 'test_projects'
+
 def create_tempdir(
         base_dirname: str,
         parent_dir: Path = None) -> Path:

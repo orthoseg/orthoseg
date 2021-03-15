@@ -20,6 +20,11 @@ from orthoseg.lib import postprocess_predictions
 logger = logging.getLogger(__name__)
 #logger.setLevel(logging.DEBUG)
 
+# Define the chars that cannot be used in codes that are use in filenames.
+# Remark: '_' cannot be used because '_' is used as devider to parse filenames, and if it is 
+# used in codes as well the parsing becomes a lot more difficult. 
+illegal_chars_in_codes = ['_', ',', '.', '?', ':']
+
 #-------------------------------------------------------------
 # The real work
 #-------------------------------------------------------------
@@ -28,11 +33,6 @@ def read_project_config(
         config_filepaths: List[Path],
         layer_config_filepath: Path = None):
     
-    # Define the chars that cannot be used in codes that are use in filenames.
-    # Remark: '_' cannot be used because '_' is used as devider to parse filenames, and if it is 
-    # used in codes as well the parsing becomes a lot more difficult. 
-    illegal_chars_in_codes = ['_', ',', '.', '?', ':']
-
     # Log config filepaths that don't exist...
     for config_filepath in config_filepaths:
         if not config_filepath.exists():
@@ -108,15 +108,22 @@ def read_project_config(
         projects_dir_absolute = (config_filepaths[-1].parent / projects_dir).resolve()
         logger.info(f"Parameter dirs.projects_dir was relative, so is now resolved to {projects_dir_absolute}")
         dirs['projects_dir'] = projects_dir_absolute.as_posix()
-        
+
     # Read the layer config
     if layer_config_filepath is None:
         layer_config_filepath = files.getpath('image_layers_config_filepath')
+    global layer_config_filepath_used
+    layer_config_filepath_used = layer_config_filepath
 
+    global image_layers
+    image_layers = read_layer_config(layer_config_filepath=layer_config_filepath)
+
+def read_layer_config(layer_config_filepath: Path) -> dict:
+    # Init
     if not layer_config_filepath.exists():
         raise Exception(f"Layer config file not found: {layer_config_filepath}")
 
-    global layer_config
+    # Read config file...
     layer_config = configparser.ConfigParser(
             interpolation=configparser.ExtendedInterpolation(),
             converters={'list': lambda x: [i.strip() for i in x.split(',')],
@@ -124,10 +131,8 @@ def read_project_config(
                         'dict': lambda x: None if x is None else json.loads(x),
                         'path': lambda x: Path(x)})
     layer_config.read(layer_config_filepath)
-    global layer_config_filepath_used
-    layer_config_filepath_used = layer_config_filepath
-
-    global image_layers
+    
+    # Prepare data
     image_layers = {}
     for image_layer in layer_config.sections():
         # First check if the image_layer code doesn't contain 'illegal' characters
@@ -188,7 +193,8 @@ def read_project_config(
         image_pixels_ignore_border = layer_config[image_layer].getint(
                 'image_pixels_ignore_border', fallback=0)
         image_layers[image_layer]['image_pixels_ignore_border'] = image_pixels_ignore_border                                
-            
+    return image_layers
+
 def pformat_config():
     message = f"Config files used: {pprint.pformat(config_filepaths_used)} \n"
     message += f"Layer config file used: {layer_config_filepath_used} \n"

@@ -170,28 +170,30 @@ def prepare_traindatasets(
     # Create list with only the input labels that need to be burned in the mask
     # TODO: think about a mechanism to ignore label_name's if specified...
     if labelpolygons_gdf is not None and labelname_column in labelpolygons_gdf.columns:
-        # If there is a column labelname_column (default='label_name'), filter 
-        # on the labelnames provided
-        labelnames_to_burn = []
-        for classname in classes:
-            # Labels with burn_value 0 don't need to be burned... 
-            if classes[classname]['burn_value'] != 0:
-                labelnames_to_burn.extend(classes[classname]['labelnames'])
-        labels_to_burn_gdf = (
-                labelpolygons_gdf.loc[labelpolygons_gdf[labelname_column].isin(labelnames_to_burn)]).copy()
-
-        # Now set the burn_value to be used per row
-        labels_to_burn_gdf['burn_value'] = 0
+        # If there is a column labelname_column (default='label_name'), use the 
+        # burn values specified in the configuration
+        labels_to_burn_gdf = labelpolygons_gdf
+        labels_to_burn_gdf['burn_value'] = None
         for classname in classes:
             labels_to_burn_gdf.loc[(labels_to_burn_gdf[labelname_column].isin(classes[classname]['labelnames'])),
                                    'burn_value'] = classes[classname]['burn_value']
-        if len(labelpolygons_gdf) != len(labels_to_burn_gdf):
-            logger.warn(f"Number of labels to burn changed from {len(labelpolygons_gdf)} to {len(labels_to_burn_gdf)} with filter on classes: {classes}")
+        
+        # If there are burn_values that are not filled out, log + stop!
+        invalid_labelnames_gdf = labels_to_burn_gdf.loc[labels_to_burn_gdf['burn_value'].isnull()]
+        if len(invalid_labelnames_gdf) > 0:
+            raise Exception(f"Unknown labelnames (not in config) were found in {len(invalid_labelnames_gdf)} rows, so stop: {invalid_labelnames_gdf[labelname_column].unique()}")
+        
+        # Filter away rows that are going to burn 0, as this is useless...
+        labels_to_burn_gdf = labels_to_burn_gdf.loc[labels_to_burn_gdf['burn_value'] != 0]
+
     elif len(classes) == 2:
+        # There is no column with label names, but there are only 2 classes (background + subsject), so no problem...
         logger.info(f'Column with label names ({labelname_column}) not found, so use all polygons')
         labels_to_burn_gdf = labelpolygons_gdf
         labels_to_burn_gdf.loc[:, 'burn_value'] = 1
+
     else:
+        # There is no column with label names, but more than two classes, so stop...
         raise Exception(f"Column {labelname_column} is mandatory in labeldata if multiple classes specified: {classes}")
 
     # Prepare the different traindata types
@@ -328,8 +330,7 @@ def prepare_traindatasets(
             # If everything went fine, rename output_imagedata_tmp_dir to the final output_imagedata_dir
             os.rename(output_imagedatatype_tmp_dir, output_imagedatatype_dir)
         except Exception as ex:
-            message = "Error preparing dataset!"
-            raise Exception(message) from ex
+            raise ex
 
     return (output_imagedata_dir, dataversion_new)
 

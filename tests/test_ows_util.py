@@ -15,9 +15,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from orthoseg.util import ows_util
 from tests import test_helper
 
-def get_testdata_dir() -> Path:
-    return Path(__file__).resolve().parent / 'data'
-
 def test_getmap_to_file(tmpdir):
     # Init some stuff 
     tmpdir = Path(tmpdir)
