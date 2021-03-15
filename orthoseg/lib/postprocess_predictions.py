@@ -619,13 +619,13 @@ def polygonize_pred(
                                 keep_points_on=border_lines))
                 
                 # Remove geom rows that became empty after simplify + explode
-                geoms_gdf = geoms_gdf[~geoms_gdf.is_empty] 
+                geoms_gdf = geoms_gdf[~geoms_gdf.geometry.is_empty] 
+                geoms_gdf = geoms_gdf[~geoms_gdf.geometry.isna()]  
                 if len(geoms_gdf) == 0:
                     return None
-                geoms_gdf = geoms_gdf[~geoms_gdf.isna()]  
-                if len(geoms_gdf) == 0:
-                    return None
-                geoms_gdf = gpd.GeoDataFrame(geoms_gdf.reset_index(drop=True), crs=geoms_gdf.crs).explode()
+                geoms_gdf.reset_index(drop=True, inplace=True)
+                geoms_gdf = geoms_gdf.explode()
+                geoms_gdf.reset_index(drop=True, inplace=True)
 
         # Now we can calculate the "onborder" property
         geoms_gdf = vector_util.calc_onborder(geoms_gdf, border_bounds)
