@@ -3,7 +3,6 @@
 Tests for functionalities in orthoseg.train.
 """
 
-import logging
 from pathlib import Path
 import shutil
 import sys
@@ -72,25 +71,17 @@ def test_train():
     tasks_path = get_test_projects_dir() / 'tasks_train.csv'
     orthoseg.run_tasks(tasks_path=tasks_path)
 
-    # Check if the training (image) data was created + cleanup
+    # Check if the training (image) data was created
     assert training_id_dir.exists() is True
-    shutil.rmtree(training_id_dir)
     assert training_imagedata_id_dir.exists() is True
-    shutil.rmtree(training_imagedata_id_dir)
-
-    # Check if the new model was created + cleanup
+    
+    # Check if the new model was created
     best_model = mh.get_best_model(
             model_dir=conf.dirs.getpath('model_dir'), 
             segment_subject=conf.general['segment_subject'])
     
     assert best_model['traindata_id'] == traindata_id_result
     assert best_model['epoch'] == 0
-    best_model_paths = best_model['filepath'].parent.glob(f"{best_model['basefilename']}_*")
-    for path in best_model_paths:
-        if path.is_dir():
-            shutil.rmtree(path)
-        else:
-            path.unlink()
 
 def test_predict():
     # Load project config to init some vars.
@@ -98,9 +89,15 @@ def test_predict():
     project_config_path = get_test_projects_dir() / 'footballfields' / 'footballfields_BEFL-2019.ini'
     config_filepaths = conf.search_projectconfig_files(project_config_path)
     conf.read_project_config(config_filepaths)
-    result_vector_dir = conf.dirs.getpath('output_vector_dir')
 
     # Cleanup result if it isn't empty yet
+    predict_image_output_basedir = conf.dirs.getpath('predict_image_output_basedir')
+    predict_image_output_dir = predict_image_output_basedir.parent / f"{predict_image_output_basedir.name}_footballfields_02_0"
+    if predict_image_output_dir.exists():
+        shutil.rmtree(predict_image_output_dir)
+        # Make sure it is deleted now!
+        assert predict_image_output_dir.exists() is False
+    result_vector_dir = conf.dirs.getpath('output_vector_dir')
     if result_vector_dir.exists():
         shutil.rmtree(result_vector_dir)
         # Make sure is is deleted now!
@@ -114,7 +111,7 @@ def test_predict():
     result_vector_path = result_vector_dir / "footballfields_01_242_BEFL-2019.gpkg"
     assert result_vector_path.exists() is True
     result_gdf = geofile.read_file(result_vector_path)
-    assert len(result_gdf) == 6
+    assert len(result_gdf) == 7
 
 def test_postprocess():
     # Load project config, to read destination dir's of load_images.
@@ -139,14 +136,14 @@ def test_postprocess():
     # Check results
     assert result_diss_path.exists() is True
     result_gdf = geofile.read_file(result_diss_path)
-    assert len(result_gdf) == 5
+    assert len(result_gdf) == 6
 
     assert result_simpl_path.exists() is True
     result_gdf = geofile.read_file(result_simpl_path)
-    assert len(result_gdf) == 5
+    assert len(result_gdf) == 6
 
 if __name__ == '__main__':
-    test_load_images()
-    test_train()
+    #test_load_images()
+    #test_train()
     test_predict()
     test_postprocess()

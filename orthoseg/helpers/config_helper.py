@@ -121,6 +121,7 @@ def read_project_config(
             interpolation=configparser.ExtendedInterpolation(),
             converters={'list': lambda x: [i.strip() for i in x.split(',')],
                         'listint': lambda x: [int(i.strip()) for i in x.split(',')],
+                        'dict': lambda x: None if x is None else json.loads(x),
                         'path': lambda x: Path(x)})
     layer_config.read(layer_config_filepath)
     global layer_config_filepath_used
@@ -129,24 +130,39 @@ def read_project_config(
     global image_layers
     image_layers = {}
     for image_layer in layer_config.sections():
-        # First check if the image_layer code doesn't exist 'illegal' characters
+        # First check if the image_layer code doesn't contain 'illegal' characters
         if any(illegal_char in image_layer for illegal_char in illegal_chars_in_codes):
             raise Exception(f"Section name [{image_layer}] in layer config should not contain any of the following characters: {illegal_chars_in_codes}, in {layer_config_filepath}")
 
+        # Init layer with all parameters in the section as dict
         image_layers[image_layer] = dict(layer_config[image_layer])
         
-        # The layer names and layer styles are lists
-        wms_layernames = layer_config[image_layer].getlist('wms_layernames')
-        image_layers[image_layer]['wms_layernames'] = wms_layernames
-        wms_layerstyles = layer_config[image_layer].getlist('wms_layerstyles')
-        image_layers[image_layer]['wms_layerstyles'] = wms_layerstyles
-
-        # Give default values to some other properties of a server
-        nb_concurrent_calls = layer_config[image_layer].getint('nb_concurrent_calls', fallback=6)
-        image_layers[image_layer]['nb_concurrent_calls'] = nb_concurrent_calls
-        random_sleep = layer_config[image_layer].getint('random_sleep', fallback=6)
-        image_layers[image_layer]['random_sleep'] = random_sleep
-
+        # If the layer source(s) are specified in a json parameter, parse it
+        if 'layersources' in image_layers[image_layer]:
+            image_layers[image_layer]['layersources'] = layer_config[image_layer].getdict('layersources')
+            
+            # Give default values to some optional properties of a server
+            for layersource in image_layers[image_layer]['layersources']:
+                if 'random_sleep' not in layersource:
+                    layersource['random_sleep'] = 0
+            
+        else:
+            # If not, the layersource should be specified in seperate parameters
+            layersource = {}
+            layersource['wms_server_url'] = layer_config[image_layer].get('wms_server_url')
+            layersource['wms_version'] = layer_config[image_layer].get('wms_version', fallback='1.3.0')
+            # The layer names and layer styles are lists
+            layersource['layernames'] = layer_config[image_layer].getlist('wms_layernames')
+            layersource['layerstyles'] = layer_config[image_layer].getlist('wms_layerstyles')
+            # Some more properties
+            layersource['bands'] = layer_config[image_layer].getlist('bands', fallback=None)
+            layersource['random_sleep'] = layer_config[image_layer].getint('random_sleep', fallback=0)
+            image_layers[image_layer]['layersources'] = [layersource]
+        
+        # Read nb_concurrent calls param
+        image_layers[image_layer]['nb_concurrent_calls'] = (
+                layer_config[image_layer].getint('nb_concurrent_calls', fallback=6))
+            
         # Check if a region of interest is specified as file or bbox
         roi_filepath = layer_config[image_layer].getpath('roi_filepath', fallback=None)
         image_layers[image_layer]['roi_filepath'] = roi_filepath

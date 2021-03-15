@@ -117,7 +117,7 @@ conda config --env --set channel_priority strict
 # cudnn: for tensorflow+GPU
 # numpy: for tensorflow: needs 1.19.5, otherwise replaced with pip version: gives issues in geofileops 
 # hdf5: for tensorflow: needs 1.10.5, otherwise ugly warnings and BOOM! 
-conda install -y python=3.8 owslib pillow "rasterio>=1.0,<1.3" "geopandas>=0.8,<0.9" pygeos pyproj cudatoolkit=11 cudnn "numpy>=1.19,<1.20" "hdf5<=1.10.5"
+conda install -y python=3.8 owslib pillow "rasterio>=1.0,<1.3" "geopandas>=0.8,<0.10" pygeos pyproj cudatoolkit=11 cudnn "numpy>=1.19,<1.20" "hdf5<=1.10.5"
 
 # For the following packages, no conda package is available or -for tensorflow- no recent version.
 if [[ ! $fordev =~ ^[Yy]$ ]]
@@ -138,7 +138,7 @@ else
   # Reasons for the version specifications...
   # tensorflow: tested till version 2.4
   # geofileops: simplify algorythms used supported from 2.0
-  pip install "segmentation-models>=1.0,<1.1" "geofileops>=0.2a2" "pycron" "tensorflow>=2.4,<=2.5"  
+  pip install "segmentation-models>=1.0,<1.1" "geofileops>=0.2.1a2" "pycron" "tensorflow>=2.4,<=2.5"  
 fi
 
 # Deactivate new env

@@ -107,12 +107,8 @@ def load_images(
 
     # Get the layer info
     predict_layer = conf.predict['image_layer']
-    wms_server_url = conf.image_layers[predict_layer]['wms_server_url']
-    wms_version = conf.image_layers[predict_layer]['wms_version']
-    wms_layernames = conf.image_layers[predict_layer]['wms_layernames']
-    wms_layerstyles = conf.image_layers[predict_layer]['wms_layerstyles']
+    layersources = conf.image_layers[predict_layer]['layersources']
     nb_concurrent_calls = conf.image_layers[predict_layer]['nb_concurrent_calls']
-    random_sleep = conf.image_layers[predict_layer]['random_sleep']
     crs = pyproj.CRS.from_user_input(conf.image_layers[predict_layer]['projection'])
     bbox = conf.image_layers[predict_layer]['bbox']
     grid_xmin = conf.image_layers[predict_layer]['grid_xmin']
@@ -122,10 +118,7 @@ def load_images(
 
     # Now we are ready to get the images...
     ows_util.get_images_for_grid(
-            wms_server_url=wms_server_url,
-            wms_version=wms_version,
-            wms_layernames=wms_layernames,
-            wms_layerstyles=wms_layerstyles,
+            layersources=layersources,
             crs=crs,
             output_image_dir=output_image_dir,
             image_gen_bounds=bbox,
@@ -138,7 +131,6 @@ def load_images(
             image_pixel_height=image_pixel_height,
             image_pixels_ignore_border=image_pixels_ignore_border,
             nb_concurrent_calls=nb_concurrent_calls,
-            random_sleep=random_sleep,
             cron_schedule=download_cron_schedule,
             image_format=image_format,
             pixels_overlap=image_pixels_overlap,

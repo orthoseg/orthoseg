@@ -12,6 +12,7 @@ from pathlib import Path
 import random
 import time
 from typing import List, Optional, Tuple, Union
+import numpy as np
 
 import owslib
 import owslib.wms
@@ -19,6 +20,7 @@ import owslib.util
 import pycron
 import pyproj
 import rasterio as rio
+from rasterio import plot as rio_plot
 from rasterio import profiles as rio_profiles
 from rasterio import transform as rio_transform
 from rasterio import windows as rio_windows
@@ -55,9 +57,7 @@ logger.setLevel(logging.DEBUG)
 #-------------------------------------------------------------
 
 def get_images_for_grid(
-        wms_server_url: str,
-        wms_version: str,
-        wms_layernames: List[str],
+        layersources: List[dict],
         crs: pyproj.CRS,
         output_image_dir: Path,
         image_gen_bounds: Tuple[float, float, float, float] = None,
@@ -76,7 +76,6 @@ def get_images_for_grid(
         image_format_save: str = None,
         tiff_compress: str = 'lzw',
         transparent: bool = False,
-        wms_layerstyles: List[str] = ['default'],
         pixels_overlap: int = 0,
         column_start: int = 0,
         nb_images_to_skip: int = None,
@@ -124,7 +123,11 @@ def get_images_for_grid(
             roi_gdf = gpd.overlay(grid, roi_gdf, how='intersection')
             
             # Explode possible multipolygons to polygons
-            roi_gdf = roi_gdf.reset_index(drop=True).explode().reset_index(drop=True)
+            roi_gdf.reset_index(drop=True, inplace=True)
+            # assert to evade pyLance warning
+            assert isinstance(roi_gdf, gpd.GeoDataFrame)
+            roi_gdf = roi_gdf.explode()
+            roi_gdf.reset_index(drop=True, inplace=True)
             #roi_gdf.to_file("X:\\Monitoring\\OrthoSeg\\roi_gridded.gpkg")
             
     # Check if the image_gen_bounds are compatible with the grid...
@@ -154,9 +157,20 @@ def get_images_for_grid(
     # Inits to start getting images 
     if not output_image_dir.exists():
         output_image_dir.mkdir(parents=True)
-    auth = owslib.util.Authentication()
-    wms = owslib.wms.WebMapService(wms_server_url, version=wms_version, auth=auth)
-
+    
+    layersources_prepared = []
+    for layersource in layersources:
+        wms_service = owslib.wms.WebMapService(
+                url=layersource['wms_server_url'], 
+                version=layersource['wms_version'])
+        layersources_prepared.append(
+                LayerSource(
+                        wms_service=wms_service,
+                        layernames=layersource['layernames'],
+                        layerstyles=layersource['layerstyles'],
+                        bands=layersource['bands'],
+                        random_sleep=layersource['random_sleep']))
+                                
     with futures.ThreadPoolExecutor(nb_concurrent_calls) as pool:
 
         # Loop through all columns and get the images...
@@ -272,8 +286,7 @@ def get_images_for_grid(
                     # Exec in parallel 
                     read_results = pool.map(
                             getmap_to_file,        # Function 
-                            it.repeat(wms),
-                            it.repeat(wms_layernames),
+                            it.repeat(layersources_prepared),
                             output_dir_list,
                             it.repeat(crs),
                             bbox_list,
@@ -283,8 +296,6 @@ def get_images_for_grid(
                             output_filename_list,
                             it.repeat(transparent),
                             it.repeat(tiff_compress),
-                            it.repeat(wms_layerstyles),
-                            it.repeat(random_sleep),
                             it.repeat(image_pixels_ignore_border),
                             it.repeat(force))
                             
@@ -313,12 +324,24 @@ def get_images_for_grid(
 
                     if max_nb_images > -1 and nb_downloaded >= max_nb_images:
                         return            
-                    
+
+class LayerSource:
+    def __init__(self, 
+            wms_service: Union[owslib.wms.wms111.WebMapService_1_1_1, owslib.wms.wms130.WebMapService_1_3_0],
+            layernames: List[str],
+            layerstyles: List[str] = None,
+            bands: List[int] = None,
+            random_sleep: int = 0):
+        self.wms_service = wms_service
+        self.layernames = layernames
+        self.layerstyles = layerstyles
+        self.bands = bands
+        self.random_sleep = random_sleep
+
 def getmap_to_file(
-        wms: owslib.wms.WebMapService,
-        layers: List[str],
+        layersources: List[LayerSource],
         output_dir: Path,
-        crs: pyproj.CRS,
+        crs: Union[str, pyproj.CRS],
         bbox,
         size,
         image_format: str = FORMAT_GEOTIFF,
@@ -326,8 +349,6 @@ def getmap_to_file(
         output_filename: str = None,
         transparent: bool = False,
         tiff_compress: str = 'lzw',
-        styles: List[str] = ['default'],
-        random_sleep: float = 0.0,
         image_pixels_ignore_border: int = 0,
         force: bool = False,
         layername_in_filename: bool = False) -> Optional[Path]:
@@ -342,11 +363,20 @@ def getmap_to_file(
     if image_format_save is None:
         image_format_save = image_format
 
+    # If crs is specified as str, convert to CRS
+    if isinstance(crs, str):
+        crs = pyproj.CRS(crs)
+
     # If there isn't a filename supplied, create one...
     if output_filename is None:
         layername = None
         if layername_in_filename:
-            layername = '_'.join(layers)
+            for layersource in layersources:
+                if layername is None:
+                    layername = '_'.join(layersource.layernames)
+                else:
+                    layername += f"_{'_'.join(layersource.layernames)}"
+
         output_filename = create_filename(
                 crs=crs, 
                 bbox=bbox, size=size, 
@@ -357,74 +387,143 @@ def getmap_to_file(
     output_filepath = output_dir / output_filename
 
     # If force is false and file exists already, stop...
-    if force == False and output_filepath.exists() and output_filepath.stat().st_size > 0:
-        logger.debug(f"File already exists, skip: {output_filepath}")
-        return None
+    if force is False and output_filepath.exists(): 
+        if output_filepath.stat().st_size > 0:
+            logger.debug(f"File already exists, skip: {output_filepath}")
+            return None
+        else:
+            output_filepath.unlink()
 
     logger.debug(f"Get image to {output_filepath}")
 
-    ##### Get image #####
-    # Retry 10 times...
-    nb_retries = 0
-    time_sleep = 0
-    while True:
-        try:
-            logger.debug(f"Start call GetMap for bbox {bbox}")
-
-            # Some hacks for special cases...
-            bbox_for_getmap = bbox
-            size_for_getmap = size
-            # Dirty hack to ask a bigger picture, and then remove the border again!
-            if image_pixels_ignore_border > 0:
-                x_pixsize = (bbox[2]-bbox[0])/size[0]
-                y_pixsize = (bbox[3]-bbox[1])/size[1]
-                bbox_for_getmap = (bbox[0] - x_pixsize*image_pixels_ignore_border,
-                                   bbox[1] - y_pixsize*image_pixels_ignore_border,
-                                   bbox[2] + x_pixsize*image_pixels_ignore_border,
-                                   bbox[3] + y_pixsize*image_pixels_ignore_border)
-                size_for_getmap = (size[0] + 2*image_pixels_ignore_border,
-                                   size[1] + 2*image_pixels_ignore_border)
-            # Dirty hack to support y,x cordinate system
-            if crs.to_epsg() == 3059:
-                bbox_for_getmap = (bbox_for_getmap[1], bbox_for_getmap[0], 
-                                   bbox_for_getmap[3], bbox_for_getmap[2])
-
-            response = wms.getmap(
-                    layers=layers,
-                    styles=styles,
-                    srs=f"epsg:{crs.to_epsg()}",
-                    bbox=bbox_for_getmap,
-                    size=size_for_getmap,
-                    format=image_format,
-                    transparent=transparent)
-            logger.debug(f"Finished doing request {response.geturl()}")
-            
-            # If a random sleep was specified... apply it
-            if random_sleep > 0:
-                time.sleep(random.uniform(0, random_sleep))
-            
-            # Image was retrieved... so stop loop
-            break
-        except owslib.util.ServiceException as ex:
-            raise Exception(f"WMS Service gave an exception: {ex}") from ex
-        except Exception as ex:
-            # Retry 10 times... and increase sleep time every time
-            if nb_retries < 10:
-                nb_retries += 1
-                time_sleep += 5                
-                time.sleep(time_sleep)
-                continue
-            else:
-                message = f"Retried 10 times and didn't work, with layers: {layers}, styles: {styles}"
-                logger.exception(message)
-                raise Exception(message) from ex
-
-    ##### Save image to file #####
-    # Write image to file...
     if not output_dir.exists():
         output_dir.mkdir()
-    with output_filepath.open('wb') as image_file:
-        image_file.write(response.read())
+
+    ##### Get image(s), read the band to keep and save #####
+    image_data_output = None
+    image_profile_output = None
+    response = None
+    for layersource in layersources:
+        # Get image from server, and retry up to 10 times...
+        nb_retries = 0
+        time_sleep = 0
+        image_retrieved = False
+        while image_retrieved is False:
+            try:
+                logger.debug(f"Start call GetMap for bbox {bbox}")
+
+                # Some hacks for special cases...
+                bbox_for_getmap = bbox
+                size_for_getmap = size
+                # Dirty hack to ask a bigger picture, and then remove the border again!
+                if image_pixels_ignore_border > 0:
+                    x_pixsize = (bbox[2]-bbox[0])/size[0]
+                    y_pixsize = (bbox[3]-bbox[1])/size[1]
+                    bbox_for_getmap = (bbox[0] - x_pixsize*image_pixels_ignore_border,
+                                    bbox[1] - y_pixsize*image_pixels_ignore_border,
+                                    bbox[2] + x_pixsize*image_pixels_ignore_border,
+                                    bbox[3] + y_pixsize*image_pixels_ignore_border)
+                    size_for_getmap = (size[0] + 2*image_pixels_ignore_border,
+                                    size[1] + 2*image_pixels_ignore_border)
+                # Dirty hack to support y,x cordinate system
+                if crs.to_epsg() == 3059:
+                    bbox_for_getmap = (bbox_for_getmap[1], bbox_for_getmap[0], 
+                                    bbox_for_getmap[3], bbox_for_getmap[2])
+
+                response = layersource.wms_service.getmap(
+                        layers=layersource.layernames,
+                        styles=layersource.layerstyles,
+                        srs=f"epsg:{crs.to_epsg()}",
+                        bbox=bbox_for_getmap,
+                        size=size_for_getmap,
+                        format=image_format,
+                        transparent=transparent)
+                logger.debug(f"Finished doing request {response.geturl()}")
+                
+                # If a random sleep was specified... apply it
+                if layersource.random_sleep > 0:
+                    time.sleep(random.uniform(0, layersource.random_sleep))
+                
+                # Image was retrieved... so stop loop
+                image_retrieved = True
+            except owslib.util.ServiceException as ex:
+                raise Exception(f"WMS Service gave an exception: {ex}") from ex
+            except Exception as ex:
+                # Retry 10 times... and increase sleep time every time
+                if nb_retries < 10:
+                    nb_retries += 1
+                    time_sleep += 5                
+                    time.sleep(time_sleep)
+                    continue
+                else:
+                    message = f"Retried 10 times and didn't work, with layers: {layersource.layernames}, styles: {layersource.layernames}"
+                    logger.exception(message)
+                    raise Exception(message) from ex
+
+        # Write image to temp file...
+        # If all bands need to be kept, just save to output
+        with rio.MemoryFile(response.read()) as memfile:
+            with memfile.open() as image_ds:
+                image_profile_curr = image_ds.profile
+
+                # Read the data we need from the memoryfile 
+                if layersource.bands is None:
+                    # If no specific bands specified, read them all...
+                    if image_data_output is None:
+                        image_data_output = image_ds.read()
+                    else:
+                        image_data_output = np.append(image_data_output, image_ds.read(), axis=0)
+                elif len(layersource.bands) == 1 and layersource.bands[0] == -1:
+                    # If 1 band, -1 specified: dirty hack to use greyscale version of rgb image
+                    image_data_tmp = image_ds.read()
+                    image_data_grey = np.mean(image_data_tmp, dtype=image_data_tmp.dtype, axis=0)
+                    new_shape = (1, image_data_grey.shape[0], image_data_grey.shape[1])
+                    image_data_grey = np.reshape(image_data_grey, new_shape)
+                    if image_data_output is None:
+                        image_data_output = image_data_grey
+                    else:
+                        image_data_output = np.append(image_data_output, image_data_grey, axis=0)
+                else:
+                    # If bands specified, only read the bands to keep...
+                    for band in layersource.bands:
+                        # Read the band needed + reshape
+                        image_data_curr = image_ds.read(band)
+                        new_shape = (1, image_data_curr.shape[0], image_data_curr.shape[1])
+                        image_data_curr = np.reshape(image_data_curr, new_shape)
+
+                        # Set or append to image_data_output
+                        if image_data_output is None:
+                            image_data_output = image_data_curr
+                        else:
+                            image_data_output = np.append(image_data_output, image_data_curr, axis=0)
+
+                # Set output profile (number of bands will be corrected later on if needed) 
+                if image_profile_output is None:
+                    image_profile_output = image_profile_curr
+
+    # Write output file
+    # evade pyLance warning
+    assert image_profile_output is not None
+    assert isinstance(image_data_output, np.ndarray)
+
+    # Set the number of bands to write correctly...
+    if(image_format_save in [FORMAT_JPEG, FORMAT_PNG]
+       and image_data_output.shape[0] == 2):
+        zero_band = np.zeros(
+            shape=(1, image_data_output.shape[1], image_data_output.shape[2]), 
+            dtype=image_data_output.dtype)
+        image_data_output = np.append(image_data_output, zero_band, axis=0)
+
+    assert isinstance(image_data_output, np.ndarray)
+    image_profile_output.update(count=image_data_output.shape[0])
+    image_profile_output = get_cleaned_write_profile(image_profile_output)
+    with rio.open(str(output_filepath), 'w', **image_profile_output) as image_file:
+        image_file.write(image_data_output)
+    
+    # If an aux.xml file was written, remove it again...
+    output_aux_path = output_filepath.parent / f"{output_filepath.name}.aux.xml"
+    if output_aux_path.exists() is True:
+        output_aux_path.unlink()
 
     ##### Make the output image compliant with image_format_save #####
 
@@ -436,9 +535,9 @@ def getmap_to_file(
             image_transform_affine = image_ds.transform
 
             if image_pixels_ignore_border == 0:
-                image_data = image_ds.read()
+                image_data_output = image_ds.read()
             else:
-                image_data = image_ds.read(window=rio_windows(
+                image_data_output = image_ds.read(window=rio_windows(
                         image_pixels_ignore_border, image_pixels_ignore_border, 
                         size[0], size[1]))
 
@@ -465,9 +564,6 @@ def getmap_to_file(
             # Set the asked compression
             image_profile.update(compress=tiff_compress)
 
-            logger.debug(f"Map request bbox: {bbox_for_getmap}")
-            logger.debug(f"Map request size: {size_for_getmap}")
-
             # For some coordinate systems apparently the axis ordered is configured wrong in LibOWS :-(
             crs_pixel_x_size = (bbox[2]-bbox[0])/size[0]
             crs_pixel_y_size = (bbox[1]-bbox[3])/size[1]
@@ -482,15 +578,15 @@ def getmap_to_file(
 
             # Add transform and crs to the profile
             image_profile.update(
-                    transform = rio_transform.Affine(
-                                crs_pixel_x_size, 0, bbox[0],
-                                0 , crs_pixel_y_size, bbox[3]),
+                    transform=rio_transform.Affine(
+                            crs_pixel_x_size, 0, bbox[0],
+                            0 , crs_pixel_y_size, bbox[3]),
                     crs=crs)
 
             # Delete output file, and write again
             output_filepath.unlink()
             with rio.open(str(output_filepath), 'w', **image_profile) as image_file:
-                image_file.write(image_data)
+                image_file.write(image_data_output)
 
     else:
         # For file formats that doesn't support coordinates, we add a worldfile       
@@ -520,33 +616,33 @@ def getmap_to_file(
 
                 # If border needs to be ignored, only read data we are interested in
                 if image_pixels_ignore_border == 0:
-                    image_data = image_ds.read()
+                    image_data_output = image_ds.read()
                 else:
-                    image_data = image_ds.read(window=rio_windows(
+                    image_data_output = image_ds.read(window=rio_windows(
                             image_pixels_ignore_border, image_pixels_ignore_border, 
                             size[0], size[1]))
             
             # If same save format, reuse profile
             if image_format == image_format_save:
-                image_profile_output = image_profile_orig
+                image_profile_curr = image_profile_orig
                 if image_pixels_ignore_border != 0:
-                    image_profile_output.update(width=size[0], height=size[1])
+                    image_profile_curr.update(width=size[0], height=size[1])
             else:
                 if image_format_save == FORMAT_TIFF:
                     driver = 'GTiff'
                     compress=tiff_compress
                 else:
                     raise Exception(f"Unsupported image_format_save: {image_format_save}")
-                image_profile_output = rio_profiles.Profile(
+                image_profile_curr = rio_profiles.Profile(
                         width=size[0], height=size[1], count=image_profile_orig['count'],
                         nodata=image_profile_orig['nodata'], dtype=image_profile_orig['dtype'],
                         compress=compress, driver=driver)
 
             # Delete output file, and write again
             output_filepath.unlink()
-            image_profile_output = get_cleaned_write_profile(image_profile_output)
-            with rio.open(str(output_filepath), 'w', **image_profile_output) as image_file:
-                image_file.write(image_data)               
+            image_profile_curr = get_cleaned_write_profile(image_profile_curr)
+            with rio.open(str(output_filepath), 'w', **image_profile_curr) as image_file:
+                image_file.write(image_data_output)               
 
             #raise Exception(f"Different save format not supported between {image_format} and {image_format_save}")
 

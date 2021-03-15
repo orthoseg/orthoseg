@@ -245,7 +245,7 @@ def prepare_traindatasets(
             created_images_gdf = gpd.GeoDataFrame()
             created_images_gdf['geometry'] = None
             start_time = datetime.datetime.now()
-            wms_servers = {}
+            wms_imagelayer_layersources = {}
             for i, label_tuple in enumerate(labels_to_use_for_bounds_gdf.itertuples()):
                 
                 # TODO: update the polygon if it doesn't match the size of the image...
@@ -265,17 +265,24 @@ def prepare_traindatasets(
                 image_layer = getattr(label_tuple, 'image_layer')
 
                 # If the wms to be used hasn't been initialised yet
-                if image_layer not in wms_servers:
-                    wms_servers[image_layer] = owslib.wms.WebMapService(
-                            url=image_layers[image_layer]['wms_server_url'], 
-                            version=image_layers[image_layer]['wms_version'])
+                if image_layer not in wms_imagelayer_layersources:
+                    wms_imagelayer_layersources[image_layer] = []
+                    for layersource in image_layers[image_layer]['layersources']:
+                        wms_service = owslib.wms.WebMapService(
+                                url=layersource['wms_server_url'], 
+                                version=layersource['wms_version'])
+                        wms_imagelayer_layersources[image_layer].append(
+                                ows_util.LayerSource(
+                                        wms_service=wms_service,
+                                        layernames=layersource['layernames'],
+                                        layerstyles=layersource['layerstyles'],
+                                        bands=layersource['bands'],
+                                        random_sleep=layersource['random_sleep']))
                                                 
                 # Now really get the image
                 logger.debug(f"Get image for coordinates {img_bbox.bounds}")
                 image_filepath = ows_util.getmap_to_file(
-                        wms=wms_servers[image_layer],
-                        layers=image_layers[image_layer]['wms_layernames'],
-                        styles=image_layers[image_layer]['wms_layerstyles'],
+                        layersources=wms_imagelayer_layersources[image_layer],
                         output_dir=output_imagedata_tmp_image_dir,
                         crs=img_crs,
                         bbox=img_bbox.bounds,
@@ -297,6 +304,8 @@ def prepare_traindatasets(
                     # Only keep the labels that are meant for this image layer
                     labels_gdf = (labels_to_burn_gdf.loc[
                                         labels_to_burn_gdf['image_layer'] == image_layer]).copy()
+                    # assert to evade pyLance warning
+                    assert isinstance(labels_gdf, gpd.GeoDataFrame)
                     if len(labels_gdf) == 0:
                         logger.info("No labels to be burned for this layer, this is weird!")
                     _create_mask(
