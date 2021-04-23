@@ -9,12 +9,12 @@ import shapely.geometry as sh_geom
 import shutil
 from typing import List, Optional
 
-from shapely.geometry import geo
-
 # Evade having many info warnings about self intersections from shapely
 logging.getLogger('shapely.geos').setLevel(logging.WARNING)
+import fiona
 from geofileops import geofileops
 from geofileops import geofile
+import geofileops.util.vector_util as gfo_vector_util
 import geopandas as gpd
 import numpy as np
 import pandas as pd
@@ -26,7 +26,6 @@ import shapely.geometry as sh_geom
 import tensorflow as tf
 
 from orthoseg.util import vector_util
-import geofileops.util.vector_util as gfo_vector_util
 
 #-------------------------------------------------------------
 # First define/init some general variables/constants
