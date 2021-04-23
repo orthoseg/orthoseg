@@ -80,9 +80,6 @@ def postprocess_predictions(
 
     # Dissolve the predictions if needed
     if dissolve:
-        clip_on_tiles = False
-        if dissolve_tiles_path is not None:
-            clip_on_tiles = True
         curr_output_path = output_path.parent / f"{output_path.stem}_dissolve{output_path.suffix}"
         
         # If the dissolved file doesn't exist yet, go for it... 
@@ -103,12 +100,13 @@ def postprocess_predictions(
                     groupby_columns=groupby_columns,
                     columns=columns,
                     explodecollections=True,
-                    clip_on_tiles=clip_on_tiles,
                     force=force)
 
             # Add/recalculate columns with area and nbcoords
             # Terrible performance using geofileops with libspatialite < 5.0.0,
             # so temporary calculate it using geopandas.
+            # TODO: switch to geofileops once libspatialite 5 is compatible
+            # with tensorflow 
             """
             geofile.add_column(path=curr_output_path, 
                     name='area', type='real', expression='ST_Area(geom)')
@@ -387,16 +385,16 @@ def polygonize_pred_for_evaluation(
         logger.debug("Save binary prediction")
         image_pred_cleaned_filepath = Path(f"{str(output_basefilepath)}_pred_bin.tif")
         with rio.open(image_pred_cleaned_filepath, 'w', driver='GTiff', 
-                        compress='lzw',
-                        height=image_height, width=image_width, 
-                        count=1, dtype=rio.uint8, 
-                        crs=image_crs, transform=image_transform) as dst:
+                compress='lzw',
+                height=image_height, width=image_width, 
+                count=1, dtype=rio.uint8, 
+                crs=image_crs, transform=image_transform) as dst:
             dst.write(image_pred_uint8_bin, 1)
         
         # If the input image contained a tranform, also create an image 
         # based on the simplified vectors
         if(image_transform[0] != 0 
-            and len(geoms) > 0):
+                and len(geoms) > 0):
             # Simplify geoms
             geoms_simpl = []
             geoms_simpl_vis = []
