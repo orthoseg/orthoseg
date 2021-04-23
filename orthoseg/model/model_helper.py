@@ -435,7 +435,8 @@ class ModelCheckpointExt(kr.callbacks.Callback):
             monitor_metric_mode: str,
             save_format: str = 'h5',
             save_best_only: bool = False,
-            save_min_accuracy: float = 0.95,
+            save_min_accuracy: float = 0.90,
+            save_min_accuracy_ignored_epoch: int = 100,
             save_weights_only: bool = False,
             model_template_for_save = None,
             verbose: bool = True,
@@ -450,14 +451,22 @@ class ModelCheckpointExt(kr.callbacks.Callback):
             architecture_id (int): model architecture id
             trainparams_id (int): id of the hyper parameters used
             monitor_metric (str): The metric to monitor for accuracy
-            monitor_metric_mode (str): use 'min' if the accuracy metrics should be 
-                    as low as possible, 'max' if a higher values is better. 
-            save_format (str, optional): The format to save in: 'h5' (keras format) or 'tf' (tensorflow savedmodel). Defaults to 'tf'
-            save_best_only (bool, optional): only keep the best model. Defaults to True.
-            save_min_accuracy (float, optional): minimum accuracy to be reached to save model. Defaults to 0.95.
+            monitor_metric_mode (str): use 'min' if the accuracy metrics 
+                should be  as low as possible, 'max' if a higher values is 
+                better. 
+            save_format (str, optional): The format to save in: 
+                'h5' (keras format) or 'tf' (tensorflow savedmodel). 
+                Defaults to 'tf'
+            save_best_only (bool, optional): only keep the best model. 
+                Defaults to True.
+            save_min_accuracy (float, optional): minimum accuracy to be 
+                reached to save model. Defaults to 0.9.
+            save_min_accuracy_ignored_epoch (int, optional): at this epoch the 
+                save_min_accuracy is ignored, to make sure there is a model  
+                saved, even if the minimum accuracy is never reached. 
             save_weights_only: optional: only save weights
-            model_template_for_save: optional, if using multi-GPU training, pass
-                the original model here to use this as template for saving        
+            model_template_for_save: optional, if using multi-GPU training, 
+                pass the original model here to use this as template for saving       
             verbose (bool, optional): [description]. Defaults to True.
             only_report (bool, optional): [description]. Defaults to False.
         """
@@ -478,6 +487,7 @@ class ModelCheckpointExt(kr.callbacks.Callback):
         self.save_format = save_format
         self.save_best_only = save_best_only
         self.save_min_accuracy = save_min_accuracy
+        self.save_min_accuracy_ignored_epoch = save_min_accuracy_ignored_epoch
         self.save_weights_only = save_weights_only
         self.model_template_for_save = model_template_for_save
         self.verbose = verbose
@@ -513,7 +523,8 @@ class ModelCheckpointExt(kr.callbacks.Callback):
                 new_model_epoch=epoch,
                 save_format=self.save_format,
                 save_best_only=self.save_best_only,
-                save_min_accuracy=self.save_min_accuracy,          
+                save_min_accuracy=self.save_min_accuracy,
+                save_min_accuracy_ignored_epoch=self.save_min_accuracy_ignored_epoch,        
                 save_weights_only=self.save_weights_only,
                 model_template_for_save=self.model_template_for_save,      
                 verbose=self.verbose,
@@ -532,7 +543,8 @@ def save_and_clean_models(
         new_model_epoch: Optional[int] = None,
         save_format: str = 'h5',
         save_best_only: bool = False,
-        save_min_accuracy: float = 0.95,
+        save_min_accuracy: float = 0.9,
+        save_min_accuracy_ignored_epoch: int = 100,
         save_weights_only: bool = False,
         model_template_for_save = None, 
         verbose: bool = True,
@@ -548,17 +560,24 @@ def save_and_clean_models(
         traindata_id (int): train data id
         architecture_id (int): model architecture id
         trainparams_id (int): id of the train params
-        model_monitor_metric_mode (MetricMode): use 'min' if the monitored metrics should be 
-                as low as possible, 'max' if a higher values is better. 
+        model_monitor_metric_mode (MetricMode): use 'min' if the monitored 
+            metrics should be as low as possible, 'max' if a higher values 
+            is better. 
         new_model (optional): the keras model object that will be saved
-        new_model_monitor_train (float, optional): the monitored metric on the train dataset
-        new_model_monitor_val (float, optional): the monitored metric on the validation dataset
+        new_model_monitor_train (float, optional): the monitored metric on the 
+            train dataset
+        new_model_monitor_val (float, optional): the monitored metric on the 
+            validation dataset
         new_model_epoch (int, optional): the epoch in the training
-        save_format (SaveFormat, optional): The format to save in (Defaults to h5): 
-            * h5: keras format
+        save_format (SaveFormat, optional): The format to save in: 
+            * h5: keras format (= default)
             * tf: tensorflow savedmodel
         save_best_only (bool, optional): only keep the best model
-        save_min_accuracy (float, optional): minimum accuracy to save the model.
+        save_min_accuracy (float, optional): minimum accuracy to save the 
+            model. Defaults to 0.9.
+        save_min_accuracy_ignored_epoch (int, optional): at this epoch the 
+            save_min_accuracy is ignored, to make sure there is a model saved, 
+            even if the minimum accuracy is never reached. 
         save_weights_only (bool, optional): only save weights
         model_template_for_save (optional): if using multi-GPU training, pass
             the original model here to use this as template for saving        
@@ -621,19 +640,20 @@ def save_and_clean_models(
         new_model_path = Path(model_save_dir) / new_model_filename
         
         # Append model to the retrieved models...
-        model_info_df = model_info_df.append({  'filepath': str(new_model_path),
-                                                'filename': new_model_filename,
-                                                'segment_subject': segment_subject,
-                                                'traindata_id': traindata_id,
-                                                'architecture_id': architecture_id,
-                                                'trainparams_id': trainparams_id,
-                                                'acc_combined': new_model_acc_combined,
-                                                'acc_train': new_model_acc_train,
-                                                'acc_val': new_model_acc_val,
-                                                'epoch': new_model_epoch,
-                                                'save_format': save_format 
-                                             },
-                                             ignore_index=True)
+        model_info_df = model_info_df.append(
+                {   'filepath': str(new_model_path),
+                    'filename': new_model_filename,
+                    'segment_subject': segment_subject,
+                    'traindata_id': traindata_id,
+                    'architecture_id': architecture_id,
+                    'trainparams_id': trainparams_id,
+                    'acc_combined': new_model_acc_combined,
+                    'acc_train': new_model_acc_train,
+                    'acc_val': new_model_acc_val,
+                    'epoch': new_model_epoch,
+                    'save_format': save_format 
+                },
+                ignore_index=True)
 
     # Loop through all existing models
     # Remark: the list is sorted descending before iterating it, this way new
@@ -660,7 +680,8 @@ def save_and_clean_models(
                and only_report is not True
                and model_info['filepath'] == str(new_model_path)
                and not new_model_path.exists()):
-                if model_info['acc_combined'] > save_min_accuracy:                        
+                if(new_model_epoch > save_min_accuracy_ignored_epoch
+                   or model_info['acc_combined'] > save_min_accuracy):
                     logger.debug('Save model start')
                     if save_weights_only:
                         if model_template_for_save is not None:
