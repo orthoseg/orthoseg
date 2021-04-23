@@ -105,6 +105,9 @@ conda config --env --add channels conda-forge
 conda config --env --set channel_priority strict
 
 # Reasons for the dependencies/versions...
+#
+# Remark: the dependencies of tensorflow can be found here: https://libraries.io/pypi/tensorflow
+#
 # python: 3.8 is highest version supported by tensorflow, and I might use 3.8 syntax somewhere (not sure) 
 # owslib: download images from WMS servers
 # pillow: ?
@@ -113,11 +116,12 @@ conda config --env --set channel_priority strict
 # pygeos: for geofileops, improves performance of geopandas operations
 # pyproj: for geofileops
 # libspatialite: for geofileops, > 5 is (a lot) better 
-# cudatoolkit: for tensorflow+GPU, 11 needed for tensorflow >= 2.4
+# cudatoolkit: for tensorflow+GPU, 11.0 needed for tensorflow >= 2.4
 # cudnn: for tensorflow+GPU
-# numpy: for tensorflow: needs 1.19.5, otherwise replaced with pip version: gives issues in geofileops 
-# hdf5: for tensorflow: needs 1.10.5, otherwise ugly warnings and BOOM! 
-conda install -y python=3.8 owslib pillow "rasterio>=1.0,<1.3" "geopandas>=0.8,<0.10" pygeos pyproj cudatoolkit=11 cudnn "numpy>=1.19,<1.20" "hdf5<=1.10.5"
+# numpy: for tensorflow: needs 1.19, otherwise replaced with pip version: gives issues in geofileops 
+# h5py: for tensorflow: needs ~=3.1
+# hdf5: till tensorflow 2.4 needed 1.10.5, otherwise ugly warnings and BOOM! -> from 2.5 not anymore! 
+conda install -y python=3.8 owslib pillow "rasterio>=1.0,<1.3" geofileops "libspatialite>=5.0" geopandas pygeos pyproj "cudatoolkit>=11.0,<11.1" cudnn "numpy>=1.19,<1.20" "h5py>=3.1,<3.2" #"hdf5==1.10.5"
 
 # For the following packages, no conda package is available or -for tensorflow- no recent version.
 if [[ ! $fordev =~ ^[Yy]$ ]]
@@ -125,7 +129,7 @@ then
   echo
   echo "Install the pip package"
   echo
-  pip install orthoseg
+  pip install "orthoseg>=0.2.2a3"
 else
   echo
   echo "Prepare for development: conda install dev tools"
@@ -136,9 +140,9 @@ else
   echo "Prepare for development: pip install dependencies that need pip"
   echo
   # Reasons for the version specifications...
-  # tensorflow: tested till version 2.4
+  # tensorflow: starting from 2.5 compatible with libspatialite 5.0 
   # geofileops: simplify algorythms used supported from 2.0
-  pip install "segmentation-models>=1.0,<1.1" "geofileops>=0.2.1a2" "pycron" "tensorflow>=2.4,<=2.5"  
+  pip install pycron "segmentation-models>=1.0,<1.1" "tensorflow>=2.5.0rc1,<2.6" 
 fi
 
 # Deactivate new env
