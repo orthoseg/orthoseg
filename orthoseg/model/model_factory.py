@@ -26,6 +26,10 @@ import segmentation_models as sm
 logger = logging.getLogger(__name__)
 #logger.setLevel(logging.INFO)
 
+# Force using the keras implementation in tensorflow, because the default 
+# use of this implementation seems broken with tensorflow 2.5
+sm.set_framework('tf.keras')
+
 #-------------------------------------------------------------
 # The real work
 #-------------------------------------------------------------
