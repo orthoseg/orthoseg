@@ -104,24 +104,25 @@ conda activate $envname
 conda config --env --add channels conda-forge
 conda config --env --set channel_priority strict
 
-# Reasons for the dependencies/versions...
+# List of dependencies + reasons for specific versions.
 #
-# Remark: the dependencies of tensorflow can be found here: https://libraries.io/pypi/tensorflow
+# Remark: the dependencies of tensorflow can be found here: 
+# https://libraries.io/pypi/tensorflow
 #
-# python: 3.8 is highest version supported by tensorflow, and I might use 3.8 syntax somewhere (not sure) 
+# python: 3.8 is the only version that is tested on
+# --- General dependencies ---
+# geofileops: for simplify, dissolve,...
 # owslib: download images from WMS servers
 # pillow: ?
+# pycron: to be able to use cron expressions to schedule download periods 
 # rasterio: tested till version 1.2
-# geopandas: >= 0.8 can use pygeos for better performance
-# pygeos: for geofileops, improves performance of geopandas operations
-# pyproj: for geofileops
-# libspatialite: for geofileops, > 5 is (a lot) better 
-# cudatoolkit: for tensorflow+GPU, 11.0 needed for tensorflow >= 2.4
-# cudnn: for tensorflow+GPU
-# numpy: for tensorflow: needs 1.19, otherwise replaced with pip version: gives issues in geofileops 
-# h5py: for tensorflow: needs ~=3.1
-# hdf5: till tensorflow 2.4 needed 1.10.5, otherwise ugly warnings and BOOM! -> from 2.5 not anymore! 
-conda install -y python=3.8 owslib pillow "rasterio>=1.0,<1.3" geofileops "libspatialite>=5.0" geopandas pygeos pyproj "cudatoolkit>=11.0,<11.1" cudnn "numpy>=1.19,<1.20" "h5py>=3.1,<3.2" #"hdf5==1.10.5"
+# --- Tensorflow dependencies available on conda ---
+# cudatoolkit: for tf+GPU, 11.2 needed for tf 2.5
+# cudnn: for tf+GPU
+# h5py: for tf: needs ~=3.1
+# numpy: for tf: needs 1.19, otherwise replaced with pip version: 
+#     and then this gives issues in geofileops operations 
+conda install -y python=3.8 geofileops owslib pillow pycron "rasterio>=1.0,<1.3" "cudatoolkit>=11.2,<11.3" cudnn "h5py>=3.1,<3.2" "numpy>=1.19,<1.20" 
 
 # For the following packages, no conda package is available or -for tensorflow- no recent version.
 if [[ ! $fordev =~ ^[Yy]$ ]]
@@ -137,12 +138,12 @@ else
   conda install -y pylint pytest rope
  
   echo
-  echo "Prepare for development: pip install dependencies that need pip"
+  echo "Prepare for development: pip install dependencies of orthoseg that need pip"
   echo
   # Reasons for the version specifications...
   # tensorflow: starting from 2.5 compatible with libspatialite 5.0 
   # geofileops: simplify algorythms used supported from 2.0
-  pip install pycron "segmentation-models>=1.0,<1.1" "tensorflow>=2.5.0rc1,<2.6" 
+  pip install "segmentation-models>=1.0,<1.1" "tensorflow>=2.5,<2.6" 
 fi
 
 # Deactivate new env
