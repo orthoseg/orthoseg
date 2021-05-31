@@ -90,7 +90,7 @@ def get_images_for_grid(
 
     crs_width = math.fabs(image_pixel_width*image_crs_pixel_x_size)   # tile width in units of crs => 500 m
     crs_height = math.fabs(image_pixel_height*image_crs_pixel_y_size) # tile height in units of crs => 500 m
-    if cron_schedule is not None:
+    if cron_schedule is not None and cron_schedule != '':
         logger.info(f"A cron_schedule was specified, so the download will only proceed in the specified time range: {cron_schedule}")
 
     # Read the region of interest file if provided
@@ -207,7 +207,7 @@ def get_images_for_grid(
             for row in range(0, rows):
 
                 # If a cron_schedule is specified, check if we should be running
-                if cron_schedule is not None:
+                if cron_schedule is not None and cron_schedule != '':
                     # Sleep till the schedule becomes active
                     first_time = True
                     while not pycron.is_now(cron_schedule):
