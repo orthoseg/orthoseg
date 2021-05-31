@@ -14,6 +14,8 @@ import time
 from typing import List, Optional, Tuple, Union
 import numpy as np
 
+from geofileops import geofile
+import geofileops.util.grid_util
 import owslib
 import owslib.wms
 import owslib.util
@@ -113,13 +115,10 @@ def get_images_for_grid(
         if crs.is_projected:
             
             # Create grid
-            grid = vector_util.create_grid(
-                    xmin=image_gen_bounds[0], ymin=image_gen_bounds[1], 
-                    xmax=image_gen_bounds[2], ymax=image_gen_bounds[3],
-                    cell_width=4000, cell_height=4000)
+            grid = geofileops.util.grid_util.create_grid3(
+                    image_gen_bounds, width=4000, height=4000, crs=crs)
 
             # Create intersection layer between grid and roi
-            #roi_gdf = roi_gdf.geometry.intersection(grid.geometry)
             roi_gdf = gpd.overlay(grid, roi_gdf, how='intersection')
             
             # Explode possible multipolygons to polygons
@@ -128,7 +127,10 @@ def get_images_for_grid(
             assert isinstance(roi_gdf, gpd.GeoDataFrame)
             roi_gdf = roi_gdf.explode()
             roi_gdf.reset_index(drop=True, inplace=True)
-            #roi_gdf.to_file("X:\\Monitoring\\OrthoSeg\\roi_gridded.gpkg")
+
+            # Write to file...
+            #assert isinstance(roi_gdf, gpd.GeoDataFrame)
+            #geofile.to_file(roi_gdf, Path(r"X:\Monitoring\OrthoSeg\roi_gridded.gpkg"))
             
     # Check if the image_gen_bounds are compatible with the grid...
     if (image_gen_bounds[0]-grid_xmin)%crs_width != 0:
