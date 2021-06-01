@@ -5,12 +5,10 @@ Modile with generic Utility functions for vector manipulations.
 
 import logging
 import math
-from pathlib import Path
 from typing import Tuple, Union
 
-from geofileops import geofile
 import geopandas as gpd
-import numpy as np
+import pyproj
 import shapely.ops as sh_ops
 
 #-------------------------------------------------------------
@@ -57,65 +55,6 @@ def calc_onborder(
 
     geoms_gdf.reset_index(drop=True, inplace=True)
     return geoms_gdf
-
-def create_grid(xmin: float,
-                ymin: float,
-                xmax: float,
-                ymax: float,
-                cell_width: float,
-                cell_height: float) -> gpd.GeoDataFrame:
-    
-    rows = math.ceil((ymax-ymin) / cell_height)
-    cols = math.ceil((xmax-xmin) / cell_width)
-     
-    polygons = []
-    cell_left = xmin
-    cell_right = xmin + cell_width
-    for _ in range(cols+1):
-        if cell_left > xmax:
-            break
-        cell_top = ymin+cell_height
-        cell_bottom = ymin
-        for _ in range(rows+1):
-            if cell_bottom > ymax:
-                break
-            polygons.append(sh_ops.Polygon([(cell_left, cell_top), (cell_right, cell_top), (cell_right, cell_bottom), (cell_left, cell_bottom)])) 
-            cell_top += cell_height
-            cell_bottom += cell_height
-            
-        cell_left += cell_width
-        cell_right += cell_width
-        
-    return gpd.GeoDataFrame({'geometry': polygons})
-
-'''
-# TODO: using geojson is more convenient, so this code can be deleted
-
-def read_wkt(in_wkt_filepath: str):
-    # Read the geoms in wkt file
-    geoms = []
-    with open(in_wkt_filepath, 'r') as in_file:
-        lines = in_file.readlines()
-        
-        for line in lines:
-            geom = sh_wkt.loads(line)
-            if not geom.is_empty:
-                geoms.append(geom)
-    
-    return geoms
-
-def write_wkt(in_geoms,
-              out_wkt_filepath: str):
-
-    # If the in_geoms array is empty, return
-    if not in_geoms or len(in_geoms) == 0:
-        return
-    
-    # Write geoms to wkt
-    with open(out_wkt_filepath, 'w') as dst:
-        for geom in in_geoms:
-            dst.write(f"{geom}\n")
-'''
 
 if __name__ == '__main__':
     raise Exception("Not supported")

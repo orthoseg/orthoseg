@@ -11,7 +11,6 @@ from typing import List, Optional
 
 # Evade having many info warnings about self intersections from shapely
 logging.getLogger('shapely.geos').setLevel(logging.WARNING)
-import fiona
 from geofileops import geofileops
 from geofileops import geofile
 import geofileops.util.vector_util as gfo_vector_util
@@ -21,7 +20,6 @@ import pandas as pd
 import rasterio as rio
 import rasterio.features as rio_features
 import rasterio.transform as rio_transform
-import shapely as sh
 import shapely.geometry as sh_geom
 import tensorflow as tf
 
