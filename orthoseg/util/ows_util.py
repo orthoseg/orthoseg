@@ -80,7 +80,7 @@ def get_images_for_grid(
         transparent: bool = False,
         pixels_overlap: int = 0,
         column_start: int = 0,
-        nb_images_to_skip: int = None,
+        nb_images_to_skip: int = 0,
         max_nb_images: int = -1,
         force: bool = False):
     
@@ -242,7 +242,7 @@ def get_images_for_grid(
 
                 # Do some checks to know if the image needs to be downloaded 
                 image_to_be_skipped = False
-                if(nb_images_to_skip
+                if(nb_images_to_skip > 0   
                    and (nb_processed%nb_images_to_skip) != 0):
                     # If we need to skip images, do so...
                     nb_ignore_in_progress += 1
@@ -255,16 +255,15 @@ def get_images_for_grid(
                 elif roi_gdf is not None:
                     # If roi was provided, check first if the current image overlaps
                     image_shape = sh_geom.box(image_xmin, image_ymin, image_xmax, image_ymax)
+
+                    possible_match_indexes = list(roi_gdf.geometry.sindex.query(image_shape))
+                    possible_matches_gdf = roi_gdf.iloc[possible_match_indexes]
+                    precise_matches_gdf = possible_matches_gdf.loc[possible_matches_gdf.intersects(image_shape)]
                     
-                    spatial_index = roi_gdf.sindex
-                    possible_matches_index = list(spatial_index.intersection(image_shape.bounds))
-                    possible_matches = roi_gdf.loc[possible_matches_index]
-                    precise_matches = possible_matches[possible_matches.intersects(image_shape)]
-                    
-                    if len(precise_matches) == 0:
+                    if len(precise_matches_gdf) == 0:
                         nb_ignore_in_progress += 1
                         logger.debug("    -> image doesn't overlap with roi, so skip")
-                        image_to_be_skipped = True                                      
+                        image_to_be_skipped = True
 
                 # If the image doesn't need to be skipped... append the image 
                 # info to the batch arrays so they can be treated in 
