@@ -401,36 +401,37 @@ def getmap_to_file(
         output_dir.mkdir()
 
     ##### Get image(s), read the band to keep and save #####
+    # Some hacks for special cases...
+    bbox_for_getmap = bbox
+    size_for_getmap = size
+    # Dirty hack to ask a bigger picture, and then remove the border again!
+    if image_pixels_ignore_border > 0:
+        x_pixsize = (bbox[2]-bbox[0])/size[0]
+        y_pixsize = (bbox[3]-bbox[1])/size[1]
+        bbox_for_getmap = (bbox[0] - x_pixsize*image_pixels_ignore_border,
+                        bbox[1] - y_pixsize*image_pixels_ignore_border,
+                        bbox[2] + x_pixsize*image_pixels_ignore_border,
+                        bbox[3] + y_pixsize*image_pixels_ignore_border)
+        size_for_getmap = (size[0] + 2*image_pixels_ignore_border,
+                        size[1] + 2*image_pixels_ignore_border)
+    # Dirty hack to support y,x cordinate system
+    if crs.to_epsg() == 3059:
+        bbox_for_getmap = (bbox_for_getmap[1], bbox_for_getmap[0], 
+                        bbox_for_getmap[3], bbox_for_getmap[2])
+
     image_data_output = None
     image_profile_output = None
     response = None
     for layersource in layersources:
+  
         # Get image from server, and retry up to 10 times...
         nb_retries = 0
-        time_sleep = 0
+        time_sleep = 5
         image_retrieved = False
         while image_retrieved is False:
+            
             try:
                 logger.debug(f"Start call GetMap for bbox {bbox}")
-
-                # Some hacks for special cases...
-                bbox_for_getmap = bbox
-                size_for_getmap = size
-                # Dirty hack to ask a bigger picture, and then remove the border again!
-                if image_pixels_ignore_border > 0:
-                    x_pixsize = (bbox[2]-bbox[0])/size[0]
-                    y_pixsize = (bbox[3]-bbox[1])/size[1]
-                    bbox_for_getmap = (bbox[0] - x_pixsize*image_pixels_ignore_border,
-                                    bbox[1] - y_pixsize*image_pixels_ignore_border,
-                                    bbox[2] + x_pixsize*image_pixels_ignore_border,
-                                    bbox[3] + y_pixsize*image_pixels_ignore_border)
-                    size_for_getmap = (size[0] + 2*image_pixels_ignore_border,
-                                    size[1] + 2*image_pixels_ignore_border)
-                # Dirty hack to support y,x cordinate system
-                if crs.to_epsg() == 3059:
-                    bbox_for_getmap = (bbox_for_getmap[1], bbox_for_getmap[0], 
-                                    bbox_for_getmap[3], bbox_for_getmap[2])
-
                 response = layersource.wms_service.getmap(
                         layers=layersource.layernames,
                         styles=layersource.layerstyles,
@@ -447,17 +448,26 @@ def getmap_to_file(
                 
                 # Image was retrieved... so stop loop
                 image_retrieved = True
-            except owslib.util.ServiceException as ex:
-                raise Exception(f"WMS Service gave an exception: {ex}") from ex
             except Exception as ex:
-                # Retry 10 times... and increase sleep time every time
+                if isinstance(ex, owslib.util.ServiceException):
+                    if 'Error rendering coverage on the fast path' in str(ex):
+                        logger.error(f"Request for bbox {bbox_for_getmap} gave a non-blocking exception, SKIP and proceed: {ex}") 
+                        return
+                    elif 'java.lang.OutOfMemoryError: Java heap space' in str(ex):
+                        logger.debug(f"Request for bbox {bbox_for_getmap} gave a non-blocking exception, try again in {time_sleep} s: {ex}") 
+                    else:
+                        raise Exception(f"WMS Service gave an exception for bbox {bbox_for_getmap}: {ex}") from ex
+                
+                # If the exception isn't handled yet, retry 10 times... 
                 if nb_retries < 10:
-                    nb_retries += 1
-                    time_sleep += 5                
                     time.sleep(time_sleep)
+                    
+                    # Increase sleep time every time.
+                    time_sleep += 5
+                    nb_retries += 1
                     continue
                 else:
-                    message = f"Retried 10 times and didn't work, with layers: {layersource.layernames}, styles: {layersource.layernames}"
+                    message = f"Retried 10 times and didn't work, with layers: {layersource.layernames}, styles: {layersource.layernames}, for bbox: {bbox_for_getmap}"
                     logger.exception(message)
                     raise Exception(message) from ex
 
@@ -649,7 +659,7 @@ def getmap_to_file(
             #raise Exception(f"Different save format not supported between {image_format} and {image_format_save}")
 
     return output_filepath
-
+        
 def create_filename(
         crs: pyproj.CRS,
         bbox,
