@@ -50,7 +50,7 @@ def test_load_images():
 
 def test_train():
     # Load project config to init some vars.
-    config_path = get_test_projects_dir() / 'footballfields' / 'footballfields_BEFL-2019.ini'
+    config_path = get_test_projects_dir() / 'footballfields' / 'footballfields_train.ini'
     conf.read_config(config_path)
 
     # Init + cleanup result dirs
@@ -107,7 +107,7 @@ def test_predict():
     result_vector_path = result_vector_dir / "footballfields_01_242_BEFL-2019.gpkg"
     assert result_vector_path.exists() is True
     result_gdf = geofile.read_file(result_vector_path)
-    assert len(result_gdf) == 7
+    assert len(result_gdf) == 13
 
 def test_postprocess():
     # Load project config to init some vars.
@@ -130,11 +130,11 @@ def test_postprocess():
     # Check results
     assert result_diss_path.exists() is True
     result_gdf = geofile.read_file(result_diss_path)
-    assert len(result_gdf) == 6
+    assert len(result_gdf) == 12
 
     assert result_simpl_path.exists() is True
     result_gdf = geofile.read_file(result_simpl_path)
-    assert len(result_gdf) == 6
+    assert len(result_gdf) == 12
 
 if __name__ == '__main__':
     #test_load_images()
