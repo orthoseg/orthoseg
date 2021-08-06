@@ -5,6 +5,7 @@ High-level API to run a segmentation.
 
 import argparse
 import logging
+import os
 from pathlib import Path
 import shlex
 import sys
@@ -134,39 +135,40 @@ def predict(config_path: Path):
             predict_out_subdir += f"_{trainparams_id}"
         predict_out_subdir += f"_{best_model['epoch']}"
         
-        # Try optimizing model with tensorrt
-        try:
-            # Try import
-            from tensorflow.python.compiler.tensorrt import trt_convert as trt
+        # Try optimizing model with tensorrt. Not supported on Windows
+        model = None
+        if os.name != 'nt':
+            try:
+                # Try import
+                from tensorflow.python.compiler.tensorrt import trt_convert as trt
 
-            # Import didn't fail, so optimize model
-            logger.info('Tensorrt is available, so use optimized model')
-            savedmodel_optim_dir = best_model['filepath'].parent / best_model['filepath'].stem + "_optim"
-            if not savedmodel_optim_dir.exists():
-                # If base model not yet in savedmodel format
-                savedmodel_dir = best_model['filepath'].parent / best_model['filepath'].stem
-                if not savedmodel_dir.exists():
-                    logger.info(f"SavedModel format not yet available, so load model + weights from {best_model['filepath']}")
-                    model = mf.load_model(best_model['filepath'], compile=False)
-                    logger.info(f"Now save again as savedmodel to {savedmodel_dir}")
-                    tf.saved_model.save(model, str(savedmodel_dir))
-                    del model
+                # Import didn't fail, so optimize model
+                logger.info('Tensorrt is available, so use optimized model')
+                savedmodel_optim_dir = best_model['filepath'].parent / best_model['filepath'].stem + "_optim"
+                if not savedmodel_optim_dir.exists():
+                    # If base model not yet in savedmodel format
+                    savedmodel_dir = best_model['filepath'].parent / best_model['filepath'].stem
+                    if not savedmodel_dir.exists():
+                        logger.info(f"SavedModel format not yet available, so load model + weights from {best_model['filepath']}")
+                        model = mf.load_model(best_model['filepath'], compile=False)
+                        logger.info(f"Now save again as savedmodel to {savedmodel_dir}")
+                        tf.saved_model.save(model, str(savedmodel_dir))
+                        del model
 
-                # Now optimize model
-                logger.info(f"Optimize + save model to {savedmodel_optim_dir}")
-                converter = trt.TrtGraphConverterV2(
-                        input_saved_model_dir=savedmodel_dir,
-                        is_dynamic_op=True,
-                        precision_mode='FP16')
-                converter.convert()
-                converter.save(savedmodel_optim_dir)
-            
-            logger.info(f"Load optimized model + weights from {savedmodel_optim_dir}")
-            model = tf.keras.models.load_model(savedmodel_optim_dir)
+                    # Now optimize model
+                    logger.info(f"Optimize + save model to {savedmodel_optim_dir}")
+                    converter = trt.TrtGraphConverterV2(
+                            input_saved_model_dir=savedmodel_dir,
+                            is_dynamic_op=True,
+                            precision_mode='FP16')
+                    converter.convert()
+                    converter.save(savedmodel_optim_dir)
+                
+                logger.info(f"Load optimized model + weights from {savedmodel_optim_dir}")
+                model = tf.keras.models.load_model(savedmodel_optim_dir)
 
-        except ImportError:
-            logger.info('Tensorrt is not available, so load unoptimized model')
-            model = None
+            except ImportError:
+                logger.info('Tensorrt is not available, so load unoptimized model')
         
         # If model isn't loaded yet... load!
         if model is None:
