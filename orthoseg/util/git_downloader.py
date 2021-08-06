@@ -29,7 +29,7 @@ def create_url(url):
 
 def download(
         repo_url: str, 
-        output_dir: Path = None):
+        output_dir: Path):
     """ Downloads the files and directories in repo_url. If flatten is specified, the contents of any and all
      sub-directories will be pulled upwards into the root folder. """
 

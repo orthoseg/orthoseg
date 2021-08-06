@@ -302,7 +302,7 @@ def load_model(
             errors_str = (" The following errors occured while trying: \n    -> " + "\n    -> ".join(errors))
         raise Exception(f"Error loading model for {model_to_use_filepath}.{errors_str}")
 
-    return model
+    return model # type: ignore
 
 def check_image_size(
         decoder: str,
@@ -338,9 +338,9 @@ def weighted_categorical_crossentropy(weights):
                                     len(output.get_shape()) - 1,
                                     True)
             _epsilon = tf.convert_to_tensor(kr.backend.epsilon(), dtype=output.dtype.base_dtype)
-            output = tf.clip_by_value(output, _epsilon, 1. - _epsilon)
+            output = tf.clip_by_value(output, _epsilon, 1. - _epsilon) # type: ignore
             weighted_losses = target * tf.math.log(output) * weights
-            return - tf.reduce_sum(weighted_losses,len(output.get_shape()) - 1)
+            return - tf.reduce_sum(weighted_losses,len(output.get_shape()) - 1) # type: ignore
         else:
             raise ValueError('WeightedCategoricalCrossentropy: not valid with logits')
     return loss
@@ -352,8 +352,8 @@ def bootstrapped_crossentropy(y_true, y_pred, bootstrap_type='hard', alpha=0.95)
     target_tensor = y_true
     prediction_tensor = y_pred
     _epsilon = tf.convert_to_tensor(kr.backend.epsilon(), prediction_tensor.dtype.base_dtype)
-    prediction_tensor = tf.clip_by_value(prediction_tensor, _epsilon, 1 - _epsilon)
-    prediction_tensor = kr.backend.log(prediction_tensor / (1 - prediction_tensor))
+    prediction_tensor = tf.clip_by_value(prediction_tensor, _epsilon, 1 - _epsilon) # type: ignore
+    prediction_tensor = kr.backend.log(prediction_tensor / (1 - prediction_tensor)) # type: ignore
 
     if bootstrap_type == 'soft':
         bootstrap_target_tensor = alpha * target_tensor + (1.0 - alpha) * tf.sigmoid(prediction_tensor)

@@ -43,7 +43,7 @@ def calc_onborder(
         # Check 
         for i, geom_row in geoms_gdf.iterrows():
             # Check if the geom is on the border of the tile
-            geom_bounds = geom_row['geometry'].bounds
+            geom_bounds = geom_row['geometry'].bounds # type: ignore
             onborder = 0
             if(geom_bounds[0] <= border_bounds[0] 
                or geom_bounds[1] <= border_bounds[1] 
@@ -51,7 +51,7 @@ def calc_onborder(
                or geom_bounds[3] >= border_bounds[3]):
                 onborder = 1
             
-            geoms_gdf.loc[i, onborder_column_name] = onborder
+            geoms_gdf.loc[i, onborder_column_name] = onborder # type: ignore
 
     geoms_gdf.reset_index(drop=True, inplace=True)
     return geoms_gdf

@@ -48,7 +48,6 @@ def jaccard_coef(y_true, y_pred):
 
     return K.mean(jac)
 
-
 def jaccard_coef_int(y_true, y_pred):
     y_pred_pos = K.round(K.clip(y_pred, 0, 1))
 
@@ -59,10 +58,8 @@ def jaccard_coef_int(y_true, y_pred):
 
     return K.mean(jac)
 
-
 def jaccard_coef_loss(y_true, y_pred):
-    return -K.log(jaccard_coef(y_true, y_pred)) + binary_crossentropy(y_pred, y_true)
-
+    return -K.log(jaccard_coef(y_true, y_pred)) + binary_crossentropy(y_pred, y_true) # type: ignore
 
 def get_model(input_width=256, input_height=256, nb_channels=3, nb_classes=1,
               loss_mode='binary_crossentropy', learning_rate=1e-4,
