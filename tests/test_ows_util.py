@@ -54,6 +54,7 @@ def test_getmap_to_file(tmpdir):
             transparent=False,
             layername_in_filename=True)
 
+    assert image_filepath is not None
     assert image_filepath.exists() is True
 
     ### Test creating greyscale image ### 
@@ -87,6 +88,7 @@ def test_getmap_to_file(tmpdir):
             transparent=False,
             layername_in_filename=True)
 
+    assert image_filepath is not None
     assert image_filepath.exists() is True
 
     ### Test combining bands of 3 different WMS layers ### 
@@ -130,6 +132,7 @@ def test_getmap_to_file(tmpdir):
             transparent=False,
             layername_in_filename=True)
 
+    assert image_filepath is not None
     assert image_filepath.exists() is True
 
 if __name__ == '__main__':

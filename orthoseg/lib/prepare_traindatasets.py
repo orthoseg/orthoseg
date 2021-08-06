@@ -108,11 +108,11 @@ def prepare_traindatasets(
                     and labeldata_output_mostrecent_path.exists()
                     and geofile.cmp(label_file.locations_path, labellocations_output_mostrecent_path)
                     and geofile.cmp(label_file.polygons_path, labeldata_output_mostrecent_path))):
-                logger.info(f"RETURN: input label file(s) changed since last prepare_traindatasets, recreate")
                 reuse = False
                 break
         if reuse == True:
             dataversion_new = dataversion_mostrecent
+            logger.info(f"Input label file(s) haven't changed since last prepare_traindatasets, so reuse version {dataversion_new}")
         else:
             dataversion_new = dataversion_mostrecent + 1
             logger.info(f"Input label file(s) changed since last prepare_traindatasets, so create new training data version {dataversion_new}")
@@ -172,6 +172,10 @@ def prepare_traindatasets(
         else:
             logger.warn(f"No label data found in {label_file.polygons_path}")
 
+    # Check if we ended up with labellocations...
+    if labellocations_gdf is None:
+        raise Exception("Not any labellocation found in the training data, so stop")
+
     # Get the crs to use from the input vectors...
     img_crs = None
     try:
@@ -205,13 +209,17 @@ def prepare_traindatasets(
         # There is no column with label names, but there are only 2 classes (background + subsject), so no problem...
         logger.info(f'Column with label names ({labelname_column}) not found, so use all polygons')
         labels_to_burn_gdf = labelpolygons_gdf
-        labels_to_burn_gdf.loc[:, 'burn_value'] = 1
+        labels_to_burn_gdf.loc[:, 'burn_value'] = 1 # type: ignore
 
     else:
-        # There is no column with label names, but more than two classes, so stop...
+        # There is no column with label names, but more than two classes, so stop.
         raise Exception(f"Column {labelname_column} is mandatory in labeldata if multiple classes specified: {classes}")
 
-    # Prepare the different traindata types
+    # Check if we ended up with label data to burn.
+    if labels_to_burn_gdf is None:
+        raise Exception("Not any labelpolygon retained to burn in the training data, so stop")
+
+    # Prepare the different traindata types.
     output_imagedata_dir = training_imagedata_dir / f"{dataversion_new:02d}"
     for traindata_type in ['train', 'validation', 'test']:
 
@@ -220,16 +228,20 @@ def prepare_traindatasets(
         if output_imagedatatype_dir.exists():
             continue
 
-        # If not, prepare tmp output imagedata dir...
+        # If not, prepare tmp output imagedata dir
         output_imagedatatype_tmp_dir = None
         for i in range(100):
             output_imagedatatype_tmp_dir = output_imagedata_dir / f"{traindata_type}_BUSY_{i:02d}"
+
+            # Try to remove the temp dir if it exists
             if output_imagedatatype_tmp_dir.exists():
                 try:
                     shutil.rmtree(output_imagedatatype_tmp_dir)
                 except:
                     output_imagedatatype_tmp_dir = None
-            if not output_imagedatatype_tmp_dir.exists():
+            
+            # If the temp dir doesn't exist (anymore), try to create it
+            if output_imagedatatype_tmp_dir is not None and output_imagedatatype_tmp_dir.exists() is False:
                 try:
                     output_imagedatatype_tmp_dir.mkdir(parents=True)
                     break
@@ -238,7 +250,7 @@ def prepare_traindatasets(
             else:
                 output_imagedatatype_tmp_dir = None
         
-        # If no output tmp dir could be found... stop...
+        # If no output tmp dir could be found/created... stop...
         if output_imagedatatype_tmp_dir is None:
             raise Exception(f"Error creating output_imagedata_tmp_dir in {training_imagedata_dir}")
 
@@ -475,6 +487,7 @@ def _create_mask(
                 shapes=burn_shapes, transform=image_transform_affine,
                 dtype=rio.uint8, fill=0, 
                 out_shape=(image_output_profile['width'], image_output_profile['height']))
+        
     except Exception as ex:
         raise Exception(f"Error creating mask for {image_transform_affine}") from ex
 

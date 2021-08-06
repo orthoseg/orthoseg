@@ -159,24 +159,26 @@ def train(
     # TODO: because of bug in tensorflow 1.14, multi GPU doesn't work (this way),
     # so always use standard model
     if nb_gpu <= 1:
-        model_for_train = model
+        model_for_train = mf.compile_model(
+                model=model, 
+                optimizer=hyperparams.train.optimizer, 
+                optimizer_params=hyperparams.train.optimizer_params, 
+                loss=hyperparams.train.loss_function, 
+                class_weights=hyperparams.train.class_weights)
         logger.info(f"Train using single GPU or CPU, with nb_gpu: {nb_gpu}")
     else:
-        # If multiple GPU's available, create multi_gpu_model
-        try:
-            model_for_train = kr.utils.multi_gpu_model(model, gpus=nb_gpu, cpu_relocation=True)
-            logger.info(f"Train using multiple GPUs: {nb_gpu}, batch size becomes: {hyperparams.train.batch_size*nb_gpu}")
-            hyperparams.train.batch_size *= nb_gpu
-        except ValueError:
-            logger.info("Train using single GPU or CPU")
-            model_for_train = model
-
-    model_for_train = mf.compile_model(
-            model=model_for_train, 
-            optimizer=hyperparams.train.optimizer, 
-            optimizer_params=hyperparams.train.optimizer_params, 
-            loss=hyperparams.train.loss_function, 
-            class_weights=hyperparams.train.class_weights)
+        # If multiple GPU's available, should create a multi-GPU model
+        model_for_train = model
+        logger.info(f"Train using all GPU's, with nb_gpu: {nb_gpu}")
+        logger.warn("MULTI GPU TRAINING NOT TESTED BUT WILL BE TRIED ANYWAY")
+        strategy = tf.distribute.MirroredStrategy()
+        with strategy.scope():
+            model_for_train = mf.compile_model(
+                    model=model, 
+                    optimizer=hyperparams.train.optimizer, 
+                    optimizer_params=hyperparams.train.optimizer_params, 
+                    loss=hyperparams.train.loss_function, 
+                    class_weights=hyperparams.train.class_weights)
 
     # Define some callbacks for the training
     # Reduce the learning rate if the loss doesn't improve anymore
@@ -382,7 +384,7 @@ def create_train_generator(
                     image_to_save = image_to_save / mask_augment_dict['rescale']
 
                 # Now convert to uint8 image and save!
-                im = Image.fromarray(image_to_save.astype(np.uint8), image_color_mode)
+                im = Image.fromarray(image_to_save.astype(np.uint8), image_color_mode) # type: ignore
                 image_path = save_to_dir / f"{batch_id}_{image_id}.jpg"
                 im.save(image_path)
 

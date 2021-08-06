@@ -108,23 +108,35 @@ def get_model(input_width=256, input_height=256, nb_channels=3, nb_classes=1,
         # Copy the weigths first to a new array to have flexibility in nb
         # channels of unet compared to the vgg16
         block1_conv1_weights = np.zeros((3, 3, nb_channels, 64), dtype="float32")
-        block1_conv1_weights[:, :, :3, :] = vgg.get_layer("block1_conv1").get_weights()[0][:, :, :, :]
-        bias = vgg.get_layer("block1_conv1").get_weights()[1]
+        vgg_block1_conv1_weights = vgg.get_layer("block1_conv1").get_weights()
+        if vgg_block1_conv1_weights is None:
+            raise Exception("block1_conv1_layer_weights in vgg were None")
+        block1_conv1_weights[:, :, :3, :] = vgg_block1_conv1_weights[0][:, :, :, :]
+        bias = vgg_block1_conv1_weights[1]
         model.get_layer('block1_conv1').set_weights((block1_conv1_weights, bias))
 
         block1_conv2_weights = np.zeros((3, 3, 64, 64), dtype="float32")
-        block1_conv2_weights[:, :, :, :] = vgg.get_layer("block1_conv2").get_weights()[0][:, :, :, :]
-        bias = vgg.get_layer("block1_conv2").get_weights()[1]
+        vgg_block1_conv2_weights = vgg.get_layer("block1_conv2").get_weights()
+        if vgg_block1_conv2_weights is None:
+            raise Exception("block1_conv2_layer_weights in vgg were None")
+        block1_conv2_weights[:, :, :, :] = vgg_block1_conv2_weights[0][:, :, :, :]
+        bias = vgg_block1_conv2_weights[1]
         model.get_layer('block1_conv2').set_weights((block1_conv2_weights, bias))
 
         block2_conv1_weights = np.zeros((3, 3, 64, 128), dtype="float32")
-        block2_conv1_weights[:, :, :, :] = vgg.get_layer("block2_conv1").get_weights()[0][:, :, :, :]
-        bias = vgg.get_layer("block2_conv1").get_weights()[1]
+        vgg_block2_conv1_weights = vgg.get_layer("block2_conv1").get_weights()
+        if vgg_block2_conv1_weights is None:
+            raise Exception("block2_conv1_layer_weights in vgg were None")
+        block2_conv1_weights[:, :, :, :] = vgg_block2_conv1_weights[0][:, :, :, :]
+        bias = vgg_block2_conv1_weights[1]
         model.get_layer('block2_conv1').set_weights((block2_conv1_weights, bias))
 
         block2_conv2_weights = np.zeros((3, 3, 128, 128), dtype="float32")
-        block2_conv2_weights[:, :, :, :] = vgg.get_layer("block2_conv2").get_weights()[0][:, :, :, :]
-        bias = vgg.get_layer("block2_conv2").get_weights()[1]
+        vgg_block2_conv2_weights = vgg.get_layer("block2_conv2").get_weights()
+        if vgg_block2_conv2_weights is None:
+            raise Exception("block2_conv2_layer_weights in vgg were None")
+        block2_conv2_weights[:, :, :, :] = vgg_block2_conv2_weights[0][:, :, :, :]
+        bias = vgg_block2_conv2_weights[1]
         model.get_layer('block2_conv2').set_weights((block2_conv2_weights, bias))
 
     #model.summary()
@@ -189,8 +201,8 @@ def bootstrapped_crossentropy(y_true, y_pred, bootstrap_type='hard', alpha=0.95)
     target_tensor = y_true
     prediction_tensor = y_pred
     _epsilon = tf.convert_to_tensor(kr.backend.epsilon(), prediction_tensor.dtype.base_dtype)
-    prediction_tensor = tf.clip_by_value(prediction_tensor, _epsilon, 1 - _epsilon)
-    prediction_tensor = tf.math.log(prediction_tensor / (1 - prediction_tensor))
+    prediction_tensor = tf.clip_by_value(prediction_tensor, _epsilon, 1 - _epsilon) # type: ignore
+    prediction_tensor = tf.math.log(prediction_tensor / (1 - prediction_tensor))    # type: ignore
 
     if bootstrap_type == 'soft':
         bootstrap_target_tensor = alpha * target_tensor + (1.0 - alpha) * tf.sigmoid(prediction_tensor)

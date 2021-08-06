@@ -605,7 +605,9 @@ def polygonize_pred(
             if 'simplify_algorithm' in prediction_cleanup_params:
                 # Define the bounds of the image as linestring, so points on this 
                 # border are preserved during the simplify
-                border_lines = sh_geom.LineString(sh_geom.box(*border_bounds).exterior.coords)
+                border_polygon = sh_geom.box(*border_bounds)
+                assert border_polygon.exterior is not None
+                border_lines = sh_geom.LineString(border_polygon.exterior.coords)
                 geoms_gdf.geometry = geoms_gdf.geometry.apply(
                         lambda geom: gfo_vector_util.simplify_ext(
                                 geometry=geom, 
@@ -623,7 +625,7 @@ def polygonize_pred(
                 geoms_gdf.reset_index(drop=True, inplace=True)
 
         # Now we can calculate the "onborder" property
-        geoms_gdf = vector_util.calc_onborder(geoms_gdf, border_bounds)
+        geoms_gdf = vector_util.calc_onborder(geoms_gdf, border_bounds) # type: ignore
 
         # Add the classname if provided and area
         if classname is not None:

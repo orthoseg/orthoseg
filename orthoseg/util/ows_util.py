@@ -14,7 +14,6 @@ import time
 from typing import List, Optional, Tuple, Union
 import numpy as np
 
-from geofileops import geofile
 import geofileops.util.grid_util
 import owslib
 import owslib.wms
@@ -22,14 +21,11 @@ import owslib.util
 import pycron
 import pyproj
 import rasterio as rio
-from rasterio import plot as rio_plot
 from rasterio import profiles as rio_profiles
 from rasterio import transform as rio_transform
 from rasterio import windows as rio_windows
 import geopandas as gpd
 import shapely.geometry as sh_geom
-
-from orthoseg.util import vector_util
 
 #-------------------------------------------------------------
 # First define/init some general variables/constants
@@ -97,12 +93,12 @@ def get_images_for_grid(
     roi_gdf = None
     if image_gen_roi_filepath is not None:
         # Read roi
-        logger.info(f"Read region of interest from {image_gen_roi_filepath}")
+        logger.info(f"Read + optimize region of interest from {image_gen_roi_filepath}")
         roi_gdf = gpd.read_file(str(image_gen_roi_filepath))
                 
         # If the generate_window wasn't specified, calculate the bounds
         # based on the roi (but make sure they fit the grid!)
-        if not image_gen_bounds:
+        if image_gen_bounds is None:
             roi_bounds = roi_gdf.geometry.total_bounds
             image_gen_bounds = (roi_bounds[0]-((roi_bounds[0]-grid_xmin)%crs_width),
                                 roi_bounds[1]-((roi_bounds[1]-grid_ymin)%crs_height),
@@ -131,7 +127,11 @@ def get_images_for_grid(
             # Write to file...
             #assert isinstance(roi_gdf, gpd.GeoDataFrame)
             #geofile.to_file(roi_gdf, Path(r"X:\Monitoring\OrthoSeg\roi_gridded.gpkg"))
-            
+    
+    # If there is still no image_gen_bounds, stop.
+    if image_gen_bounds is None:
+        raise Exception("Either image_gen_bounds or an image_gen_roi_filepath should be specified.")
+
     # Check if the image_gen_bounds are compatible with the grid...
     if (image_gen_bounds[0]-grid_xmin)%crs_width != 0:
         xmin_new = image_gen_bounds[0] - ((image_gen_bounds[0]-grid_xmin)%crs_width)
@@ -258,7 +258,7 @@ def get_images_for_grid(
                     image_shape = sh_geom.box(image_xmin, image_ymin, image_xmax, image_ymax)
 
                     possible_match_indexes = list(roi_gdf.geometry.sindex.query(image_shape))
-                    possible_matches_gdf = roi_gdf.iloc[possible_match_indexes]
+                    possible_matches_gdf = roi_gdf.iloc[possible_match_indexes] # type: ignore
                     precise_matches_gdf = possible_matches_gdf.loc[possible_matches_gdf.intersects(image_shape)]
                     
                     if len(precise_matches_gdf) == 0:
@@ -479,6 +479,10 @@ def getmap_to_file(
                     logger.exception(message)
                     raise Exception(message) from ex
 
+        # If the response is None, error
+        if response is None:
+            raise Exception("No valid response retrieved...")
+        
         # Write image to temp file...
         # If all bands need to be kept, just save to output
         with rio.MemoryFile(response.read()) as memfile:
