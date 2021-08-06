@@ -701,7 +701,7 @@ def save_and_clean_models(
             # Bad model... can be removed (or not saved)
             if only_report is True:
                 logger.debug(f"DELETE {model_info.filename}")
-            elif Path(model_info['filepath']).exists() is True:
+            elif Path(model_info.filepath).exists() is True:
                 logger.debug(f"DELETE {model_info.filename}")
                 if Path(model_info.filepath).is_dir() is True:
                     shutil.rmtree(model_info.filepath)
