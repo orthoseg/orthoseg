@@ -11,6 +11,7 @@ from typing import List, Optional
 
 import pandas as pd 
 from tensorflow import keras as kr
+
 #-------------------------------------------------------------
 # First define/init some general variables/constants
 #-------------------------------------------------------------
@@ -659,29 +660,29 @@ def save_and_clean_models(
     # Remark: the list is sorted descending before iterating it, this way new
     # models are saved bevore deleting the previous best one(s)
     model_info_sorted_df = model_info_df.sort_values(by='acc_combined', ascending=False)
-    for _, model_info in model_info_sorted_df.iterrows():
+    for model_info in model_info_sorted_df.itertuples(index=False):
        
         # If only the best needs to be kept, check only on acc_combined...
         keep_model = True
         better_ones_df = None
         if save_best_only:
             better_ones_df = model_info_df[
-                    (model_info_df['filepath'] != model_info['filepath']) 
-                     & (model_info_df['acc_combined'] >= model_info['acc_combined'])]
+                    (model_info_df.filepath != model_info.filepath) 
+                     & (model_info_df.acc_combined >= model_info.acc_combined)]
             if len(better_ones_df) > 0:
                 keep_model = False
 
         # If model is (relatively) ok, keep it
         if keep_model is True:
-            logger.debug(f"KEEP {model_info['filename']}")
+            logger.debug(f"KEEP {model_info.filename}")
 
             # If it is the new model that needs to be kept, keep it or save to disk
-            if(new_model_path is not None 
+            if(new_model_path is not None and new_model_epoch is not None
                and only_report is not True
-               and model_info['filepath'] == str(new_model_path)
+               and model_info.filepath == str(new_model_path)
                and not new_model_path.exists()):
                 if(new_model_epoch > save_min_accuracy_ignored_epoch
-                   or model_info['acc_combined'] > save_min_accuracy):
+                   or model_info.acc_combined > save_min_accuracy):
                     logger.debug('Save model start')
                     if save_weights_only:
                         if model_template_for_save is not None:
@@ -695,22 +696,22 @@ def save_and_clean_models(
                             new_model.save(str(new_model_path))
                     logger.debug('Save model ready')
                 else:
-                    print(f"\nNew model is best model, but acc_combined < save_min_accuracy: {new_model_acc_combined} < {save_min_accuracy}")
+                    print(f"New model is best model, but acc_combined < save_min_accuracy: {new_model_acc_combined} < {save_min_accuracy}")
         else:     
             # Bad model... can be removed (or not saved)
             if only_report is True:
-                logger.debug(f"DELETE {model_info['filename']}")
+                logger.debug(f"DELETE {model_info.filename}")
             elif Path(model_info['filepath']).exists() is True:
-                logger.debug(f"DELETE {model_info['filename']}")
-                if Path(model_info['filepath']).is_dir() is True:
-                    shutil.rmtree(model_info['filepath'])
+                logger.debug(f"DELETE {model_info.filename}")
+                if Path(model_info.filepath).is_dir() is True:
+                    shutil.rmtree(model_info.filepath)
                 else:
-                    Path(model_info['filepath']).unlink()
+                    Path(model_info.filepath).unlink()
                 
             if debug is True and better_ones_df is not None:
-                print(f"Better one(s) found for{model_info['filename']}:")
-                for _, better_one in better_ones_df.iterrows():
-                    print(f"  {better_one['filename']}")
+                print(f"Better one(s) found for{model_info.filename}:")
+                for better_one in better_ones_df.itertuples(index=False):
+                    print(f"  {better_one.filename}")
 
     if verbose is True or debug is True:
         best_model = get_best_model(
@@ -720,7 +721,7 @@ def save_and_clean_models(
                 architecture_id=architecture_id,
                 trainparams_id=trainparams_id)
         if best_model is not None:
-            print(f"\nBEST MODEL for {segment_subject}: acc_combined: {best_model['acc_combined']}, epoch: {best_model['epoch']}")
+            logger.info(f"Current best model for {segment_subject}_{traindata_id}: acc_combined: {best_model['acc_combined']}, epoch: {best_model['epoch']}")
 
 if __name__ == '__main__':
     raise Exception("Not implemented")

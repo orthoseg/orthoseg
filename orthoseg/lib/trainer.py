@@ -254,7 +254,8 @@ def train(
                            reduce_lr, early_stopping,
                            tensorboard_logger,
                            csv_logger],
-                initial_epoch=start_epoch)
+                initial_epoch=start_epoch,
+                verbose=2)
 
         # Write some reporting
         train_report_path = model_save_dir / (model_save_base_filename + '_report.pdf')
