@@ -1,0 +1,72 @@
+# -*- coding: utf-8 -*-
+"""
+Module with specific helper functions to manage the logging of orthoseg.
+
+TODO: maybe it is cleaner to replace most code here by a config dict?
+"""
+
+from email.message import EmailMessage
+import logging
+import smtplib
+
+from orthoseg.helpers import config_helper as conf
+
+#-------------------------------------------------------------
+# First define/init general variables/constants
+#-------------------------------------------------------------
+# Get a logger...
+logger = logging.getLogger(__name__)
+
+#-------------------------------------------------------------
+# The real work
+#-------------------------------------------------------------
+
+def sendmail(
+        subject: str, 
+        body: str = None,
+        stop_on_error: bool = False):
+
+    if conf is None:
+        raise Exception('Config is not initialized')
+        
+    if not conf.email.getboolean('enabled', fallback=False):
+        return
+    mail_from = conf.email.get('from', None)
+    mail_to = conf.email.get('to', None)
+    mail_server = conf.email.get('server', None)
+    mail_server_username = conf.email.get('username', None)
+    mail_server_password = conf.email.get('password', None)
+
+    # If one of the necessary parameters not provided, log subject
+    if(mail_from is None
+       or mail_to is None
+       or mail_server is None):
+        logger.warning(f"Mail global_config not provided to send email with subject: {subject}")
+        return
+
+    try:
+        # Create message
+        msg = EmailMessage()
+        msg.add_header('from', mail_from)
+        msg.add_header('to', mail_to)
+        msg.add_header('subject', subject)
+        if body is not None:
+            msg.set_payload(body)
+
+        # Send the email
+        server = smtplib.SMTP(mail_server)
+        if(mail_server_username is not None
+           and mail_server_password is not None):
+            server.login(mail_server_username, mail_server_password)
+        server.send_message(msg)
+        server.quit()
+    except Exception as ex:
+        if stop_on_error is False:
+            logger.exception("Error sending email")
+        else:
+            raise Exception("Error sending email") from ex
+
+# If the script is ran directly...
+if __name__ == '__main__':
+    raise Exception("Not implemented")
+    

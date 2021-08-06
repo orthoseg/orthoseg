@@ -69,7 +69,7 @@ def clean_log_dir(
             Defaults to '*.*'.
     """
     # Check input params
-    if log_dir is None or log_dir.exists() is False:
+    if log_dir is None or log_dir.exists() is False or nb_logfiles_tokeep is None:
         return
     
     # List log files and remove the ones that are too much 

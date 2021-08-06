@@ -11,8 +11,6 @@ import pprint
 import tempfile
 from typing import List, Optional
 
-from orthoseg.lib import postprocess_predictions
-
 #-------------------------------------------------------------
 # First define/init some general variables/constants
 #-------------------------------------------------------------
@@ -29,17 +27,47 @@ illegal_chars_in_codes = ['_', ',', '.', '?', ':']
 # The real work
 #-------------------------------------------------------------
 
-def read_project_config(
-        config_filepaths: List[Path],
-        layer_config_filepath: Path = None):
+def read_config(config_path: Path):
     
+    ##### Init #####
+    # First check input param
+    if not config_path.exists():
+        raise Exception(f"Config file specified does not exist: {config_path}")
+
+    # Collect the config files to use. The "hardcoded" defaults should always 
+    # be loaded 
+    script_dir = Path(__file__).resolve().parent.parent
+    config_filepaths = [script_dir / 'project_defaults.ini']
+
+    # Load possible extra config files from the project config file
+    basic_projectconfig = configparser.ConfigParser(
+            interpolation=configparser.ExtendedInterpolation(),
+            converters={'list': lambda x: [i.strip() for i in x.split(',')]},
+            allow_no_value=True)
+    basic_projectconfig.read(config_path)
+
+    default_basedir = config_path.parent
+    extra_config_files_to_load = basic_projectconfig['general'].getlist('extra_config_files_to_load')
+    if extra_config_files_to_load is not None:
+        for config_file in extra_config_files_to_load:
+            config_file_formatted = Path(config_file.format(task_filepath=config_path, jobs_dir=config_path.parent))
+            if not config_file_formatted.is_absolute():
+                config_file_formatted = (default_basedir / config_file_formatted).resolve()
+            config_filepaths.append(Path(config_file_formatted))
+
+    # Finally add the specific project config file...
+    config_filepaths.append(config_path)
+
     # Log config filepaths that don't exist...
     for config_filepath in config_filepaths:
         if not config_filepath.exists():
             logger.warning(f"config_filepath does not exist: {config_filepath}")
 
-    # Read the configuration
+    ##### Now we are ready to read the entire configuration #####
     def safe_math_eval(string):
+        """
+        Function to evaluate a mathematical expression safely.
+        """
         if string is None:
             return None
             
@@ -93,6 +121,8 @@ def read_project_config(
     files = config['files']
     global logging
     logging = config['logging']
+    global email
+    email = config['email']
 
     # Some checks to make sure the config is loaded properly
     segment_subject = general.get('segment_subject')
@@ -110,8 +140,7 @@ def read_project_config(
         dirs['projects_dir'] = projects_dir_absolute.as_posix()
 
     # Read the layer config
-    if layer_config_filepath is None:
-        layer_config_filepath = files.getpath('image_layers_config_filepath')
+    layer_config_filepath = files.getpath('image_layers_config_filepath')
     global layer_config_filepath_used
     layer_config_filepath_used = layer_config_filepath
 
@@ -218,11 +247,9 @@ def as_dict():
             the_dict[section][key] = val
     return the_dict
 
-def search_projectconfig_files(
-        projectconfig_path: Path,
-        projectconfig_defaults_overrule_path: Path = None,
-        projectconfig_defaults_path: Path = None) -> List[Path]:
+def search_projectconfig_files(task_path: Path) -> List[Path]:
 
+    '''
     config_filepaths = []
     # First the default settings, because they can be overridden by the other 2
     if projectconfig_defaults_path is None:
@@ -247,6 +274,26 @@ def search_projectconfig_files(
 
     # Specific settings for the subject
     config_filepaths.append(projectconfig_path)
+    '''
+
+    # Create configparser and read task file!
+    task_config = configparser.ConfigParser(
+            interpolation=configparser.ExtendedInterpolation(),
+            converters={'list': lambda x: [i.strip() for i in x.split(',')]},
+            allow_no_value=True)
+    task_config.read(task_path)
+    default_basedir = task_path.parent.parent
+
+    # Determine the config files to load
+    script_dir = Path(__file__).resolve().parent
+    config_filepaths = [script_dir / 'project_defaults.ini']
+    extra_config_files_to_load = task_config['task'].getlist('extra_config_files_to_load')
+    if extra_config_files_to_load is not None:
+        for config_file in extra_config_files_to_load:
+            config_file_formatted = Path(config_file.format(task_filepath=task_path, tasks_dir=task_path.parent))
+            if not config_file_formatted.is_absolute():
+                config_file_formatted = (default_basedir / config_file_formatted).resolve()
+            config_filepaths.append(Path(config_file_formatted))
 
     return config_filepaths
 

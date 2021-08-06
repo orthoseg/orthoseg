@@ -14,6 +14,7 @@ import pprint
 from typing import List, Optional, Tuple
 
 from geofileops import geofile
+from geofileops import geofileops
 import pandas as pd
 import geopandas as gpd
 import numpy as np
@@ -114,6 +115,20 @@ def prepare_traindatasets(
             dataversion_new = dataversion_mostrecent
         else:
             dataversion_new = dataversion_mostrecent + 1
+            logger.info(f"Input label file(s) changed since last prepare_traindatasets, so create new training data version {dataversion_new}")
+
+    # First check all input files
+    invalid_geom_paths = []
+    for label_file in label_infos:
+        is_valid = geofileops.isvalid(label_file.locations_path, force=True)
+        if is_valid is False:
+            invalid_geom_paths.append(str(label_file.locations_path))
+        is_valid = geofileops.isvalid(label_file.polygons_path, force=True)
+        if is_valid is False:
+            invalid_geom_paths.append(str(label_file.polygons_path))
+        
+    if len(invalid_geom_paths) > 0:
+        raise Exception(f"Invalid geometries found in: {', '.join(invalid_geom_paths)}")
         
     # Process all input files
     output_dir = training_dir / f"{dataversion_new:02d}"
@@ -132,10 +147,10 @@ def prepare_traindatasets(
         logger.debug(f"Read label locations from {label_file.locations_path}")
         file_labellocations_gdf = geofile.read_file(label_file.locations_path)
         if file_labellocations_gdf is not None and len(file_labellocations_gdf) > 0:
-            file_labellocations_gdf.loc[:, 'filepath'] = str(label_file.locations_path)
-            file_labellocations_gdf.loc[:, 'image_layer'] = label_file.image_layer
+            file_labellocations_gdf.loc[:, 'filepath'] = str(label_file.locations_path)   # type: ignore
+            file_labellocations_gdf.loc[:, 'image_layer'] = label_file.image_layer        # type: ignore
             # Remark: geopandas 0.7.0 drops the fid column internaly, so cannot be retrieved
-            file_labellocations_gdf.loc[:, 'row_nb_orig'] = file_labellocations_gdf.index
+            file_labellocations_gdf.loc[:, 'row_nb_orig'] = file_labellocations_gdf.index # type: ignore
             if labellocations_gdf is None:
                 labellocations_gdf = file_labellocations_gdf
             else:
@@ -147,7 +162,7 @@ def prepare_traindatasets(
         logger.debug(f"Read label data from {label_file.polygons_path}")
         file_labelpolygons_gdf = geofile.read_file(label_file.polygons_path)
         if file_labelpolygons_gdf is not None and len(file_labelpolygons_gdf) > 0:
-            file_labelpolygons_gdf.loc[:, 'image_layer'] = label_file.image_layer
+            file_labelpolygons_gdf.loc[:, 'image_layer'] = label_file.image_layer # type: ignore
             if labelpolygons_gdf is None:
                 labelpolygons_gdf = file_labelpolygons_gdf
             else:

@@ -24,7 +24,11 @@ setuptools.setup(
             "tensorflow>=2.5,<2.6"],
     entry_points='''
             [console_scripts]
-            orthoseg=orthoseg.orthoseg:main
+            orthoseg_load_images=orthoseg.load_images:main
+            orthoseg_train=orthoseg.train:main
+            orthoseg_predict=orthoseg.predict:main
+            orthoseg_postprocess=orthoseg.postprocess:main
+            scriptrunner=orthoseg.scriptrunner:main
             ''',
     classifiers=[
             "Programming Language :: Python :: 3",
