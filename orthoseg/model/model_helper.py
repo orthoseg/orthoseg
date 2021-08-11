@@ -667,7 +667,7 @@ def save_and_clean_models(
         if save_best_only:
             better_ones_df = model_info_df[
                     (model_info_df['filepath'] != model_info['filepath']) 
-                     & (model_info_df['acc_combined'] >= model_info['acc_combined'])]
+                     & (model_info_df['acc_combined'] >= model_info['acc_combined'])] # type: ignore
             if len(better_ones_df) > 0:
                 keep_model = False
 
@@ -676,12 +676,12 @@ def save_and_clean_models(
             logger.debug(f"KEEP {model_info['filename']}")
 
             # If it is the new model that needs to be kept, keep it or save to disk
-            if(new_model_path is not None 
+            if(new_model_path is not None and new_model_epoch is not None
                and only_report is not True
                and model_info['filepath'] == str(new_model_path)
                and not new_model_path.exists()):
                 if(new_model_epoch > save_min_accuracy_ignored_epoch
-                   or model_info['acc_combined'] > save_min_accuracy):
+                   or model_info['acc_combined'] > save_min_accuracy): # type: ignore
                     logger.debug('Save model start')
                     if save_weights_only:
                         if model_template_for_save is not None:
@@ -695,18 +695,20 @@ def save_and_clean_models(
                             new_model.save(str(new_model_path))
                     logger.debug('Save model ready')
                 else:
-                    print(f"\nNew model is best model, but acc_combined < save_min_accuracy: {new_model_acc_combined} < {save_min_accuracy}")
+                    print(f"New model has acc_combined < save_min_accuracy: {new_model_acc_combined} < {save_min_accuracy}")
         else:     
             # Bad model... can be removed (or not saved)
             if only_report is True:
                 logger.debug(f"DELETE {model_info['filename']}")
-            elif Path(model_info['filepath']).exists() is True:
-                logger.debug(f"DELETE {model_info['filename']}")
-                if Path(model_info['filepath']).is_dir() is True:
-                    shutil.rmtree(model_info['filepath'])
-                else:
-                    Path(model_info['filepath']).unlink()
-                
+            else:
+                model_path = Path(model_info['filepath']) # type: ignore
+                if model_path.exists() is True:   
+                    logger.debug(f"DELETE {model_info['filename']}")
+                    if model_path.is_dir() is True:
+                        shutil.rmtree(model_path)
+                    else:
+                        model_path.unlink()
+                    
             if debug is True and better_ones_df is not None:
                 print(f"Better one(s) found for{model_info['filename']}:")
                 for _, better_one in better_ones_df.iterrows():
