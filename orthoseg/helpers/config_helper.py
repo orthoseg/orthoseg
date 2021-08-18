@@ -8,8 +8,8 @@ import json
 import logging
 from pathlib import Path
 import pprint
-import tempfile
-from typing import List, Optional
+
+from orthoseg.util import config as config_util
 
 #-------------------------------------------------------------
 # First define/init some general variables/constants
@@ -27,80 +27,17 @@ illegal_chars_in_codes = ['_', ',', '.', '?', ':']
 # The real work
 #-------------------------------------------------------------
 
-def read_config(config_path: Path):
-    
-    ##### Init #####
-    # First check input param
-    if not config_path.exists():
-        raise Exception(f"Config file specified does not exist: {config_path}")
+def read_orthoseg_config(config_path: Path):
 
-    # Collect the config files to use. The "hardcoded" defaults should always 
-    # be loaded 
-    script_dir = Path(__file__).resolve().parent.parent
-    config_filepaths = [script_dir / 'project_defaults.ini']
-
-    # Load possible extra config files from the project config file
-    basic_projectconfig = configparser.ConfigParser(
-            interpolation=configparser.ExtendedInterpolation(),
-            converters={'list': lambda x: [i.strip() for i in x.split(',')]},
-            allow_no_value=True)
-    basic_projectconfig.read(config_path)
-
-    default_basedir = config_path.parent
-    extra_config_files_to_load = basic_projectconfig['general'].getlist('extra_config_files_to_load')
-    if extra_config_files_to_load is not None:
-        for config_file in extra_config_files_to_load:
-            config_file_formatted = Path(config_file.format(task_filepath=config_path, jobs_dir=config_path.parent))
-            if not config_file_formatted.is_absolute():
-                config_file_formatted = (default_basedir / config_file_formatted).resolve()
-            config_filepaths.append(Path(config_file_formatted))
-
-    # Finally add the specific project config file...
-    config_filepaths.append(config_path)
-
-    # Log config filepaths that don't exist...
-    for config_filepath in config_filepaths:
-        if not config_filepath.exists():
-            logger.warning(f"config_filepath does not exist: {config_filepath}")
-
-    ##### Now we are ready to read the entire configuration #####
-    def safe_math_eval(string):
-        """
-        Function to evaluate a mathematical expression safely.
-        """
-        if string is None:
-            return None
-            
-        allowed_chars = "0123456789+-*(). /"
-        for char in string:
-            if char not in allowed_chars:
-                raise Exception("Unsafe eval")
-
-        return eval(string)
-
-    def to_path(pathlike: str) -> Optional[Path]:
-        if pathlike is None: 
-            return None
-        else:
-            if '{tempdir}' in pathlike:
-                return Path(pathlike.format(tempdir=tempfile.gettempdir()))
-            else:
-                return Path(pathlike)
-
+    # Determine list of config files that should be loaded
+    config_paths = config_util.get_config_files(config_path)
+    # Load them
     global config
-    config = configparser.ConfigParser(
-            interpolation=configparser.ExtendedInterpolation(),
-            converters={'list': lambda x: [i.strip() for i in x.split(',')],
-                        'listint': lambda x: [int(i.strip()) for i in x.split(',')],
-                        'listfloat': lambda x: [float(i.strip()) for i in x.split(',')],
-                        'dict': lambda x: None if x is None else json.loads(x),
-                        'path': lambda x: to_path(x),
-                        'eval': lambda x: safe_math_eval(x)},
-            allow_no_value=True)
+    config = config_util.read_config_ext(config_paths)
 
-    config.read(config_filepaths)
+    # Now do orthoseg-specific checks, inits,... on config
     global config_filepaths_used
-    config_filepaths_used = config_filepaths
+    config_filepaths_used = config_paths
 
     # Now set global variables to each section as shortcuts
     global general
@@ -127,7 +64,7 @@ def read_config(config_path: Path):
     # Some checks to make sure the config is loaded properly
     segment_subject = general.get('segment_subject')
     if segment_subject is None or segment_subject  == 'MUST_OVERRIDE':
-        raise Exception(f"Projectconfig parameter general.segment_subject needs to be overruled to a proper name in a specific project config file, \nwith config_filepaths {config_filepaths}")
+        raise Exception(f"Projectconfig parameter general.segment_subject needs to be overruled to a proper name in a specific project config file, \nwith config_filepaths {config_paths}")
     elif any(illegal_character in segment_subject for illegal_character in illegal_chars_in_codes):
         raise Exception(f"Projectconfig parameter general.segment_subject ({segment_subject}) should not contain any of the following characters: {illegal_chars_in_codes}")
 
@@ -135,7 +72,7 @@ def read_config(config_path: Path):
     # the project config file.
     projects_dir = dirs.getpath('projects_dir')
     if not projects_dir.is_absolute():
-        projects_dir_absolute = (config_filepaths[-1].parent / projects_dir).resolve()
+        projects_dir_absolute = (config_paths[-1].parent / projects_dir).resolve()
         logger.info(f"Parameter dirs.projects_dir was relative, so is now resolved to {projects_dir_absolute}")
         dirs['projects_dir'] = projects_dir_absolute.as_posix()
 
@@ -228,75 +165,11 @@ def pformat_config():
     message = f"Config files used: {pprint.pformat(config_filepaths_used)} \n"
     message += f"Layer config file used: {layer_config_filepath_used} \n"
     message += "Config info listing:\n"
-    message += pprint.pformat(as_dict())
+    message += pprint.pformat(config_util.as_dict(config))
     message += "Layer config info listing:\n"
     message += pprint.pformat(image_layers)
     return message
     
-def as_dict():
-    """
-    Converts a ConfigParser object into a dictionary.
-
-    The resulting dictionary has sections as keys which point to a dict of the
-    sections options as key => value pairs.
-    """
-    the_dict = {}
-    for section in config.sections():
-        the_dict[section] = {}
-        for key, val in config.items(section):
-            the_dict[section][key] = val
-    return the_dict
-
-def search_projectconfig_files(task_path: Path) -> List[Path]:
-
-    '''
-    config_filepaths = []
-    # First the default settings, because they can be overridden by the other 2
-    if projectconfig_defaults_path is None:
-        install_dir = Path(__file__).resolve().parent.parent
-        projectconfig_defaults_path = install_dir / 'project_defaults.ini'
-        if projectconfig_defaults_path.exists():
-            config_filepaths.append(projectconfig_defaults_path)
-        else:
-            logger.warn(f"No default projectconfig found, so won't be used, but this could give problems when upgrading to new versions: {projectconfig_defaults_path}")
-
-    # Then the settings on the projectsdir level
-    if projectconfig_defaults_overrule_path is not None:
-        config_filepaths.append(projectconfig_defaults_overrule_path)
-    else:
-        # Check if a config file exists on the default overrule location
-        projects_dir = projectconfig_path.parent.parent
-        projectconfig_defaults_overrule_path = projects_dir / 'project_defaults_overrule.ini'
-        if projectconfig_defaults_overrule_path.exists():
-            config_filepaths.append(projectconfig_defaults_overrule_path)
-        else: 
-            logger.warn(f"No (optional) project_defaults.ini file found on projectdir level, so won't be used: {projectconfig_defaults_overrule_path}")     
-
-    # Specific settings for the subject
-    config_filepaths.append(projectconfig_path)
-    '''
-
-    # Create configparser and read task file!
-    task_config = configparser.ConfigParser(
-            interpolation=configparser.ExtendedInterpolation(),
-            converters={'list': lambda x: [i.strip() for i in x.split(',')]},
-            allow_no_value=True)
-    task_config.read(task_path)
-    default_basedir = task_path.parent.parent
-
-    # Determine the config files to load
-    script_dir = Path(__file__).resolve().parent
-    config_filepaths = [script_dir / 'project_defaults.ini']
-    extra_config_files_to_load = task_config['task'].getlist('extra_config_files_to_load')
-    if extra_config_files_to_load is not None:
-        for config_file in extra_config_files_to_load:
-            config_file_formatted = Path(config_file.format(task_filepath=task_path, tasks_dir=task_path.parent))
-            if not config_file_formatted.is_absolute():
-                config_file_formatted = (default_basedir / config_file_formatted).resolve()
-            config_filepaths.append(Path(config_file_formatted))
-
-    return config_filepaths
-
 # If the script is ran directly...
 if __name__ == '__main__':
     raise Exception("Not implemented")

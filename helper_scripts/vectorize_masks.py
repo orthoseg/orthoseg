@@ -18,7 +18,7 @@ import shapely.geometry as sh_geom
 import geopandas as gpd
 import glob
 
-from orthoseg.helpers import log_helper
+from orthoseg.util import log as log_util
 
 def vectorize_masks(input_image_dir: Path,
                     output_filepath: Path,
@@ -144,7 +144,7 @@ if __name__ == '__main__':
 
     # Main initialisation of the logging
     log_dir = os.path.join(project_dir, "log")
-    logger = log_helper.main_log_init(Path(log_dir), __name__)
+    logger = log_util.main_log_init(Path(log_dir), __name__)
     
     # Now vectorize the masks
     vectorize_masks(input_image_dir=Path(mask_dir),

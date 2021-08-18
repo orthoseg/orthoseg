@@ -5,18 +5,17 @@ Run the scripts in a directory.
 
 import argparse
 import configparser
-import datetime
-from email.message import EmailMessage
-import logging
-import logging.config
 from pathlib import Path
-import smtplib
 import subprocess
+import sys
 import time
-from typing import List, Optional
+
+# Because orthoseg isn't installed as package + it is higher in dir hierarchy, add root to sys.path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from orthoseg.util import log as log_util
+from orthoseg.util import config as config_util
 
 runner_config = None
-logger = logging.getLogger()
 
 def main():
     
@@ -43,12 +42,20 @@ def main():
         raise Exception(f"script dir {script_dir} does not exist")
 
     # Load the scriptrunner config
-    load_config(args.config)
+    conf = load_scriptrunner_config(args.config, script_dir)
 
-    error_dir = script_dir / 'error'
-    done_dir = script_dir / 'done'
-    log_path = script_dir / 'log' / f"{datetime.datetime.now():%Y-%m-%d}_scriptrunner.log"
-    init_logging(log_path=log_path)
+    # Init logging
+    log_util.clean_log_dir(
+            log_dir=conf['dirs'].getpath('log_dir'),
+            nb_logfiles_tokeep=conf['logging'].getint('nb_logfiles_tokeep'))
+    logger = log_util.init_logging_dictConfig(
+            logconfig_dict=conf['logging'].getdict('logconfig'),
+            log_basedir=conf['dirs'].getpath('script_dir'),
+            loggername=__name__)
+    
+    # Init working dirs
+    done_dir = conf['dirs'].getpath('done_dir')
+    error_dir = conf['dirs'].getpath('error_dir')
 
     # Loop over scripts to be ran
     wait_message_printed = False
@@ -56,7 +63,7 @@ def main():
 
         # List the scripts in the dir
         script_paths = []
-        script_patterns = ['*.bat', '*.sh']
+        script_patterns = conf['general'].getlist('script_patterns')
         for script_pattern in script_patterns:
             script_paths.extend(list(script_dir.glob(script_pattern)))
 
@@ -135,60 +142,26 @@ def main():
                     error_path.unlink()
                 script_path.rename(target=error_path)
 
-def load_config(config_path: str) -> configparser.ConfigParser:
+def load_scriptrunner_config(
+        config_path: str,
+        script_dir: Path) -> configparser.ConfigParser:
 
     # Load defaults first
-    script_dir = Path(__file__).resolve().parent.parent
-    config_paths = [script_dir / 'project_defaults.ini']
+    scriptrunner_py_dir = Path(__file__).resolve().parent
+    config_paths = [scriptrunner_py_dir / 'scriptrunner_defaults.ini']
 
     # If a config path is specified, this config should overrule the defaults
     if config_path is not None:
         config_paths.append(Path(config_path))
 
     # Load!
-    scriptrunner_config = configparser.ConfigParser(
-            interpolation=configparser.ExtendedInterpolation(),
-            converters={'list': lambda x: [i.strip() for i in x.split(',')]},
-            allow_no_value=True)
-    scriptrunner_config.read(config_paths)
+    scriptrunner_config = config_util.read_config_ext(config_paths)
+
+    # If a script_dir is specified, it overrides the config file(s)
+    if script_dir is not None:
+        scriptrunner_config['dirs']['script_dir'] = script_dir.as_posix()
 
     return scriptrunner_config
-
-def init_logging(log_path: Optional[Path]):
-    
-    # Make sure the log dir exists
-    if log_path is not None and not log_path.parent.exists():
-        log_path.parent.mkdir(parents=True, exist_ok=True)
-        
-    # Get root logger
-    logger = logging.getLogger('')
-    
-    # Set the general maximum log level...
-    logger.setLevel(logging.INFO)
-    for handler in logger.handlers:
-        handler.flush()
-        handler.close()
-    
-    # Remove all handlers and add the ones I want again, so a new log file is created for each run
-    # Remark: the function removehandler doesn't seem to work?
-    logger.handlers = []
-    
-    ch = logging.StreamHandler()
-    ch.setLevel(logging.INFO)
-    #ch.setFormatter(logging.Formatter('%(levelname)s|%(name)s|%(message)s'))
-    #ch.setFormatter(logging.Formatter('%(asctime)s|%(levelname)s|%(name)s|%(message)s',
-    #                                  datefmt='%H:%M:%S,uuu'))
-    ch.setFormatter(logging.Formatter(fmt='%(asctime)s.%(msecs)03d|%(levelname)s|%(name)s|%(message)s',
-                                      datefmt='%H:%M:%S')) 
-    logger.addHandler(ch)
-    
-    if log_path is not None:
-        fh = logging.FileHandler(filename=str(log_path))
-        fh.setLevel(logging.INFO)
-        fh.setFormatter(logging.Formatter('%(asctime)s|%(levelname)s|%(name)s|%(message)s'))
-        logger.addHandler(fh)
-        
-    return logger
 
 if __name__ == '__main__':
     main()

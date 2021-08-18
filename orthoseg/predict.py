@@ -20,10 +20,10 @@ from tensorflow.keras import utils as kr_utils
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from orthoseg.helpers import config_helper as conf
 from orthoseg.helpers import email_helper
-from orthoseg.helpers import log_helper
 from orthoseg.lib import predicter
 import orthoseg.model.model_factory as mf
 import orthoseg.model.model_helper as mh
+from orthoseg.util import log as log_util
 
 from geofileops import geofileops
 
@@ -73,14 +73,14 @@ def predict(config_path: Path):
     ##### Init #####
     # Load the config and save in a bunch of global variables zo it 
     # is accessible everywhere 
-    conf.read_config(config_path)
+    conf.read_orthoseg_config(config_path)
     
     # Init logging
-    log_helper.clean_log_dir(
+    log_util.clean_log_dir(
             log_dir=conf.dirs.getpath('log_dir'),
             nb_logfiles_tokeep=conf.logging.getint('nb_logfiles_tokeep'))     
     global logger
-    logger = log_helper.main_log_init(conf.dirs.getpath('log_dir'), __name__)      
+    logger = log_util.main_log_init(conf.dirs.getpath('log_dir'), __name__)      
     
     # Log start + send email
     message = f"Start predict for config {config_path.stem}"

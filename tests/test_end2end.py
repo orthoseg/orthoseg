@@ -31,7 +31,7 @@ def get_test_projects_dir() -> Path:
 def test_load_images():
     # Load project config to init some vars.
     config_path = get_test_projects_dir() / 'footballfields' / 'footballfields_BEFL-2019.ini'
-    conf.read_config(config_path)
+    conf.read_orthoseg_config(config_path)
     image_cache_dir = conf.dirs.getpath('predict_image_input_dir')
 
     # Clean result if it isn't empty yet
@@ -51,7 +51,7 @@ def test_load_images():
 def test_train():
     # Load project config to init some vars.
     config_path = get_test_projects_dir() / 'footballfields' / 'footballfields_train.ini'
-    conf.read_config(config_path)
+    conf.read_orthoseg_config(config_path)
 
     # Init + cleanup result dirs
     traindata_id_result = 2
@@ -85,7 +85,7 @@ def test_train():
 def test_predict():
     # Load project config to init some vars.
     config_path = get_test_projects_dir() / 'footballfields' / 'footballfields_BEFL-2019.ini'
-    conf.read_config(config_path)
+    conf.read_orthoseg_config(config_path)
 
     # Cleanup result if it isn't empty yet
     predict_image_output_basedir = conf.dirs.getpath('predict_image_output_basedir')
@@ -112,7 +112,7 @@ def test_predict():
 def test_postprocess():
     # Load project config to init some vars.
     config_path = get_test_projects_dir() / 'footballfields' / 'footballfields_BEFL-2019.ini'
-    conf.read_config(config_path)
+    conf.read_orthoseg_config(config_path)
     
     # Cleanup result if it isn't empty yet
     result_vector_dir = conf.dirs.getpath('output_vector_dir')
