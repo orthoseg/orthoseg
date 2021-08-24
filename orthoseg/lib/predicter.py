@@ -21,6 +21,7 @@ import tensorflow as tf
 from tensorflow import keras as kr
 
 import orthoseg.lib.postprocess_predictions as postp
+from orthoseg.helpers.progress_helper import ProgressHelper
 
 #-------------------------------------------------------------
 # First define/init some general variables/constants
@@ -133,8 +134,8 @@ def predict_dir(
     input_ext = ['.png', '.tif', '.jpg']
     for input_ext_cur in input_ext:
         image_filepaths.extend(input_image_dir.rglob('*' + input_ext_cur))
-    nb_todo = len(image_filepaths)
-    logger.info(f"Found {nb_todo} {input_ext} images to predict on in {input_image_dir}")
+    nb_images = len(image_filepaths)
+    logger.info(f"Found {nb_images} {input_ext} images to predict on in {input_image_dir}")
     
     # If force is false, get list of all existing predictions
     # Getting the list once is way faster than checking file per file later on!
@@ -165,11 +166,9 @@ def predict_dir(
 
     # Loop through all files to process them...
     curr_batch_image_infos = []
-    nb_to_process = nb_todo
+    nb_to_process = nb_images
     nb_processed = 0
-    start_time = None
-    start_time_batch_read = None
-    progress_log_time = None
+    progress = None
     image_filepaths_sorted = sorted(image_filepaths)
     future_to_input_path = {}
 
@@ -213,9 +212,6 @@ def predict_dir(
                 output_image_pred_dir = tmp_output_filepath.parent
                 output_image_pred_path = output_image_pred_dir / f"{image_filepath.stem}_pred{output_suffix}"
                
-            # Init start time after first batch is ready, as it is really slow
-            if start_time is None and start_time_batch_read is not None:
-                start_time = datetime.datetime.now()
             nb_processed += 1
             
             # Append the image info to the batch array so they can be treated in 
@@ -228,8 +224,14 @@ def predict_dir(
             # If the batch size is reached or we are at the last images
             nb_images_in_batch = len(curr_batch_image_infos)
             curr_batch_image_infos_ext = []
-            if(nb_images_in_batch == batch_size or image_id == (nb_todo-1)):
-                start_time_batch_read = datetime.datetime.now()
+            if(nb_images_in_batch == batch_size or image_id == (nb_images-1)):
+                
+                # Init progress only at 2nd batch, as the first is very slow
+                if progress is None and nb_processed > batch_size:
+                    progress = ProgressHelper(
+                            message=f"predict to {output_image_dir.parent.name}/{output_image_dir.name}",
+                            nb_steps_total=nb_to_process, 
+                            nb_steps_done=batch_size)
                 
                 ## Read all input images for the batch (in parallel) ##
                 perf_start_time = datetime.datetime.now()
@@ -267,7 +269,7 @@ def predict_dir(
                 else:
                     curr_batch_image_pred_arr = np.array(curr_batch_image_pred_arr)
                 perfinfo += f", predict took {datetime.datetime.now()-perf_start_time}"
-                
+
                 ## Save predictions ##
                 # Remark: trying to parallelize this doesn't seem to help at all!
                 logger.debug("Start post-processing")    
@@ -320,7 +322,7 @@ def predict_dir(
                 
                 # If not at last file, get results from all futures that are 
                 # done, if at last file, wait till all are done
-                if image_id < (nb_todo-1):
+                if image_id < (nb_images-1):
                     futures_done = [future for future in future_to_input_path if future.done() is True]
                 else:
                     futures_done = futures.wait(future_to_input_path).done
@@ -346,32 +348,14 @@ def predict_dir(
                 logger.debug(perfinfo)                               
 
                 ## Log the progress and prediction speed ##
-                if(start_time is not None 
-                and start_time_batch_read is not None):
-                    time_passed_s = (datetime.datetime.now()-start_time).total_seconds()
-                    time_passed_lastbatch_s = (datetime.datetime.now()-start_time_batch_read).total_seconds()
-                    if time_passed_s > 0 and time_passed_lastbatch_s > 0:
-                        nb_per_hour = (nb_processed/time_passed_s) * 3600
-                        nb_per_hour_lastbatch = (nb_images_in_batch/time_passed_lastbatch_s) * 3600
-                        hours_to_go = (int)((nb_to_process-nb_processed)/nb_per_hour)
-                        min_to_go = (int)((((nb_to_process-nb_processed)/nb_per_hour)%1)*60)
-                        message = f"predict_dir to {output_image_dir.parent.name}/{output_image_dir.name},  {hours_to_go:3d}:{min_to_go:2d} left for {nb_to_process-nb_processed} todo at {nb_per_hour:0.0f}/h ({nb_per_hour_lastbatch:0.0f}/h last batch)"
-                        print(f"\r{message}", end='', flush=True)
+                if progress is not None:
+                    progress.step(nb_steps=batch_size)
 
-                        # Once every 15 minutes, log progress to log file
-                        time_passed_progress_log_s = 0
-                        if progress_log_time is not None:
-                            time_passed_progress_log_s = (datetime.datetime.now()-progress_log_time).total_seconds()
-                        if progress_log_time is None or time_passed_progress_log_s > (15*60):
-                            print()
-                            logger.info(message)
-                            progress_log_time = datetime.datetime.now()
-        
                 # Reset variable for next batch
                 curr_batch_image_infos = []
 
             # If we are ready, rename to real output file
-            if(image_id == (nb_todo-1) 
+            if(image_id == (nb_images-1) 
                and output_vector_path is not None 
                and pred_tmp_output_path is not None and pred_tmp_output_path.exists()):
                 geofile.move(pred_tmp_output_path, output_vector_path)
@@ -392,8 +376,8 @@ def read_image(
                 image_crs = image_ds.profile['crs']
                 image_transform = image_ds.transform
                 
-                # Read pixelsn change from (channels, width, height) to 
-                # (width, height, channels) and normalize to values between 0 and 1
+                # Read pixels + change from (channels, width, height) to 
+                # (width, height, channels) + normalize to between 0 and 1
                 image_data = image_ds.read()
                 image_data = rio_plot.reshape_as_image(image_data)
                 image_data = image_data / 255.0 

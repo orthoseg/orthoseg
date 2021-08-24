@@ -88,33 +88,21 @@ def main():
             logger.info(f"Run script {script_path}")
             cmd = [script_path]
 
-            '''
-            process = subprocess.Popen(cmd, shell=True, 
-                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding='utf-8',
-                    creationflags=subprocess.CREATE_NO_WINDOW)
+            process = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding='utf-8')
+                    #,creationflags=subprocess.CREATE_NO_WINDOW)
             
-            keep_running = True
-            while keep_running:
+            still_running = True
+            while still_running:
                 if process.stdout is not None:
                     output = process.stdout.readline()
                     if output == '' and process.poll() is not None:
-                        keep_running = False
+                        still_running = False
                     if output:
                         logger.info(output.strip())
-                if process.stderr is not None:
-                    err = process.stderr.readline()
-                    if err == '' and process.poll() is not None:
-                        keep_running = False
-                    if err:
-                        logger.error(err.strip())
             
             # If error code != 0, an error occured
             rc = process.poll()
-            '''
-            
-            result = subprocess.run(cmd)
-            rc = result.returncode
-
             if rc != 0:
                 # Script gave an error, so move to error dir
                 logger.error(f"Script {script_path} gave error return code: {rc}")
