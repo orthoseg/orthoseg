@@ -71,13 +71,16 @@ class TrainParams:
             optimizer_params: dict = None,
             loss_function: str = None,
             monitor_metric: str = None,
-            monitor_metric_mode: str = 'max',
+            monitor_metric_mode: str = 'auto',
             save_format: str = 'h5',
             save_best_only: bool = True,
             save_min_accuracy: float = 0.95,
             nb_epoch: int = 1000,
             earlystop_patience: int = 100,
-            earlystop_monitor_metric: str = None):
+            earlystop_monitor_metric: str = None,
+            earlystop_monitor_metric_mode: str = 'auto',
+            log_tensorboard: bool = False,
+            log_csv: bool = True):
         """
         Class containing the hyper parameters needed to perform a training.
         
@@ -93,14 +96,23 @@ class TrainParams:
             optimizer (str, optional): Optimizer to use for training. Defaults to 'adam'.
             optimizer_params (dict, optional): Optimizer params to use. Defaults to { 'learning_rate': 0.0001 }.
             loss_function (str, optional): [description]. Defaults to None.
-            monitor_metric (str, optional): Metric to monitor. If not specified the loss function will drive the metric. Defaults to None.
-            monitor_metric_mode (str, optional): Mode of the metric to monitor. Defaults to 'max'.
+            monitor_metric (str, optional): Metric to monitor. If not specified 
+                the loss function will drive the metric. Defaults to None.
+            monitor_metric_mode (str, optional): Mode of the metric to monitor. 
+                Defaults to 'auto'.
             save_format (str, optional): [description]. Defaults to 'h5'.
             save_best_only (bool, optional): [description]. Defaults to True.
             save_min_accuracy (float, optional): minimum accuracy to save a model. Defaults to 0.95.
             nb_epoch (int, optional): maximum number of epochs to train. Defaults to 1000.
             earlystop_patience (int, optional): [description]. Defaults to 100.
             earlystop_monitor_metric (str, optional): [description]. Defaults to None.
+            earlystop_monitor_metric_mode (str, optional): Mode to monitor the 
+                metric: 'max' if the metric should be as high as possible, 
+                'min' if it should be low. Defaults to 'auto'.
+            log_tensorboard (bool, optional): True to activate tensorboard 
+                logging. Defaults to False.
+            log_csv (bool, optional): True to activate logging to a csv. 
+                Defaults to True
         
         Raises:
             Exception: [description]
@@ -123,22 +135,30 @@ class TrainParams:
         else:
             self.loss_function = 'categorical_crossentropy'
 
+        # Properties to choose the best model
         if monitor_metric is not None:
             self.monitor_metric = monitor_metric
         elif self.loss_function in (
                 'weighted_categorical_crossentropy', 'categorical_crossentropy'):
             self.monitor_metric = 'categorical_accuracy'
-        
         self.monitor_metric_mode = monitor_metric_mode
+
         self.save_format = save_format
         self.save_best_only = save_best_only
         self.save_min_accuracy=save_min_accuracy
         self.nb_epoch = nb_epoch
+        
+        # Properties to stop the training
         self.earlystop_patience = earlystop_patience
         if earlystop_monitor_metric is not None:
             self.earlystop_monitor_metric = earlystop_monitor_metric
         else:
             self.earlystop_monitor_metric = self.monitor_metric
+        self.earlystop_monitor_metric_mode = earlystop_monitor_metric_mode
+
+        # Properties regarding logging
+        self.log_tensorboard = log_tensorboard 
+        self.log_csv = log_csv
 
     def toJSON(self):
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)

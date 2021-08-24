@@ -187,7 +187,10 @@ def train(config_path: Path):
                 save_min_accuracy=conf.train.getfloat('save_min_accuracy'),
                 nb_epoch=conf.train.getint('max_epoch'),
                 earlystop_patience=conf.train.getint('earlystop_patience'),
-                earlystop_monitor_metric=conf.train.get('earlystop_monitor_metric'))
+                earlystop_monitor_metric=conf.train.get('earlystop_monitor_metric'),
+                earlystop_monitor_metric_mode=conf.train.get('earlystop_monitor_metric_mode'),
+                log_tensorboard=conf.train.getboolean('log_tensorboard'),
+                log_csv=conf.train.getboolean('log_csv'))
 
         # Check if there exists already a model for this train dataset + hyperparameters
         model_dir = conf.dirs.getpath('model_dir')
