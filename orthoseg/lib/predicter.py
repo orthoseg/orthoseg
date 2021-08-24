@@ -196,13 +196,6 @@ def predict_dir(
                 # In evaluate mode, put everyting in output base dir for easier 
                 # comparison
                 output_image_pred_dir = output_image_dir
-                
-                # Check if output exists already
-                output_files = list(output_image_dir.glob(f"{image_filepath.stem}*_pred{output_suffix}"))
-                if len(output_files) > 0:
-                    logger.debug(f"Predict for image has already been done before and force is False, so skip: {image_filepath.name}")
-                    nb_to_process -= 1
-                    continue
 
                 # Prepare complete filepath for image prediction
                 output_image_pred_path = output_image_dir / image_filepath.stem
@@ -294,6 +287,10 @@ def predict_dir(
                                     evaluate_mode=evaluate_mode,
                                     classes=classes,
                                     force=force)
+                            
+                            # Write filepath to file with files that are done
+                            with images_done_log_filepath.open('a+') as image_donelog_file:
+                                image_donelog_file.write(f"{image_info['input_image_filepath'].name}\n")
                         
                         # If not in evaluate mode... save to vector in background
                         elif output_vector_path is not None:
