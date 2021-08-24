@@ -4,27 +4,38 @@ High-level API to run a segmentation.
 """
 
 import argparse
+import logging
+import os
 from pathlib import Path
 import shlex
 import sys
+import traceback
 
 #import os
 #os.environ["CUDA_VISIBLE_DEVICES"] = "-1" # Disable using GPU
 import tensorflow as tf
-from tensorflow import keras as kr  
 from tensorflow.keras import utils as kr_utils
-from tensorflow.python.training.tracking.base import no_manual_dependency_tracking_scope  
 
+# Because orthoseg isn't installed as package + it is higher in dir hierarchy, add root to sys.path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from orthoseg.helpers import config_helper as conf
-from orthoseg.helpers import log_helper
+from orthoseg.helpers import email_helper
 from orthoseg.lib import predicter
 import orthoseg.model.model_factory as mf
 import orthoseg.model.model_helper as mh
+from orthoseg.util import log as log_util
 
 from geofileops import geofileops
 
-# Global variable
-logger = None
+#-------------------------------------------------------------
+# First define/init general variables/constants
+#-------------------------------------------------------------
+# Get a logger...
+logger = logging.getLogger(__name__)
+
+#-------------------------------------------------------------
+# The real work
+#-------------------------------------------------------------
 
 def predict_argstr(argstr):
     args = shlex.split(argstr)
@@ -37,7 +48,7 @@ def predict_args(args):
 
     # Required arguments
     required = parser.add_argument_group('Required arguments')
-    required.add_argument("--configfile", type=str, required=True,
+    required.add_argument('-c', '--config', type=str, required=True,
             help="The config file to use")
     
     # Optional arguments
@@ -50,163 +61,177 @@ def predict_args(args):
     args = parser.parse_args(args)
 
     ##### Run! #####
-    predict(projectconfig_path=Path(args.configfile))
+    predict(config_path=Path(args.config))
 
-def predict(
-        projectconfig_path: Path,
-        imagelayerconfig_path: Path = None):
+def predict(config_path: Path):
     """
-    Run a prediction of the input dir given.
+    Run a prediction for the config specified.
 
     Args:
-        projectconfig_path (Path): Path to the projects config file.
-        imagelayerconfig_path (Path, optional): Path to the imagelayer config file. If not specified, 
-            the path specified in files.image_layers_config_filepath in the project config will be used. 
-            Defaults to None.
+        config_path (Path): Path to the config file to use.
     """
-    ##### Init #####   
-    # Load config
-    config_filepaths = conf.search_projectconfig_files(projectconfig_path=projectconfig_path)
-    conf.read_project_config(config_filepaths, imagelayerconfig_path)
+    ##### Init #####
+    # Load the config and save in a bunch of global variables zo it 
+    # is accessible everywhere 
+    conf.read_orthoseg_config(config_path)
     
-    # Main initialisation of the logging
-    log_helper.clean_log_dir(
+    # Init logging
+    log_util.clean_log_dir(
             log_dir=conf.dirs.getpath('log_dir'),
             nb_logfiles_tokeep=conf.logging.getint('nb_logfiles_tokeep'))     
     global logger
-    logger = log_helper.main_log_init(conf.dirs.getpath('log_dir'), __name__)      
-    logger.debug(f"Config used: \n{conf.pformat_config()}")
+    logger = log_util.main_log_init(conf.dirs.getpath('log_dir'), __name__)      
     
-    # Read some config, and check if values are ok
-    image_layer = conf.image_layers[conf.predict['image_layer']]
-    if image_layer is None:
-        raise Exception(f"STOP: image_layer to predict is not specified in config: {image_layer}")
-    input_image_dir = conf.dirs.getpath('predict_image_input_dir')
-    if not input_image_dir.exists():
-        raise Exception(f"STOP: input image dir doesn't exist: {input_image_dir}")
-
-    # TODO: add something to delete old data, predictions???
-
-    # Create base filename of model to use
-    # TODO: is force data version the most logical, or rather implement 
-    #       force weights file or ?
-    traindata_id = None
-    force_model_traindata_id = conf.train.getint('force_model_traindata_id')
-    if force_model_traindata_id is not None and force_model_traindata_id > -1:
-        traindata_id = force_model_traindata_id 
+    # Log start + send email
+    message = f"Start predict for config {config_path.stem}"
+    logger.info(message)
+    logger.debug(f"Config used: \n{conf.pformat_config()}")    
+    email_helper.sendmail(message)
     
-    # Get the best model that already exists for this train dataset
-    trainparams_id = conf.train.getint('trainparams_id')
-    best_model = mh.get_best_model(
-            model_dir=conf.dirs.getpath('model_dir'), 
-            segment_subject=conf.general['segment_subject'],
-            traindata_id=traindata_id,
-            trainparams_id=trainparams_id)
-    
-    # Check if a model was found
-    if best_model is None:
-        message = f"No model found in model_dir: {conf.dirs.getpath('model_dir')} for traindata_id: {traindata_id}"
-        logger.critical(message)
-        raise Exception(message)
-    else:    
-        model_weights_filepath = best_model['filepath']
-        logger.info(f"Best model found: {model_weights_filepath}")
-    
-    # Load the hyperparams of the model
-    # TODO: move the hyperparams filename formatting to get_models...
-    hyperparams_path = best_model['filepath'].parent / f"{best_model['basefilename']}_hyperparams.json"
-    hyperparams = mh.HyperParams(path=hyperparams_path)           
-    
-    # Prepare output subdir to be used for predictions
-    predict_out_subdir = f"{best_model['basefilename']}"
-    if trainparams_id > 0:
-        predict_out_subdir += f"_{trainparams_id}"
-    predict_out_subdir += f"_{best_model['epoch']}"
-    
-    # Try optimizing model with tensorrt
     try:
-        # Try import
-        from tensorflow.python.compiler.tensorrt import trt_convert as trt
+        # Read some config, and check if values are ok
+        image_layer = conf.image_layers[conf.predict['image_layer']]
+        if image_layer is None:
+            raise Exception(f"STOP: image_layer to predict is not specified in config: {image_layer}")
+        input_image_dir = conf.dirs.getpath('predict_image_input_dir')
+        if not input_image_dir.exists():
+            raise Exception(f"STOP: input image dir doesn't exist: {input_image_dir}")
 
-        # Import didn't fail, so optimize model
-        logger.info('Tensorrt is available, so use optimized model')
-        savedmodel_optim_dir = best_model['filepath'].parent / best_model['filepath'].stem + "_optim"
-        if not savedmodel_optim_dir.exists():
-            # If base model not yet in savedmodel format
-            savedmodel_dir = best_model['filepath'].parent / best_model['filepath'].stem
-            if not savedmodel_dir.exists():
-                logger.info(f"SavedModel format not yet available, so load model + weights from {best_model['filepath']}")
-                model = mf.load_model(best_model['filepath'], compile=False)
-                logger.info(f"Now save again as savedmodel to {savedmodel_dir}")
-                tf.saved_model.save(model, str(savedmodel_dir))
-                del model
+        # TODO: add something to delete old data, predictions???
 
-            # Now optimize model
-            logger.info(f"Optimize + save model to {savedmodel_optim_dir}")
-            converter = trt.TrtGraphConverterV2(
-                    input_saved_model_dir=savedmodel_dir,
-                    is_dynamic_op=True,
-                    precision_mode='FP16')
-            converter.convert()
-            converter.save(savedmodel_optim_dir)
+        # Create base filename of model to use
+        # TODO: is force data version the most logical, or rather implement 
+        #       force weights file or ?
+        traindata_id = None
+        force_model_traindata_id = conf.train.getint('force_model_traindata_id')
+        if force_model_traindata_id is not None and force_model_traindata_id > -1:
+            traindata_id = force_model_traindata_id 
         
-        logger.info(f"Load optimized model + weights from {savedmodel_optim_dir}")
-        model = tf.keras.models.load_model(savedmodel_optim_dir)
-
-    except ImportError:
-        logger.info('Tensorrt is not available, so load unoptimized model')
+        # Get the best model that already exists for this train dataset
+        trainparams_id = conf.train.getint('trainparams_id')
+        best_model = mh.get_best_model(
+                model_dir=conf.dirs.getpath('model_dir'), 
+                segment_subject=conf.general['segment_subject'],
+                traindata_id=traindata_id,
+                trainparams_id=trainparams_id)
+        
+        # Check if a model was found
+        if best_model is None:
+            message = f"No model found in model_dir: {conf.dirs.getpath('model_dir')} for traindata_id: {traindata_id}"
+            logger.critical(message)
+            raise Exception(message)
+        else:    
+            model_weights_filepath = best_model['filepath']
+            logger.info(f"Best model found: {model_weights_filepath}")
+        
+        # Load the hyperparams of the model
+        # TODO: move the hyperparams filename formatting to get_models...
+        hyperparams_path = best_model['filepath'].parent / f"{best_model['basefilename']}_hyperparams.json"
+        hyperparams = mh.HyperParams(path=hyperparams_path)           
+        
+        # Prepare output subdir to be used for predictions
+        predict_out_subdir = f"{best_model['basefilename']}"
+        if trainparams_id > 0:
+            predict_out_subdir += f"_{trainparams_id}"
+        predict_out_subdir += f"_{best_model['epoch']}"
+        
+        # Try optimizing model with tensorrt. Not supported on Windows
         model = None
-    
-    # If model isn't loaded yet... load!
-    if model is None:
-        model = mf.load_model(best_model['filepath'], compile=False)
+        if os.name != 'nt':
+            try:
+                # Try import
+                from tensorflow.python.compiler.tensorrt import trt_convert as trt
 
-    # Prepare the model for predicting
-    nb_gpu = len(tf.config.experimental.list_physical_devices('GPU'))
-    batch_size = conf.predict.getint('batch_size')
-    if nb_gpu <= 1:
-        model_for_predict = model
-        logger.info(f"Predict using single GPU or CPU, with nb_gpu: {nb_gpu}")
-    else:
-        # If multiple GPU's available, create multi_gpu_model
-        try:
-            model_for_predict = kr_utils.multi_gpu_model(model, gpus=nb_gpu, cpu_relocation=True)
-            logger.info(f"Predict using multiple GPUs: {nb_gpu}, batch size becomes: {batch_size*nb_gpu}")
-            batch_size *= nb_gpu
-        except ValueError:
-            logger.info("Predict using single GPU or CPU")
+                # Import didn't fail, so optimize model
+                logger.info('Tensorrt is available, so use optimized model')
+                savedmodel_optim_dir = best_model['filepath'].parent / best_model['filepath'].stem + "_optim"
+                if not savedmodel_optim_dir.exists():
+                    # If base model not yet in savedmodel format
+                    savedmodel_dir = best_model['filepath'].parent / best_model['filepath'].stem
+                    if not savedmodel_dir.exists():
+                        logger.info(f"SavedModel format not yet available, so load model + weights from {best_model['filepath']}")
+                        model = mf.load_model(best_model['filepath'], compile=False)
+                        logger.info(f"Now save again as savedmodel to {savedmodel_dir}")
+                        tf.saved_model.save(model, str(savedmodel_dir))
+                        del model
+
+                    # Now optimize model
+                    logger.info(f"Optimize + save model to {savedmodel_optim_dir}")
+                    converter = trt.TrtGraphConverterV2(
+                            input_saved_model_dir=savedmodel_dir,
+                            is_dynamic_op=True,
+                            precision_mode='FP16')
+                    converter.convert()
+                    converter.save(savedmodel_optim_dir)
+                
+                logger.info(f"Load optimized model + weights from {savedmodel_optim_dir}")
+                model = tf.keras.models.load_model(savedmodel_optim_dir)
+
+            except ImportError:
+                logger.info('Tensorrt is not available, so load unoptimized model')
+        
+        # If model isn't loaded yet... load!
+        if model is None:
+            model = mf.load_model(best_model['filepath'], compile=False)
+
+        # Prepare the model for predicting
+        nb_gpu = len(tf.config.experimental.list_physical_devices('GPU'))
+        batch_size = conf.predict.getint('batch_size')
+        if nb_gpu <= 1:
             model_for_predict = model
+            logger.info(f"Predict using single GPU or CPU, with nb_gpu: {nb_gpu}")
+        else:
+            # If multiple GPU's available, create multi_gpu_model
+            try:
+                model_for_predict = model
+                logger.warn(f"Predict using multiple GPUs NOT IMPLEMENTED AT THE MOMENT")
+                
+                #logger.info(f"Predict using multiple GPUs: {nb_gpu}, batch size becomes: {batch_size*nb_gpu}")
+                #batch_size *= nb_gpu
+            except ValueError:
+                logger.info("Predict using single GPU or CPU")
+                model_for_predict = model
 
-    # Prepare some parameters for gthe postprocessing
-    simplify_algorithm = conf.predict.get('simplify_algorithm')
-    if simplify_algorithm is not None:
-        simplify_algorithm = geofileops.SimplifyAlgorithm[simplify_algorithm]
-    prediction_cleanup_params = {
-                "simplify_algorithm": simplify_algorithm,
-                "simplify_tolerance": conf.predict.geteval('simplify_tolerance'),
-                "simplify_lookahead": conf.predict.getint('simplify_lookahead'),
-            }
+        # Prepare some parameters for gthe postprocessing
+        simplify_algorithm = conf.predict.get('simplify_algorithm')
+        if simplify_algorithm is not None:
+            simplify_algorithm = geofileops.SimplifyAlgorithm[simplify_algorithm]
+        prediction_cleanup_params = {
+                    "simplify_algorithm": simplify_algorithm,
+                    "simplify_tolerance": conf.predict.geteval('simplify_tolerance'),
+                    "simplify_lookahead": conf.predict.getint('simplify_lookahead'),
+                }
 
-    # Prepare the output dirs/paths
-    predict_output_dir = Path(f"{str(conf.dirs.getpath('predict_image_output_basedir'))}_{predict_out_subdir}")
-    output_vector_dir = conf.dirs.getpath('output_vector_dir')
-    output_vector_name = f"{best_model['basefilename']}_{best_model['epoch']}_{conf.predict['image_layer']}"
-    output_vector_path = output_vector_dir / f"{output_vector_name}.gpkg"
-    
-    # Predict for entire dataset
-    predicter.predict_dir(
-            model=model_for_predict,
-            input_image_dir=input_image_dir,
-            output_image_dir=predict_output_dir,
-            output_vector_path=output_vector_path,
-            classes=hyperparams.architecture.classes,
-            prediction_cleanup_params=prediction_cleanup_params,
-            border_pixels_to_ignore=conf.predict.getint('image_pixels_overlap'),
-            projection_if_missing=image_layer['projection'],
-            input_mask_dir=None,
-            batch_size=batch_size,
-            evaluate_mode=False,
-            cancel_filepath=conf.files.getpath('cancel_filepath'))
+        # Prepare the output dirs/paths
+        predict_output_dir = Path(f"{str(conf.dirs.getpath('predict_image_output_basedir'))}_{predict_out_subdir}")
+        output_vector_dir = conf.dirs.getpath('output_vector_dir')
+        output_vector_name = f"{best_model['basefilename']}_{best_model['epoch']}_{conf.predict['image_layer']}"
+        output_vector_path = output_vector_dir / f"{output_vector_name}.gpkg"
+        
+        # Predict for entire dataset
+        predicter.predict_dir(
+                model=model_for_predict, # type: ignore
+                input_image_dir=input_image_dir,
+                output_image_dir=predict_output_dir,
+                output_vector_path=output_vector_path,
+                classes=hyperparams.architecture.classes,
+                prediction_cleanup_params=prediction_cleanup_params,
+                border_pixels_to_ignore=conf.predict.getint('image_pixels_overlap'),
+                projection_if_missing=image_layer['projection'],
+                input_mask_dir=None,
+                batch_size=batch_size,
+                evaluate_mode=False,
+                cancel_filepath=conf.files.getpath('cancel_filepath'))
+        
+        # Log and send mail
+        message = f"Completed predict for config {config_path.stem}"
+        logger.info(message)
+        email_helper.sendmail(message)
+    except Exception as ex:
+        message = f"ERROR while running predict for task {config_path.stem}"
+        logger.exception(message)
+        email_helper.sendmail(subject=message, body=f"Exception: {ex}\n\n {traceback.format_exc()}")
+        raise Exception(message) from ex
 
 # If the script is ran directly...
 if __name__ == '__main__':

@@ -11,6 +11,7 @@ from typing import List, Optional
 
 import pandas as pd 
 from tensorflow import keras as kr
+
 #-------------------------------------------------------------
 # First define/init some general variables/constants
 #-------------------------------------------------------------
@@ -70,13 +71,16 @@ class TrainParams:
             optimizer_params: dict = None,
             loss_function: str = None,
             monitor_metric: str = None,
-            monitor_metric_mode: str = 'max',
+            monitor_metric_mode: str = 'auto',
             save_format: str = 'h5',
             save_best_only: bool = True,
             save_min_accuracy: float = 0.95,
             nb_epoch: int = 1000,
             earlystop_patience: int = 100,
-            earlystop_monitor_metric: str = None):
+            earlystop_monitor_metric: str = None,
+            earlystop_monitor_metric_mode: str = 'auto',
+            log_tensorboard: bool = False,
+            log_csv: bool = True):
         """
         Class containing the hyper parameters needed to perform a training.
         
@@ -92,14 +96,23 @@ class TrainParams:
             optimizer (str, optional): Optimizer to use for training. Defaults to 'adam'.
             optimizer_params (dict, optional): Optimizer params to use. Defaults to { 'learning_rate': 0.0001 }.
             loss_function (str, optional): [description]. Defaults to None.
-            monitor_metric (str, optional): Metric to monitor. If not specified the loss function will drive the metric. Defaults to None.
-            monitor_metric_mode (str, optional): Mode of the metric to monitor. Defaults to 'max'.
+            monitor_metric (str, optional): Metric to monitor. If not specified 
+                the loss function will drive the metric. Defaults to None.
+            monitor_metric_mode (str, optional): Mode of the metric to monitor. 
+                Defaults to 'auto'.
             save_format (str, optional): [description]. Defaults to 'h5'.
             save_best_only (bool, optional): [description]. Defaults to True.
             save_min_accuracy (float, optional): minimum accuracy to save a model. Defaults to 0.95.
             nb_epoch (int, optional): maximum number of epochs to train. Defaults to 1000.
             earlystop_patience (int, optional): [description]. Defaults to 100.
             earlystop_monitor_metric (str, optional): [description]. Defaults to None.
+            earlystop_monitor_metric_mode (str, optional): Mode to monitor the 
+                metric: 'max' if the metric should be as high as possible, 
+                'min' if it should be low. Defaults to 'auto'.
+            log_tensorboard (bool, optional): True to activate tensorboard 
+                logging. Defaults to False.
+            log_csv (bool, optional): True to activate logging to a csv. 
+                Defaults to True
         
         Raises:
             Exception: [description]
@@ -122,22 +135,30 @@ class TrainParams:
         else:
             self.loss_function = 'categorical_crossentropy'
 
+        # Properties to choose the best model
         if monitor_metric is not None:
             self.monitor_metric = monitor_metric
         elif self.loss_function in (
                 'weighted_categorical_crossentropy', 'categorical_crossentropy'):
             self.monitor_metric = 'categorical_accuracy'
-        
         self.monitor_metric_mode = monitor_metric_mode
+
         self.save_format = save_format
         self.save_best_only = save_best_only
         self.save_min_accuracy=save_min_accuracy
         self.nb_epoch = nb_epoch
+        
+        # Properties to stop the training
         self.earlystop_patience = earlystop_patience
         if earlystop_monitor_metric is not None:
             self.earlystop_monitor_metric = earlystop_monitor_metric
         else:
             self.earlystop_monitor_metric = self.monitor_metric
+        self.earlystop_monitor_metric_mode = earlystop_monitor_metric_mode
+
+        # Properties regarding logging
+        self.log_tensorboard = log_tensorboard 
+        self.log_csv = log_csv
 
     def toJSON(self):
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
@@ -659,29 +680,29 @@ def save_and_clean_models(
     # Remark: the list is sorted descending before iterating it, this way new
     # models are saved bevore deleting the previous best one(s)
     model_info_sorted_df = model_info_df.sort_values(by='acc_combined', ascending=False)
-    for _, model_info in model_info_sorted_df.iterrows():
+    for model_info in model_info_sorted_df.itertuples(index=False):
        
         # If only the best needs to be kept, check only on acc_combined...
         keep_model = True
         better_ones_df = None
         if save_best_only:
             better_ones_df = model_info_df[
-                    (model_info_df['filepath'] != model_info['filepath']) 
-                     & (model_info_df['acc_combined'] >= model_info['acc_combined'])] # type: ignore
+                    (model_info_df.filepath != model_info.filepath) 
+                     & (model_info_df.acc_combined >= model_info.acc_combined)]
             if len(better_ones_df) > 0:
                 keep_model = False
 
         # If model is (relatively) ok, keep it
         if keep_model is True:
-            logger.debug(f"KEEP {model_info['filename']}")
+            logger.debug(f"KEEP {model_info.filename}")
 
             # If it is the new model that needs to be kept, keep it or save to disk
             if(new_model_path is not None and new_model_epoch is not None
                and only_report is not True
-               and model_info['filepath'] == str(new_model_path)
+               and model_info.filepath == str(new_model_path)
                and not new_model_path.exists()):
                 if(new_model_epoch > save_min_accuracy_ignored_epoch
-                   or model_info['acc_combined'] > save_min_accuracy): # type: ignore
+                   or model_info.acc_combined > save_min_accuracy):
                     logger.debug('Save model start')
                     if save_weights_only:
                         if model_template_for_save is not None:
@@ -695,24 +716,22 @@ def save_and_clean_models(
                             new_model.save(str(new_model_path))
                     logger.debug('Save model ready')
                 else:
-                    print(f"New model has acc_combined < save_min_accuracy: {new_model_acc_combined} < {save_min_accuracy}")
+                    print(f"New model is best model, but acc_combined < save_min_accuracy: {new_model_acc_combined} < {save_min_accuracy}")
         else:     
             # Bad model... can be removed (or not saved)
             if only_report is True:
-                logger.debug(f"DELETE {model_info['filename']}")
-            else:
-                model_path = Path(model_info['filepath']) # type: ignore
-                if model_path.exists() is True:   
-                    logger.debug(f"DELETE {model_info['filename']}")
-                    if model_path.is_dir() is True:
-                        shutil.rmtree(model_path)
-                    else:
-                        model_path.unlink()
-                    
+                logger.debug(f"DELETE {model_info.filename}")
+            elif Path(model_info.filepath).exists() is True:
+                logger.debug(f"DELETE {model_info.filename}")
+                if Path(model_info.filepath).is_dir() is True:
+                    shutil.rmtree(model_info.filepath)
+                else:
+                    Path(model_info.filepath).unlink()
+                
             if debug is True and better_ones_df is not None:
-                print(f"Better one(s) found for{model_info['filename']}:")
-                for _, better_one in better_ones_df.iterrows():
-                    print(f"  {better_one['filename']}")
+                print(f"Better one(s) found for{model_info.filename}:")
+                for better_one in better_ones_df.itertuples(index=False):
+                    print(f"  {better_one.filename}")
 
     if verbose is True or debug is True:
         best_model = get_best_model(
@@ -722,7 +741,7 @@ def save_and_clean_models(
                 architecture_id=architecture_id,
                 trainparams_id=trainparams_id)
         if best_model is not None:
-            print(f"\nBEST MODEL for {segment_subject}: acc_combined: {best_model['acc_combined']}, epoch: {best_model['epoch']}")
+            logger.info(f"Current best model for {segment_subject}_{traindata_id}: acc_combined: {best_model['acc_combined']}, epoch: {best_model['epoch']}")
 
 if __name__ == '__main__':
     raise Exception("Not implemented")

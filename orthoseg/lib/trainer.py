@@ -181,9 +181,11 @@ def train(
                     class_weights=hyperparams.train.class_weights)
 
     # Define some callbacks for the training
+    train_callbacks = []
     # Reduce the learning rate if the loss doesn't improve anymore
     reduce_lr = kr.callbacks.ReduceLROnPlateau(
             monitor='loss', factor=0.2, patience=20, min_lr=1e-20, verbose=True)
+    train_callbacks.append(reduce_lr)
 
     # Custom callback that saves the best models using both train and 
     # validation metric
@@ -205,17 +207,25 @@ def train(
             save_best_only=hyperparams.train.save_best_only,
             save_min_accuracy=hyperparams.train.save_min_accuracy,
             model_template_for_save=model_template_for_save)
+    train_callbacks.append(model_checkpoint_saver)
 
     # Callbacks for logging
-    tensorboard_log_dir = model_save_dir / (model_save_base_filename + '_tensorboard_log')
-    tensorboard_logger = kr.callbacks.TensorBoard(log_dir=str(tensorboard_log_dir))
-    csv_logger = kr.callbacks.CSVLogger(str(csv_log_filepath), append=True, separator=';')
+    if hyperparams.train.log_tensorboard is True:
+        tensorboard_log_dir = model_save_dir / (model_save_base_filename + '_tensorboard_log')
+        tensorboard_logger = kr.callbacks.TensorBoard(log_dir=str(tensorboard_log_dir))
+        train_callbacks.append(tensorboard_logger)
+    if hyperparams.train.log_csv is True:
+        csv_logger = kr.callbacks.CSVLogger(str(csv_log_filepath), append=True, separator=';')
+        train_callbacks.append(csv_logger)
 
     # Stop if no more improvement
     early_stopping = kr.callbacks.EarlyStopping(
             monitor=hyperparams.train.earlystop_monitor_metric, 
-            patience=hyperparams.train.earlystop_patience, restore_best_weights=False)
-    
+            patience=hyperparams.train.earlystop_patience, 
+            mode=hyperparams.train.earlystop_monitor_metric_mode,
+            restore_best_weights=False)
+    train_callbacks.append(early_stopping)
+
     # Prepare the parameters to pass to fit...
     # Supported filetypes to train/validate on
     input_ext = ['.tif', '.jpg', '.png']
@@ -244,19 +254,16 @@ def train(
     hyperparams_filepath.write_text(hyperparams.toJSON())
 
     try:
-        # Eager seems to be 50% slower
-        model_for_train.run_eagerly = False
+        # Go!
         model_for_train.fit(
                 train_gen, 
                 steps_per_epoch=train_steps_per_epoch, 
                 epochs=hyperparams.train.nb_epoch,
                 validation_data=validation_gen,
                 validation_steps=validation_steps_per_epoch,       # Number of items in validation/batch_size
-                callbacks=[model_checkpoint_saver, 
-                           reduce_lr, early_stopping,
-                           tensorboard_logger,
-                           csv_logger],
-                initial_epoch=start_epoch)
+                callbacks=train_callbacks,
+                initial_epoch=start_epoch,
+                verbose=2)
 
         # Write some reporting
         train_report_path = model_save_dir / (model_save_base_filename + '_report.pdf')
@@ -304,19 +311,62 @@ def create_train_generator(
                the transformation for image and mask is the same
              * set save_to_dir = "your path" to check results of the generator
     """
-    # Init
-    # If there are more than two classes, the mask will have integers as values
-    # to code the different masks in, and one hot-encoding will be applied to 
-    # it, so it should not be rescaled!!!
-    if nb_classes > 2:
-        if(mask_augment_dict is not None 
-           and 'rescale' in mask_augment_dict
-           and mask_augment_dict['rescale'] != 1):
-                raise Exception(f"With nb_classes > 2 ({nb_classes}), the mask should have a rescale value of 1, not {mask_augment_dict['rescale']}")
+    ### Init ###
+    # Do some checks on the augmentations specified, as it is easy to 
+    # introduce illogical values 
+    if(image_augment_dict is not None and mask_augment_dict is None 
+      or image_augment_dict is not None and mask_augment_dict is None):
+        logger.warn(f"Only augmentations specified for either image or mask: image_augment_dict: {image_augment_dict}, mask_augment_dict: {mask_augment_dict}")
 
+    # Checks that involve comparing augmentations between the image and the mask 
+    if image_augment_dict is not None and mask_augment_dict is not None:
+        # If an augmentation is specified for image, it should be specified 
+        # for the mask as well and the other way around to evade issues
+        for augmentation in image_augment_dict:
+            if augmentation not in mask_augment_dict:
+                raise Exception(f"augmentation {augmentation} is in image_augment_dict but not in mask_augment_dict")
+        for augmentation in mask_augment_dict:
+            if augmentation not in image_augment_dict:
+                raise Exception(f"augmentation {augmentation} is in mask_augment_dict but not in image_augment_dict")
+
+        # Check if the brightness range has valid values
+        image_brightness_range = image_augment_dict.get('brightness_range')
+        mask_brightness_range = mask_augment_dict.get('brightness_range')
+        if image_brightness_range is None and mask_brightness_range is not None:
+            # If brightness_range None for image, it should be None for the mask as well
+            raise Exception(f"augmentation brightness_range is None (null) in image_augment_dict but isn't in mask_augment_dict: {mask_brightness_range}") 
+        elif image_brightness_range is not None and mask_brightness_range is None:
+            # If brightness_range None for mask, it should be None for the image as well
+            raise Exception(f"augmentation brightness_range is None (null) in mask_augment_dict but isn't in image_augment_dict: {image_brightness_range}") 
+        elif image_brightness_range is not None and mask_brightness_range is not None:
+            # The brightness_range values should be >= 0
+            if image_brightness_range[0] < 0 or image_brightness_range[1] < 0:
+                raise Exception(f"augmentation brightness_range values should be > 0: value 1.0 = don't do anything, 0 = black")
+            # If a brightness_range is applied to the image, it should be [1,1] for the mask!
+            if mask_brightness_range[0] != 1.0 or mask_brightness_range[1] != 1.0:
+                raise Exception(f"augmentation brightness_range is specified on the image: then the mask should get range [1, 1], not {mask_brightness_range}")        
+
+    # Some checks specific for the mask
+    if mask_augment_dict is not None:
+        # Check cval value
+        if 'cval' in mask_augment_dict and mask_augment_dict['cval'] != 0:
+            logger.warn(f"cval typically should be 0 for the mask, even if it is different for the image, as the cval of the mask refers to these locations being of class 'background'. It is: {mask_augment_dict['cval']}")
+
+        # If there are more than two classes, the mask will have integers as values
+        # to code the different masks in, and one hot-encoding will be applied to 
+        # it, so it should not be rescaled!!!
+        if nb_classes > 2 and 'rescale' in mask_augment_dict and mask_augment_dict['rescale'] != 1:
+            raise Exception(f"With nb_classes > 2 ({nb_classes}), the mask should have a rescale value of 1, not {mask_augment_dict['rescale']}")
+        
+    ### Now create the generators ###
     # Create the image generators with the augment info
-    image_datagen = kr.preprocessing.image.ImageDataGenerator(**image_augment_dict)
-    mask_datagen = kr.preprocessing.image.ImageDataGenerator(**mask_augment_dict)
+
+    # TODO: brightness_range is buggy on 2021-08-11, with keras preprocessing 
+    # version 1.1, so is implemented here in a hacky way!
+    image_augment_dict_temp = { key:value for (key,value) in image_augment_dict.items() if key != 'brightness_range'}
+    mask_augment_dict_temp = { key:value for (key,value) in mask_augment_dict.items() if key != 'brightness_range'}
+    image_datagen = kr.preprocessing.image.ImageDataGenerator(**image_augment_dict_temp)
+    mask_datagen = kr.preprocessing.image.ImageDataGenerator(**mask_augment_dict_temp)
 
     # Format save_to_dir
     # Remark: flow_from_directory doesn't support Path, so supply str immediately as well,
@@ -358,6 +408,18 @@ def create_train_generator(
         image = np.array(image)
         mask = np.array(mask)
 
+        # TODO: brightness_range is buggy on 2021-08-11, with keras preprocessing 
+        # version 1.1, so is implemented here in a hacky way!
+        if('brightness_range' in image_augment_dict 
+           and image_augment_dict['brightness_range'] is not None
+           and (image_augment_dict['brightness_range'][0] != 1 
+                or image_augment_dict['brightness_range'][1] != 1)):
+            
+            # Random brightness shift to apply to all images in batch
+            brightness_shift = np.random.uniform(
+                    image_augment_dict['brightness_range'][0], image_augment_dict['brightness_range'][1])
+            image = image * brightness_shift
+    
         # One-hot encode mask if multiple classes
         if nb_classes > 1:
             mask = kr.utils.to_categorical(mask, nb_classes)
@@ -377,20 +439,27 @@ def create_train_generator(
                 image_to_save = image[image_id,:,:,:]
                 
                 # Reverse the rescale if there is one
-                if(mask_augment_dict is not None 
-                   and 'rescale' in mask_augment_dict
-                   and mask_augment_dict['rescale'] != 1):
-                    image_to_save = image_to_save / mask_augment_dict['rescale']
+                if(image_augment_dict is not None 
+                   and 'rescale' in image_augment_dict
+                   and image_augment_dict['rescale'] != 1):
+                    image_to_save = image_to_save / image_augment_dict['rescale']
 
                 # Now convert to uint8 image and save!
-                im = Image.fromarray(image_to_save.astype(np.uint8), image_color_mode) # type: ignore
-                image_path = save_to_dir / f"{batch_id}_{image_id}.jpg"
+                # , image_color_mode
+                colormode = None
+                if image_color_mode.upper() == 'RGB':
+                    colormode = 'RGB'
+                im = Image.fromarray(image_to_save.astype(np.uint8), mode=colormode)
+                image_dir = save_to_dir / f"{batch_id:0>4}"
+                image_dir.mkdir(parents=True, exist_ok=True)
+                image_path = image_dir / f"{image_id}_image.jpg"
                 im.save(image_path)
 
                 # Loop through the masks for each class
                 for channel_id in range(nb_classes):
                     mask_to_save = mask[image_id,:,:,channel_id]
-                    mask_path = save_to_dir / f"{batch_id}_{image_id}_{channel_id}.png"
+                    mask_dir = save_to_dir / f"{batch_id:0>4}"
+                    mask_path = mask_dir / f"{image_id}_mask_{channel_id}.png"
                     im = Image.fromarray((mask_to_save * 255).astype(np.uint8))
                     im.save(mask_path)
                     

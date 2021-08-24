@@ -176,9 +176,12 @@ def get_images_for_grid(
     with futures.ThreadPoolExecutor(nb_concurrent_calls) as pool:
 
         # Loop through all columns and get the images...
+        logger.info("Start loading images")
         start_time = None
+        start_time_lastprogress = None
         nb_todo = cols*rows
         nb_processed = 0
+        nb_processed_lastprogress = 0
         nb_downloaded = 0
         nb_ignore_in_progress = 0
         bbox_list = []
@@ -213,8 +216,6 @@ def get_images_for_grid(
                     while not pycron.is_now(cron_schedule):
                         # The first time, log message that we are going to sleep...
                         if first_time is True:
-                            # Send a newline to the output, because the progress messages don't do newlines 
-                            print()
                             logger.info(f"There is a time schedule specified, and we need to sleep: {cron_schedule}")
                             first_time = False
                         time.sleep(60)
@@ -280,9 +281,9 @@ def get_images_for_grid(
                 if(nb_images_in_batch == nb_concurrent_calls or nb_processed == (nb_todo-1)):
     
                     # Now we are getting to start fetching images... init start_time 
-                    if start_time is None:
+                    if start_time is None or start_time_lastprogress is None:
                         start_time = datetime.datetime.now()
-                    start_time_batch_read = datetime.datetime.now()
+                        nb_processed_lastprogress = nb_processed
                     
                     # Exec in parallel 
                     read_results = pool.map(
@@ -307,15 +308,22 @@ def get_images_for_grid(
                     logger.debug(f"Process image {nb_processed} out of {cols*rows}: {nb_processed/(cols*rows):.2f} %")
 
                     # Log the progress and prediction speed
+                    time_between_progress_s = 60
                     time_passed_s = (datetime.datetime.now()-start_time).total_seconds()
-                    time_passed_lastbatch_s = (datetime.datetime.now()-start_time_batch_read).total_seconds()
-                    if time_passed_s > 0 and time_passed_lastbatch_s > 0:
+                    if start_time_lastprogress is None:
+                        time_passed_lastprogress_s = time_between_progress_s
+                    else:    
+                        time_passed_lastprogress_s = (datetime.datetime.now()-start_time_lastprogress).total_seconds()
+                    if time_passed_s > 0 and time_passed_lastprogress_s >= time_between_progress_s:
                         nb_per_hour = ((nb_processed-nb_ignore_in_progress)/time_passed_s) * 3600
-                        nb_per_hour_lastbatch = (nb_images_in_batch/time_passed_lastbatch_s) * 3600
+                        nb_per_hour_lastprogress = (nb_processed_lastprogress-nb_processed/time_passed_lastprogress_s) * 3600
                         hours_to_go = (int)((nb_todo - nb_processed)/nb_per_hour)
                         min_to_go = (int)((((nb_todo - nb_processed)/nb_per_hour)%1)*60)
-                        print(f"\rload_images to {output_image_dir.parent.name}/{output_image_dir.name}, {hours_to_go:3d}:{min_to_go:2d} left for {nb_todo-nb_processed} images at {nb_per_hour:0.0f}/h ({nb_per_hour_lastbatch:0.0f}/h last batch), with {nb_ignore_in_progress} skipped",
-                              end='', flush=True)
+                        progress_message = f"load_images to {output_image_dir.parent.name}/{output_image_dir.name}, {hours_to_go:3d}:{min_to_go:2d} left for {nb_todo-nb_processed} images at {nb_per_hour:0.0f}/h ({nb_per_hour_lastprogress:0.0f}/h last batch), with {nb_ignore_in_progress} skipped"
+                        logger.info(progress_message)
+
+                        start_time_lastprogress = datetime.datetime.now()
+                        nb_processed_lastprogress = nb_processed
                     
                     # Reset variable for next batch
                     bbox_list = []

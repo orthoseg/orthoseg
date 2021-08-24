@@ -130,7 +130,7 @@ then
   echo
   echo "Install the pip package"
   echo
-  pip install "orthoseg>=0.2.2b1"
+  pip install "orthoseg>=0.3.0a1"
 else
   echo
   echo "Prepare for development: conda install dev tools"

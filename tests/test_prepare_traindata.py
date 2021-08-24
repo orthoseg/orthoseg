@@ -35,7 +35,7 @@ def test_prepare_traindata(tmpdir):
     geofile.to_file(locations_gdf, locations_path)
     polygons_path = tmpdir / 'polygons.gpkg'
     polygons_data = {
-            'geometry': [sh_geom.Polygon([(150030, 170030), (15060, 170030), (150060, 170060), (150030, 170060), (150030, 170030)]),
+            'geometry': [sh_geom.Polygon([(150030, 170030), (150060, 170030), (150060, 170060), (150030, 170060), (150030, 170030)]),
                          sh_geom.Polygon([(150030, 180030), (150060, 180030), (150060, 180060), (150030, 180060), (150030, 180030)])],
             'label_name': ['testlabel', 'testlabel']
         }

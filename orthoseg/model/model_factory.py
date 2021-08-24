@@ -295,8 +295,12 @@ def load_model(
             except Exception as ex:
                 errors.append(f"Exception trying model.load_weights on: {model_to_use_filepath}: {ex}")
 
-    # If we still have not model... time to give up.
-    if model is None:
+    # Check if a model got loaded...
+    if model is not None:
+        # Eager seems to be 50% slower, tested on tensorflow 2.5
+        model.run_eagerly = False
+    else:
+        # If we still have not model... time to give up.
         errors_str = ""
         if len(errors) > 0:
             errors_str = (" The following errors occured while trying: \n    -> " + "\n    -> ".join(errors))
