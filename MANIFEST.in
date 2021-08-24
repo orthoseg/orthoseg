@@ -1,2 +1,3 @@
 include orthoseg/project_defaults.ini
+include orthoseg/scriptrunner_defaults.ini
 include version.txt
