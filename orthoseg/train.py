@@ -440,6 +440,14 @@ def unformat(string: str, pattern: str) -> dict:
     else:
         raise Exception(f"Error: pattern {pattern} not found in {string}")
 
+def main():
+    try:
+        train_args(sys.argv[1:])
+    except Exception as ex:
+        logger.exception(f"Error: {ex}")
+        raise
+    
+# If the script is ran directly...
 if __name__ == '__main__':
-    train_args(sys.argv[1:])
+    main()
     

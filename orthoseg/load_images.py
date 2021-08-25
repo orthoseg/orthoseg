@@ -163,9 +163,13 @@ def load_images(
         email_helper.sendmail(subject=message, body=f"Exception: {ex}\n\n {traceback.format_exc()}")
         raise Exception(message) from ex
 
-if __name__ == '__main__':
+def main():
     try:
         load_images_args(sys.argv[1:])
     except Exception as ex:
         logger.exception(f"Error: {ex}")
         raise
+
+# If the script is ran directly...
+if __name__ == '__main__':
+    main()
