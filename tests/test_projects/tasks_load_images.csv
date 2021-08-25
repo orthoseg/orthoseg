@@ -1,6 +1,0 @@
-active , config                                       , action
-1      , footballfields/footballfields_BEFL-2019.ini  , load_images
-0      , footballfields/footballfields_BEFL-2019.ini  , load_testsample_images
-0      , footballfields/footballfields_train.ini      , train
-0      , footballfields/footballfields_BEFL-2019.ini  , predict
-0      , footballfields/footballfields_BEFL-2019.ini  , postprocess
