@@ -63,13 +63,11 @@ def test_prepare_traindata(tmpdir):
     
     # Test with the default data... 
     training_dir = tmpdir / 'training_dir'
-    training_imagedata_dir = tmpdir / 'training_imagedata_dir'
     training_dir, traindata_id = prep_traindata.prepare_traindatasets(
             label_infos=label_infos,
             classes=classes,
             image_layers=image_layers,
             training_dir=training_dir,
-            training_imagedata_dir=training_imagedata_dir,
             labelname_column='label_name',
             image_pixel_x_size=0.25,
             image_pixel_y_size=0.25,
@@ -88,14 +86,12 @@ def test_prepare_traindata(tmpdir):
     geofile.to_file(polygons_gdf, polygons_path)
 
     training_dir = tmpdir / 'training_dir'
-    training_imagedata_dir = tmpdir / 'training_imagedata_dir'
     try:
         training_dir, traindata_id = prep_traindata.prepare_traindatasets(
                 label_infos=label_infos,
                 classes=classes,
                 image_layers=image_layers,
                 training_dir=training_dir,
-                training_imagedata_dir=training_imagedata_dir,
                 labelname_column='label_name',
                 image_pixel_x_size=0.25,
                 image_pixel_y_size=0.25,

@@ -56,7 +56,6 @@ def prepare_traindatasets(
         classes: dict,
         image_layers: dict,
         training_dir: Path,
-        training_imagedata_dir: Path,
         labelname_column: str,
         image_pixel_x_size: float = 0.25,
         image_pixel_y_size: float = 0.25,
@@ -76,16 +75,17 @@ def prepare_traindatasets(
 
     Args
         label_infos (List[LabelInfo]): paths to the files with label polygons and locations to generate images for
-        labelname_column: the column wqhere the label names are stored in the polygon files
+        labelname_column: the column where the label names are stored in the polygon files
         wms_server_url: WMS server where the images can be fetched from
         wms_layername: layername on the WMS server to use
         output_basedir: the base dir where the train dataset needs to be written to 
 
     """
-    # Init stuff
+    ### Init stuff ###
     image_crs_width = math.fabs(image_pixel_width*image_pixel_x_size)   # tile width in units of crs => 500 m
     image_crs_height = math.fabs(image_pixel_height*image_pixel_y_size) # tile height in units of crs => 500 m
 
+    ### Check if the latest version of training data is already ok ### 
     # Determine the current data version based on existing output data dir(s),
     # If dir ends on _TMP_* ignore it, as it (probably) ended with an error.
     output_dirs = training_dir.glob(f"[0-9]*/")
@@ -131,16 +131,17 @@ def prepare_traindatasets(
                 raise Exception(f"Invalid geometries found in: {', '.join(invalid_geom_paths)}")
     
     # Determine the output dir 
-    output_dir = training_dir / f"{dataversion_new:02d}"
+    training_dataversion_dir = training_dir / f"{dataversion_new:02d}"
 
     # If the train data is already ok, just return 
     if reuse_traindata is True:
-        return (output_dir, dataversion_new)
+        return (training_dataversion_dir, dataversion_new)
 
+    ### The input labels have changed: copy to new train version ###
     # Create the training dataset first to a temp dir, so it can be 
     # removed/ignored if an error occurs while creating it.
     output_tmp_dir = create_tmp_dir(training_dir, f"{dataversion_new:02d}", remove_existing=True)
-
+    
     labellocations_gdf = None
     labelpolygons_gdf = None
     logger.info(f"Label info: \n{pprint.pformat(label_infos, indent=4)}")
@@ -226,9 +227,10 @@ def prepare_traindatasets(
     if labels_to_burn_gdf is None:
         raise Exception("Not any labelpolygon retained to burn in the training data, so stop")
 
-    # Prepare the different traindata types.
+    ### Now create the images/masks for the new train version ###
+    # Prepare the image data for the different traindata types.
     for traindata_type in ['train', 'validation', 'test']:
-
+        
         # If traindata exists already... continue
         output_imagedatatype_dir = output_tmp_dir / traindata_type
         output_imagedata_image_dir = output_imagedatatype_dir / 'image'
@@ -327,9 +329,9 @@ def prepare_traindatasets(
             raise ex
 
     # If everything went fine, rename output_tmp_dir to the final output_dir
-    output_tmp_dir.rename(output_dir)
+    output_tmp_dir.rename(training_dataversion_dir)
 
-    return (output_dir, dataversion_new)
+    return (training_dataversion_dir, dataversion_new)
 
 def create_tmp_dir(
         parent_dir: Path,

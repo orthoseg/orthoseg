@@ -59,11 +59,7 @@ def test_train():
     training_id_dir = training_dir / f"{traindata_id_result:02d}"
     if training_id_dir.exists():
         shutil.rmtree(training_id_dir)
-    training_imagedata_dir = conf.dirs.getpath('training_imagedata_dir')
-    training_imagedata_id_dir = training_imagedata_dir / f"{traindata_id_result:02d}"
-    if training_imagedata_id_dir.exists():
-        shutil.rmtree(training_imagedata_id_dir)
-
+    
     # Run train session
     # The label files are newer than the ones used to train the current model, 
     # so a new model will be trained. 
@@ -71,7 +67,6 @@ def test_train():
 
     # Check if the training (image) data was created
     assert training_id_dir.exists() is True
-    assert training_imagedata_id_dir.exists() is True
     
     # Check if the new model was created
     best_model = mh.get_best_model(
@@ -137,7 +132,7 @@ def test_postprocess():
     assert len(result_gdf) == 12
 
 if __name__ == '__main__':
-    #test_load_images()
-    #test_train()
-    test_predict()
-    test_postprocess()
+    test_load_images()
+    test_train()
+    #test_predict()
+    #test_postprocess()
