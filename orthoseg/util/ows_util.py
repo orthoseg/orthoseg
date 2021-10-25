@@ -561,7 +561,7 @@ def getmap_to_file(
             if image_pixels_ignore_border == 0:
                 image_data_output = image_ds.read()
             else:
-                image_data_output = image_ds.read(window=rio_windows(
+                image_data_output = image_ds.read(window=rio_windows.Window(
                         image_pixels_ignore_border, image_pixels_ignore_border, 
                         size[0], size[1]))
 
@@ -642,7 +642,7 @@ def getmap_to_file(
                 if image_pixels_ignore_border == 0:
                     image_data_output = image_ds.read()
                 else:
-                    image_data_output = image_ds.read(window=rio_windows(
+                    image_data_output = image_ds.read(window=rio_windows.Window(
                             image_pixels_ignore_border, image_pixels_ignore_border, 
                             size[0], size[1]))
             
