@@ -14,6 +14,7 @@ import time
 from typing import List, Optional, Tuple, Union
 import numpy as np
 
+from geofileops import geofile
 import geofileops.util.grid_util
 import owslib
 import owslib.wms
@@ -105,17 +106,53 @@ def get_images_for_grid(
                                 roi_bounds[2]+(grid_xmin-((roi_bounds[2]-grid_xmin)%crs_width)),
                                 roi_bounds[3]+(grid_ymin-((roi_bounds[3]-grid_ymin)%crs_height)))
             logger.debug(f"roi_bounds: {roi_bounds}, image_gen_bounds: {image_gen_bounds}")
-        
-        # If there are large objects in the roi, segment them to speed up
+            
+    # If there is still no image_gen_bounds, stop.
+    if image_gen_bounds is None:
+        raise Exception("Either image_gen_bounds or an image_gen_roi_filepath should be specified.")
+
+    # Check if the image_gen_bounds are compatible with the grid...
+    if(image_gen_bounds[0]-grid_xmin)%crs_width != 0:
+        xmin_new = image_gen_bounds[0] - ((image_gen_bounds[0]-grid_xmin)%crs_width)
+        logger.warning(f"xmin {image_gen_bounds[0]} incompatible with grid, {xmin_new} will be used")
+        image_gen_bounds = (xmin_new, image_gen_bounds[1], image_gen_bounds[2], image_gen_bounds[3])
+    if(image_gen_bounds[1]-grid_ymin)%crs_height != 0:
+        ymin_new = image_gen_bounds[1] - ((image_gen_bounds[1]-grid_ymin)%crs_height)
+        logger.warning(f"ymin {image_gen_bounds[1]} incompatible with grid, {ymin_new} will be used")
+        image_gen_bounds = (image_gen_bounds[0], ymin_new, image_gen_bounds[2], image_gen_bounds[3])
+    if(image_gen_bounds[2]-grid_xmin)%crs_width != 0:
+        xmax_new = image_gen_bounds[2] + crs_width - ((image_gen_bounds[2]-grid_xmin)%crs_width)
+        logger.warning(f"xmax {image_gen_bounds[2]} incompatible with grid, {xmax_new} will be used")
+        image_gen_bounds = (image_gen_bounds[0], image_gen_bounds[1], xmax_new, image_gen_bounds[3])
+    if(image_gen_bounds[3]-grid_ymin)%crs_height != 0:
+        ymax_new = image_gen_bounds[3] + crs_height - ((image_gen_bounds[3]-grid_ymin)%crs_height)
+        logger.warning(f"ymax {image_gen_bounds[3]} incompatible with grid, {ymax_new} will be used")
+        image_gen_bounds = (image_gen_bounds[0], image_gen_bounds[1], image_gen_bounds[2], ymax_new)
+
+    # Write the cache image grid to file
+    grid_path = output_image_dir / "imagecache_grid.gpkg"
+    if not grid_path.exists():
+        grid_for_roi_gdf = geofileops.util.grid_util.create_grid3(
+                image_gen_bounds, width=crs_width, height=crs_height, crs=crs)
+        geofile.to_file(grid_for_roi_gdf, grid_path)
+    
+    # Calculate width and height...
+    dx = math.fabs(image_gen_bounds[0] - image_gen_bounds[2]) # area width in units of crs
+    dy = math.fabs(image_gen_bounds[1] - image_gen_bounds[3]) # area height in units of crs
+    cols = int(math.ceil(dx / crs_width)) + 1
+    rows = int(math.ceil(dy / crs_height)) + 1
+
+    # If an roi is defined, split it using a grid as large objects are small
+    if roi_gdf is not None:
         # TODO: support creating a grid in latlon????
         if crs.is_projected:
             
             # Create grid
-            grid = geofileops.util.grid_util.create_grid3(
-                    image_gen_bounds, width=4000, height=4000, crs=crs)
+            grid_for_roi_gdf = geofileops.util.grid_util.create_grid3(
+                    image_gen_bounds, width=crs_width, height=crs_height, crs=crs)
 
             # Create intersection layer between grid and roi
-            roi_gdf = gpd.overlay(grid, roi_gdf, how='intersection')
+            roi_gdf = gpd.overlay(grid_for_roi_gdf, roi_gdf, how='intersection')
             
             # Explode possible multipolygons to polygons
             roi_gdf.reset_index(drop=True, inplace=True)
@@ -124,37 +161,16 @@ def get_images_for_grid(
             roi_gdf = roi_gdf.explode()
             roi_gdf.reset_index(drop=True, inplace=True)
 
-            # Write to file...
-            #assert isinstance(roi_gdf, gpd.GeoDataFrame)
-            #geofile.to_file(roi_gdf, Path(r"X:\Monitoring\OrthoSeg\roi_gridded.gpkg"))
-    
-    # If there is still no image_gen_bounds, stop.
-    if image_gen_bounds is None:
-        raise Exception("Either image_gen_bounds or an image_gen_roi_filepath should be specified.")
-
-    # Check if the image_gen_bounds are compatible with the grid...
-    if (image_gen_bounds[0]-grid_xmin)%crs_width != 0:
-        xmin_new = image_gen_bounds[0] - ((image_gen_bounds[0]-grid_xmin)%crs_width)
-        logger.warning(f"xmin {image_gen_bounds[0]} incompatible with grid, {xmin_new} will be used")
-        image_gen_bounds = (xmin_new, image_gen_bounds[1], image_gen_bounds[2], image_gen_bounds[3])
-    if (image_gen_bounds[1]-grid_ymin)%crs_height != 0:
-        ymin_new = image_gen_bounds[1] - ((image_gen_bounds[1]-grid_ymin)%crs_height)
-        logger.warning(f"ymin {image_gen_bounds[1]} incompatible with grid, {ymin_new} will be used")
-        image_gen_bounds = (image_gen_bounds[0], ymin_new, image_gen_bounds[2], image_gen_bounds[3])
-    if (image_gen_bounds[2]-grid_xmin)%crs_width != 0:
-        xmax_new = image_gen_bounds[2] + crs_width - ((image_gen_bounds[2]-grid_xmin)%crs_width)
-        logger.warning(f"xmax {image_gen_bounds[2]} incompatible with grid, {xmax_new} will be used")
-        image_gen_bounds = (image_gen_bounds[0], image_gen_bounds[1], xmax_new, image_gen_bounds[3])
-    if (image_gen_bounds[3]-grid_ymin)%crs_height != 0:
-        ymax_new = image_gen_bounds[3] + crs_height - ((image_gen_bounds[3]-grid_ymin)%crs_height)
-        logger.warning(f"ymax {image_gen_bounds[3]} incompatible with grid, {ymax_new} will be used")
-        image_gen_bounds = (image_gen_bounds[0], image_gen_bounds[1], image_gen_bounds[2], ymax_new)
-
-    # Calculate width and height...
-    dx = math.fabs(image_gen_bounds[0] - image_gen_bounds[2]) # area width in units of crs
-    dy = math.fabs(image_gen_bounds[1] - image_gen_bounds[3]) # area height in units of crs
-    cols = int(math.ceil(dx / crs_width)) + 1
-    rows = int(math.ceil(dy / crs_height)) + 1
+            # Write to file
+            '''
+            grid_for_roi_path = output_image_dir / "grid.gpkg"
+            if not grid_path.exists():
+                geofile.to_file(grid_for_roi_gdf, grid_path)
+            assert isinstance(roi_gdf, gpd.GeoDataFrame)
+            gridded_roi_path = output_image_dir / "gridded_roi.gpkg"
+            if not gridded_roi_path.exists():
+                geofile.to_file(roi_gdf, gridded_roi_path)
+            '''
 
     # Inits to start getting images 
     if not output_image_dir.exists():
