@@ -7,6 +7,7 @@ from concurrent import futures
 import datetime
 import json
 import logging
+import multiprocessing
 from pathlib import Path
 import shutil
 import tempfile
@@ -22,6 +23,7 @@ from tensorflow import keras as kr
 
 import orthoseg.lib.postprocess_predictions as postp
 from orthoseg.helpers.progress_helper import ProgressHelper
+from orthoseg.util import general_util
 
 #-------------------------------------------------------------
 # First define/init some general variables/constants
@@ -171,9 +173,17 @@ def predict_dir(
     progress = None
     image_filepaths_sorted = sorted(image_filepaths)
     future_to_input_path = {}
+    nb_parallel_postprocess = multiprocessing.cpu_count()
+
+    def init_postprocess_worker():
+        # We don't want the postprocess workers to block the entire system, 
+        # so make them a bit nicer 
+        general_util.setprocessnice(15)
 
     with futures.ThreadPoolExecutor(batch_size) as pool, \
-         futures.ProcessPoolExecutor(batch_size) as postprocess_pool:
+         futures.ProcessPoolExecutor(
+                nb_parallel_postprocess, 
+                initializer=init_postprocess_worker()) as postprocess_pool:
         
         for image_id, image_filepath in enumerate(image_filepaths_sorted):
             
@@ -296,7 +306,7 @@ def predict_dir(
                         elif output_vector_path is not None:
                             # Prepare prediction array...
                             #   - 1st channel is background, don't postprocess
-                            #   - convert to uint8 to reduce pickle size/time
+                            #   - convert to uint8 to reduce pickle size/time    
                             image_pred_arr_uint8 = ((curr_batch_image_pred_arr[batch_image_id,:,:,1:]) * 255).astype(np.uint8)
                             future = postprocess_pool.submit(
                                     postp.polygonize_pred_multiclass_to_file,
@@ -317,32 +327,49 @@ def predict_dir(
                         with images_error_log_filepath.open('a+') as image_errorlog_file:
                             image_errorlog_file.write(image_info['input_image_filepath'].name + '\n')
                 
-                # If not at last file, get results from all futures that are 
-                # done, if at last file, wait till all are done
-                if image_id < (nb_images-1):
-                    futures_done = [future for future in future_to_input_path if future.done() is True]
-                else:
-                    futures_done = futures.wait(future_to_input_path).done
-                for future in futures_done:
-                    # Get the result from the polygonization
-                    try:
-                        # Get the result (= exception when something went wrong)
-                        future.result()
+                # Poll for completed postprocessings 
+                sleeping_logged = False 
+                while True:
+                    
+                    # If not at last file, get results from all futures that are 
+                    # done, if at last file, wait till all are done
+                    if image_id < (nb_images-1):
+                        futures_done = [future for future in future_to_input_path if future.done() is True]
+                    else:
+                        logger.info("Wait for last batch")
+                        futures_done = futures.wait(future_to_input_path).done
+                    for future in futures_done:
+                        # Get the result from the polygonization
+                        try:
+                            # Get the result (= exception when something went wrong)
+                            future.result()
 
-                        # Write filepath to file with files that are done
-                        with images_done_log_filepath.open('a+') as image_donelog_file:
-                            image_donelog_file.write(future_to_input_path[future].name + '\n')
-                    except Exception as ex:
-                        # Write filepath to file with errors
-                        logger.exception(f"Error postprocessing result for {future_to_input_path[future].name}")
-                        with images_error_log_filepath.open('a+') as image_errorlog_file:
-                            image_errorlog_file.write(future_to_input_path[future].name + '\n')
-                    finally:
-                        # Remove from queue...
-                        del future_to_input_path[future]
+                            # Write filepath to file with files that are done
+                            with images_done_log_filepath.open('a+') as image_donelog_file:
+                                image_donelog_file.write(future_to_input_path[future].name + '\n')
+                        except Exception as ex:
+                            # Write filepath to file with errors
+                            logger.exception(f"Error postprocessing result for {future_to_input_path[future].name}")
+                            with images_error_log_filepath.open('a+') as image_errorlog_file:
+                                image_errorlog_file.write(future_to_input_path[future].name + '\n')
+                        finally:
+                            # Remove from queue...
+                            del future_to_input_path[future]
+
+                    # Wait till number below thresshold to evade huge waiting 
+                    # list (and memory issues)
+                    if len(future_to_input_path) > nb_parallel_postprocess*2:
+                        if sleeping_logged is False:
+                            logger.info(f"Postprocessing seems to take longer than prediction, so wait for it to catch up")
+                            sleeping_logged = True
+                    else:
+                        # No need to wait (anymore)...
+                        if sleeping_logged is True:
+                            logger.info(f"Waited enough for postprocessing to catch up, so continue predicting") 
+                        break
 
                 perfinfo += f", clean+save took {datetime.datetime.now()-perf_start_time}"
-                logger.debug(perfinfo)                               
+                logger.debug(perfinfo)                          
 
                 ## Log the progress and prediction speed ##
                 if progress is not None:
