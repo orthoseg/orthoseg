@@ -129,6 +129,9 @@ def get_images_for_grid(
         logger.warning(f"ymax {image_gen_bounds[3]} incompatible with grid, {ymax_new} will be used")
         image_gen_bounds = (image_gen_bounds[0], image_gen_bounds[1], image_gen_bounds[2], ymax_new)
 
+    # Create the output dir if it doesn't exist yet
+    output_image_dir.mkdir(parents=True, exist_ok=True)
+
     # Write the cache image grid to file
     grid_path = output_image_dir / "imagecache_grid.gpkg"
     if not grid_path.exists():
@@ -162,20 +165,15 @@ def get_images_for_grid(
             roi_gdf.reset_index(drop=True, inplace=True)
 
             # Write to file
-            '''
-            grid_for_roi_path = output_image_dir / "grid.gpkg"
-            if not grid_path.exists():
+            grid_for_roi_path = output_image_dir / "grid_for_roi.gpkg"
+            if grid_path.exists() is False:
                 geofile.to_file(grid_for_roi_gdf, grid_path)
             assert isinstance(roi_gdf, gpd.GeoDataFrame)
             gridded_roi_path = output_image_dir / "gridded_roi.gpkg"
-            if not gridded_roi_path.exists():
+            if gridded_roi_path.exists() is False:
                 geofile.to_file(roi_gdf, gridded_roi_path)
-            '''
 
-    # Inits to start getting images 
-    if not output_image_dir.exists():
-        output_image_dir.mkdir(parents=True)
-    
+    # Inits to start getting images    
     layersources_prepared = []
     for layersource in layersources:
         wms_service = owslib.wms.WebMapService(
