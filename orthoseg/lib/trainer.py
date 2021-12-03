@@ -127,12 +127,19 @@ def train(
     
     # If no existing model provided, create it from scratch
     if not model_preload_filepath:
+        # If the encode should be frozen for some epochs...
+        if hyperparams.train.nb_epoch_with_freeze > 0:
+            freeze = True
+        else:
+            freeze = False
+
         # Get the model we want to use
         model = mf.get_model(
                 architecture=hyperparams.architecture.architecture, 
                 nb_channels=hyperparams.architecture.nb_channels, 
                 nb_classes=len(hyperparams.architecture.classes), 
-                activation=hyperparams.architecture.activation_function)
+                activation=hyperparams.architecture.activation_function,
+                freeze=freeze)
         
         # Save the model architecture to json
         model_json_filepath = model_save_dir / f"{model_save_base_filename}_model.json"
@@ -254,7 +261,27 @@ def train(
     hyperparams_filepath.write_text(hyperparams.toJSON())
 
     try:
-        # Go!
+        # If the encoder should be frozen for the first epochs, do so
+        if hyperparams.train.nb_epoch_with_freeze > 0:
+            logger.info(f"First train for {hyperparams.train.nb_epoch_with_freeze} epochs with some frozen layers")
+            model_for_train.fit(
+                    train_gen, 
+                    steps_per_epoch=train_steps_per_epoch, 
+                    epochs=hyperparams.train.nb_epoch_with_freeze,
+                    validation_data=validation_gen,
+                    validation_steps=validation_steps_per_epoch,       # Number of items in validation/batch_size
+                    callbacks=train_callbacks,
+                    initial_epoch=start_epoch,
+                    verbose=2)
+            mf.set_trainable(model=model_for_train, recompile=False)
+            model_for_train = mf.compile_model(
+                    model=model_for_train, 
+                    optimizer=hyperparams.train.optimizer, 
+                    optimizer_params=hyperparams.train.optimizer_params, 
+                    loss=hyperparams.train.loss_function, 
+                    class_weights=hyperparams.train.class_weights)
+
+        # Train!
         model_for_train.fit(
                 train_gen, 
                 steps_per_epoch=train_steps_per_epoch, 

@@ -185,6 +185,7 @@ def train(config_path: Path):
                 save_best_only=conf.train.getboolean('save_best_only'), 
                 save_min_accuracy=conf.train.getfloat('save_min_accuracy'),
                 nb_epoch=conf.train.getint('max_epoch'),
+                nb_epoch_with_freeze=conf.train.getint('nb_epoch_with_freeze'),
                 earlystop_patience=conf.train.getint('earlystop_patience'),
                 earlystop_monitor_metric=conf.train.get('earlystop_monitor_metric'),
                 earlystop_monitor_metric_mode=conf.train.get('earlystop_monitor_metric_mode'),

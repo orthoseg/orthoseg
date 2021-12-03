@@ -76,6 +76,7 @@ class TrainParams:
             save_best_only: bool = True,
             save_min_accuracy: float = 0.95,
             nb_epoch: int = 1000,
+            nb_epoch_with_freeze: int = 100,
             earlystop_patience: int = 100,
             earlystop_monitor_metric: str = None,
             earlystop_monitor_metric_mode: str = 'auto',
@@ -104,6 +105,8 @@ class TrainParams:
             save_best_only (bool, optional): [description]. Defaults to True.
             save_min_accuracy (float, optional): minimum accuracy to save a model. Defaults to 0.95.
             nb_epoch (int, optional): maximum number of epochs to train. Defaults to 1000.
+            nb_epoch_with_freeze (int, optional): number epochs to train with 
+                    part of the layers frozen. Defaults to 20.
             earlystop_patience (int, optional): [description]. Defaults to 100.
             earlystop_monitor_metric (str, optional): [description]. Defaults to None.
             earlystop_monitor_metric_mode (str, optional): Mode to monitor the 
@@ -147,6 +150,7 @@ class TrainParams:
         self.save_best_only = save_best_only
         self.save_min_accuracy=save_min_accuracy
         self.nb_epoch = nb_epoch
+        self.nb_epoch_with_freeze = nb_epoch_with_freeze
         
         # Properties to stop the training
         self.earlystop_patience = earlystop_patience

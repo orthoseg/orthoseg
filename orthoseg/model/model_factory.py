@@ -12,6 +12,7 @@ https://github.com/qubvel/segmentation_models
 import json
 import logging
 from pathlib import Path
+import tempfile
 from typing import Any, List
 
 from tensorflow import keras as kr
@@ -46,7 +47,8 @@ def get_model(
         nb_channels: int = 3,
         nb_classes: int = 1,
         activation: str = 'softmax',
-        init_weights_with: str = 'imagenet') -> kr.models.Model:
+        init_weights_with: str = 'imagenet',
+        freeze: bool = False) -> kr.models.Model:
     """
     Get a model.
     
@@ -58,6 +60,9 @@ def get_model(
         nb_classes (int, optional): Nb of classes to be segmented to. Defaults to 1.
         activation (Activation, optional): Activation function of last layer. Defaults to 'softmax'.
         init_weights_with (str, optional): Weights to init the network with. Defaults to 'imagenet'.
+        freeze (bool, optional): Freeze the final layer weights during 
+            training. It is usefull to use this option for the first few 
+            epochs get a more robust network. Defaults to False. 
     
     Raises:
         Exception: [description]
@@ -103,7 +108,7 @@ def get_model(
         model = Unet(backbone_name=encoder.lower(),
                      input_shape=(input_width, input_height, nb_channels),
                      classes=nb_classes, activation=activation,
-                     encoder_weights=init_weights_with)
+                     encoder_weights=init_weights_with, encoder_freeze=freeze)
         return model
     elif decoder.lower() == 'pspnet':
         from segmentation_models import PSPNet
@@ -112,7 +117,7 @@ def get_model(
         model = PSPNet(backbone_name=encoder.lower(),
                        input_shape=(input_width, input_height, nb_channels),
                        classes=nb_classes, activation=activation,
-                       encoder_weights=init_weights_with)
+                       encoder_weights=init_weights_with, encoder_freeze=freeze)
         return model
     elif decoder.lower() == 'linknet':
         from segmentation_models import Linknet
@@ -125,7 +130,7 @@ def get_model(
         model = Linknet(backbone_name=encoder.lower(),
                         input_shape=(input_width, input_height, nb_channels),
                         classes=nb_classes, activation=activation,
-                        encoder_weights=init_weights_with)
+                        encoder_weights=init_weights_with, encoder_freeze=freeze)
         return model
     else:
         raise Exception(f"Unknown decoder architecture: {decoder}")
@@ -308,6 +313,11 @@ def load_model(
 
     return model # type: ignore
 
+def set_trainable(
+        model,
+        recompile: bool = True):
+    sm.utils.set_trainable(model=model, recompile=recompile) # doesn't seem to work, so save and load model
+        
 def check_image_size(
         decoder: str,
         input_width: int, 
