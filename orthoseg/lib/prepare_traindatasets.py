@@ -179,7 +179,7 @@ def prepare_traindatasets(
         if file_labellocations_gdf is not None and len(file_labellocations_gdf) > 0:
             file_labellocations_gdf.loc[:, 'filepath'] = str(label_file.locations_path)   # type: ignore
             file_labellocations_gdf.loc[:, 'image_layer'] = label_file.image_layer        # type: ignore
-            # Remark: geopandas 0.7.0 drops the fid column internaly, so cannot be retrieved
+            # Remark: geopandas 0.7.0 drops the fid column internally, so cannot be retrieved
             file_labellocations_gdf.loc[:, 'row_nb_orig'] = file_labellocations_gdf.index # type: ignore
             if labellocations_gdf is None:
                 labellocations_gdf = file_labellocations_gdf
@@ -336,7 +336,7 @@ def prepare_traindatasets(
                     # assert to evade pyLance warning
                     assert isinstance(labels_gdf, gpd.GeoDataFrame)
                     if len(labels_gdf) == 0:
-                        logger.info("No labels to be burned for this layer, this is weird!")
+                        logger.info(f"No labels to be burned in the masks for image_layer {image_layer}!")
                     _create_mask(
                             input_image_filepath=image_filepath,
                             output_mask_filepath=mask_filepath,
@@ -457,16 +457,21 @@ def _create_mask(
             dtype=rio.uint8)
 
     # Burn the vectors in a mask
-    burn_shapes = ((geom, value) 
-            for geom, value in zip(labels_to_burn_gdf.geometry, labels_to_burn_gdf.burn_value) if geom is not None)
-    try:
-        mask_arr = rio_features.rasterize(
-                shapes=burn_shapes, transform=image_transform_affine,
-                dtype=rio.uint8, fill=0, 
-                out_shape=(image_output_profile['width'], image_output_profile['height']))
-        
-    except Exception as ex:
-        raise Exception(f"Error creating mask for {image_transform_affine}") from ex
+    burn_shapes = [(geom, value) 
+            for geom, value in zip(labels_to_burn_gdf.geometry, labels_to_burn_gdf.burn_value) if geom is not None]
+    if len(burn_shapes) > 0:
+        try:
+            mask_arr = rio_features.rasterize(
+                    shapes=burn_shapes, transform=image_transform_affine,
+                    dtype=rio.uint8, fill=0, 
+                    out_shape=(image_output_profile['width'], image_output_profile['height']))
+            
+        except Exception as ex:
+            raise Exception(f"Error creating mask for {image_transform_affine}") from ex
+    else:
+        mask_arr = np.zeros(
+                shape=(image_output_profile['width'], image_output_profile['height']),
+                dtype=rio.uint8)
 
     # Check if the mask meets the requirements to be written...
     if minimum_pct_labeled > 0:
