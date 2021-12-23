@@ -104,22 +104,14 @@ def postprocess_predictions(
                     force=force)
 
             # Add/recalculate columns with area and nbcoords
-            # Terrible performance using geofileops with libspatialite < 5.0.0,
-            # so temporary calculate it using geopandas.
-            # TODO: switch to geofileops once libspatialite 5 is compatible
-            # with tensorflow 
-            """
-            geofile.add_column(path=curr_output_path, 
-                    name='area', type='real', expression='ST_Area(geom)')
-            geofile.add_column(path=curr_output_path, 
-                    name='nbcoords', type='integer', expression='ST_NPoints(geom)')
-            """
-
-            diss_gdf = geofile.read_file(curr_output_path)
-            diss_gdf['area'] = diss_gdf.geometry.area
-            diss_gdf['nbcoords'] = diss_gdf.geometry.apply(lambda geom: gfo_vector_util.numberpoints(geom))
-            geofile.remove(curr_output_path)
-            geofile.to_file(diss_gdf, curr_output_path)
+            geofile.add_column(
+                    path=curr_output_path, 
+                    name='area', type=geofile.DataType.REAL, expression='ST_Area(geom)',
+                    force_update=True)
+            geofile.add_column(
+                    path=curr_output_path, 
+                    name='nbcoords', type=geofile.DataType.INTEGER, expression='ST_NPoints(geom)',
+                    force_update=True)
 
         # The curr_output_path becomes the new current input path 
         curr_input_path = curr_output_path
@@ -142,21 +134,15 @@ def postprocess_predictions(
                     nb_parallel=nb_parallel)
             
             # Add/recalculate columns with area and nbcoords
-            # Terrible performance using geofileops with libspatialite < 5.0.0,
-            # so temporary calculate it using geopandas.
-            """
-            geofile.add_column(path=curr_output_path, 
-                    name='area', type='real', expression='ST_Area(geom)')
-            geofile.add_column(path=curr_output_path, 
-                    name='nbcoords', type='integer', expression='ST_NPoints(geom)')
-            """
-
-            diss_gdf = geofile.read_file(curr_output_path)
-            diss_gdf['area'] = diss_gdf.geometry.area
-            diss_gdf['nbcoords'] = diss_gdf.geometry.apply(lambda geom: gfo_vector_util.numberpoints(geom))
-            geofile.remove(curr_output_path)
-            geofile.to_file(diss_gdf, curr_output_path)
-
+            geofile.add_column(
+                    path=curr_output_path, 
+                    name='area', type=geofile.DataType.REAL, expression='ST_Area(geom)',
+                    force_update=True)
+            geofile.add_column(
+                    path=curr_output_path, 
+                    name='nbcoords', type=geofile.DataType.INTEGER, expression='ST_NPoints(geom)',
+                    force_update=True)
+            
         curr_input_path = curr_output_path
         output_paths.append(curr_output_path)
         
