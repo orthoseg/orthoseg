@@ -18,7 +18,7 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     include_package_data=True,
     install_requires=[
-            "fiona", "geofileops>=0.2.1,<0.3", "geopandas", 
+            "fiona", "geofileops>=0.3,<0.4", "geopandas", 
             "owslib", "pillow", "pycron", 
             "rasterio", "segmentation-models>=1.0,<1.1", 
             "tensorflow>=2.5,<2.6"],
