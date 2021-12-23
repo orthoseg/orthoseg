@@ -108,6 +108,8 @@ def postprocess(config_path: Path):
         output_vector_path = output_vector_dir / f"{output_vector_name}.gpkg"
                 
         # Prepare some parameters for the postprocessing
+        nb_parallel = conf.postprocess.getint('nb_parallel')
+
         dissolve = conf.postprocess.getboolean('dissolve')
         dissolve_tiles_path = conf.postprocess.getpath('dissolve_tiles_path')
         simplify_algorithm = conf.postprocess.get('simplify_algorithm')
@@ -127,6 +129,7 @@ def postprocess(config_path: Path):
                 simplify_algorithm=simplify_algorithm,
                 simplify_tolerance=simplify_tolerance,
                 simplify_lookahead=simplify_lookahead,
+                nb_parallel=nb_parallel,
                 force=False)
 
         # Log and send mail

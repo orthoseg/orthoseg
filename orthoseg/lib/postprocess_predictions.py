@@ -48,6 +48,7 @@ def postprocess_predictions(
         simplify_algorithm: Optional[geofileops.SimplifyAlgorithm] = None,
         simplify_tolerance: float = 1,
         simplify_lookahead: int = 8,
+        nb_parallel: int = -1,
         force: bool = False) -> List[Path]:
     """
     Postprocesses the input prediction as specified. 
@@ -58,6 +59,8 @@ def postprocess_predictions(
         dissolve (bool): True if a dissolve needs to be applied
         dissolve_tiles_path (PathLike, optional): Path to a geofile containing 
             the tiles to be used for the dissolve. Defaults to None.
+        nb_parallel (int, optional): number of cpu's to use for postprocessing. 
+            Use all cpu's if it is -1. Defaults to -1. 
         force: False to skip results that already exist, true to
                ignore existing results and overwrite them           
     """
@@ -97,6 +100,7 @@ def postprocess_predictions(
                     groupby_columns=groupby_columns,
                     columns=columns,
                     explodecollections=True,
+                    nb_parallel=nb_parallel,
                     force=force)
 
             # Add/recalculate columns with area and nbcoords
@@ -134,7 +138,8 @@ def postprocess_predictions(
                     output_path=curr_output_path,
                     algorithm=simplify_algorithm,
                     tolerance=simplify_tolerance,
-                    lookahead=simplify_lookahead)
+                    lookahead=simplify_lookahead,
+                    nb_parallel=nb_parallel)
             
             # Add/recalculate columns with area and nbcoords
             # Terrible performance using geofileops with libspatialite < 5.0.0,
