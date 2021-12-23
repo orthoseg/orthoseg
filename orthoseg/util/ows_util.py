@@ -12,8 +12,9 @@ from pathlib import Path
 import random
 import time
 from typing import List, Optional, Tuple, Union
-import numpy as np
+import warnings
 
+import numpy as np
 from geofileops import geofile
 import geofileops.util.grid_util
 import owslib
@@ -22,6 +23,7 @@ import owslib.util
 import pycron
 import pyproj
 import rasterio as rio
+import rasterio.errors as rio_errors
 from rasterio import profiles as rio_profiles
 from rasterio import transform as rio_transform
 from rasterio import windows as rio_windows
@@ -500,46 +502,52 @@ def getmap_to_file(
         # Write image to temp file...
         # If all bands need to be kept, just save to output
         with rio.MemoryFile(response.read()) as memfile:
-            with memfile.open() as image_ds:
-                image_profile_curr = image_ds.profile
 
-                # Read the data we need from the memoryfile 
-                if layersource.bands is None:
-                    # If no specific bands specified, read them all...
-                    if image_data_output is None:
-                        image_data_output = image_ds.read()
-                    else:
-                        image_data_output = np.append(image_data_output, image_ds.read(), axis=0)
-                elif len(layersource.bands) == 1 and layersource.bands[0] == -1:
-                    # If 1 band, -1 specified: dirty hack to use greyscale version of rgb image
-                    image_data_tmp = image_ds.read()
-                    image_data_grey = np.mean(image_data_tmp, axis=0).astype(image_data_tmp.dtype)
-                    new_shape = (1, image_data_grey.shape[0], image_data_grey.shape[1])
-                    image_data_grey = np.reshape(image_data_grey, new_shape)
-                    if image_data_output is None:
-                        image_data_output = image_data_grey
-                    else:
-                        image_data_output = np.append(image_data_output, image_data_grey, axis=0)
-                else:
-                    # If bands specified, only read the bands to keep...
-                    for band in layersource.bands:
-                        # Read the band needed + reshape
-                        # Remark: rasterio uses 1-based indexing instead of 0-based!!! 
-                        image_data_curr = image_ds.read(band+1)
-                        new_shape = (1, image_data_curr.shape[0], image_data_curr.shape[1])
-                        image_data_curr = np.reshape(image_data_curr, new_shape)
+            # Because the image returned by WMS doesn't contain georeferencing 
+            # info, suppress NotGeoreferencedWarning
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", category=rio_errors.NotGeoreferencedWarning)
+    
+                with memfile.open() as image_ds:
+                    image_profile_curr = image_ds.profile
 
-                        # Set or append to image_data_output
+                    # Read the data we need from the memoryfile 
+                    if layersource.bands is None:
+                        # If no specific bands specified, read them all...
                         if image_data_output is None:
-                            image_data_output = image_data_curr
+                            image_data_output = image_ds.read()
                         else:
-                            image_data_output = np.append(image_data_output, image_data_curr, axis=0)
+                            image_data_output = np.append(image_data_output, image_ds.read(), axis=0)
+                    elif len(layersource.bands) == 1 and layersource.bands[0] == -1:
+                        # If 1 band, -1 specified: dirty hack to use greyscale version of rgb image
+                        image_data_tmp = image_ds.read()
+                        image_data_grey = np.mean(image_data_tmp, axis=0).astype(image_data_tmp.dtype)
+                        new_shape = (1, image_data_grey.shape[0], image_data_grey.shape[1])
+                        image_data_grey = np.reshape(image_data_grey, new_shape)
+                        if image_data_output is None:
+                            image_data_output = image_data_grey
+                        else:
+                            image_data_output = np.append(image_data_output, image_data_grey, axis=0)
+                    else:
+                        # If bands specified, only read the bands to keep...
+                        for band in layersource.bands:
+                            # Read the band needed + reshape
+                            # Remark: rasterio uses 1-based indexing instead of 0-based!!! 
+                            image_data_curr = image_ds.read(band+1)
+                            new_shape = (1, image_data_curr.shape[0], image_data_curr.shape[1])
+                            image_data_curr = np.reshape(image_data_curr, new_shape)
 
-                # Set output profile (number of bands will be corrected later on if needed) 
-                if image_profile_output is None:
-                    image_profile_output = image_profile_curr
+                            # Set or append to image_data_output
+                            if image_data_output is None:
+                                image_data_output = image_data_curr
+                            else:
+                                image_data_output = np.append(image_data_output, image_data_curr, axis=0)
 
-    # Write output file
+                    # Set output profile (number of bands will be corrected later on if needed) 
+                    if image_profile_output is None:
+                        image_profile_output = image_profile_curr
+
+    # Write (temporary) output file
     # evade pyLance warning
     assert image_profile_output is not None
     assert isinstance(image_data_output, np.ndarray)
@@ -555,8 +563,14 @@ def getmap_to_file(
     assert isinstance(image_data_output, np.ndarray)
     image_profile_output.update(count=image_data_output.shape[0])
     image_profile_output = get_cleaned_write_profile(image_profile_output)
-    with rio.open(str(output_filepath), 'w', **image_profile_output) as image_file:
-        image_file.write(image_data_output)
+    
+    # Because the (temporary) output file doesn't contain coordinates (yet),
+    # suppress NotGeoreferencedWarning while writing
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=rio_errors.NotGeoreferencedWarning)
+
+        with rio.open(str(output_filepath), 'w', **image_profile_output) as image_file:
+            image_file.write(image_data_output)
     
     # If an aux.xml file was written, remove it again...
     output_aux_path = output_filepath.parent / f"{output_filepath.name}.aux.xml"
