@@ -20,6 +20,7 @@ import geopandas as gpd
 import numpy as np
 import owslib
 import owslib.wms
+import owslib.util
 from PIL import Image
 import rasterio as rio
 import rasterio.features as rio_features
@@ -87,6 +88,14 @@ def prepare_traindatasets(
             the polygon files
     """
     ### Init stuff ###
+    auth = None
+    ssl_verify = True
+    if ssl_verify is False: 
+        auth = owslib.util.Authentication(verify=ssl_verify)
+        import urllib3
+        urllib3.disable_warnings()
+        logger.warn("SSL VERIFICATION IS TURNED OFF!!!")
+
     # Check if the first class is named "background"
     if len(classes) == 0:
         raise Exception("No classes specified")
@@ -289,7 +298,8 @@ def prepare_traindatasets(
                     for layersource in image_layers[image_layer]['layersources']:
                         wms_service = owslib.wms.WebMapService(
                                 url=layersource['wms_server_url'], 
-                                version=layersource['wms_version'])
+                                version=layersource['wms_version'],
+                                auth=auth)
                         wms_imagelayer_layersources[image_layer].append(
                                 ows_util.LayerSource(
                                         wms_service=wms_service,
