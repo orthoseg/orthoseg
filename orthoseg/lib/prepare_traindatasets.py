@@ -74,14 +74,26 @@ def prepare_traindatasets(
         dataversion: a version number for the dataset created/found
 
     Args
-        label_infos (List[LabelInfo]): paths to the files with label polygons and locations to generate images for
-        labelname_column: the column where the label names are stored in the polygon files
-        wms_server_url: WMS server where the images can be fetched from
-        wms_layername: layername on the WMS server to use
-        output_basedir: the base dir where the train dataset needs to be written to 
-
+        label_infos (List[LabelInfo]): paths to the files with label polygons 
+            and locations to generate images for
+        classes (dict): dict with the classes to detect as keys. The values 
+            are the following:
+                - labelnames: list of labels to use for this class
+                - weight:
+                - burn_value:
+        image_layers (dict):
+        training_dir (Path):
+        labelname_column (str): the column where the label names are stored in 
+            the polygon files
     """
     ### Init stuff ###
+    # Check if the first class is named "background"
+    if len(classes) == 0:
+        raise Exception("No classes specified")
+    elif list(classes)[0].lower() != 'background':
+        classes_str = pprint.pformat(classes, sort_dicts=False, width=50)
+        raise Exception(f"By convention, the first class (the background) should be called 'background'!\n{classes_str}")
+
     image_crs_width = math.fabs(image_pixel_width*image_pixel_x_size)   # tile width in units of crs => 500 m
     image_crs_height = math.fabs(image_pixel_height*image_pixel_y_size) # tile height in units of crs => 500 m
 
