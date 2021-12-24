@@ -28,6 +28,7 @@ import rasterio.profiles as rio_profiles
 import shapely.geometry as sh_geom
 
 from orthoseg.util import ows_util
+from orthoseg.util import log_util
 from orthoseg.helpers.progress_helper import ProgressHelper
 
 #-------------------------------------------------------------
@@ -141,13 +142,14 @@ def prepare_traindatasets(
 
             # In this case, first check all input files if they are valid...
             invalid_geom_paths = []
-            for label_file in label_infos:
-                is_valid = geofileops.isvalid(label_file.locations_path, force=True)
-                if is_valid is False:
-                    invalid_geom_paths.append(str(label_file.locations_path))
-                is_valid = geofileops.isvalid(label_file.polygons_path, force=True)
-                if is_valid is False:
-                    invalid_geom_paths.append(str(label_file.polygons_path))
+            with log_util.LoggingContext(logging.getLogger('geofileops'), level=logging.WARN):
+                for label_file in label_infos:
+                    is_valid = geofileops.isvalid(label_file.locations_path, force=True)
+                    if is_valid is False:
+                        invalid_geom_paths.append(str(label_file.locations_path))
+                    is_valid = geofileops.isvalid(label_file.polygons_path, force=True)
+                    if is_valid is False:
+                        invalid_geom_paths.append(str(label_file.polygons_path))
             if len(invalid_geom_paths) > 0:
                 raise Exception(f"Invalid geometries found in: {', '.join(invalid_geom_paths)}")
     
