@@ -9,7 +9,7 @@ import logging
 from pathlib import Path
 import pprint
 
-from orthoseg.util import config as config_util
+from orthoseg.util import config_util
 
 #-------------------------------------------------------------
 # First define/init some general variables/constants

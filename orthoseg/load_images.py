@@ -16,7 +16,7 @@ import pyproj
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from orthoseg.helpers import config_helper as conf
 from orthoseg.helpers import email_helper
-from orthoseg.util import log as log_util
+from orthoseg.util import log_util
 from orthoseg.util import ows_util
 
 #-------------------------------------------------------------

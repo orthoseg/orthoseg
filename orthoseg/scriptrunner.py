@@ -12,8 +12,8 @@ import time
 
 # Because orthoseg isn't installed as package + it is higher in dir hierarchy, add root to sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from orthoseg.util import log as log_util
-from orthoseg.util import config as config_util
+from orthoseg.util import log_util
+from orthoseg.util import config_util
 
 runner_config = None
 

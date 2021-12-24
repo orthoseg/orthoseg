@@ -23,7 +23,7 @@ from orthoseg.helpers import email_helper
 from orthoseg.lib import predicter
 import orthoseg.model.model_factory as mf
 import orthoseg.model.model_helper as mh
-from orthoseg.util import log as log_util
+from orthoseg.util import log_util
 
 from geofileops import geofileops
 

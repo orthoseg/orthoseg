@@ -25,7 +25,7 @@ from orthoseg.lib import predicter
 from orthoseg.lib import trainer
 from orthoseg.model import model_factory as mf
 from orthoseg.model import model_helper as mh
-from orthoseg.util import log as log_util
+from orthoseg.util import log_util
 
 #-------------------------------------------------------------
 # First define/init general variables/constants

@@ -18,7 +18,7 @@ from orthoseg.helpers import config_helper as conf
 from orthoseg.helpers import email_helper
 from orthoseg.lib import postprocess_predictions as postp
 import orthoseg.model.model_helper as mh
-from orthoseg.util import log as log_util
+from orthoseg.util import log_util
 
 #-------------------------------------------------------------
 # First define/init general variables/constants

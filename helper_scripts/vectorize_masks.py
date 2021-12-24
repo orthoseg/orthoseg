@@ -18,7 +18,7 @@ import shapely.geometry as sh_geom
 import geopandas as gpd
 import glob
 
-from orthoseg.util import log as log_util
+from orthoseg.util import log_util
 
 def vectorize_masks(input_image_dir: Path,
                     output_filepath: Path,

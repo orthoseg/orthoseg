@@ -44,6 +44,7 @@ def init_logging_dictConfig(
              raise Exception(f"If the logconfig_dict is None, the logconfig_path should point to an existing file: {logconfig_path}")
 
     # If there are file handlers, replace possible placeholders + make sure log dir exists
+    assert logconfig_dict is not None
     for handler in logconfig_dict['handlers']:
         if "filename" in logconfig_dict['handlers'][handler]:
             # Format the filename
