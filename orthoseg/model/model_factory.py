@@ -15,9 +15,10 @@ from pathlib import Path
 import tempfile
 from typing import Any, List
 
-from tensorflow import keras as kr
 import numpy as np
 import tensorflow as tf
+import tensorflow.keras as kr
+import tensorflow.keras.models as kr_models
 import segmentation_models as sm
 
 #-------------------------------------------------------------
@@ -48,7 +49,7 @@ def get_model(
         nb_classes: int = 1,
         activation: str = 'softmax',
         init_weights_with: str = 'imagenet',
-        freeze: bool = False) -> kr.models.Model:
+        freeze: bool = False) -> kr_models.Model:
     """
     Get a model.
     
@@ -136,28 +137,28 @@ def get_model(
         raise Exception(f"Unknown decoder architecture: {decoder}")
 
 def compile_model(
-        model: kr.models.Model,
+        model: kr_models.Model,
         optimizer: str,
         optimizer_params: dict,
         loss: str,
         metrics: List[str] = None,
         sample_weight_mode: str = None,
-        class_weights: list = None) -> kr.models.Model:
+        class_weights: list = None) -> kr_models.Model:
     """
     Compile the model for training.
     
     Args:
-        model (kr.models.Model): The keras model to compile.
-        optimizer (str): The optimizer to use.
-        optimizer_params (dict): Paramters to use for optimizer.
-        loss (str): The loss function to use. One of:
+        model (kr_models.Model): the keras model to compile.
+        optimizer (str): the optimizer to use.
+        optimizer_params (dict): parameters to use for optimizer.
+        loss (str): the loss function to use. One of:
             * categorical_crossentropy
             * weighted_categorical_crossentropy: class_weights should be specified!
 
-        metrics (List[Metric], optional): Metrics to use. Defaults to None. Possible values:
+        metrics (List[Metric], optional): metrics to use. Defaults to None. Possible values:
             * 
-        sample_weight_mode (str, optional): Sample weight mode to use. Defaults to None.
-        class_weights (list, optional): Class weigths to use. Defaults to None.
+        sample_weight_mode (str, optional): sample weight mode to use. Defaults to None.
+        class_weights (list, optional): class weigths to use. Defaults to None.
     """
 
     # If no merics specified, use default ones
@@ -210,7 +211,7 @@ def compile_model(
 
 def load_model(
         model_to_use_filepath: Path, 
-        compile: bool = True) -> kr.models.Model:
+        compile: bool = True) -> kr_models.Model:
     """
     Load an existing model from a file.
 

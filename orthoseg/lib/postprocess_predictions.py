@@ -275,8 +275,8 @@ def postprocess_for_evaluation(
                                 
             #similarity = jaccard_similarity(mask_arr, image_pred)
             # Use accuracy as similarity... is more practical than jaccard
-            similarity = np.array(np.equal(mask_arr, image_pred_uint8_cleaned_bin
-                                 )).sum()/image_pred_uint8_cleaned_bin.size
+            similarity = np.array(np.equal(mask_arr, image_pred_uint8_cleaned_bin)
+                                 ).sum() / image_pred_uint8_cleaned_bin.size
             pred_prefix_str = f"{similarity:0.3f}_"
             
             # Write mask

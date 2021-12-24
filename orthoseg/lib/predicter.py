@@ -19,7 +19,7 @@ import rasterio as rio
 import rasterio.crs as rio_crs
 import rasterio.plot as rio_plot
 import tensorflow as tf
-from tensorflow import keras as kr
+import tensorflow.keras.models as kr_models
 
 import orthoseg.lib.postprocess_predictions as postp
 from orthoseg.helpers.progress_helper import ProgressHelper
@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 #-------------------------------------------------------------
 
 def predict_dir(
-        model: kr.models.Model,
+        model: kr_models.Model,
         input_image_dir: Path,
         output_image_dir: Path,
         output_vector_path: Optional[Path],         

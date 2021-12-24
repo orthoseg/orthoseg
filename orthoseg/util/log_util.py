@@ -92,7 +92,7 @@ def init_logging_dictConfig(
             log_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Now load the log config
-    logging.config.dictConfig(logconfig_dict)
+    logging.config.dictConfig(logconfig_dict) # type: ignore
 
     return logging.getLogger(loggername)
 
