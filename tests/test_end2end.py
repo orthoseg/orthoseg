@@ -45,8 +45,8 @@ def test_load_images():
 
     # Check if the right number of files was loaded
     assert image_cache_dir.exists() is True
-    files = list(image_cache_dir.glob("**/*.*"))
-    assert len(files) == 16
+    files = list(image_cache_dir.glob("**/*.jpg"))
+    assert len(files) == 8
 
 def test_train():
     # Load project config to init some vars.
@@ -134,5 +134,6 @@ def test_postprocess():
 if __name__ == '__main__':
     test_load_images()
     test_train()
-    #test_predict()
-    #test_postprocess()
+    test_predict()
+    test_postprocess()
+    
