@@ -87,6 +87,14 @@ def get_images_for_grid(
     if image_format_save is None:
         image_format_save = image_format
 
+    auth = None
+    ssl_verify = True
+    if ssl_verify is False: 
+        auth = owslib.util.Authentication(verify=ssl_verify)
+        import urllib3
+        urllib3.disable_warnings()
+        logger.warn("SSL VERIFICATION IS TURNED OFF!!!")
+
     crs_width = math.fabs(image_pixel_width*image_crs_pixel_x_size)   # tile width in units of crs => 500 m
     crs_height = math.fabs(image_pixel_height*image_crs_pixel_y_size) # tile height in units of crs => 500 m
     if cron_schedule is not None and cron_schedule != '':
@@ -180,7 +188,8 @@ def get_images_for_grid(
     for layersource in layersources:
         wms_service = owslib.wms.WebMapService(
                 url=layersource['wms_server_url'], 
-                version=layersource['wms_version'])
+                version=layersource['wms_version'],
+                auth=auth)
         layersources_prepared.append(
                 LayerSource(
                         wms_service=wms_service,
