@@ -160,11 +160,11 @@ def get_images_for_grid(
             roi_gdf = gpd.overlay(grid_for_roi_gdf, roi_gdf, how='intersection')
             
             # Explode possible multipolygons to polygons
-            roi_gdf.reset_index(drop=True, inplace=True)
+            #roi_gdf.reset_index(drop=True, inplace=True)
             # assert to evade pyLance warning
             assert isinstance(roi_gdf, gpd.GeoDataFrame)
-            roi_gdf = roi_gdf.explode()
-            roi_gdf.reset_index(drop=True, inplace=True)
+            roi_gdf = roi_gdf.explode(ignore_index=True)
+            #roi_gdf.reset_index(drop=True, inplace=True)
 
             # Write to file
             grid_for_roi_path = output_image_dir / "grid_for_roi.gpkg"

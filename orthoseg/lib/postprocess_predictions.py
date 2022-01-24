@@ -611,9 +611,9 @@ def polygonize_pred(
                 geoms_gdf = geoms_gdf[~geoms_gdf.geometry.isna()]  
                 if len(geoms_gdf) == 0:
                     return None
-                geoms_gdf.reset_index(drop=True, inplace=True)
-                geoms_gdf = geoms_gdf.explode()
-                geoms_gdf.reset_index(drop=True, inplace=True)
+                #geoms_gdf.reset_index(drop=True, inplace=True)
+                geoms_gdf = geoms_gdf.explode(ignore_index=True)
+                #geoms_gdf.reset_index(drop=True, inplace=True)
 
         # Now we can calculate the "onborder" property
         geoms_gdf = vector_util.calc_onborder(geoms_gdf, border_bounds) # type: ignore
