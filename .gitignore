@@ -25,4 +25,7 @@ sample_projects/footballfields/training
 tests/test_projects/_image_cache
 tests/test_projects/footballfields/models
 tests/test_projects/footballfields/output_vector
+tests/test_projects/footballfields/training/01/test
+tests/test_projects/footballfields/training/01/train
+tests/test_projects/footballfields/training/01/validation
 tests/test_projects/footballfields/training/02
