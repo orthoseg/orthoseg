@@ -12,6 +12,7 @@ from pathlib import Path
 import random
 import time
 from typing import List, Optional, Tuple, Union
+import urllib3
 import warnings
 
 import numpy as np
@@ -59,8 +60,8 @@ logger.setLevel(logging.DEBUG)
 
 def get_images_for_grid(
         layersources: List[dict],
-        crs: pyproj.CRS,
         output_image_dir: Path,
+        crs: pyproj.CRS,
         image_gen_bounds: Tuple[float, float, float, float] = None,
         image_gen_roi_filepath: Optional[Path] = None,
         grid_xmin: float = 0.0,
@@ -71,7 +72,6 @@ def get_images_for_grid(
         image_pixel_height: int = 1024,
         image_pixels_ignore_border: int = 0,
         nb_concurrent_calls: int = 1,
-        random_sleep: float = 0.0,
         cron_schedule: str = None,     
         image_format: str = FORMAT_GEOTIFF,
         image_format_save: str = None,
@@ -81,19 +81,73 @@ def get_images_for_grid(
         column_start: int = 0,
         nb_images_to_skip: int = 0,
         max_nb_images: int = -1,
+        ssl_verify: Union[bool, str] = True,
         force: bool = False):
-    
+    """
+    Loads all images in a grid from a WMS service.
+
+    Args:
+        layersources (List[dict]): Layer sources to get images from. Multiple 
+            sources can be specified to create a combined image, eg. use band 
+            1 of a WMS service with band 2 and 3 of another one.
+        output_image_dir (Path): Directory to save the images to.
+        crs (pyproj.CRS): The crs of the source and destination images.
+        image_gen_bounds (Tuple[float, float, float, float], optional): Bounds 
+            of the roi to request/save images for. Defaults to None.
+        image_gen_roi_filepath (Optional[Path], optional): File with the roi 
+            where images should be requested/saved for. Defaults to None.
+        grid_xmin (float, optional): xmin for the grid to be used. 
+            Defaults to 0.0.
+        grid_ymin (float, optional): ymin for the grid to be used. 
+            Defaults to 0.0.
+        image_crs_pixel_x_size (float, optional): [description]. Defaults to 0.25.
+        image_crs_pixel_y_size (float, optional): [description]. Defaults to 0.25.
+        image_pixel_width (int, optional): [description]. Defaults to 1024.
+        image_pixel_height (int, optional): [description]. Defaults to 1024.
+        image_pixels_ignore_border (int, optional): [description]. Defaults to 0.
+        nb_concurrent_calls (int, optional): Number of images to treat in 
+            parallel. Will increase the load on the WMS server! Defaults to 1.
+        cron_schedule (str, optional): [description]. Defaults to None.
+        image_format (str, optional): The image format to get. Defaults to 
+            FORMAT_GEOTIFF.
+        image_format_save (str, optional): The image format to save to. 
+            Defaults to None.
+        tiff_compress (str, optional): [description]. Defaults to 'lzw'.
+        transparent (bool, optional): [description]. Defaults to False.
+        pixels_overlap (int, optional): [description]. Defaults to 0.
+        column_start (int, optional): [description]. Defaults to 0.
+        nb_images_to_skip (int, optional): [description]. Defaults to 0.
+        max_nb_images (int, optional): [description]. Defaults to -1.
+        ssl_verify (bool or str, optional): True to use the default 
+            certificate bundle as installed on your system. False disables 
+            certificate validation (NOT recommended!). If a path to a 
+            certificate bundle file (.pem) is passed, this will be used.
+            In corporate networks using a proxy server this is often needed 
+            to evade CERTIFICATE_VERIFY_FAILED errors. Defaults to True.
+        force (bool, optional): [description]. Defaults to False.
+
+    Raises:
+        Exception: [description]
+    """
+
     ##### Init #####
     if image_format_save is None:
         image_format_save = image_format
 
+    # Interprete ssl_verify
     auth = None
-    ssl_verify = True
-    if ssl_verify is False: 
+    if ssl_verify is not None: 
+        # If it is a string, make sure it isn't actually a bool 
+        if isinstance(ssl_verify, str):
+            if ssl_verify.lower() == 'true':
+                ssl_verify = True
+            elif ssl_verify.lower() == 'false':
+                ssl_verify = False
+
         auth = owslib.util.Authentication(verify=ssl_verify)
-        import urllib3
-        urllib3.disable_warnings()
-        logger.warn("SSL VERIFICATION IS TURNED OFF!!!")
+        if ssl_verify is False:
+            urllib3.disable_warnings()
+            logger.warn("SSL VERIFICATION IS TURNED OFF!!!")
 
     crs_width = math.fabs(image_pixel_width*image_crs_pixel_x_size)   # tile width in units of crs => 500 m
     crs_height = math.fabs(image_pixel_height*image_crs_pixel_y_size) # tile height in units of crs => 500 m
@@ -257,7 +311,7 @@ def get_images_for_grid(
                     image_ymax = image_ymax+(pixels_overlap*image_crs_pixel_y_size)
     
                 # Create output filename
-                output_filename = create_filename(
+                output_filename = _create_filename(
                         crs=crs,
                         bbox=(image_xmin, image_ymin, image_xmax, image_ymax),
                         size=(image_pixel_width+2*pixels_overlap, 
@@ -376,8 +430,8 @@ def getmap_to_file(
         layersources: List[LayerSource],
         output_dir: Path,
         crs: Union[str, pyproj.CRS],
-        bbox,
-        size,
+        bbox: Tuple[float, float, float, float],
+        size: Tuple[int, int],
         image_format: str = FORMAT_GEOTIFF,
         image_format_save: str = None,
         output_filename: str = None,
@@ -387,11 +441,35 @@ def getmap_to_file(
         force: bool = False,
         layername_in_filename: bool = False) -> Optional[Path]:
     """
+    
 
-    Args
-        random_sleep: sleep a random time between 0 and this amount of seconds
-                      between requests tot the WMS server
+    Args:
+        layersources (List[dict]): Layer sources to get images from. Multiple 
+            sources can be specified to create a combined image, eg. use band 
+            1 of a WMS service with band 2 and 3 of another one.
+        output_image_dir (Path): Directory to save the images to.
+        crs (pyproj.CRS): The crs of the source and destination images.
+        bbox (Tuple[float, float, float, float]): Bbox of the image to get.
+        size (Tuple[int, int]): The image width and height.
+        image_format (str, optional): [description]. Defaults to FORMAT_GEOTIFF.
+        image_format_save (str, optional): [description]. Defaults to None.
+        output_filename (str, optional): [description]. Defaults to None.
+        transparent (bool, optional): [description]. Defaults to False.
+        tiff_compress (str, optional): [description]. Defaults to 'lzw'.
+        image_pixels_ignore_border (int, optional): [description]. Defaults to 0.
+        force (bool, optional): [description]. Defaults to False.
+        layername_in_filename (bool, optional): [description]. Defaults to False.
+
+    Raises:
+        Exception: [description]
+        Exception: [description]
+        Exception: [description]
+        Exception: [description]
+
+    Returns:
+        Optional[Path]: [description]
     """
+
     ##### Init #####
     # If no seperate save format is specified, use the standard image_format
     if image_format_save is None:
@@ -411,7 +489,7 @@ def getmap_to_file(
                 else:
                     layername += f"_{'_'.join(layersource.layernames)}"
 
-        output_filename = create_filename(
+        output_filename = _create_filename(
                 crs=crs, 
                 bbox=bbox, size=size, 
                 image_format=image_format_save,
@@ -571,7 +649,7 @@ def getmap_to_file(
 
     assert isinstance(image_data_output, np.ndarray)
     image_profile_output.update(count=image_data_output.shape[0])
-    image_profile_output = get_cleaned_write_profile(image_profile_output)
+    image_profile_output = _get_cleaned_write_profile(image_profile_output)
     
     # Because the (temporary) output file doesn't contain coordinates (yet),
     # suppress NotGeoreferencedWarning while writing
@@ -655,7 +733,7 @@ def getmap_to_file(
         crs_pixel_y_size = (bbox[1]-bbox[3])/size[1]
 
         path_noext = output_filepath.parent / output_filepath.stem
-        ext_world = get_world_ext_for_image_format(image_format_save)
+        ext_world = _get_world_ext_for_image_format(image_format_save)
         output_worldfile_filepath = Path(str(path_noext) + ext_world)
         
         with output_worldfile_filepath.open('w') as wld_file:
@@ -701,7 +779,7 @@ def getmap_to_file(
 
             # Delete output file, and write again
             output_filepath.unlink()
-            image_profile_curr = get_cleaned_write_profile(image_profile_curr)
+            image_profile_curr = _get_cleaned_write_profile(image_profile_curr)
             with rio.open(str(output_filepath), 'w', **image_profile_curr) as image_file:
                 image_file.write(image_data_output)               
 
@@ -709,7 +787,7 @@ def getmap_to_file(
 
     return output_filepath
         
-def create_filename(
+def _create_filename(
         crs: pyproj.CRS,
         bbox,
         size,
@@ -717,7 +795,7 @@ def create_filename(
         layername: str = None):
     
     # Get image extension based on format
-    image_ext = get_ext_for_image_format(image_format)
+    image_ext = _get_ext_for_image_format(image_format)
 
     # Use different file names for projected vs geographic crs
     if crs.is_projected:
@@ -734,7 +812,7 @@ def create_filename(
 
     return output_filename
 
-def get_ext_for_image_format(image_format: str) -> str:
+def _get_ext_for_image_format(image_format: str) -> str:
     # Choose image extension based on format
     if image_format == FORMAT_GEOTIFF:
         return FORMAT_GEOTIFF_EXT
@@ -747,7 +825,7 @@ def get_ext_for_image_format(image_format: str) -> str:
     else:
         raise Exception(f"get_ext_for_image_format for image format {image_format} is not implemented!")
 
-def get_world_ext_for_image_format(image_format: str) -> str:
+def _get_world_ext_for_image_format(image_format: str) -> str:
     # Choose image extension based on format
     if image_format == FORMAT_GEOTIFF:
         return FORMAT_GEOTIFF_EXT_WORLD
@@ -760,7 +838,7 @@ def get_world_ext_for_image_format(image_format: str) -> str:
     else:
         raise Exception(f"get_world_ext_for_image_format for image format {image_format} is not implemented!")
 
-def get_cleaned_write_profile(profile: rio_profiles.Profile) -> Union[dict, rio_profiles.Profile]:
+def _get_cleaned_write_profile(profile: rio_profiles.Profile) -> Union[dict, rio_profiles.Profile]:
 
     # Depending on the driver, different profile keys are supported    
     if profile['driver'] == 'JPEG':
