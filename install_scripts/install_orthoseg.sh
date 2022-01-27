@@ -122,7 +122,8 @@ conda config --env --set channel_priority strict
 # h5py: for tf: needs ~=3.1
 # numpy: for tf: needs 1.19, otherwise replaced with pip version: 
 #     and then this gives issues in geofileops operations 
-conda install -y python=3.8 geofileops owslib pillow pycron "rasterio>=1.0,<1.3" "cudatoolkit>=11.2,<11.3" cudnn "h5py>=3.1,<3.2" "numpy>=1.19,<1.20" 
+#conda install -y python=3.8 geofileops owslib pillow pycron "rasterio>=1.0,<1.3" "cudatoolkit>=11.2,<11.3" cudnn "h5py>=3.1,<3.2" "numpy>=1.19,<1.20" 
+conda install -y python=3.9 geofileops owslib pillow pycron pyproj rasterio "cudatoolkit>=11.2,<11.3" cudnn h5py numpy 
 
 # For the following packages, no conda package is available or -for tensorflow- no recent version.
 if [[ ! $fordev =~ ^[Yy]$ ]]
@@ -143,7 +144,8 @@ else
   # Reasons for the version specifications...
   # tensorflow: starting from 2.5 compatible with libspatialite 5.0 
   # geofileops: simplify algorythms used supported from 2.0
-  pip install "segmentation-models>=1.0,<1.1" "tensorflow>=2.5,<2.6" 
+  #pip install "segmentation-models>=1.0,<1.1" "tensorflow>=2.5,<2.6" 
+  pip install "segmentation-models>=1.0,<1.1" "tensorflow>=2.7,<2.8"
 fi
 
 # Deactivate new env
