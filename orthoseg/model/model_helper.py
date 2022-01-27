@@ -626,8 +626,7 @@ def save_and_clean_models(
             segment_subject=segment_subject,
             traindata_id=traindata_id,
             trainparams_id=trainparams_id)
-    model_info_df = pd.DataFrame(model_info_list)
-
+    
     # If there is a new model passed as param, add it to the list
     new_model_path = None
     new_model_acc_combined = None
@@ -666,7 +665,7 @@ def save_and_clean_models(
         new_model_path = Path(model_save_dir) / new_model_filename
         
         # Append model to the retrieved models...
-        model_info_df = model_info_df.append(
+        model_info_list.append(
                 {   'filepath': str(new_model_path),
                     'filename': new_model_filename,
                     'segment_subject': segment_subject,
@@ -678,12 +677,12 @@ def save_and_clean_models(
                     'acc_val': new_model_acc_val,
                     'epoch': new_model_epoch,
                     'save_format': save_format 
-                },
-                ignore_index=True)
-
+                })
+    
     # Loop through all existing models
     # Remark: the list is sorted descending before iterating it, this way new
-    # models are saved bevore deleting the previous best one(s)
+    # modelss are saved bevore deleting the previous best one(s)
+    model_info_df = pd.DataFrame(model_info_list)
     model_info_sorted_df = model_info_df.sort_values(by='acc_combined', ascending=False)
     for model_info in model_info_sorted_df.itertuples(index=False):
        

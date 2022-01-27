@@ -155,7 +155,9 @@ def train(config_path: Path):
                     image_pixel_x_size=conf.train.getfloat('image_pixel_x_size'),
                     image_pixel_y_size=conf.train.getfloat('image_pixel_y_size'),
                     image_pixel_width=conf.train.getint('image_pixel_width'),
-                    image_pixel_height=conf.train.getint('image_pixel_height'))
+                    image_pixel_height=conf.train.getint('image_pixel_height'),
+                    ssl_verify=conf.general['ssl_verify'])
+                    
         logger.info(f"Traindata dir to use is {training_dir}, with traindata_id: {traindata_id}")
         traindata_dir = training_dir / 'train'
         validationdata_dir = training_dir / 'validation'

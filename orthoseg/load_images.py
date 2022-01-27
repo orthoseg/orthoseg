@@ -118,6 +118,8 @@ def load_images(
             column_start = 0
             nb_images_to_skip = 0
         
+        # Get ssl_verify setting
+        ssl_verify = conf.general['ssl_verify']
         # Get the download cron schedule
         download_cron_schedule = conf.download['cron_schedule']
 
@@ -135,8 +137,8 @@ def load_images(
         # Now we are ready to get the images...
         ows_util.get_images_for_grid(
                 layersources=layersources,
-                crs=crs,
                 output_image_dir=output_image_dir,
+                crs=crs,
                 image_gen_bounds=bbox,
                 image_gen_roi_filepath=roi_filepath,
                 grid_xmin=grid_xmin,
@@ -151,7 +153,8 @@ def load_images(
                 image_format=image_format,
                 pixels_overlap=image_pixels_overlap,
                 column_start=column_start,
-                nb_images_to_skip=nb_images_to_skip)
+                nb_images_to_skip=nb_images_to_skip,
+                ssl_verify=ssl_verify)
 
         # Log and send mail
         message = f"Completed load_images for config {config_path.stem}"
