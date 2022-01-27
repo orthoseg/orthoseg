@@ -29,3 +29,4 @@ tests/test_projects/footballfields/training/01/test
 tests/test_projects/footballfields/training/01/train
 tests/test_projects/footballfields/training/01/validation
 tests/test_projects/footballfields/training/02
+tests/test_projects/footballfields/training/02_*
