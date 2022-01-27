@@ -5,13 +5,12 @@ Module to prepare the training datasets.
 
 from __future__ import print_function
 import logging
-import os
 import shutil
 import math
-import datetime
 from pathlib import Path
 import pprint
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
+import urllib3
 
 from geofileops import geofile
 from geofileops import geofileops
@@ -63,6 +62,7 @@ def prepare_traindatasets(
         image_pixel_y_size: float = 0.25,
         image_pixel_width: int = 512,
         image_pixel_height: int = 512,
+        ssl_verify: Union[bool, str] = True,
         force: bool = False) -> Tuple[Path, int]:
     """
     This function prepares training data for the vector labels provided.
@@ -87,16 +87,29 @@ def prepare_traindatasets(
         training_dir (Path):
         labelname_column (str): the column where the label names are stored in 
             the polygon files
+        ssl_verify (bool or str, optional): True to use the default 
+            certificate bundle as installed on your system. False disables 
+            certificate validation (NOT recommended!). If a path to a 
+            certificate bundle file (.pem) is passed, this will be used.
+            In corporate networks using a proxy server this is often needed 
+            to evade CERTIFICATE_VERIFY_FAILED errors. Defaults to True.
     """
     ### Init stuff ###
+    # Interprete ssl_verify
     auth = None
-    ssl_verify = True
-    if ssl_verify is False: 
-        auth = owslib.util.Authentication(verify=ssl_verify)
-        import urllib3
-        urllib3.disable_warnings()
-        logger.warn("SSL VERIFICATION IS TURNED OFF!!!")
+    if ssl_verify is not None: 
+        # If it is a string, make sure it isn't actually a bool 
+        if isinstance(ssl_verify, str):
+            if ssl_verify.lower() == 'true':
+                ssl_verify = True
+            elif ssl_verify.lower() == 'false':
+                ssl_verify = False
 
+        auth = owslib.util.Authentication(verify=ssl_verify)
+        if ssl_verify is False:
+            urllib3.disable_warnings()
+            logger.warn("SSL VERIFICATION IS TURNED OFF!!!")
+    
     # Check if the first class is named "background"
     if len(classes) == 0:
         raise Exception("No classes specified")
