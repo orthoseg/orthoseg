@@ -1,6 +1,10 @@
+from pathlib import Path
 import requests
 
-def download_file(id, destination):
+def download_file(
+        id: str, 
+        destination: Path):
+
     URL = "https://docs.google.com/uc?export=download"
 
     session = requests.Session()
@@ -12,6 +16,7 @@ def download_file(id, destination):
         params = { 'id' : id, 'confirm' : token }
         response = session.get(URL, params = params, stream = True)
 
+    destination.parent.mkdir(parents=True, exist_ok=True)
     _save_response_content(response, destination)    
 
 def _get_confirm_token(response):
