@@ -145,7 +145,7 @@ else
   # tensorflow: starting from 2.5 compatible with libspatialite 5.0 
   # geofileops: simplify algorythms used supported from 2.0
   #pip install "segmentation-models>=1.0,<1.1" "tensorflow>=2.5,<2.6" 
-  pip install "segmentation-models>=1.0,<1.1" "tensorflow>=2.7,<2.8"
+  pip install "segmentation-models>=1.0,<1.1" "tensorflow>=2.5,<2.9"
 fi
 
 # Deactivate new env
