@@ -109,7 +109,7 @@ conda config --env --set channel_priority strict
 # Remark: the dependencies of tensorflow can be found here: 
 # https://libraries.io/pypi/tensorflow
 #
-# python: 3.8 is the only version that is tested on
+# python: 3.9 is the version orthoseg is tested on
 # --- General dependencies ---
 # geofileops: for simplify, dissolve,...
 # owslib: download images from WMS servers
@@ -117,12 +117,10 @@ conda config --env --set channel_priority strict
 # pycron: to be able to use cron expressions to schedule download periods 
 # rasterio: tested till version 1.2
 # --- Tensorflow dependencies available on conda ---
-# cudatoolkit: for tf+GPU, 11.2 needed for tf 2.5
+# cudatoolkit: for tf+GPU, 11.2 needed for tf > 2.5
 # cudnn: for tf+GPU
-# h5py: for tf: needs ~=3.1
-# numpy: for tf: needs 1.19, otherwise replaced with pip version: 
-#     and then this gives issues in geofileops operations 
-#conda install -y python=3.8 geofileops owslib pillow pycron "rasterio>=1.0,<1.3" "cudatoolkit>=11.2,<11.3" cudnn "h5py>=3.1,<3.2" "numpy>=1.19,<1.20" 
+# h5py: for tf
+# numpy: for tf 
 conda install -y python=3.9 geofileops owslib pillow pycron pyproj rasterio "cudatoolkit>=11.2,<11.3" cudnn h5py numpy 
 
 # For the following packages, no conda package is available or -for tensorflow- no recent version.
@@ -131,7 +129,7 @@ then
   echo
   echo "Install the pip package"
   echo
-  pip install "orthoseg>=0.3.0a1"
+  pip install "orthoseg>=0.3.0"
 else
   echo
   echo "Prepare for development: conda install dev tools"
@@ -144,7 +142,6 @@ else
   # Reasons for the version specifications...
   # tensorflow: starting from 2.5 compatible with libspatialite 5.0 
   # geofileops: simplify algorythms used supported from 2.0
-  #pip install "segmentation-models>=1.0,<1.1" "tensorflow>=2.5,<2.6" 
   pip install "segmentation-models>=1.0,<1.1" "tensorflow>=2.5,<2.9"
 fi
 
