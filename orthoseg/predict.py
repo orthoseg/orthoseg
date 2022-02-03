@@ -14,7 +14,6 @@ import traceback
 #import os
 #os.environ["CUDA_VISIBLE_DEVICES"] = "-1" # Disable using GPU
 import tensorflow as tf
-from tensorflow.keras import utils as kr_utils
 
 # Because orthoseg isn't installed as package + it is higher in dir hierarchy, add root to sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
