@@ -8,6 +8,7 @@ from pathlib import Path
 import shapely.geometry as sh_geom
 import shutil
 from typing import List, Optional
+import warnings
 
 # Evade having many info warnings about self intersections from shapely
 logging.getLogger('shapely.geos').setLevel(logging.WARNING)
@@ -491,7 +492,14 @@ def polygonize_pred_multiclass_to_file(
 
     # If there were polygons, save them...
     if result_gdf is not None:
-        geofile.to_file(result_gdf, output_vector_path, append=True, index=False)
+        # TODO: review with new version of geopandas (> 0.10.2) if filtering  
+        # this warning is still needed!
+        # Evade pandas warnings: 
+        #   "pandas.Int64Index is deprecated and will be removed from pandas 
+        #   in a future version."
+        with warnings.catch_warnings():
+            warnings.filterwarnings(action='ignore', category=FutureWarning)
+            geofile.to_file(result_gdf, output_vector_path, append=True, index=False)
         return True
     else:
         return False
