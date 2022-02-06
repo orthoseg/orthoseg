@@ -4,8 +4,6 @@ Tests for functionalities in orthoseg.train.
 """
 
 from pathlib import Path
-from pyexpat import model
-import urllib.request
 import shutil
 import sys
 
@@ -66,8 +64,7 @@ def test_train():
     if model_dir.exists():
         modelfile_paths = model_dir.glob(f"footballfields_{traindata_id_result:02d}_*")
         for modelfile_path in modelfile_paths:
-            #modelfile_path.unlink()
-            None
+            modelfile_path.unlink()
 
     # Download the version 01 model
     model_hdf5_path = model_dir / "footballfields_01_0.92512_242.hdf5"
@@ -123,7 +120,7 @@ def test_predict():
     result_vector_path = result_vector_dir / "footballfields_01_242_BEFL-2019.gpkg"
     assert result_vector_path.exists() is True
     result_gdf = geofile.read_file(result_vector_path)
-    assert len(result_gdf) == 13
+    assert len(result_gdf) == 12
 
 def test_postprocess():
     # Load project config to init some vars.
@@ -146,11 +143,11 @@ def test_postprocess():
     # Check results
     assert result_diss_path.exists() is True
     result_gdf = geofile.read_file(result_diss_path)
-    assert len(result_gdf) == 12
+    assert len(result_gdf) == 11
 
     assert result_simpl_path.exists() is True
     result_gdf = geofile.read_file(result_simpl_path)
-    assert len(result_gdf) == 12
+    assert len(result_gdf) == 11
 
 if __name__ == '__main__':
     test_load_images()

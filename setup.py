@@ -21,7 +21,7 @@ setuptools.setup(
             "fiona", "geofileops>=0.3,<0.4", "geopandas", 
             "owslib", "pillow", "pycron", 
             "rasterio", "segmentation-models>=1.0,<1.1", 
-            "tensorflow>=2.5,<2.6"],
+            "tensorflow>=2.5,<2.9"],
     entry_points='''
             [console_scripts]
             orthoseg_load_images=orthoseg.load_images:main

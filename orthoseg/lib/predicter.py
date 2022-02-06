@@ -11,6 +11,7 @@ import multiprocessing
 from pathlib import Path
 import shutil
 import tempfile
+import time
 from typing import List, Optional
 
 from geofileops import geofile
@@ -100,7 +101,7 @@ def predict_dir(
                ignore existing predictions and overwrite them
     """
     
-    # Init
+    ### Init ###
     if not input_image_dir.exists():
         logger.warn(f"In predict_dir, but input_image_dir doesn't exist, so return: {input_image_dir}")
         return
@@ -131,11 +132,12 @@ def predict_dir(
         pred_conf['classes'] = classes
         json.dump(pred_conf, pred_conf_file)
 
-    # Get list of all image files to process...
+    ### Get list of all image files to process and to skip ###
     image_filepaths: List[Path] = []
     input_ext = ['.png', '.tif', '.jpg']
     for input_ext_cur in input_ext:
         image_filepaths.extend(input_image_dir.rglob('*' + input_ext_cur))
+    image_filepaths = sorted(image_filepaths)
     nb_images = len(image_filepaths)
     logger.info(f"Found {nb_images} {input_ext} images to predict on in {input_image_dir}")
     
@@ -166,124 +168,191 @@ def predict_dir(
         if pred_tmp_output_lock_path.exists():
             pred_tmp_output_lock_path.unlink()
 
-    # Loop through all files to process them...
-    curr_batch_image_infos = []
+    ### Loop through all files to process them ###
+    nb_parallel_read = batch_size*6
+    nb_parallel_postprocess = multiprocessing.cpu_count()
+    predict_images = []
     nb_to_process = nb_images
     nb_processed = 0
     progress = None
-    image_filepaths_sorted = sorted(image_filepaths)
-    future_to_input_path = {}
-    nb_parallel_postprocess = multiprocessing.cpu_count()
+    postp_future_to_input_path = {}
+    read_future_to_input_path = {}
+    image_id = -1
+    last_image_reached = False
 
+    # We don't want the postprocess workers to block the entire system, 
+    # so make them a bit nicer 
     def init_postprocess_worker():
-        # We don't want the postprocess workers to block the entire system, 
-        # so make them a bit nicer 
         general_util.setprocessnice(15)
-
-    with futures.ThreadPoolExecutor(batch_size) as pool, \
+    
+    with futures.ThreadPoolExecutor(nb_parallel_read) as read_pool, \
          futures.ProcessPoolExecutor(
                 nb_parallel_postprocess, 
                 initializer=init_postprocess_worker()) as postprocess_pool:
-        
-        for image_id, image_filepath in enumerate(image_filepaths_sorted):
+
+        # Start looping. 
+        # If ready to stop, the code below will break
+        perf_time_start = datetime.datetime.now()
+        while True:
             
+            # If we are ready, stop!
+            if(last_image_reached is True
+                    and len(read_future_to_input_path) == 0
+                    and len(postp_future_to_input_path) == 0):
+                break
+
             # If the cancel file exists, stop processing...
             if cancel_filepath is not None and cancel_filepath.exists():
                 print()
                 logger.info(f"Cancel file found, so stop: {cancel_filepath}")
                 break
-
-            # If force is false and prediction exists... skip
-            if force is False:
-                if image_filepath.name in image_done_filenames:
+            
+            # Get the next filepath to be processed
+            image_filepath = None
+            if image_id < (len(image_filepaths)-1):
+                image_id += 1
+                image_filepath = image_filepaths[image_id]
+                
+                # Check if the image has been processed already
+                if force is False and image_filepath.name in image_done_filenames:
                     logger.debug(f"Predict for image has already been done before and force is False, so skip: {image_filepath.name}")
                     nb_to_process -= 1
                     continue
-                    
-            # Prepare the filepath for the output
-            output_suffix = '.tif'
-            if evaluate_mode:
-                # In evaluate mode, put everyting in output base dir for easier 
-                # comparison
-                output_image_pred_dir = output_image_dir
-
-                # Prepare complete filepath for image prediction
-                output_image_pred_path = output_image_dir / image_filepath.stem
+            
+                nb_processed += 1
+            
+                # Schedule file to be read 
+                read_future = read_pool.submit(
+                        read_image,               # Function 
+                        image_filepath,           # Arg 1
+                        projection_if_missing)    # Arg 2)
+                read_future_to_input_path[read_future] = image_filepath
             else:
-                # If saving predictions to images for real, keep hierarchic structure if present
-                tmp_output_filepath = Path(str(image_filepath).replace(str(input_image_dir), str(output_image_dir)))
-                output_image_pred_dir = tmp_output_filepath.parent
-                output_image_pred_path = output_image_pred_dir / f"{image_filepath.stem}_pred{output_suffix}"
-               
-            nb_processed += 1
+                last_image_reached = True
             
-            # Append the image info to the batch array so they can be treated in 
-            # bulk if the batch size is reached
-            logger.debug(f"Start predict for image {image_filepath}")                   
-            curr_batch_image_infos.append({'input_image_filepath': image_filepath,
-                                           'output_pred_filepath': output_image_pred_path,
-                                           'output_image_pred_dir': output_image_pred_dir})
-            
-            # If the batch size is reached or we are at the last images
-            nb_images_in_batch = len(curr_batch_image_infos)
-            curr_batch_image_infos_ext = []
-            if(nb_images_in_batch == batch_size or image_id == (nb_images-1)):
+            # Prepare batch_size images that have been read for prediction
+            read_sleep_logged = False
+            while len(predict_images) < batch_size:
+
+                # If we are at the last image and all images are read, break
+                # so the final batch can be predicted
+                if last_image_reached is True and len(read_future_to_input_path) == 0:
+                    break
+                # If the read pool is not full, first schedule extra reads
+                if(last_image_reached is False 
+                        and len(read_future_to_input_path) < nb_parallel_read):
+                    break
+
+                # Prepare the images that have been read for predicting 
+                futures_done = [future for future in read_future_to_input_path if future.done() is True]
+                for future in futures_done:
                 
+                    # Prediction can only handle batch_size images
+                    if len(predict_images) >= batch_size:
+                        break
+
+                    try:
+                        # Get the result from the read
+                        read_result = future.result()
+                        image_filepath_read = read_result["image_filepath"]
+                        
+                        # Prepare the filepath for the output
+                        output_suffix = '.tif'
+                        if evaluate_mode:
+                            # In evaluate mode, put everyting in output base dir for easier 
+                            # comparison
+                            output_image_pred_dir = output_image_dir
+
+                            # Prepare complete filepath for image prediction
+                            output_image_pred_path = output_image_dir / image_filepath_read.stem
+                        else:
+                            # If saving predictions to images for real, keep hierarchic structure if present
+                            tmp_output_filepath = Path(str(image_filepath_read).replace(str(input_image_dir), str(output_image_dir)))
+                            output_image_pred_dir = tmp_output_filepath.parent
+                            output_image_pred_path = output_image_pred_dir / f"{image_filepath_read.stem}_pred{output_suffix}"
+                        
+                        predict_images.append({
+                                "input_image_filepath": image_filepath_read,
+                                "output_pred_filepath": output_image_pred_path,
+                                "output_image_pred_dir": output_image_pred_dir,
+                                "image_crs": read_result["image_crs"],
+                                "image_transform": read_result["image_transform"],
+                                "image_data": read_result["image_data"]})
+
+                    finally:
+                        # Remove from queue...
+                        del read_future_to_input_path[future]
+
+                # If not at last image + not enough images yet for predict + read 
+                # queue is full, sleep
+                if(last_image_reached is False 
+                        and len(predict_images) < batch_size 
+                        and len(read_future_to_input_path) >= nb_parallel_read):
+                    if read_sleep_logged is False:
+                        logger.info("Wait for images to be read")
+                        read_sleep_logged = True
+                    time.sleep(0.01)
+
+            # If batch_size images are ready for prediction or we are at 
+            # the last images: predict
+            if len(predict_images) == batch_size or last_image_reached is True:
+                
+                perf_time_now = datetime.datetime.now()
+                perfinfo = f"waiting for read took {perf_time_now-perf_time_start}"
+                perf_time_start = perf_time_now
+
                 # Init progress only at 2nd batch, as the first is very slow
-                if progress is None and nb_processed > batch_size:
+                if progress is None and nb_processed > batch_size*2:
                     progress = ProgressHelper(
                             message=f"predict to {output_image_dir.parent.name}/{output_image_dir.name}",
                             nb_steps_total=nb_to_process, 
                             nb_steps_done=batch_size)
                 
-                ## Read all input images for the batch (in parallel) ##
-                perf_start_time = datetime.datetime.now()
-                logger.debug(f"Start reading input {nb_images_in_batch} images")
-                
-                # Put arguments to pass to map in lists
-                read_arg_filepaths = [info.get('input_image_filepath') for info in curr_batch_image_infos]
-                read_arg_projections = [projection_if_missing for info in curr_batch_image_infos]
-                
-                # Exec read in parallel and extract result
-                read_results = pool.map(
-                        read_image,            # Function 
-                        read_arg_filepaths,    # Arg 1-list
-                        read_arg_projections)  # Arg 2-list
-                curr_batch_image_list = [] 
-                for batch_image_id, read_result in enumerate(read_results):
-                    curr_batch_image_infos_ext.append(
-                            {'input_image_filepath': curr_batch_image_infos[batch_image_id]['input_image_filepath'],
-                             'output_pred_filepath': curr_batch_image_infos[batch_image_id]['output_pred_filepath'],
-                             'output_image_pred_dir': curr_batch_image_infos[batch_image_id]['output_image_pred_dir'],
-                             'image_crs': read_result['image_crs'],
-                             'image_transform': read_result['image_transform']})
-                    curr_batch_image_list.append(read_result['image_data']) 
-                perfinfo = f"read took {datetime.datetime.now()-perf_start_time}"
-                
                 ## Predict! ##
-                logger.debug(f"Start prediction for {nb_images_in_batch} images")
-                perf_start_time = datetime.datetime.now()
+                logger.debug(f"Start prediction for {len(predict_images)} images")
+                perf_time_start = datetime.datetime.now()
+                curr_batch_image_list = [curr_batch_image_info['image_data'] for curr_batch_image_info in predict_images]
                 curr_batch_image_arr = np.stack(curr_batch_image_list)
                 curr_batch_image_pred_arr = model.predict_on_batch(curr_batch_image_arr)
                 
-                # In tf 2.1 a tf.tensor object is returned, but we want an ndarray
+                perf_time_now = datetime.datetime.now()
+                perfinfo += f", predict took {perf_time_now-perf_time_start}"
+                perf_time_start = perf_time_now
+
+                # In tf > 2.1 a tf.tensor object is returned, but we want an ndarray
                 if type(curr_batch_image_pred_arr) is tf.Tensor:
                     curr_batch_image_pred_arr = np.array(curr_batch_image_pred_arr.numpy())
                 else:
                     curr_batch_image_pred_arr = np.array(curr_batch_image_pred_arr)
-                perfinfo += f", predict took {datetime.datetime.now()-perf_start_time}"
-
+                
                 ## Save predictions ##
                 # Remark: trying to parallelize this doesn't seem to help at all!
                 logger.debug("Start post-processing")    
-                perf_start_time = datetime.datetime.now()
-                for batch_image_id, image_info in enumerate(curr_batch_image_infos_ext):
+                for batch_image_id, image_info in enumerate(predict_images):
                     try:
-                        # Saving the predictions as images at the moment only used 
-                        # for evaluate mode...
-                        # TODO: would ideally be moved to the background 
-                        # processing as well to simplify code here...
-                        if evaluate_mode is True:
+                        # If not in evaluate mode... save to vector in background
+                        if evaluate_mode is False and output_vector_path is not None:
+                            # Prepare prediction array...
+                            #   - 1st channel is background, don't postprocess
+                            #   - convert to uint8 to reduce pickle size/time    
+                            image_pred_arr_uint8 = ((curr_batch_image_pred_arr[batch_image_id,:,:,1:]) * 255).astype(np.uint8)
+                            future = postprocess_pool.submit(
+                                    postp.polygonize_pred_multiclass_to_file,
+                                    image_pred_arr_uint8,
+                                    image_info['image_crs'],
+                                    image_info['image_transform'],
+                                    min_pixelvalue_for_save,
+                                    classes[1:],               # The first class is the background so skip that
+                                    pred_tmp_output_path,
+                                    prediction_cleanup_params,
+                                    border_pixels_to_ignore)
+                            postp_future_to_input_path[future] = image_info['input_image_filepath']
+                        
+                        else:
+                            # Saving the predictions as images at the moment only used 
+                            # for evaluate mode...
+                            # TODO: would ideally be moved to the background 
+                            # processing as well to simplify code here...
                             postp.clean_and_save_prediction(
                                     image_image_filepath=image_info['input_image_filepath'],
                                     image_crs=image_info['image_crs'],
@@ -301,25 +370,6 @@ def predict_dir(
                             # Write filepath to file with files that are done
                             with images_done_log_filepath.open('a+') as image_donelog_file:
                                 image_donelog_file.write(f"{image_info['input_image_filepath'].name}\n")
-                        
-                        # If not in evaluate mode... save to vector in background
-                        elif output_vector_path is not None:
-                            # Prepare prediction array...
-                            #   - 1st channel is background, don't postprocess
-                            #   - convert to uint8 to reduce pickle size/time    
-                            image_pred_arr_uint8 = ((curr_batch_image_pred_arr[batch_image_id,:,:,1:]) * 255).astype(np.uint8)
-                            future = postprocess_pool.submit(
-                                    postp.polygonize_pred_multiclass_to_file,
-                                    image_pred_arr_uint8,
-                                    image_info['image_crs'],
-                                    image_info['image_transform'],
-                                    min_pixelvalue_for_save,
-                                    classes[1:],               # The first class is the background so skip that
-                                    pred_tmp_output_path,
-                                    prediction_cleanup_params,
-                                    border_pixels_to_ignore)
-                            future_to_input_path[future] = image_info['input_image_filepath']
-
                     except:
                         logger.exception(f"Error postprocessing pred for {image_info['input_image_filepath']}")
     
@@ -327,17 +377,21 @@ def predict_dir(
                         with images_error_log_filepath.open('a+') as image_errorlog_file:
                             image_errorlog_file.write(image_info['input_image_filepath'].name + '\n')
                 
+                perf_time_now = datetime.datetime.now()
+                perfinfo += f", scheduling postprocessings took {perf_time_now-perf_time_start}"
+                perf_time_start = perf_time_now
+
                 # Poll for completed postprocessings 
-                sleeping_logged = False 
-                while True:
+                postp_sleep_logged = False 
+                while len(postp_future_to_input_path) > 0:
                     
                     # If not at last file, get results from all futures that are 
                     # done, if at last file, wait till all are done
-                    if image_id < (nb_images-1):
-                        futures_done = [future for future in future_to_input_path if future.done() is True]
+                    if last_image_reached is False:
+                        futures_done = [future for future in postp_future_to_input_path if future.done() is True]
                     else:
                         logger.info("Wait for last batch")
-                        futures_done = futures.wait(future_to_input_path).done
+                        futures_done = futures.wait(postp_future_to_input_path).done
                     for future in futures_done:
                         # Get the result from the polygonization
                         try:
@@ -346,45 +400,50 @@ def predict_dir(
 
                             # Write filepath to file with files that are done
                             with images_done_log_filepath.open('a+') as image_donelog_file:
-                                image_donelog_file.write(future_to_input_path[future].name + '\n')
+                                image_donelog_file.write(postp_future_to_input_path[future].name + '\n')
                         except Exception as ex:
                             # Write filepath to file with errors
-                            logger.exception(f"Error postprocessing result for {future_to_input_path[future].name}")
+                            logger.exception(f"Error postprocessing result for {postp_future_to_input_path[future].name}")
                             with images_error_log_filepath.open('a+') as image_errorlog_file:
-                                image_errorlog_file.write(future_to_input_path[future].name + '\n')
+                                image_errorlog_file.write(postp_future_to_input_path[future].name + '\n')
                         finally:
                             # Remove from queue...
-                            del future_to_input_path[future]
+                            del postp_future_to_input_path[future]
 
                     # Wait till number below thresshold to evade huge waiting 
                     # list (and memory issues)
-                    if len(future_to_input_path) > nb_parallel_postprocess*2:
-                        if sleeping_logged is False:
+                    if len(postp_future_to_input_path) > nb_parallel_postprocess*2:
+                        if postp_sleep_logged is False:
                             logger.info(f"Postprocessing seems to take longer than prediction, so wait for it to catch up")
-                            sleeping_logged = True
+                            postp_sleep_logged = True
+                        time.sleep(0.01)
                     else:
                         # No need to wait (anymore)...
-                        if sleeping_logged is True:
+                        if postp_sleep_logged is True:
                             logger.info(f"Waited enough for postprocessing to catch up, so continue predicting") 
+                        
+                        perf_time_now = datetime.datetime.now()
+                        perfinfo += f", after postproces: took {perf_time_now-perf_time_start}"
+                        perf_time_start = perf_time_now
                         break
-
-                perfinfo += f", clean+save took {datetime.datetime.now()-perf_start_time}"
-                logger.debug(perfinfo)                          
+                
+                # Reset variable for next batch
+                predict_images = []
 
                 ## Log the progress and prediction speed ##
+                if len(perfinfo) > 0: 
+                    logger.debug(perfinfo) 
                 if progress is not None:
                     progress.step(nb_steps=batch_size)
 
-                # Reset variable for next batch
-                curr_batch_image_infos = []
-
-            # If we are ready, rename to real output file
-            if(image_id == (nb_images-1) 
-               and output_vector_path is not None 
-               and pred_tmp_output_path is not None and pred_tmp_output_path.exists()):
-                geofile.move(pred_tmp_output_path, output_vector_path)
-                geofile.rename_layer(output_vector_path, output_vector_path.stem)
-                shutil.rmtree(output_image_dir)
+        # If alle images were processed, rename to real output file + cleanup
+        if(last_image_reached is True 
+                and output_vector_path is not None 
+                and pred_tmp_output_path is not None 
+                and pred_tmp_output_path.exists()):
+            geofile.move(pred_tmp_output_path, output_vector_path)
+            geofile.rename_layer(output_vector_path, output_vector_path.stem)
+            shutil.rmtree(output_image_dir)
 
 def read_image(
         image_filepath: Path,
