@@ -37,11 +37,11 @@ logger = logging.getLogger(__name__)
 # The real work
 #-------------------------------------------------------------
 
-def train_argstr(argstr):
+def _train_argstr(argstr):
     args = shlex.split(argstr)
-    train_args(args)
+    _train_args(args)
 
-def train_args(args):
+def _train_args(args):
 
     ##### Interprete arguments #####
     parser = argparse.ArgumentParser(add_help=False)
@@ -120,7 +120,7 @@ def train(config_path: Path):
             # Search for the files based on the file name patterns... 
             labelpolygons_pattern = conf.train.getpath('labelpolygons_pattern')
             labellocations_pattern = conf.train.getpath('labellocations_pattern')
-            label_infos = search_label_files(labelpolygons_pattern, labellocations_pattern)
+            label_infos = _search_label_files(labelpolygons_pattern, labellocations_pattern)
             if label_infos is None or len(label_infos) == 0:
                 raise Exception(f"No label files found with patterns {labellocations_pattern} and {labelpolygons_pattern}")
 
@@ -396,7 +396,7 @@ def train(config_path: Path):
         email_helper.sendmail(subject=message, body=f"Exception: {ex}\n\n {traceback.format_exc()}")
         raise Exception(message) from ex
 
-def search_label_files(
+def _search_label_files(
         labelpolygons_pattern: Path,
         labellocations_pattern: Path) -> List[prep.LabelInfo]:
     label_infos = []
@@ -408,7 +408,7 @@ def search_label_files(
 
     # Loop through all labellocation files
     for labellocations_path in labellocations_paths:
-        tokens = unformat(labellocations_path.stem, labellocations_pattern.stem)
+        tokens = _unformat(labellocations_path.stem, labellocations_pattern.stem)
         if 'image_layer' not in tokens:
             raise Exception(f"image_layer token not found in {labellocations_path} using pattern {labellocations_pattern}")
         image_layer = tokens['image_layer']
@@ -416,7 +416,7 @@ def search_label_files(
         # Look for the matching (= same image_layer) data file
         found = False
         for labelpolygons_path in labelpolygons_paths:
-            tokens = unformat(labelpolygons_path.stem, labelpolygons_pattern.stem)
+            tokens = _unformat(labelpolygons_path.stem, labelpolygons_pattern.stem)
             if 'image_layer' not in tokens:
                 raise Exception(f"image_layer token not found in {labelpolygons_path} using pattern {labelpolygons_pattern}")
             
@@ -431,7 +431,7 @@ def search_label_files(
     
     return label_infos
 
-def unformat(string: str, pattern: str) -> dict:
+def _unformat(string: str, pattern: str) -> dict:
     regex = re.sub(r'{(.+?)}', r'(?P<_\1>.+)', pattern)
     regex_result = re.search(regex, string)
     if regex_result is not None:
@@ -444,7 +444,7 @@ def unformat(string: str, pattern: str) -> dict:
 
 def main():
     try:
-        train_args(sys.argv[1:])
+        _train_args(sys.argv[1:])
     except Exception as ex:
         logger.exception(f"Error: {ex}")
         raise

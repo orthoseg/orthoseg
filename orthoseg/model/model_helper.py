@@ -10,8 +10,7 @@ import shutil
 from typing import List, Optional
 
 import pandas as pd 
-from tensorflow import keras as kr
-import tensorflow.keras.callbacks
+from keras import callbacks
 
 #-------------------------------------------------------------
 # First define/init some general variables/constants
@@ -448,7 +447,7 @@ def get_best_model(
     
         return model_info_list[max_acc_combined_idx]
     
-class ModelCheckpointExt(tensorflow.keras.callbacks.Callback):
+class ModelCheckpointExt(callbacks.Callback):
     
     def __init__(
             self, 
