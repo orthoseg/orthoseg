@@ -11,10 +11,8 @@ from geofileops import geofile
 
 # Add path so the local orthoseg packages are found 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from orthoseg import load_images
-from orthoseg import train
-from orthoseg import predict
-from orthoseg import postprocess
+import orthoseg
+
 from orthoseg.helpers import config_helper as conf
 import orthoseg.model.model_helper as mh
 from orthoseg.util import gdrive_util
@@ -42,7 +40,7 @@ def test_load_images():
         assert image_cache_dir.exists() is False
 
     # Run task to load images
-    load_images.load_images(config_path)
+    orthoseg.load_images(config_path)
 
     # Check if the right number of files was loaded
     assert image_cache_dir.exists() is True
@@ -80,7 +78,7 @@ def test_train():
     # Run train session
     # The label files are newer than the ones used to train the current model, 
     # so a new model will be trained. 
-    train.train(config_path)
+    orthoseg.train(config_path)
 
     # Check if the training (image) data was created
     assert training_id_dir.exists() is True
@@ -114,7 +112,7 @@ def test_predict():
         assert result_vector_dir.exists() is False
 
     # Run task to predict
-    predict.predict(config_path)
+    orthoseg.predict(config_path)
 
     # Check results
     result_vector_path = result_vector_dir / "footballfields_01_242_BEFL-2019.gpkg"
@@ -138,7 +136,7 @@ def test_postprocess():
 
     # Run task to postprocess
     tasks_path = get_test_projects_dir() / 'tasks_postprocess.csv'
-    postprocess.postprocess(config_path)
+    orthoseg.postprocess(config_path)
 
     # Check results
     assert result_diss_path.exists() is True
