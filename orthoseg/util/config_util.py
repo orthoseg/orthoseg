@@ -30,6 +30,7 @@ def get_config_files(config_path: Path) -> List[Path]:
 
     ##### Init #####
     # First check input param
+    config_path = config_path.expanduser()
     if not config_path.exists():
         raise Exception(f"Config file specified does not exist: {config_path}")
 
@@ -49,7 +50,9 @@ def get_config_files(config_path: Path) -> List[Path]:
     extra_config_files_to_load = basic_projectconfig['general'].getlist('extra_config_files_to_load')
     if extra_config_files_to_load is not None:
         for config_file in extra_config_files_to_load:
-            config_file_formatted = Path(config_file.format(task_filepath=config_path, jobs_dir=config_path.parent))
+            config_file_formatted = Path(config_file.format(
+                    task_filepath=config_path, 
+                    jobs_dir=config_path.parent)).expanduser()
             if not config_file_formatted.is_absolute():
                 config_file_formatted = (default_basedir / config_file_formatted).resolve()
             config_filepaths.append(Path(config_file_formatted))
