@@ -14,7 +14,7 @@ setuptools.setup(
     description="Package to make it easier to segment orthophotos.",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/theroggy/orthoseg",
+    url="https://github.com/orthoseg/orthoseg",
     packages=setuptools.find_packages(),
     include_package_data=True,
     install_requires=[
@@ -29,6 +29,7 @@ setuptools.setup(
             orthoseg_predict=orthoseg.predict:main
             orthoseg_postprocess=orthoseg.postprocess:main
             scriptrunner=orthoseg.scriptrunner:main
+            orthoseg_load_sampleprojects=orthoseg.load_sampleprojects:main
             ''',
     classifiers=[
             "Programming Language :: Python :: 3",
