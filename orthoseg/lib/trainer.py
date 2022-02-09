@@ -119,10 +119,11 @@ def train(
             logger.critical(message)
             raise Exception(message)
         
-        train_log_csv = pd.read_csv(csv_log_filepath, sep=';')
-        logger.debug(f"train_log csv contents:\n{train_log_csv}")
-        start_epoch = train_log_csv['epoch'].max()
-        hyperparams.train.optimizer_params['learning_rate'] = float(pd.to_numeric(train_log_csv['lr'], downcast='float').min())
+        train_log_df = pd.read_csv(csv_log_filepath, sep=';')
+        assert isinstance(train_log_df, pd.DataFrame)
+        logger.debug(f"train_log csv contents:\n{train_log_df}")
+        start_epoch = train_log_df['epoch'].max()
+        hyperparams.train.optimizer_params['learning_rate'] = float(pd.to_numeric(train_log_df['lr'], downcast='float').min())
     logger.info(f"start_epoch: {start_epoch}, learning_rate: {hyperparams.train.optimizer_params['learning_rate']}")
     
     # If no existing model provided, create it from scratch
@@ -295,6 +296,7 @@ def train(
         # Write some reporting
         train_report_path = model_save_dir / (model_save_base_filename + '_report.pdf')
         train_log_df = pd.read_csv(csv_log_filepath, sep=';')
+        assert isinstance(train_log_df, pd.DataFrame)
         columns_to_keep = []
         for column in train_log_df.columns:
             if(column.endswith('accuracy')

@@ -20,7 +20,7 @@ import rasterio as rio
 import rasterio.crs as rio_crs
 import rasterio.plot as rio_plot
 import tensorflow as tf
-import tensorflow.keras.models as kr_models
+import keras.models
 
 import orthoseg.lib.postprocess_predictions as postp
 from orthoseg.helpers.progress_helper import ProgressHelper
@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 #-------------------------------------------------------------
 
 def predict_dir(
-        model: kr_models.Model,
+        model: keras.models.Model,
         input_image_dir: Path,
         output_image_dir: Path,
         output_vector_path: Optional[Path],         
@@ -331,7 +331,9 @@ def predict_dir(
                 for batch_image_id, image_info in enumerate(predict_images):
                     try:
                         # If not in evaluate mode... save to vector in background
-                        if evaluate_mode is False and output_vector_path is not None:
+                        if(evaluate_mode is False 
+                                and output_vector_path is not None 
+                                and pred_tmp_output_path is not None):
                             # Prepare prediction array...
                             #   - 1st channel is background, don't postprocess
                             #   - convert to uint8 to reduce pickle size/time    
