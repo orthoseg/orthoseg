@@ -232,12 +232,8 @@ def predict_dir(
             
             # Prepare batch_size images that have been read for prediction
             read_sleep_logged = False
-            while len(predict_images) < batch_size:
+            while len(read_future_to_input_path) > 0 and len(predict_images) < batch_size:
 
-                # If we are at the last image and all images are read, break
-                # so the final batch can be predicted
-                if last_image_reached is True and len(read_future_to_input_path) == 0:
-                    break
                 # If the read pool is not full, first schedule extra reads
                 if(last_image_reached is False 
                         and len(read_future_to_input_path) < nb_parallel_read):
@@ -295,7 +291,8 @@ def predict_dir(
 
             # If batch_size images are ready for prediction or we are at 
             # the last images: predict
-            if len(predict_images) == batch_size or last_image_reached is True:
+            if(len(predict_images) == batch_size 
+                    or (last_image_reached is True and len(predict_images) > 0)):
                 
                 perf_time_now = datetime.datetime.now()
                 perfinfo = f"waiting for read took {perf_time_now-perf_time_start}"
