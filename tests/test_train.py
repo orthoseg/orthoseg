@@ -8,7 +8,7 @@ import sys
 
 # Add path so the local orthoseg packages are found 
 sys.path.insert(0, str(Path(__file__).resolve().parent / '..'))
-from orthoseg import train
+import orthoseg
 
 def get_testdata_dir() -> Path:
     return Path(__file__).resolve().parent / 'data'
@@ -16,7 +16,7 @@ def get_testdata_dir() -> Path:
 def test_search_label_files():
     labeldata_template = get_testdata_dir() / 'footballfields_{image_layer}_data.gpkg'
     labellocation_template = get_testdata_dir() / 'footballfields_{image_layer}_locations.gpkg'
-    result = train.search_label_files(labeldata_template, labellocation_template)
+    result = orthoseg._search_label_files(labeldata_template, labellocation_template)
 
     assert len(result) == 2
 
