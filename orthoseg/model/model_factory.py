@@ -17,8 +17,7 @@ from typing import Any, List
 
 import numpy as np
 import tensorflow as tf
-import tensorflow.keras as kr
-import tensorflow.keras.models as kr_models
+import keras.models
 import segmentation_models as sm
 
 #-------------------------------------------------------------
@@ -49,7 +48,7 @@ def get_model(
         nb_classes: int = 1,
         activation: str = 'softmax',
         init_weights_with: str = 'imagenet',
-        freeze: bool = False) -> kr_models.Model:
+        freeze: bool = False) -> keras.models.Model:
     """
     Get a model.
     
@@ -137,18 +136,18 @@ def get_model(
         raise Exception(f"Unknown decoder architecture: {decoder}")
 
 def compile_model(
-        model: kr_models.Model,
+        model: keras.models.Model,
         optimizer: str,
         optimizer_params: dict,
         loss: str,
         metrics: List[str] = None,
         sample_weight_mode: str = None,
-        class_weights: list = None) -> kr_models.Model:
+        class_weights: list = None) -> keras.models.Model:
     """
     Compile the model for training.
     
     Args:
-        model (kr_models.Model): the keras model to compile.
+        model (keras.models.Model): the keras model to compile.
         optimizer (str): the optimizer to use.
         optimizer_params (dict): parameters to use for optimizer.
         loss (str): the loss function to use. One of:
@@ -199,7 +198,7 @@ def compile_model(
 
     # Create optimizer
     if optimizer == 'adam':
-        optimizer_func = kr.optimizers.Adam(**optimizer_params)
+        optimizer_func = tf.keras.optimizers.Adam(**optimizer_params)
     else: 
         raise Exception(f"Error creating optimizer: {optimizer}, with params {optimizer_params}")
 
@@ -211,7 +210,7 @@ def compile_model(
 
 def load_model(
         model_to_use_filepath: Path, 
-        compile: bool = True) -> kr_models.Model:
+        compile: bool = True) -> keras.models.Model:
     """
     Load an existing model from a file.
 
@@ -231,7 +230,7 @@ def load_model(
         Exception: [description]
 
     Returns:
-        kr.models.Model: The loaded model.
+        tf.keras.models.Model: The loaded model.
     """
     errors = []
     model = None
@@ -242,7 +241,7 @@ def load_model(
         f1_score = sm.metrics.FScore()
 
         try:
-            model = kr.models.load_model(
+            model = tf.keras.models.load_model(
                     str(model_to_use_filepath),
                     custom_objects={'jaccard_coef': jaccard_coef,
                                     'jaccard_coef_flat': jaccard_coef_flat,
@@ -269,7 +268,7 @@ def load_model(
             with model_json_filepath.open('r') as src:
                 model_json = src.read()
             try:
-                model = kr.models.model_from_json(model_json)
+                model = tf.keras.models.model_from_json(model_json)
             except Exception as ex:
                 errors.append(f"Error loading model architecture from {model_json_filepath}: {ex}")
         else:
@@ -345,14 +344,14 @@ def weighted_categorical_crossentropy(weights):
             * weighted categorical crossentropy function
     """
     if isinstance(weights,list) or isinstance(weights, np.ndarray):
-        weights=kr.backend.variable(weights)
+        weights=tf.keras.backend.variable(weights)
 
     def loss(target,output,from_logits=False):
         if not from_logits:
             output /= tf.reduce_sum(output,
                                     len(output.get_shape()) - 1,
                                     True)
-            _epsilon = tf.convert_to_tensor(kr.backend.epsilon(), dtype=output.dtype.base_dtype)
+            _epsilon = tf.convert_to_tensor(tf.keras.backend.epsilon(), dtype=output.dtype.base_dtype)
             output = tf.clip_by_value(output, _epsilon, 1. - _epsilon) # type: ignore
             weighted_losses = target * tf.math.log(output) * weights
             return - tf.reduce_sum(weighted_losses,len(output.get_shape()) - 1) # type: ignore
@@ -366,16 +365,16 @@ def dice_coef_loss(y_true, y_pred):
 def bootstrapped_crossentropy(y_true, y_pred, bootstrap_type='hard', alpha=0.95):
     target_tensor = y_true
     prediction_tensor = y_pred
-    _epsilon = tf.convert_to_tensor(kr.backend.epsilon(), prediction_tensor.dtype.base_dtype)
+    _epsilon = tf.convert_to_tensor(tf.keras.backend.epsilon(), prediction_tensor.dtype.base_dtype)
     prediction_tensor = tf.clip_by_value(prediction_tensor, _epsilon, 1 - _epsilon) # type: ignore
-    prediction_tensor = kr.backend.log(prediction_tensor / (1 - prediction_tensor)) # type: ignore
+    prediction_tensor = tf.keras.backend.log(prediction_tensor / (1 - prediction_tensor)) # type: ignore
 
     if bootstrap_type == 'soft':
         bootstrap_target_tensor = alpha * target_tensor + (1.0 - alpha) * tf.sigmoid(prediction_tensor)
     else:
         bootstrap_target_tensor = alpha * target_tensor + (1.0 - alpha) * tf.cast(
             tf.sigmoid(prediction_tensor) > 0.5, tf.float32)
-    return kr.backend.mean(tf.nn.sigmoid_cross_entropy_with_logits(
+    return tf.keras.backend.mean(tf.nn.sigmoid_cross_entropy_with_logits(
         labels=bootstrap_target_tensor, logits=prediction_tensor))
 
 def dice_coef_loss_bce(y_true, y_pred):
@@ -392,37 +391,37 @@ def dice_coef_loss_bce(y_true, y_pred):
 SMOOTH_LOSS = 1e-12
 
 def jaccard_coef(y_true, y_pred):
-    intersection = kr.backend.sum(y_true * y_pred, axis=[0, -1, -2])
-    sum_ = kr.backend.sum(y_true + y_pred, axis=[0, -1, -2])
+    intersection = tf.keras.backend.sum(y_true * y_pred, axis=[0, -1, -2])
+    sum_ = tf.keras.backend.sum(y_true + y_pred, axis=[0, -1, -2])
 
     jac = (intersection + SMOOTH_LOSS) / (sum_ - intersection + SMOOTH_LOSS)
 
-    return kr.backend.mean(jac)
+    return tf.keras.backend.mean(jac)
 
 def jaccard_coef_round(y_true, y_pred):
-    y_pred_pos = kr.backend.round(kr.backend.clip(y_pred, 0, 1))
+    y_pred_pos = tf.keras.backend.round(tf.keras.backend.clip(y_pred, 0, 1))
 
-    intersection = kr.backend.sum(y_true * y_pred_pos, axis=[0, -1, -2])
-    sum_ = kr.backend.sum(y_true + y_pred_pos, axis=[0, -1, -2])
+    intersection = tf.keras.backend.sum(y_true * y_pred_pos, axis=[0, -1, -2])
+    sum_ = tf.keras.backend.sum(y_true + y_pred_pos, axis=[0, -1, -2])
     jac = (intersection + SMOOTH_LOSS) / (sum_ - intersection + SMOOTH_LOSS)
-    return kr.backend.mean(jac)
+    return tf.keras.backend.mean(jac)
 
 def jaccard_coef_flat(y_true, y_pred):
-    y_true_f = kr.backend.flatten(y_true)
-    y_pred_f = kr.backend.flatten(y_pred)
-    intersection = kr.backend.sum(y_true_f * y_pred_f)
-    return (intersection + SMOOTH_LOSS) / (kr.backend.sum(y_true_f) + kr.backend.sum(y_pred_f) - intersection + SMOOTH_LOSS)
+    y_true_f = tf.keras.backend.flatten(y_true)
+    y_pred_f = tf.keras.backend.flatten(y_pred)
+    intersection = tf.keras.backend.sum(y_true_f * y_pred_f)
+    return (intersection + SMOOTH_LOSS) / (tf.keras.backend.sum(y_true_f) + tf.keras.backend.sum(y_pred_f) - intersection + SMOOTH_LOSS)
 
 def dice_coef(y_true, y_pred, smooth=1.0):
-    y_true_f = kr.backend.flatten(y_true)
-    y_pred_f = kr.backend.flatten(y_pred)
-    intersection = kr.backend.sum(y_true_f * y_pred_f)
-    return (2. * intersection + smooth) / (kr.backend.sum(y_true_f) + kr.backend.sum(y_pred_f) + smooth)
+    y_true_f = tf.keras.backend.flatten(y_true)
+    y_pred_f = tf.keras.backend.flatten(y_pred)
+    intersection = tf.keras.backend.sum(y_true_f * y_pred_f)
+    return (2. * intersection + smooth) / (tf.keras.backend.sum(y_true_f) + tf.keras.backend.sum(y_pred_f) + smooth)
 
 def pct_wrong(y_true, y_pred):
-    y_pred_pos = kr.backend.round(kr.backend.clip(y_pred, 0, 1))
+    y_pred_pos = tf.keras.backend.round(tf.keras.backend.clip(y_pred, 0, 1))
 
-    intersection = kr.backend.sum(y_true * y_pred_pos, axis=[0, -1, -2])
-    sum_ = kr.backend.sum(y_true + y_pred_pos, axis=[0, -1, -2])
+    intersection = tf.keras.backend.sum(y_true * y_pred_pos, axis=[0, -1, -2])
+    sum_ = tf.keras.backend.sum(y_true + y_pred_pos, axis=[0, -1, -2])
     jac = (intersection + SMOOTH_LOSS) / (sum_ - intersection + SMOOTH_LOSS)
-    return kr.backend.mean(jac)
+    return tf.keras.backend.mean(jac)
