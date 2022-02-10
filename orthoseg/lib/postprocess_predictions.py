@@ -620,7 +620,7 @@ def polygonize_pred(
                 if len(geoms_gdf) == 0:
                     return None
                 #geoms_gdf.reset_index(drop=True, inplace=True)
-                geoms_gdf = geoms_gdf.explode(ignore_index=True)
+                geoms_gdf = geoms_gdf.explode(ignore_index=True) # type: ignore
                 #geoms_gdf.reset_index(drop=True, inplace=True)
 
         # Now we can calculate the "onborder" property

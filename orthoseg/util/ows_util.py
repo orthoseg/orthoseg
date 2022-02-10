@@ -677,8 +677,8 @@ def getmap_to_file(
                 image_data_output = image_ds.read()
             else:
                 image_data_output = image_ds.read(window=rio_windows.Window(
-                        image_pixels_ignore_border, image_pixels_ignore_border, 
-                        size[0], size[1]))
+                        image_pixels_ignore_border, image_pixels_ignore_border, # type: ignore
+                        size[0], size[1])) 
 
         logger.debug(f"original image_profile: {image_profile_orig}")
 
@@ -758,7 +758,7 @@ def getmap_to_file(
                     image_data_output = image_ds.read()
                 else:
                     image_data_output = image_ds.read(window=rio_windows.Window(
-                            image_pixels_ignore_border, image_pixels_ignore_border, 
+                            image_pixels_ignore_border, image_pixels_ignore_border, # type: ignore
                             size[0], size[1]))
             
             # If same save format, reuse profile
