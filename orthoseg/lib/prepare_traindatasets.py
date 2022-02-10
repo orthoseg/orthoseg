@@ -329,7 +329,7 @@ def prepare_traindatasets(
                         layersources=wms_imagelayer_layersources[image_layer],
                         output_dir=output_imagedata_image_dir,
                         crs=img_crs,
-                        bbox=img_bbox.bounds,
+                        bbox=img_bbox.bounds, # type: ignore
                         size=(image_pixel_width, image_pixel_height),
                         image_format=ows_util.FORMAT_PNG,
                         #image_format_save=ows_util.FORMAT_TIFF,

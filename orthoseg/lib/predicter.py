@@ -318,7 +318,7 @@ def predict_dir(
 
                 # In tf > 2.1 a tf.tensor object is returned, but we want an ndarray
                 if type(curr_batch_image_pred_arr) is tf.Tensor:
-                    curr_batch_image_pred_arr = np.array(curr_batch_image_pred_arr.numpy())
+                    curr_batch_image_pred_arr = np.array(curr_batch_image_pred_arr.numpy()) # type: ignore
                 else:
                     curr_batch_image_pred_arr = np.array(curr_batch_image_pred_arr)
                 
