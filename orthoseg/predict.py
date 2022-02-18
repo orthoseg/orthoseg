@@ -208,6 +208,7 @@ def predict(config_path: Path):
         output_vector_path = output_vector_dir / f"{output_vector_name}.gpkg"
         
         # Predict for entire dataset
+        nb_parallel = conf.general.getint('nb_parallel')
         predicter.predict_dir(
                 model=model_for_predict, # type: ignore
                 input_image_dir=input_image_dir,
@@ -220,7 +221,8 @@ def predict(config_path: Path):
                 input_mask_dir=None,
                 batch_size=batch_size,
                 evaluate_mode=False,
-                cancel_filepath=conf.files.getpath('cancel_filepath'))
+                cancel_filepath=conf.files.getpath('cancel_filepath'),
+                nb_parallel_postprocess=nb_parallel)
         
         # Log and send mail
         message = f"Completed predict for config {config_path.stem}"
