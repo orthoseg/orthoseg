@@ -51,6 +51,7 @@ def predict_dir(
         batch_size: int = 16,                
         evaluate_mode: bool = False,
         cancel_filepath: Optional[Path] = None,
+        nb_parallel_postprocess: int = 1,
         force: bool = False):
     """
     Create a prediction for all the images in the directories specified 
@@ -88,17 +89,20 @@ def predict_dir(
             input images images is not as good, you can specify that x 
             pixels need to be ignored
         min_pixelvalue_for_save: the minimum pixel value that should be 
-                present in the prediction to save the prediction
+            present in the prediction to save the prediction
         input_mask_dir: optional dir where the mask images are located
         projection_if_missing: Normally the projection should be in the raster file. If it 
-                    is not, you can explicitly specify one.
+            is not, you can explicitly specify one.
         batch_size: batch size to use while predicting. This must be choosen 
-                depending on the neural network architecture and available 
-                memory on you GPU.
+            depending on the neural network architecture and available 
+            memory on you GPU.
         evaluate_mode: True to run in evaluate mode
         cancel_filepath: If the file in this path exists, processing stops asap
+        nb_parallel_postprocess (int, optional): The number of parallel 
+            processes used to vectorize,... the predictions. If -1, all 
+            available CPU's are used. Defaults to 1.
         force: False to skip images that already have a prediction, true to
-               ignore existing predictions and overwrite them
+            ignore existing predictions and overwrite them
     """
     
     ### Init ###
@@ -170,7 +174,8 @@ def predict_dir(
 
     ### Loop through all files to process them ###
     nb_parallel_read = batch_size*6
-    nb_parallel_postprocess = multiprocessing.cpu_count()
+    if nb_parallel_postprocess == -1:
+        nb_parallel_postprocess = multiprocessing.cpu_count()
     predict_images = []
     nb_to_process = nb_images
     nb_processed = 0

@@ -108,7 +108,7 @@ def postprocess(config_path: Path):
         output_vector_path = output_vector_dir / f"{output_vector_name}.gpkg"
                 
         # Prepare some parameters for the postprocessing
-        nb_parallel = conf.postprocess.getint('nb_parallel')
+        nb_parallel = conf.general.getint('nb_parallel')
 
         dissolve = conf.postprocess.getboolean('dissolve')
         dissolve_tiles_path = conf.postprocess.getpath('dissolve_tiles_path')

@@ -473,7 +473,8 @@ def _create_mask(
 
     # Burn the vectors in a mask
     burn_shapes = [(geom, value) 
-            for geom, value in zip(labels_to_burn_gdf.geometry, labels_to_burn_gdf.burn_value) if geom is not None]
+            for geom, value in zip(labels_to_burn_gdf.geometry, labels_to_burn_gdf.burn_value) 
+            if geom is not None and geom.is_empty is False]
     if len(burn_shapes) > 0:
         try:
             mask_arr = rio_features.rasterize(
