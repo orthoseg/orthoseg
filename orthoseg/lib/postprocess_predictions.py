@@ -24,7 +24,7 @@ import rasterio.transform as rio_transform
 import shapely.geometry as sh_geom
 import tensorflow as tf
 
-from orthoseg.util import vector_util
+from orthoseg.util import geoseries_util, vector_util
 
 #-------------------------------------------------------------
 # First define/init some general variables/constants
@@ -555,7 +555,61 @@ def polygonize_pred_multiclass(
             result_gdf = gpd.GeoDataFrame(
                     pd.concat([result_gdf, result_channel_gdf], ignore_index=True), 
                     crs=result_gdf.crs)
+
+    # Calculate the bounds of the image in projected coordinates
+    image_shape = image_pred_uint8_bin.shape
+    image_width = image_shape[0]
+    image_height = image_shape[1]
+    image_bounds = rio_transform.array_bounds(
+            image_height, image_width, image_transform)
+    x_pixsize = get_pixelsize_x(image_transform)
+    y_pixsize = get_pixelsize_y(image_transform)
+    border_bounds = (image_bounds[0]+border_pixels_to_ignore*x_pixsize,
+                        image_bounds[1]+border_pixels_to_ignore*y_pixsize,
+                        image_bounds[2]-border_pixels_to_ignore*x_pixsize,
+                        image_bounds[3]-border_pixels_to_ignore*y_pixsize)
     
+    if prediction_cleanup_params is not None:
+        # If a simplify is asked... 
+        if (
+            "simplify_algorithm" in prediction_cleanup_params 
+            and prediction_cleanup_params["simplify_algorithm"] is not None
+        ):
+            # Define the bounds of the image as linestring, so points on this 
+            # border are preserved during the simplify
+            border_polygon = sh_geom.box(*border_bounds)
+            assert border_polygon.exterior is not None
+            border_lines = sh_geom.LineString(border_polygon.exterior.coords)
+            result_gdf = geoseries_util.toposimplify_ext(
+                gdf=result_gdf, 
+                algorithm=prediction_cleanup_params['simplify_algorithm'],
+                tolerance=prediction_cleanup_params['simplify_tolerance'], 
+                keep_points_on=border_lines,
+            )
+            """
+            geoms_gdf.geometry = geoms_gdf.geometry.apply(
+                    lambda geom: gfo_vector_util.simplify_ext(
+                            geometry=geom, 
+                            algorithm=prediction_cleanup_params['simplify_algorithm'],
+                            tolerance=prediction_cleanup_params['simplify_tolerance'], 
+                            keep_points_on=border_lines))
+            """
+            
+            # Remove geom rows that became empty after simplify + explode
+            result_gdf = result_gdf[~result_gdf.geometry.is_empty] 
+            result_gdf = result_gdf[~result_gdf.geometry.isna()]  
+            if len(result_gdf) == 0:
+                return None
+            #result_gdf.reset_index(drop=True, inplace=True)
+            result_gdf = result_gdf.explode(ignore_index=True) # type: ignore
+            #result_gdf.reset_index(drop=True, inplace=True)
+
+    # Now we can calculate the "onborder" property
+    result_gdf = vector_util.calc_onborder(result_gdf, border_bounds) # type: ignore
+
+    # Add the area
+    result_gdf['area'] = result_gdf.geometry.area
+
     return result_gdf
 
 def polygonize_pred(
@@ -581,62 +635,14 @@ def polygonize_pred(
         geoms = []
         for geom, _ in polygonized_records:
             geoms.append(sh_geom.shape(geom))   
-        geoms_gdf = gpd.GeoDataFrame(geoms, columns=['geometry'])
-        geoms_gdf.crs = image_crs
-
-        # Calculate the bounds of the image in projected coordinates
-        image_shape = image_pred_uint8_bin.shape
-        image_width = image_shape[0]
-        image_height = image_shape[1]
-        image_bounds = rio_transform.array_bounds(
-                image_height, image_width, image_transform)
-        x_pixsize = get_pixelsize_x(image_transform)
-        y_pixsize = get_pixelsize_y(image_transform)
-        border_bounds = (image_bounds[0]+border_pixels_to_ignore*x_pixsize,
-                         image_bounds[1]+border_pixels_to_ignore*y_pixsize,
-                         image_bounds[2]-border_pixels_to_ignore*x_pixsize,
-                         image_bounds[3]-border_pixels_to_ignore*y_pixsize)
-        
-        # Calculate the tolerance as half the diagonal of the square formed 
-        # by the min pixel size, rounded up in centimeter
-        if prediction_cleanup_params is not None:
-            # If a simplify is asked... 
-            if 'simplify_algorithm' in prediction_cleanup_params:
-                # Define the bounds of the image as linestring, so points on this 
-                # border are preserved during the simplify
-                border_polygon = sh_geom.box(*border_bounds)
-                assert border_polygon.exterior is not None
-                border_lines = sh_geom.LineString(border_polygon.exterior.coords)
-                geoms_gdf.geometry = geoms_gdf.geometry.apply(
-                        lambda geom: gfo_vector_util.simplify_ext(
-                                geometry=geom, 
-                                algorithm=prediction_cleanup_params['simplify_algorithm'],
-                                tolerance=prediction_cleanup_params['simplify_tolerance'], 
-                                keep_points_on=border_lines))
-                
-                # Remove geom rows that became empty after simplify + explode
-                geoms_gdf = geoms_gdf[~geoms_gdf.geometry.is_empty] 
-                geoms_gdf = geoms_gdf[~geoms_gdf.geometry.isna()]  
-                if len(geoms_gdf) == 0:
-                    return None
-                #geoms_gdf.reset_index(drop=True, inplace=True)
-                geoms_gdf = geoms_gdf.explode(ignore_index=True) # type: ignore
-                #geoms_gdf.reset_index(drop=True, inplace=True)
-
-        # Now we can calculate the "onborder" property
-        geoms_gdf = vector_util.calc_onborder(geoms_gdf, border_bounds) # type: ignore
+        result_gdf = gpd.GeoDataFrame(geoms, columns=['geometry'])
+        result_gdf.crs = image_crs
 
         # Add the classname if provided and area
         if classname is not None:
-            geoms_gdf['classname'] = classname
-        geoms_gdf['area'] = geoms_gdf.geometry.area
-
-        # Write the geoms to file
-        if output_basefilepath is not None:
-            geom_filepath = Path(f"{str(output_basefilepath)}_pred_cleaned_2.geojson")
-            geofile.to_file(geoms_gdf, geom_filepath, index=False)
+            result_gdf['classname'] = classname
         
-        return geoms_gdf
+        return result_gdf
             
     except Exception as ex:
         message = f"Exception while polygonizing to file {output_basefilepath}"

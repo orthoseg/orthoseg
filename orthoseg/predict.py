@@ -195,11 +195,11 @@ def predict(config_path: Path):
         simplify_algorithm = conf.predict.get('simplify_algorithm')
         if simplify_algorithm is not None:
             simplify_algorithm = geofileops.SimplifyAlgorithm[simplify_algorithm]
-        prediction_cleanup_params = {
-                    "simplify_algorithm": simplify_algorithm,
-                    "simplify_tolerance": conf.predict.geteval('simplify_tolerance'),
-                    "simplify_lookahead": conf.predict.getint('simplify_lookahead'),
-                }
+            prediction_cleanup_params = {
+                "simplify_algorithm": simplify_algorithm,
+                "simplify_tolerance": conf.predict.geteval('simplify_tolerance'),
+                "simplify_lookahead": conf.predict.getint('simplify_lookahead'),
+            }
 
         # Prepare the output dirs/paths
         predict_output_dir = Path(f"{str(conf.dirs.getpath('predict_image_output_basedir'))}_{predict_out_subdir}")
