@@ -526,7 +526,7 @@ def getmap_to_file(
         size_for_getmap = (size[0] + 2*image_pixels_ignore_border,
                         size[1] + 2*image_pixels_ignore_border)
     # Dirty hack to support y,x cordinate system
-    if crs.to_epsg() == 3059:
+    if crs.to_epsg() in [3059, 31468]:
         bbox_for_getmap = (bbox_for_getmap[1], bbox_for_getmap[0], 
                         bbox_for_getmap[3], bbox_for_getmap[2])
 
