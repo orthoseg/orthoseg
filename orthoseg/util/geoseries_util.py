@@ -208,6 +208,7 @@ def toposimplify_ext(
     lookahead: int = 8,
     keep_points_on: Optional[sh_geom.base.BaseGeometry] = None,
 ):
+    geometry_types = gdf.geometry.type.unique()
     topo = topojson.Topology(gdf, prequantize=False)
     topolines = sh_geom.MultiLineString(topo.output["arcs"])
     topolines_simpl = geometry_util.simplify_ext(
@@ -221,6 +222,14 @@ def toposimplify_ext(
     topo.output["arcs"] = [list(geom.coords) for geom in topolines_simpl.geoms]
 
     topo_simpl_gdf = topo.to_gdf(crs=gdf.crs)
+    topo_simpl_gdf.geometry.array.data = pygeos.make_valid(
+        topo_simpl_gdf.geometry.array.data
+    )
+    if len(geometry_types) == 1:
+        # topo_simpl_gdf = topo_simpl_gdf[topo_simpl_gdf.geom_type == geometry_types[0]]
+        topo_simpl_gdf.geometry = geometry_collection_extract(
+            topo_simpl_gdf.geometry, GeometryType(geometry_types[0]).to_primitivetype
+        )
     return topo_simpl_gdf
 
 

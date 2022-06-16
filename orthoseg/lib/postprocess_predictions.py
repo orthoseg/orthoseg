@@ -4,42 +4,46 @@ Module with functions for post-processing prediction masks towards polygons.
 """
 
 import logging
+import math
 from pathlib import Path
-import shapely.geometry as sh_geom
 import shutil
 from typing import List, Optional
 import warnings
 
 # Evade having many info warnings about self intersections from shapely
-logging.getLogger('shapely.geos').setLevel(logging.WARNING)
 from geofileops import geofileops
 from geofileops import geofile
-import geofileops.util.vector_util as gfo_vector_util
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio as rio
 import rasterio.features as rio_features
 import rasterio.transform as rio_transform
+import scipy.ndimage
+import skimage.filters.rank
+from skimage.morphology import rectangle
 import shapely.geometry as sh_geom
 import tensorflow as tf
 
 from orthoseg.util import geoseries_util, vector_util
 
-#-------------------------------------------------------------
+logging.getLogger('shapely.geos').setLevel(logging.WARNING)
+
+# -------------------------------------------------------------
 # First define/init some general variables/constants
-#-------------------------------------------------------------
+# -------------------------------------------------------------
 # Get a logger...
 logger = logging.getLogger(__name__)
-#logger.setLevel(logging.DEBUG)
+# logger.setLevel(logging.DEBUG)
 
-#-------------------------------------------------------------
+# -------------------------------------------------------------
 # The real work
-#-------------------------------------------------------------
+# -------------------------------------------------------------
 
-#-------------------------------------------------------------
+# -------------------------------------------------------------
 # Postprocess to use on all vector outputs
-#-------------------------------------------------------------
+# -------------------------------------------------------------
+
 
 def postprocess_predictions(
         input_path: Path,
@@ -311,7 +315,7 @@ def postprocess_for_evaluation(
             # If there are few white pixels, don't save it,
             # because we are in evaluetion mode anyway...
             #if similarity >= 0.95:
-                #continue
+            # continue
         
         # Copy the input image if it doesn't exist yet in output path
         output_basefilepath = output_dir / f"{pred_prefix_str}{image_filepath.stem}{output_suffix}"
@@ -459,8 +463,7 @@ def polygonize_pred_from_file(
                 image_pred_uint8_bin=image_pred_uint8_bin,
                 image_crs=image_crs,
                 image_transform=image_transform,
-                output_basefilepath=output_basefilepath,
-                border_pixels_to_ignore=border_pixels_to_ignore)
+                output_basefilepath=output_basefilepath)
 
         if result_gdf is None:
             logger.warn(f"Prediction didn't result in any polygons: {image_pred_filepath}")
@@ -474,19 +477,19 @@ def polygonize_pred_multiclass_to_file(
         image_pred_arr: np.ndarray,
         image_crs: str,
         image_transform,
-        min_pixelvalue_for_save,
         classes: list,
         output_vector_path: Path,
-        prediction_cleanup_params: dict = None,
+        min_probability: float = 0.5,
+        prediction_cleanup_params: Optional[dict] = None,
         border_pixels_to_ignore: int = 0) -> bool:
 
     # Polygonize the result...
     result_gdf = polygonize_pred_multiclass(
-            image_pred_arr=image_pred_arr,
+            image_pred_uint8=image_pred_arr,
             image_crs=image_crs,
             image_transform=image_transform,
-            min_pixelvalue_for_save=min_pixelvalue_for_save,
             classes=classes,
+            min_probability=min_probability,
             prediction_cleanup_params=prediction_cleanup_params,
             border_pixels_to_ignore=border_pixels_to_ignore)
 
@@ -505,20 +508,18 @@ def polygonize_pred_multiclass_to_file(
         return False
 
 def polygonize_pred_multiclass(
-        image_pred_arr: np.ndarray,
+        image_pred_uint8: np.ndarray,
         image_crs: str,
         image_transform,
-        min_pixelvalue_for_save,
         classes: list,
-        prediction_cleanup_params: dict = None,
+        min_probability: float = 0.5,
+        prediction_cleanup_params: Optional[dict] = None,
         border_pixels_to_ignore: int = 0) -> Optional[gpd.GeoDataFrame]:
 
     # Init
     result_gdf = None
 
-    # Loop through channels and polygonize one by one...
-    image_pred_shape = image_pred_arr.shape
-    nb_channels = image_pred_shape[2]
+    """
     for channel_id in range(0, nb_channels):
         image_pred_curr_arr = image_pred_arr[:,:,channel_id]
 
@@ -526,48 +527,60 @@ def polygonize_pred_multiclass(
         image_pred_uint8_cleaned_curr = clean_prediction(
                 image_pred_arr=image_pred_curr_arr, 
                 border_pixels_to_ignore=border_pixels_to_ignore)
-                        
-        # If the cleaned result doesn't contain any useful values... go to next
-        if(min_pixelvalue_for_save > 0 
-           and not np.any(image_pred_uint8_cleaned_curr >= min_pixelvalue_for_save)):
-            continue
+    """
 
-        # Polygonize this channel 
-        image_pred_uint8_bin = to_binary_uint8(image_pred_uint8_cleaned_curr, 125)
-        result_channel_gdf = polygonize_pred(
-                image_pred_uint8_bin=image_pred_uint8_bin,
-                image_crs=image_crs,
-                image_transform=image_transform,
-                classname=classes[channel_id],
-                prediction_cleanup_params=prediction_cleanup_params,
-                border_pixels_to_ignore=border_pixels_to_ignore)
+    # Reverse the one-hot decoding so each class has it's own number in the array,
+    # but ignore prediction probability < min_probability
+    image_pred_uint8[image_pred_uint8 < math.floor(255*min_probability)] = 0
+    image_pred_decoded_arr = np.argmax(image_pred_uint8, axis=2).astype(np.uint8)
+    
+    # Make the pixels at the borders of the prediction black so they are ignored
+    if border_pixels_to_ignore and border_pixels_to_ignore > 0:
+        image_pred_decoded_arr[0:border_pixels_to_ignore,:] = 0    # Left border
+        image_pred_decoded_arr[-border_pixels_to_ignore:,:] = 0    # Right border
+        image_pred_decoded_arr[:,0:border_pixels_to_ignore] = 0    # Top border
+        image_pred_decoded_arr[:,-border_pixels_to_ignore:] = 0    # Bottom border
 
-        # Add to result
-        if result_channel_gdf is None:
-            continue
-        if result_gdf is None:
-            # Check if the input has a crs
-            if result_channel_gdf.crs is None:
-                #geoms_file_gdf.crs = pyproj.CRS.from_user_input("EPSG:31370")
-                raise Exception("STOP: input does not have a crs!") 
-            result_gdf = result_channel_gdf
-        else:
-            result_gdf = gpd.GeoDataFrame(
-                    pd.concat([result_gdf, result_channel_gdf], ignore_index=True), 
-                    crs=result_gdf.crs)
+    if prediction_cleanup_params is not None:
+        # If fill_gaps_modal_size is asked... 
+        if (
+            "filter_background_modal_size" in prediction_cleanup_params 
+            and prediction_cleanup_params["filter_background_modal_size"] is not None
+            and prediction_cleanup_params["filter_background_modal_size"] > 0
+        ):
+            filter_background_modal_size = prediction_cleanup_params["filter_background_modal_size"]
+            image_pred_decoded_modal_arr = skimage.filters.rank.modal(
+                image_pred_decoded_arr, rectangle(
+                    filter_background_modal_size, filter_background_modal_size
+                )
+            )
+            np.copyto(
+                image_pred_decoded_arr, 
+                image_pred_decoded_modal_arr, 
+                where=image_pred_decoded_arr==0
+            )
+
+    # Polygonize 
+    result_gdf = polygonize_pred(
+            image_pred_uint8_bin=image_pred_decoded_arr,
+            image_crs=image_crs,
+            image_transform=image_transform,
+            classnames=classes)
 
     # Calculate the bounds of the image in projected coordinates
-    image_shape = image_pred_uint8_bin.shape
+    image_shape = image_pred_decoded_arr.shape
     image_width = image_shape[0]
     image_height = image_shape[1]
     image_bounds = rio_transform.array_bounds(
             image_height, image_width, image_transform)
     x_pixsize = get_pixelsize_x(image_transform)
     y_pixsize = get_pixelsize_y(image_transform)
-    border_bounds = (image_bounds[0]+border_pixels_to_ignore*x_pixsize,
-                        image_bounds[1]+border_pixels_to_ignore*y_pixsize,
-                        image_bounds[2]-border_pixels_to_ignore*x_pixsize,
-                        image_bounds[3]-border_pixels_to_ignore*y_pixsize)
+    border_bounds = (
+        image_bounds[0]+border_pixels_to_ignore*x_pixsize,
+        image_bounds[1]+border_pixels_to_ignore*y_pixsize,
+        image_bounds[2]-border_pixels_to_ignore*x_pixsize,
+        image_bounds[3]-border_pixels_to_ignore*y_pixsize,
+    )
     
     if prediction_cleanup_params is not None:
         # If a simplify is asked... 
@@ -616,10 +629,8 @@ def polygonize_pred(
         image_pred_uint8_bin,
         image_crs: str,
         image_transform,
-        classname: str = None,
-        output_basefilepath: Optional[Path] = None,
-        prediction_cleanup_params: dict = None,
-        border_pixels_to_ignore: int = 0) -> Optional[gpd.GeoDataFrame]:
+        classnames: Optional[List[str]] = None,
+        output_basefilepath: Optional[Path] = None) -> Optional[gpd.GeoDataFrame]:
 
     # Polygonize result
     try:
@@ -632,16 +643,17 @@ def polygonize_pred(
             return None
 
         # Convert shapes to geopandas geodataframe 
-        geoms = []
-        for geom, _ in polygonized_records:
-            geoms.append(sh_geom.shape(geom))   
-        result_gdf = gpd.GeoDataFrame(geoms, columns=['geometry'])
-        result_gdf.crs = image_crs
+        data = [(sh_geom.shape(geom), int(value)) for geom, value in polygonized_records]
+        result_gdf = gpd.GeoDataFrame(data, columns=["geometry", "value"], crs=image_crs)
 
         # Add the classname if provided and area
-        if classname is not None:
-            result_gdf['classname'] = classname
+        if classnames is not None:
+            result_gdf["classname"] = [
+                classnames[value] for _, value in result_gdf["value"].T.iteritems()
+            ]
+            result_gdf = result_gdf.drop(columns=["value"])
         
+        assert isinstance(result_gdf, gpd.GeoDataFrame)
         return result_gdf
             
     except Exception as ex:
@@ -658,7 +670,7 @@ def clean_and_save_prediction(
         input_image_dir: Optional[Path] = None,
         input_mask_dir: Optional[Path] = None,
         border_pixels_to_ignore: int = 0,
-        min_pixelvalue_for_save: int = 127,
+        min_probability: float = 0.5,
         evaluate_mode: bool = False,
         force: bool = False) -> bool:
 
@@ -679,8 +691,8 @@ def clean_and_save_prediction(
                 border_pixels_to_ignore=border_pixels_to_ignore)
         
         # If the cleaned result contains useful values or in evaluate mode... save
-        if(min_pixelvalue_for_save == 0 
-           or np.any(image_pred_uint8_cleaned_curr >= min_pixelvalue_for_save)
+        if(min_probability == 0 
+           or np.any(image_pred_uint8_cleaned_curr >= math.floor(min_probability*255))
            or evaluate_mode is True):
 
             # Find the class name in the classes list

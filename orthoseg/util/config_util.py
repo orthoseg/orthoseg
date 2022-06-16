@@ -35,7 +35,7 @@ def get_config_files(config_path: Path) -> List[Path]:
         raise Exception(f"Config file specified does not exist: {config_path}")
 
     # Collect the config files to use. The "hardcoded" defaults should always 
-    # be loaded 
+    # be loaded.
     script_dir = Path(__file__).resolve().parent.parent
     config_filepaths = [script_dir / 'project_defaults.ini']
 

@@ -191,14 +191,19 @@ def predict(config_path: Path):
                 logger.info("Predict using single GPU or CPU")
                 model_for_predict = model
 
-        # Prepare some parameters for gthe postprocessing
+        # Prepare some parameters for the inline (post)processing
+        min_probability = conf.predict.getfloat("min_probability")
         simplify_algorithm = conf.predict.get('simplify_algorithm')
+        prediction_cleanup_params = None
         if simplify_algorithm is not None:
             simplify_algorithm = geofileops.SimplifyAlgorithm[simplify_algorithm]
             prediction_cleanup_params = {
                 "simplify_algorithm": simplify_algorithm,
                 "simplify_tolerance": conf.predict.geteval('simplify_tolerance'),
                 "simplify_lookahead": conf.predict.getint('simplify_lookahead'),
+                "filter_background_modal_size": conf.predict.getint(
+                    "filter_background_modal_size"
+                )
             }
 
         # Prepare the output dirs/paths
@@ -215,6 +220,7 @@ def predict(config_path: Path):
                 output_image_dir=predict_output_dir,
                 output_vector_path=output_vector_path,
                 classes=hyperparams.architecture.classes,
+                min_probability=min_probability,
                 prediction_cleanup_params=prediction_cleanup_params,
                 border_pixels_to_ignore=conf.predict.getint('image_pixels_overlap'),
                 projection_if_missing=image_layer['projection'],

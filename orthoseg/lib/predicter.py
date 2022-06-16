@@ -41,11 +41,11 @@ def predict_dir(
         model: keras.models.Model,
         input_image_dir: Path,
         output_image_dir: Path,
-        output_vector_path: Optional[Path],         
+        output_vector_path: Optional[Path],
         classes: list,
-        prediction_cleanup_params = None,
+        min_probability: float = 0.5,
+        prediction_cleanup_params: Optional[dict] = None,
         border_pixels_to_ignore: int = 0,
-        min_pixelvalue_for_save: int = 127,
         projection_if_missing: str = None,
         input_mask_dir: Optional[Path] = None,
         batch_size: int = 16,                
@@ -88,8 +88,6 @@ def predict_dir(
         border_pixels_to_ignore: because the segmentation at the borders of the
             input images images is not as good, you can specify that x 
             pixels need to be ignored
-        min_pixelvalue_for_save: the minimum pixel value that should be 
-            present in the prediction to save the prediction
         input_mask_dir: optional dir where the mask images are located
         projection_if_missing: Normally the projection should be in the raster file. If it 
             is not, you can explicitly specify one.
@@ -337,17 +335,16 @@ def predict_dir(
                                 and output_vector_path is not None 
                                 and pred_tmp_output_path is not None):
                             # Prepare prediction array...
-                            #   - 1st channel is background, don't postprocess
                             #   - convert to uint8 to reduce pickle size/time    
-                            image_pred_arr_uint8 = ((curr_batch_image_pred_arr[batch_image_id,:,:,1:]) * 255).astype(np.uint8)
+                            image_pred_arr_uint8 = ((curr_batch_image_pred_arr[batch_image_id,:,:,:]) * 255).astype(np.uint8)
                             future = postprocess_pool.submit(
                                     postp.polygonize_pred_multiclass_to_file,
                                     image_pred_arr_uint8,
                                     image_info['image_crs'],
                                     image_info['image_transform'],
-                                    min_pixelvalue_for_save,
-                                    classes[1:],               # The first class is the background so skip that
+                                    classes,
                                     pred_tmp_output_path,
+                                    min_probability,
                                     prediction_cleanup_params,
                                     border_pixels_to_ignore)
                             postp_future_to_input_path[future] = image_info['input_image_filepath']
@@ -366,7 +363,7 @@ def predict_dir(
                                     input_image_dir=input_image_dir,
                                     input_mask_dir=input_mask_dir,
                                     border_pixels_to_ignore=border_pixels_to_ignore,
-                                    min_pixelvalue_for_save=min_pixelvalue_for_save,
+                                    min_probability=min_probability,
                                     evaluate_mode=evaluate_mode,
                                     classes=classes,
                                     force=force)
