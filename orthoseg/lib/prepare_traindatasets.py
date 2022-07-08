@@ -296,8 +296,11 @@ def prepare_traindatasets(
                 # no abundance of data
                 # Make sure the image requested is of the correct size
                 label_geom = label_tuple.geometry
-                if label_geom is None:
-                    logger.warn(f"No geometry found in file {label_tuple.filepath}, (zero based) row_nb_orig: {label_tuple.row_nb_orig}")
+                if label_geom is None or len(label_geom.bounds) < 4:
+                    logger.warn(
+                        f"No or empty geometry found in file {label_tuple.filepath} "
+                        f"for (zero based) row_nb_orig: {label_tuple.row_nb_orig}"
+                    )
                     continue
                 geom_bounds = label_geom.bounds
                 xmin = geom_bounds[0]-(geom_bounds[0]%image_pixel_x_size)
