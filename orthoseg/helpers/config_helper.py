@@ -116,7 +116,9 @@ def read_layer_config(layer_config_filepath: Path) -> dict:
             for layersource in image_layers[image_layer]['layersources']:
                 if 'random_sleep' not in layersource:
                     layersource['random_sleep'] = 0
-            
+                if "wms_ignore_capabilities_url" not in layersource:
+                    layersource["wms_ignore_capabilities_url"] = False
+
         else:
             # If not, the layersource should be specified in seperate parameters
             layersource = {}
@@ -128,6 +130,7 @@ def read_layer_config(layer_config_filepath: Path) -> dict:
             # Some more properties
             layersource['bands'] = layer_config[image_layer].getlist('bands', fallback=None)
             layersource['random_sleep'] = layer_config[image_layer].getint('random_sleep', fallback=0)
+            layersource["wms_ignore_capabilities_url"] = layer_config[image_layer].getboolean("wms_ignore_capabilities_url", fallback=False)
             image_layers[image_layer]['layersources'] = [layersource]
         
         # Read nb_concurrent calls param
