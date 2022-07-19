@@ -318,6 +318,12 @@ def prepare_traindatasets(
                                 url=layersource['wms_server_url'], 
                                 version=layersource['wms_version'],
                                 auth=auth)
+                        if layersource['wms_ignore_capabilities_url']:
+                            # If the wms url in capabilities should be ignored,
+                            # overwrite with original url
+                            nb = len(wms_service.getOperationByName('GetMap').methods)
+                            for method_id in range(nb):
+                                wms_service.getOperationByName('GetMap').methods[method_id]["url"] = layersource['wms_server_url']
                         wms_imagelayer_layersources[image_layer].append(
                                 ows_util.LayerSource(
                                         wms_service=wms_service,
