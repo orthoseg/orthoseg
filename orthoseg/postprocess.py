@@ -10,7 +10,7 @@ import shlex
 import sys
 import traceback
 
-from geofileops import geofileops
+import geofileops as gfo
 
 # Because orthoseg isn't installed as package + it is higher in dir hierarchy, add root to sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -114,7 +114,7 @@ def postprocess(config_path: Path):
         dissolve_tiles_path = conf.postprocess.getpath('dissolve_tiles_path')
         simplify_algorithm = conf.postprocess.get('simplify_algorithm')
         if simplify_algorithm is not None:
-            simplify_algorithm = geofileops.SimplifyAlgorithm[simplify_algorithm]
+            simplify_algorithm = gfo.SimplifyAlgorithm[simplify_algorithm]
             simplify_tolerance = conf.postprocess.geteval('simplify_tolerance')
             simplify_lookahead = conf.postprocess.get('simplify_lookahead')
             if simplify_lookahead is not None:

@@ -12,7 +12,7 @@ from shapely import geometry as sh_geom
 os.environ['HDF5_DISABLE_VERSION_CHECK'] = '1'
 
 import geopandas as gpd
-from geofileops import geofile
+import geofileops as gfo
 
 # Add path so the local orthoseg packages are found 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -32,7 +32,7 @@ def test_prepare_traindata(tmpdir):
             'traindata_type': ['train', 'train', 'validation']
         }
     locations_gdf = gpd.GeoDataFrame(locations_data, crs='epsg:31370')
-    geofile.to_file(locations_gdf, locations_path)
+    gfo.to_file(locations_gdf, locations_path)
     polygons_path = tmpdir / 'polygons.gpkg'
     polygons_data = {
             'geometry': [sh_geom.Polygon([(150030, 170030), (150060, 170030), (150060, 170060), (150030, 170060), (150030, 170030)]),
@@ -41,7 +41,7 @@ def test_prepare_traindata(tmpdir):
         }
 
     polygons_gdf = gpd.GeoDataFrame(polygons_data, crs='epsg:31370')
-    geofile.to_file(polygons_gdf, polygons_path)
+    gfo.to_file(polygons_gdf, polygons_path)
     label_infos = []
     label_infos.append(prep_traindata.LabelInfo(
             locations_path=locations_path,
@@ -83,7 +83,7 @@ def test_prepare_traindata(tmpdir):
             'label_name': ['testlabelwrong', None]
         }
     polygons_gdf = gpd.GeoDataFrame(polygons_data, crs='epsg:31370')
-    geofile.to_file(polygons_gdf, polygons_path)
+    gfo.to_file(polygons_gdf, polygons_path)
 
     training_dir = tmpdir / 'training_dir'
     try:

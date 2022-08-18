@@ -16,7 +16,7 @@ import urllib3
 import warnings
 
 import numpy as np
-from geofileops import geofile
+import geofileops as gfo
 import geofileops.util.grid_util
 import owslib
 import owslib.wms
@@ -201,7 +201,7 @@ def get_images_for_grid(
     if not grid_path.exists():
         grid_for_roi_gdf = geofileops.util.grid_util.create_grid3(
                 image_gen_bounds, width=crs_width, height=crs_height, crs=crs)
-        geofile.to_file(grid_for_roi_gdf, grid_path)
+        gfo.to_file(grid_for_roi_gdf, grid_path)
     
     # Calculate width and height...
     dx = math.fabs(image_gen_bounds[0] - image_gen_bounds[2]) # area width in units of crs
@@ -231,11 +231,11 @@ def get_images_for_grid(
             # Write to file
             grid_for_roi_path = output_image_dir / "grid_for_roi.gpkg"
             if grid_path.exists() is False:
-                geofile.to_file(grid_for_roi_gdf, grid_path)
+                gfo.to_file(grid_for_roi_gdf, grid_path)
             assert isinstance(roi_gdf, gpd.GeoDataFrame)
             gridded_roi_path = output_image_dir / "gridded_roi.gpkg"
             if gridded_roi_path.exists() is False:
-                geofile.to_file(roi_gdf, gridded_roi_path)
+                gfo.to_file(roi_gdf, gridded_roi_path)
 
     # Inits to start getting images    
     layersources_prepared = []

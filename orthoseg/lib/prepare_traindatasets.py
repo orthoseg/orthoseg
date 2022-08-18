@@ -12,8 +12,7 @@ import pprint
 from typing import List, Optional, Tuple, Union
 import urllib3
 
-from geofileops import geofile
-from geofileops import geofileops
+import geofileops as gfo
 import pandas as pd
 import geopandas as gpd
 import numpy as np
@@ -142,8 +141,8 @@ def prepare_traindatasets(
             labeldata_output_mostrecent_path = output_dir_mostrecent / label_file.polygons_path.name
             if(not (labellocations_output_mostrecent_path.exists()
                     and labeldata_output_mostrecent_path.exists()
-                    and geofile.cmp(label_file.locations_path, labellocations_output_mostrecent_path)
-                    and geofile.cmp(label_file.polygons_path, labeldata_output_mostrecent_path))):
+                    and gfo.cmp(label_file.locations_path, labellocations_output_mostrecent_path)
+                    and gfo.cmp(label_file.polygons_path, labeldata_output_mostrecent_path))):
                 reuse_traindata = False
                 break
         if reuse_traindata == True:
@@ -157,10 +156,10 @@ def prepare_traindatasets(
             invalid_geom_paths = []
             with log_util.LoggingContext(logging.getLogger('geofileops'), level=logging.WARN):
                 for label_file in label_infos:
-                    is_valid = geofileops.isvalid(label_file.locations_path, force=True)
+                    is_valid = gfo.isvalid(label_file.locations_path, force=True)
                     if is_valid is False:
                         invalid_geom_paths.append(str(label_file.locations_path))
-                    is_valid = geofileops.isvalid(label_file.polygons_path, force=True)
+                    is_valid = gfo.isvalid(label_file.polygons_path, force=True)
                     if is_valid is False:
                         invalid_geom_paths.append(str(label_file.polygons_path))
             if len(invalid_geom_paths) > 0:
@@ -185,12 +184,12 @@ def prepare_traindatasets(
 
         # Copy the vector files to the dest dir so we keep knowing which files 
         # were used to create the dataset
-        geofile.copy(label_file.locations_path, output_tmp_dir)
-        geofile.copy(label_file.polygons_path, output_tmp_dir)
+        gfo.copy(label_file.locations_path, output_tmp_dir)
+        gfo.copy(label_file.polygons_path, output_tmp_dir)
 
         # Read label data and append to general dataframes
         logger.debug(f"Read label locations from {label_file.locations_path}")
-        file_labellocations_gdf = geofile.read_file(label_file.locations_path)
+        file_labellocations_gdf = gfo.read_file(label_file.locations_path)
         if file_labellocations_gdf is not None and len(file_labellocations_gdf) > 0:
             file_labellocations_gdf.loc[:, 'filepath'] = str(label_file.locations_path)   # type: ignore
             file_labellocations_gdf.loc[:, 'image_layer'] = label_file.image_layer        # type: ignore
@@ -205,7 +204,7 @@ def prepare_traindatasets(
         else:
             logger.warn(f"No label locations data found in {label_file.locations_path}")
         logger.debug(f"Read label data from {label_file.polygons_path}")
-        file_labelpolygons_gdf = geofile.read_file(label_file.polygons_path)
+        file_labelpolygons_gdf = gfo.read_file(label_file.polygons_path)
         if file_labelpolygons_gdf is not None and len(file_labelpolygons_gdf) > 0:
             file_labelpolygons_gdf.loc[:, 'image_layer'] = label_file.image_layer # type: ignore
             if labelpolygons_gdf is None:

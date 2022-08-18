@@ -11,8 +11,7 @@ from typing import List, Optional
 import warnings
 
 # Evade having many info warnings about self intersections from shapely
-from geofileops import geofileops
-from geofileops import geofile
+import geofileops as gfo
 from geofileops.util import geoseries_util as gfo_geoseries_util
 import geopandas as gpd
 import numpy as np
@@ -50,7 +49,7 @@ def postprocess_predictions(
         output_path: Path,
         dissolve: bool,
         dissolve_tiles_path: Optional[Path] = None,
-        simplify_algorithm: Optional[geofileops.SimplifyAlgorithm] = None,
+        simplify_algorithm: Optional[gfo.SimplifyAlgorithm] = None,
         simplify_tolerance: float = 1,
         simplify_lookahead: int = 8,
         nb_parallel: int = -1,
@@ -90,7 +89,7 @@ def postprocess_predictions(
         # If the dissolved file doesn't exist yet, go for it... 
         if not curr_output_path.exists():
             # If column classname present, group on it...
-            layerinfo = geofile.get_layerinfo(input_path)
+            layerinfo = gfo.get_layerinfo(input_path)
             if 'classname' in layerinfo.columns:
                 groupby_columns = ['classname']
             else:
@@ -98,7 +97,7 @@ def postprocess_predictions(
             columns = groupby_columns
 
             # Now we can dissolve
-            geofileops.dissolve(
+            gfo.dissolve(
                     input_path=input_path,
                     tiles_path=dissolve_tiles_path,
                     output_path=curr_output_path,
@@ -109,13 +108,13 @@ def postprocess_predictions(
                     force=force)
 
             # Add/recalculate columns with area and nbcoords
-            geofile.add_column(
+            gfo.add_column(
                     path=curr_output_path, 
-                    name='area', type=geofile.DataType.REAL, expression='ST_Area(geom)',
+                    name='area', type=gfo.DataType.REAL, expression='ST_Area(geom)',
                     force_update=True)
-            geofile.add_column(
+            gfo.add_column(
                     path=curr_output_path, 
-                    name='nbcoords', type=geofile.DataType.INTEGER, expression='ST_NPoints(geom)',
+                    name='nbcoords', type=gfo.DataType.INTEGER, expression='ST_NPoints(geom)',
                     force_update=True)
 
         # The curr_output_path becomes the new current input path 
@@ -130,7 +129,7 @@ def postprocess_predictions(
         # If the simplified file doesn't exist yet, go for it... 
         if not curr_output_path.exists():
             # Simplify!
-            geofileops.simplify(
+            gfo.simplify(
                     input_path=curr_input_path,
                     output_path=curr_output_path,
                     algorithm=simplify_algorithm,
@@ -139,13 +138,13 @@ def postprocess_predictions(
                     nb_parallel=nb_parallel)
             
             # Add/recalculate columns with area and nbcoords
-            geofile.add_column(
+            gfo.add_column(
                     path=curr_output_path, 
-                    name='area', type=geofile.DataType.REAL, expression='ST_Area(geom)',
+                    name='area', type=gfo.DataType.REAL, expression='ST_Area(geom)',
                     force_update=True)
-            geofile.add_column(
+            gfo.add_column(
                     path=curr_output_path, 
-                    name='nbcoords', type=geofile.DataType.INTEGER, expression='ST_NPoints(geom)',
+                    name='nbcoords', type=gfo.DataType.INTEGER, expression='ST_NPoints(geom)',
                     force_update=True)
             
         curr_input_path = curr_output_path
@@ -158,7 +157,7 @@ def read_prediction_file(
         border_pixels_to_ignore: int = 0) -> Optional[gpd.GeoDataFrame]:
     ext_lower = filepath.suffix.lower()
     if ext_lower == '.geojson':
-        return geofile.read_file(filepath)
+        return gfo.read_file(filepath)
     elif ext_lower == '.tif':
         return polygonize_pred_from_file(filepath, border_pixels_to_ignore)
     else:
@@ -495,14 +494,7 @@ def polygonize_pred_multiclass_to_file(
 
     # If there were polygons, save them...
     if result_gdf is not None:
-        # TODO: review with new version of geopandas (> 0.10.2) if filtering  
-        # this warning is still needed!
-        # Evade pandas warnings: 
-        #   "pandas.Int64Index is deprecated and will be removed from pandas 
-        #   in a future version."
-        with warnings.catch_warnings():
-            warnings.filterwarnings(action='ignore', category=FutureWarning)
-            geofile.to_file(result_gdf, output_vector_path, append=True, index=False)
+        gfo.to_file(result_gdf, output_vector_path, append=True, index=False)
         return True
     else:
         return False
