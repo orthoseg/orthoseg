@@ -35,7 +35,7 @@ def get_config_files(config_path: Path) -> List[Path]:
         raise Exception(f"Config file specified does not exist: {config_path}")
 
     # Collect the config files to use. The "hardcoded" defaults should always 
-    # be loaded 
+    # be loaded.
     script_dir = Path(__file__).resolve().parent.parent
     config_filepaths = [script_dir / 'project_defaults.ini']
 
@@ -70,6 +70,17 @@ def read_config_ext(config_paths: List[Path]) -> configparser.ConfigParser:
             logger.warning(f"config_filepath does not exist: {config_filepath}")
 
     ##### Now we are ready to read the entire configuration #####
+    def parse_boolean_ext(input) -> Optional[bool]:
+        if input is None:
+            return None
+
+        if input in ("True", "true", "1", 1):
+            return True
+        elif input in ("False", "false", "0", 0):
+            return False
+        elif input in ("False", "false", "0", 0):
+            return None
+
     def safe_math_eval(string):
         """
         Function to evaluate a mathematical expression safely.
@@ -100,7 +111,8 @@ def read_config_ext(config_paths: List[Path]) -> configparser.ConfigParser:
                         'listfloat': lambda x: [float(i.strip()) for i in x.split(',')],
                         'dict': lambda x: None if x is None else json.loads(x),
                         'path': lambda x: to_path(x),
-                        'eval': lambda x: safe_math_eval(x)},
+                        'eval': lambda x: safe_math_eval(x),
+                        'boolean_ext': lambda x: parse_boolean_ext(x)},
             allow_no_value=True)
 
     config.read(config_paths)

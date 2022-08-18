@@ -226,6 +226,7 @@ def train(config_path: Path):
                 raise Exception(message)
         
         ##### Train!!! #####
+        min_probability = conf.predict.getfloat("min_probability")
         if train_needed is True:
 
             # If a model already exists, use it to predict (possibly new) training and 
@@ -257,6 +258,7 @@ def train(config_path: Path):
                             batch_size=conf.train.getint('batch_size_predict'), 
                             evaluate_mode=True,
                             classes=best_hyperparams.architecture.classes,
+                            min_probability=min_probability,
                             cancel_filepath=conf.files.getpath('cancel_filepath'))
                         
                     # Predict validation dataset
@@ -270,6 +272,7 @@ def train(config_path: Path):
                             batch_size=conf.train.getint('batch_size_predict'), 
                             evaluate_mode=True,
                             classes=best_hyperparams.architecture.classes,
+                            min_probability=min_probability,
                             cancel_filepath=conf.files.getpath('cancel_filepath'))
                     del best_model
                 except Exception as ex:
@@ -335,6 +338,7 @@ def train(config_path: Path):
                 batch_size=conf.train.getint('batch_size_predict'), 
                 evaluate_mode=True,
                 classes=classes,
+                min_probability=min_probability,
                 cancel_filepath=conf.files.getpath('cancel_filepath'))
         
         # Predict validation dataset
@@ -348,6 +352,7 @@ def train(config_path: Path):
                 batch_size=conf.train.getint('batch_size_predict'), 
                 evaluate_mode=True,
                 classes=classes,
+                min_probability=min_probability,
                 cancel_filepath=conf.files.getpath('cancel_filepath'))
 
         # Predict test dataset, if it exists
@@ -362,6 +367,7 @@ def train(config_path: Path):
                     batch_size=conf.train.getint('batch_size_predict'), 
                     evaluate_mode=True,
                     classes=classes,
+                    min_probability=min_probability,
                     cancel_filepath=conf.files.getpath('cancel_filepath'))
         
         # Predict extra test dataset with random images in the roi, to add to 
@@ -377,6 +383,7 @@ def train(config_path: Path):
                     batch_size=conf.train.getint('batch_size_predict'), 
                     evaluate_mode=True,
                     classes=classes,
+                    min_probability=min_probability,
                     cancel_filepath=conf.files.getpath('cancel_filepath'))
 
         # Free resources...

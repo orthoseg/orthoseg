@@ -115,10 +115,10 @@ def postprocess(config_path: Path):
         simplify_algorithm = conf.postprocess.get('simplify_algorithm')
         if simplify_algorithm is not None:
             simplify_algorithm = geofileops.SimplifyAlgorithm[simplify_algorithm]
-        simplify_tolerance = conf.postprocess.geteval('simplify_tolerance')
-        simplify_lookahead = conf.postprocess.get('simplify_lookahead')
-        if simplify_lookahead is not None:
-            simplify_lookahead = int(simplify_lookahead)
+            simplify_tolerance = conf.postprocess.geteval('simplify_tolerance')
+            simplify_lookahead = conf.postprocess.get('simplify_lookahead')
+            if simplify_lookahead is not None:
+                simplify_lookahead = int(simplify_lookahead)
 
         ##### Go! #####
         postp.postprocess_predictions(
