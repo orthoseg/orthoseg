@@ -13,19 +13,19 @@ import warnings
 # Evade having many info warnings about self intersections from shapely
 from geofileops import geofileops
 from geofileops import geofile
+from geofileops.util import geoseries_util as gfo_geoseries_util
 import geopandas as gpd
 import numpy as np
-import pandas as pd
 import rasterio as rio
 import rasterio.features as rio_features
 import rasterio.transform as rio_transform
-import scipy.ndimage
 import skimage.filters.rank
 from skimage.morphology import rectangle
 import shapely.geometry as sh_geom
 import tensorflow as tf
 
-from orthoseg.util import geoseries_util, vector_util
+from orthoseg.util import vector_util
+
 
 logging.getLogger('shapely.geos').setLevel(logging.WARNING)
 
@@ -593,21 +593,26 @@ def polygonize_pred_multiclass(
             border_polygon = sh_geom.box(*border_bounds)
             assert border_polygon.exterior is not None
             border_lines = sh_geom.LineString(border_polygon.exterior.coords)
-            result_gdf = geoseries_util.toposimplify_ext(
-                gdf=result_gdf, 
-                algorithm=prediction_cleanup_params['simplify_algorithm'],
-                tolerance=prediction_cleanup_params['simplify_tolerance'], 
-                keep_points_on=border_lines,
-            )
-            """
-            geoms_gdf.geometry = geoms_gdf.geometry.apply(
-                    lambda geom: gfo_vector_util.simplify_ext(
-                            geometry=geom, 
-                            algorithm=prediction_cleanup_params['simplify_algorithm'],
-                            tolerance=prediction_cleanup_params['simplify_tolerance'], 
-                            keep_points_on=border_lines))
-            """
-            
+            simplify_topological = prediction_cleanup_params["simplify_topological"] 
+            if simplify_topological is None:
+                simplify_topological = True if len(classes) > 2 else False
+            if simplify_topological:
+                result_gdf.geometry = gfo_geoseries_util.simplify_topo_ext(
+                    geoseries=result_gdf.geometry, 
+                    algorithm=prediction_cleanup_params['simplify_algorithm'],
+                    tolerance=prediction_cleanup_params['simplify_tolerance'], 
+                    lookahead=prediction_cleanup_params['simplify_lookahead'], 
+                    keep_points_on=border_lines,
+                )
+            else:
+                result_gdf.geometry = gfo_geoseries_util.simplify_ext(
+                    geoseries=result_gdf.geometry, 
+                    algorithm=prediction_cleanup_params['simplify_algorithm'],
+                    tolerance=prediction_cleanup_params['simplify_tolerance'], 
+                    lookahead=prediction_cleanup_params['simplify_lookahead'],
+                    keep_points_on=border_lines
+                )
+
             # Remove geom rows that became empty after simplify + explode
             result_gdf = result_gdf[~result_gdf.geometry.is_empty] 
             result_gdf = result_gdf[~result_gdf.geometry.isna()]  

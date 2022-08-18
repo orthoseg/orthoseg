@@ -197,10 +197,12 @@ def predict(config_path: Path):
         prediction_cleanup_params = None
         if simplify_algorithm is not None:
             simplify_algorithm = geofileops.SimplifyAlgorithm[simplify_algorithm]
+
             prediction_cleanup_params = {
                 "simplify_algorithm": simplify_algorithm,
                 "simplify_tolerance": conf.predict.geteval('simplify_tolerance'),
                 "simplify_lookahead": conf.predict.getint('simplify_lookahead'),
+                "simplify_topological": conf.predict.getboolean_ext("simplify_topological"),
                 "filter_background_modal_size": conf.predict.getint(
                     "filter_background_modal_size"
                 )
