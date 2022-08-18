@@ -14,7 +14,7 @@ import tempfile
 import time
 from typing import List, Optional
 
-from geofileops import geofile
+import geofileops as gfo
 import numpy as np
 import rasterio as rio
 import rasterio.crs as rio_crs
@@ -442,8 +442,8 @@ def predict_dir(
                 and output_vector_path is not None 
                 and pred_tmp_output_path is not None 
                 and pred_tmp_output_path.exists()):
-            geofile.move(pred_tmp_output_path, output_vector_path)
-            geofile.rename_layer(output_vector_path, output_vector_path.stem)
+            gfo.move(pred_tmp_output_path, output_vector_path)
+            gfo.rename_layer(output_vector_path, output_vector_path.stem)
             shutil.rmtree(output_image_dir)
 
 def read_image(

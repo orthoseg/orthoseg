@@ -7,7 +7,7 @@ from pathlib import Path
 import shutil
 import sys
 
-from geofileops import geofile
+import geofileops as gfo
 
 # Add path so the local orthoseg packages are found 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -117,7 +117,7 @@ def test_predict():
     # Check results
     result_vector_path = result_vector_dir / "footballfields_01_242_BEFL-2019.gpkg"
     assert result_vector_path.exists() is True
-    result_gdf = geofile.read_file(result_vector_path)
+    result_gdf = gfo.read_file(result_vector_path)
     assert len(result_gdf) == 12
 
 def test_postprocess():
@@ -130,9 +130,9 @@ def test_postprocess():
     result_diss_path = result_vector_dir / 'footballfields_01_242_BEFL-2019_dissolve.gpkg'
     result_simpl_path = result_vector_dir / 'footballfields_01_242_BEFL-2019_dissolve_simpl.gpkg'
     if result_diss_path.exists():
-        geofile.remove(result_diss_path)
+        gfo.remove(result_diss_path)
     if result_simpl_path.exists():
-        geofile.remove(result_simpl_path)
+        gfo.remove(result_simpl_path)
 
     # Run task to postprocess
     tasks_path = get_test_projects_dir() / 'tasks_postprocess.csv'
@@ -140,11 +140,11 @@ def test_postprocess():
 
     # Check results
     assert result_diss_path.exists() is True
-    result_gdf = geofile.read_file(result_diss_path)
+    result_gdf = gfo.read_file(result_diss_path)
     assert len(result_gdf) == 11
 
     assert result_simpl_path.exists() is True
-    result_gdf = geofile.read_file(result_simpl_path)
+    result_gdf = gfo.read_file(result_simpl_path)
     assert len(result_gdf) == 11
 
 if __name__ == '__main__':

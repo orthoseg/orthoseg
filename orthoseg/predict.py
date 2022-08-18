@@ -24,7 +24,7 @@ import orthoseg.model.model_factory as mf
 import orthoseg.model.model_helper as mh
 from orthoseg.util import log_util
 
-from geofileops import geofileops
+import geofileops as gfo
 
 #-------------------------------------------------------------
 # First define/init general variables/constants
@@ -196,7 +196,7 @@ def predict(config_path: Path):
         simplify_algorithm = conf.predict.get('simplify_algorithm')
         prediction_cleanup_params = None
         if simplify_algorithm is not None:
-            simplify_algorithm = geofileops.SimplifyAlgorithm[simplify_algorithm]
+            simplify_algorithm = gfo.SimplifyAlgorithm[simplify_algorithm]
 
             prediction_cleanup_params = {
                 "simplify_algorithm": simplify_algorithm,

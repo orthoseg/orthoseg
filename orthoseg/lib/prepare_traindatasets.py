@@ -12,8 +12,7 @@ import pprint
 from typing import List, Optional, Tuple, Union
 import urllib3
 
-from geofileops import geofile
-from geofileops import geofileops
+import geofileops as gfo
 import pandas as pd
 import geopandas as gpd
 import numpy as np
@@ -157,10 +156,10 @@ def prepare_traindatasets(
             invalid_geom_paths = []
             with log_util.LoggingContext(logging.getLogger('geofileops'), level=logging.WARN):
                 for label_file in label_infos:
-                    is_valid = geofileops.isvalid(label_file.locations_path, force=True)
+                    is_valid = gfo.isvalid(label_file.locations_path, force=True)
                     if is_valid is False:
                         invalid_geom_paths.append(str(label_file.locations_path))
-                    is_valid = geofileops.isvalid(label_file.polygons_path, force=True)
+                    is_valid = gfo.isvalid(label_file.polygons_path, force=True)
                     if is_valid is False:
                         invalid_geom_paths.append(str(label_file.polygons_path))
             if len(invalid_geom_paths) > 0:
