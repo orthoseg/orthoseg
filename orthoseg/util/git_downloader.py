@@ -7,9 +7,11 @@ import urllib.request
 import json
 from pathlib import Path
 
+
 def create_url(url):
     """
-    From the given url, produce a URL that is compatible with Github's REST API. Can handle blob or tree paths.
+    From the given url, produce a URL that is compatible with Github's REST API.
+    Can handle blob or tree paths.
     """
 
     # extract the branch name from the given url (e.g master)
@@ -27,11 +29,12 @@ def create_url(url):
     api_url = api_url + "?ref=" + branch
     return api_url, download_dirs
 
-def download(
-        repo_url: str, 
-        output_dir: Path):
-    """ Downloads the files and directories in repo_url. If flatten is specified, the contents of any and all
-     sub-directories will be pulled upwards into the root folder. """
+
+def download(repo_url: str, output_dir: Path):
+    """
+    Downloads the files and directories in repo_url. If flatten is specified, the
+    contents of any and all sub-directories will be pulled upwards into the root folder.
+    """
 
     # generate the url which returns the JSON data
     api_url, download_dirs = create_url(repo_url)
@@ -55,13 +58,13 @@ def download(
         raw_data = f.read()
         data = json.loads(raw_data)
 
-        # Get the total number of files 
+        # Get the total number of files
         total_files += len(data)
 
         # If the data is a file, download it as one.
         if isinstance(data, dict) and data["type"] == "file":
             # download the file
-            urllib.request.urlretrieve(data["download_url"], dir_out / data["name"])            
+            urllib.request.urlretrieve(data["download_url"], dir_out / data["name"])
             return total_files
 
         # Loop over all files/dirs found
