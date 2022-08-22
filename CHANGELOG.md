@@ -10,6 +10,7 @@
 - Add epsg 31468 as crs with switched xy axes (#18)
 - Improve handling of empty features in training data (#16, #19)
 - Add nb_parallel parameter to predict (#15)
+- Apply black formatting to comply with pep8 (#27)
 
 ### Bugs fixed
 
