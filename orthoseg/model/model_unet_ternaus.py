@@ -6,19 +6,21 @@ TODO: review code and cleanup due to introduction of model factory
 """
 
 from __future__ import division
+from typing import Optional
 
 import tensorflow as tf
 
 from keras.models import model_from_json
 
-'''
+"""
 img_rows = 112          # -> renamed to input_height
 img_cols = 112          # -> renamed to input_width
 num_channels = 16       # -> renamed to nb_channels
 num_mask_channels = 1   # -> renamed to nb_classes
-'''
+"""
 
 smooth = 1e-12
+
 
 def jaccard_coef(y_true, y_pred):
     intersection = tf.keras.backend.sum(y_true * y_pred, axis=[0, -1, -2])
@@ -27,6 +29,7 @@ def jaccard_coef(y_true, y_pred):
     jac = (intersection + smooth) / (sum_ - intersection + smooth)
 
     return tf.keras.backend.mean(jac)
+
 
 def jaccard_coef_int(y_true, y_pred):
     y_pred_pos = tf.keras.backend.round(tf.keras.backend.clip(y_pred, 0, 1))
@@ -38,107 +41,167 @@ def jaccard_coef_int(y_true, y_pred):
 
     return tf.keras.backend.mean(jac)
 
-def jaccard_coef_loss(y_true, y_pred):
-    return -tf.keras.backend.log(jaccard_coef(y_true, y_pred)) + tf.keras.backend.binary_crossentropy(y_pred, y_true) 
 
-def get_model(input_width=256, input_height=256, nb_channels=3, nb_classes=1,
-              loss_mode='binary_crossentropy', learning_rate=1e-4,
-              init_model_weights: bool = False, pretrained_weights_filepath: str = None):
-    
+def jaccard_coef_loss(y_true, y_pred):
+    return -tf.keras.backend.log(
+        jaccard_coef(y_true, y_pred)
+    ) + tf.keras.backend.binary_crossentropy(y_pred, y_true)
+
+
+def get_model(
+    input_width=256,
+    input_height=256,
+    nb_channels=3,
+    nb_classes=1,
+    loss_mode="binary_crossentropy",
+    learning_rate=1e-4,
+    init_model_weights: bool = False,
+    pretrained_weights_filepath: Optional[str] = None,
+):
+
     inputs = tf.keras.layers.Input((input_width, input_height, nb_channels))
-    conv1 = tf.keras.layers.Conv2D(32, 3, activation='relu', padding='same', kernel_initializer='he_uniform')(inputs)
+    conv1 = tf.keras.layers.Conv2D(
+        32, 3, activation="relu", padding="same", kernel_initializer="he_uniform"
+    )(inputs)
     conv1 = tf.keras.layers.BatchNormalization(axis=-1)(conv1)
-    #conv1 = keras.layers.advanced_activations.ELU()(conv1)
-    conv1 = tf.keras.layers.Conv2D(32, 3, activation='relu', padding='same', kernel_initializer='he_uniform')(conv1)
+    # conv1 = keras.layers.advanced_activations.ELU()(conv1)
+    conv1 = tf.keras.layers.Conv2D(
+        32, 3, activation="relu", padding="same", kernel_initializer="he_uniform"
+    )(conv1)
     conv1 = tf.keras.layers.BatchNormalization(axis=-1)(conv1)
-    #conv1 = tf.keras.layers.advanced_activations.ELU()(conv1)
+    # conv1 = tf.keras.layers.advanced_activations.ELU()(conv1)
     pool1 = tf.keras.layers.MaxPooling2D(pool_size=(2, 2))(conv1)
 
-    conv2 = tf.keras.layers.Conv2D(64, 3, activation='relu', padding='same', kernel_initializer='he_uniform')(pool1)
+    conv2 = tf.keras.layers.Conv2D(
+        64, 3, activation="relu", padding="same", kernel_initializer="he_uniform"
+    )(pool1)
     conv2 = tf.keras.layers.BatchNormalization(axis=-1)(conv2)
-    #conv2 = keras.layers.advanced_activations.ELU()(conv2)
-    conv2 = tf.keras.layers.Conv2D(64, 3, activation='relu', padding='same', kernel_initializer='he_uniform')(conv2)
+    # conv2 = keras.layers.advanced_activations.ELU()(conv2)
+    conv2 = tf.keras.layers.Conv2D(
+        64, 3, activation="relu", padding="same", kernel_initializer="he_uniform"
+    )(conv2)
     conv2 = tf.keras.layers.BatchNormalization(axis=-1)(conv2)
-    #conv2 = tf.keras.layers.advanced_activations.ELU()(conv2)
+    # conv2 = tf.keras.layers.advanced_activations.ELU()(conv2)
     pool2 = tf.keras.layers.MaxPooling2D(pool_size=(2, 2))(conv2)
 
-    conv3 = tf.keras.layers.Conv2D(128, 3, activation='relu', padding='same', kernel_initializer='he_uniform')(pool2)
+    conv3 = tf.keras.layers.Conv2D(
+        128, 3, activation="relu", padding="same", kernel_initializer="he_uniform"
+    )(pool2)
     conv3 = tf.keras.layers.BatchNormalization(axis=-1)(conv3)
-    #conv3 = keras.layers.advanced_activations.ELU()(conv3)
-    conv3 = tf.keras.layers.Conv2D(128, 3, activation='relu', padding='same', kernel_initializer='he_uniform')(conv3)
+    # conv3 = keras.layers.advanced_activations.ELU()(conv3)
+    conv3 = tf.keras.layers.Conv2D(
+        128, 3, activation="relu", padding="same", kernel_initializer="he_uniform"
+    )(conv3)
     conv3 = tf.keras.layers.BatchNormalization(axis=-1)(conv3)
-    #conv3 = tf.keras.layers.advanced_activations.ELU()(conv3)
+    # conv3 = tf.keras.layers.advanced_activations.ELU()(conv3)
     pool3 = tf.keras.layers.MaxPooling2D(pool_size=(2, 2))(conv3)
 
-    conv4 = tf.keras.layers.Conv2D(256, 3, activation='relu', padding='same', kernel_initializer='he_uniform')(pool3)
+    conv4 = tf.keras.layers.Conv2D(
+        256, 3, activation="relu", padding="same", kernel_initializer="he_uniform"
+    )(pool3)
     conv4 = tf.keras.layers.BatchNormalization(axis=-1)(conv4)
-    #conv4 = keras.layers.advanced_activations.ELU()(conv4)
-    conv4 = tf.keras.layers.Conv2D(256, 3, activation='relu', padding='same', kernel_initializer='he_uniform')(conv4)
+    # conv4 = keras.layers.advanced_activations.ELU()(conv4)
+    conv4 = tf.keras.layers.Conv2D(
+        256, 3, activation="relu", padding="same", kernel_initializer="he_uniform"
+    )(conv4)
     conv4 = tf.keras.layers.BatchNormalization(axis=-1)(conv4)
-    #conv4 = keras.layers.advanced_activations.ELU()(conv4)
+    # conv4 = keras.layers.advanced_activations.ELU()(conv4)
     pool4 = tf.keras.layers.MaxPooling2D(pool_size=(2, 2))(conv4)
 
-    conv5 = tf.keras.layers.Conv2D(512, 3, activation='relu', padding='same', kernel_initializer='he_uniform')(pool4)
+    conv5 = tf.keras.layers.Conv2D(
+        512, 3, activation="relu", padding="same", kernel_initializer="he_uniform"
+    )(pool4)
     conv5 = tf.keras.layers.BatchNormalization(axis=-1)(conv5)
-    #conv5 = keras.layers.advanced_activations.ELU()(conv5)
-    conv5 = tf.keras.layers.Conv2D(512, 3, activation='relu', padding='same', kernel_initializer='he_uniform')(conv5)
+    # conv5 = keras.layers.advanced_activations.ELU()(conv5)
+    conv5 = tf.keras.layers.Conv2D(
+        512, 3, activation="relu", padding="same", kernel_initializer="he_uniform"
+    )(conv5)
     conv5 = tf.keras.layers.BatchNormalization(axis=-1)(conv5)
-    #conv5 = keras.layers.advanced_activations.ELU()(conv5)
+    # conv5 = keras.layers.advanced_activations.ELU()(conv5)
 
-    up6 = tf.keras.layers.Concatenate(axis=3)([tf.keras.layers.UpSampling2D(size=(2, 2))(conv5), conv4])
-    #up6 = merge([tf.keras.layers.UpSampling2D(size=(2, 2))(conv5), conv4], mode='concat', concat_axis=1)
-    conv6 = tf.keras.layers.Conv2D(256, 3, activation='relu', padding='same', kernel_initializer='he_uniform')(up6)
+    up6 = tf.keras.layers.Concatenate(axis=3)(
+        [tf.keras.layers.UpSampling2D(size=(2, 2))(conv5), conv4]
+    )
+    # up6 = merge([tf.keras.layers.UpSampling2D(size=(2, 2))(conv5), conv4], mode='concat', concat_axis=1)
+    conv6 = tf.keras.layers.Conv2D(
+        256, 3, activation="relu", padding="same", kernel_initializer="he_uniform"
+    )(up6)
     conv6 = tf.keras.layers.BatchNormalization(axis=-1)(conv6)
-    #conv6 = keras.layers.advanced_activations.ELU()(conv6)
-    conv6 = tf.keras.layers.Conv2D(256, 3, activation='relu', padding='same', kernel_initializer='he_uniform')(conv6)
+    # conv6 = keras.layers.advanced_activations.ELU()(conv6)
+    conv6 = tf.keras.layers.Conv2D(
+        256, 3, activation="relu", padding="same", kernel_initializer="he_uniform"
+    )(conv6)
     conv6 = tf.keras.layers.BatchNormalization(axis=-1)(conv6)
-    #conv6 = keras.layers.advanced_activations.ELU()(conv6)
+    # conv6 = keras.layers.advanced_activations.ELU()(conv6)
 
-    up7 = tf.keras.layers.Concatenate(axis=3)([tf.keras.layers.UpSampling2D(size=(2, 2))(conv6), conv3])
-    #up7 = tf.keras.layers.merge([tf.keras.layers.UpSampling2D(size=(2, 2))(conv6), conv3], mode='concat', concat_axis=1)
-    conv7 = tf.keras.layers.Conv2D(128, 3, activation='relu', padding='same', kernel_initializer='he_uniform')(up7)
+    up7 = tf.keras.layers.Concatenate(axis=3)(
+        [tf.keras.layers.UpSampling2D(size=(2, 2))(conv6), conv3]
+    )
+    # up7 = tf.keras.layers.merge([tf.keras.layers.UpSampling2D(size=(2, 2))(conv6), conv3], mode='concat', concat_axis=1)
+    conv7 = tf.keras.layers.Conv2D(
+        128, 3, activation="relu", padding="same", kernel_initializer="he_uniform"
+    )(up7)
     conv7 = tf.keras.layers.BatchNormalization(axis=-1)(conv7)
-    #conv7 = keras.layers.advanced_activations.ELU()(conv7)
-    conv7 = tf.keras.layers.Conv2D(128, 3, activation='relu', padding='same', kernel_initializer='he_uniform')(conv7)
+    # conv7 = keras.layers.advanced_activations.ELU()(conv7)
+    conv7 = tf.keras.layers.Conv2D(
+        128, 3, activation="relu", padding="same", kernel_initializer="he_uniform"
+    )(conv7)
     conv7 = tf.keras.layers.BatchNormalization(axis=-1)(conv7)
-    #conv7 = keras.layers.advanced_activations.ELU()(conv7)
+    # conv7 = keras.layers.advanced_activations.ELU()(conv7)
 
-    up8 = tf.keras.layers.Concatenate(axis=3)([tf.keras.layers.UpSampling2D(size=(2, 2))(conv7), conv2])
-    #up8 = tf.keras.layers.merge([tf.keras.layers.UpSampling2D(size=(2, 2))(conv7), conv2], mode='concat', concat_axis=1)
-    conv8 = tf.keras.layers.Conv2D(64, 3, activation='relu', padding='same', kernel_initializer='he_uniform')(up8)
+    up8 = tf.keras.layers.Concatenate(axis=3)(
+        [tf.keras.layers.UpSampling2D(size=(2, 2))(conv7), conv2]
+    )
+    # up8 = tf.keras.layers.merge([tf.keras.layers.UpSampling2D(size=(2, 2))(conv7), conv2], mode='concat', concat_axis=1)
+    conv8 = tf.keras.layers.Conv2D(
+        64, 3, activation="relu", padding="same", kernel_initializer="he_uniform"
+    )(up8)
     conv8 = tf.keras.layers.BatchNormalization(axis=-1)(conv8)
-    #conv8 = keras.layers.advanced_activations.ELU()(conv8)
-    conv8 = tf.keras.layers.Conv2D(64, 3, activation='relu', padding='same', kernel_initializer='he_uniform')(conv8)
+    # conv8 = keras.layers.advanced_activations.ELU()(conv8)
+    conv8 = tf.keras.layers.Conv2D(
+        64, 3, activation="relu", padding="same", kernel_initializer="he_uniform"
+    )(conv8)
     conv8 = tf.keras.layers.BatchNormalization(axis=-1)(conv8)
-    #conv8 = keras.layers.advanced_activations.ELU()(conv8)
+    # conv8 = keras.layers.advanced_activations.ELU()(conv8)
 
-    up9 = tf.keras.layers.Concatenate(axis=3)([tf.keras.layers.UpSampling2D(size=(2, 2))(conv8), conv1])
-    #up9 = tf.keras.layers.merge([tf.keras.layers.UpSampling2D(size=(2, 2))(conv8), conv1], mode='concat', concat_axis=1)
-    conv9 = tf.keras.layers.Conv2D(32, 3, activation='relu', padding='same', kernel_initializer='he_uniform')(up9)
+    up9 = tf.keras.layers.Concatenate(axis=3)(
+        [tf.keras.layers.UpSampling2D(size=(2, 2))(conv8), conv1]
+    )
+    # up9 = tf.keras.layers.merge([tf.keras.layers.UpSampling2D(size=(2, 2))(conv8), conv1], mode='concat', concat_axis=1)
+    conv9 = tf.keras.layers.Conv2D(
+        32, 3, activation="relu", padding="same", kernel_initializer="he_uniform"
+    )(up9)
     conv9 = tf.keras.layers.BatchNormalization(axis=-1)(conv9)
-    #conv9 = keras.layers.advanced_activations.ELU()(conv9)
-    conv9 = tf.keras.layers.Conv2D(32, 3, activation='relu', padding='same', kernel_initializer='he_uniform')(conv9)
-    #crop9 = tf.keras.layers.Cropping2D(cropping=((16, 16), (16, 16)))(conv9)
+    # conv9 = keras.layers.advanced_activations.ELU()(conv9)
+    conv9 = tf.keras.layers.Conv2D(
+        32, 3, activation="relu", padding="same", kernel_initializer="he_uniform"
+    )(conv9)
+    # crop9 = tf.keras.layers.Cropping2D(cropping=((16, 16), (16, 16)))(conv9)
     conv9 = tf.keras.layers.BatchNormalization(axis=-1)(conv9)
-    #conv9 = keras.layers.advanced_activations.ELU()(conv9)
-    
+    # conv9 = keras.layers.advanced_activations.ELU()(conv9)
+
     # TODO: crop9 vervangen door conv9 als batnormalisation terug aan
-    conv10 = tf.keras.layers.Conv2D(nb_classes, 1, activation='sigmoid')(conv9)
+    conv10 = tf.keras.layers.Conv2D(nb_classes, 1, activation="sigmoid")(conv9)
 
     model = tf.keras.models.Model(inputs=inputs, outputs=conv10)
-    
+
     if loss_mode == "jaccard_coef_loss":
         loss_func = jaccard_coef_loss
     elif loss_mode == "binary_crossentropy":
-        loss_func = 'binary_crossentropy'
+        loss_func = "binary_crossentropy"
     else:
         raise Exception(f"Unknown loss function: {loss_mode}")
 
-    # TODO: probably this needs to be removed because of the introduction of 
+    # TODO: probably this needs to be removed because of the introduction of
     # the model factory
-    model.compile(optimizer=tf.keras.optimizers.Nadam(lr=learning_rate), loss=loss_func, metrics=['binary_crossentropy', jaccard_coef_int])
+    model.compile(
+        optimizer=tf.keras.optimizers.Nadam(lr=learning_rate),
+        loss=loss_func,
+        metrics=["binary_crossentropy", jaccard_coef_int],
+    )
 
     return model
+
 
 '''
 def flip_axis(x, axis):
@@ -241,7 +304,7 @@ def read_model(cross=''):
     return model
 '''
 
-'''
+"""
 if __name__ == '__main__':
     data_path = '../data'
     now = datetime.datetime.now()
@@ -295,4 +358,4 @@ if __name__ == '__main__':
     save_model(model, "{batch}_{epoch}_{suffix}".format(batch=batch_size, epoch=nb_epoch, suffix=suffix))
     save_history(history, suffix)
     f.close()
-'''
+"""

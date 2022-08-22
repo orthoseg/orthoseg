@@ -3,11 +3,11 @@ import setuptools
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
-with open('version.txt', mode='r') as file:
+with open("version.txt", mode="r") as file:
     version = file.readline()
 
 setuptools.setup(
-    name="orthoseg", 
+    name="orthoseg",
     version=version,
     author="Pieter Roggemans",
     author_email="pieter.roggemans@gmail.com",
@@ -18,11 +18,17 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     include_package_data=True,
     install_requires=[
-            "fiona", "geofileops>=0.3,<0.4", "geopandas", 
-            "owslib", "pillow", "pycron", 
-            "rasterio", "segmentation-models>=1.0,<1.1", 
-            "tensorflow>=2.5,<2.9"],
-    entry_points='''
+        "fiona",
+        "geofileops>0.5,<0.7",
+        "geopandas",
+        "owslib",
+        "pillow",
+        "pycron",
+        "rasterio",
+        "segmentation-models>=1.0,<1.1",
+        "tensorflow>=2.5,<2.9",
+    ],
+    entry_points="""
             [console_scripts]
             orthoseg_load_images=orthoseg.load_images:main
             orthoseg_train=orthoseg.train:main
@@ -30,10 +36,10 @@ setuptools.setup(
             orthoseg_postprocess=orthoseg.postprocess:main
             scriptrunner=orthoseg.scriptrunner:main
             orthoseg_load_sampleprojects=orthoseg.load_sampleprojects:main
-            ''',
+            """,
     classifiers=[
-            "Programming Language :: Python :: 3",
-            "Operating System :: OS Independent",
+        "Programming Language :: Python :: 3",
+        "Operating System :: OS Independent",
     ],
-    python_requires='>=3.8',
+    python_requires=">=3.8",
 )
