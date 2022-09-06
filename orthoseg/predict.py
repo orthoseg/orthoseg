@@ -12,6 +12,7 @@ import sys
 import traceback
 
 import geofileops as gfo
+
 # import os
 # os.environ["CUDA_VISIBLE_DEVICES"] = "-1" # Disable using GPU
 import tensorflow as tf
@@ -212,9 +213,7 @@ def predict(config_path: Path):
             # If multiple GPU's available, create multi_gpu_model
             try:
                 model_for_predict = model
-                logger.warn(
-                    "Predict using multiple GPUs NOT IMPLEMENTED AT THE MOMENT"
-                )
+                logger.warn("Predict using multiple GPUs NOT IMPLEMENTED AT THE MOMENT")
 
                 # logger.info(
                 #     f"Predict using multiple GPUs: {nb_gpu}, batch size becomes: "
@@ -225,24 +224,27 @@ def predict(config_path: Path):
                 logger.info("Predict using single GPU or CPU")
                 model_for_predict = model
 
-        # Prepare some parameters for the inline (post)processing
+        # Prepare params for the inline postprocessing of the prediction
         min_probability = conf.predict.getfloat("min_probability")
+        postproces = {}
         simplify_algorithm = conf.predict.get("simplify_algorithm")
-        prediction_cleanup_params = None
         if simplify_algorithm is not None:
-            simplify_algorithm = gfo.SimplifyAlgorithm[simplify_algorithm]
+            postproces["simplify"] = {}
+            simplify = postproces["simplify"]
 
-            prediction_cleanup_params = {
-                "simplify_algorithm": simplify_algorithm,
-                "simplify_tolerance": conf.predict.geteval("simplify_tolerance"),
-                "simplify_lookahead": conf.predict.getint("simplify_lookahead"),
-                "simplify_topological": conf.predict.getboolean_ext(
-                    "simplify_topological"
-                ),
-                "filter_background_modal_size": conf.predict.getint(
-                    "filter_background_modal_size"
-                ),
-            }
+            simplify_algorithm = gfo.SimplifyAlgorithm[simplify_algorithm]
+            simplify["simplify_algorithm"] = simplify_algorithm
+            simplify["simplify_tolerance"] = conf.predict.geteval("simplify_tolerance")
+            simplify["simplify_lookahead"] = conf.predict.getint("simplify_lookahead")
+            simplify["simplify_topological"] = conf.predict.getboolean_ext(
+                "simplify_topological"
+            )
+        postproces["filter_background_modal_size"] = conf.predict.getint(
+            "filter_background_modal_size"
+        )
+        postproces["reclassify_to_neighbour_query"] = conf.predict.get(
+            "reclassify_to_neighbour_query"
+        )
 
         # Prepare the output dirs/paths
         predict_output_dir = Path(
@@ -265,7 +267,7 @@ def predict(config_path: Path):
             output_vector_path=output_vector_path,
             classes=hyperparams.architecture.classes,
             min_probability=min_probability,
-            prediction_cleanup_params=prediction_cleanup_params,
+            postproces=postproces,
             border_pixels_to_ignore=conf.predict.getint("image_pixels_overlap"),
             projection_if_missing=image_layer["projection"],
             input_mask_dir=None,

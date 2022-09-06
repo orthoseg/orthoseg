@@ -45,7 +45,7 @@ def predict_dir(
     output_vector_path: Optional[Path],
     classes: list,
     min_probability: float = 0.5,
-    prediction_cleanup_params: Optional[dict] = None,
+    postproces: dict = {},
     border_pixels_to_ignore: int = 0,
     projection_if_missing: Optional[str] = None,
     input_mask_dir: Optional[Path] = None,
@@ -84,9 +84,8 @@ def predict_dir(
         output_vector_path (Pathlike): the path to write the vector output to
         classes (list): a list of the different class names. Mandatory
             if more than background + 1 class.
-        prediction_cleanup_params (dict, optional): parameters to specify which
-            cleanups of the prediction need to be executed.
-            Default is None.
+        postprocess (dict, optional): specifies which postprocessing should be applied
+            to the prediction. Default is {}, so no postprocessing.
         border_pixels_to_ignore: because the segmentation at the borders of the
             input images images is not as good, you can specify that x
             pixels need to be ignored
@@ -363,8 +362,8 @@ def predict_dir(
 
                 # In tf > 2.1 a tf.tensor object is returned, but we want an ndarray
                 if type(curr_batch_image_pred_arr) is tf.Tensor:
-                    curr_batch_image_pred_arr = (
-                        np.array(curr_batch_image_pred_arr.numpy())  # type: ignore
+                    curr_batch_image_pred_arr = np.array(
+                        curr_batch_image_pred_arr.numpy()  # type: ignore
                     )
                 else:
                     curr_batch_image_pred_arr = np.array(curr_batch_image_pred_arr)
@@ -394,7 +393,7 @@ def predict_dir(
                                 classes,
                                 pred_tmp_output_path,
                                 min_probability,
-                                prediction_cleanup_params,
+                                postproces,
                                 border_pixels_to_ignore,
                             )
                             postp_future_to_input_path[future] = image_info[
