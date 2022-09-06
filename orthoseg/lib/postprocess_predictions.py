@@ -690,6 +690,7 @@ def polygonize_pred_multiclass(
                 simplify_topological = True if len(classes) > 2 else False
             if simplify_topological:
                 result_gdf.geometry = gfo_geoseries_util.simplify_topo_ext(
+                result_gdf.geometry = vector_util.simplify_topo_orthoseg(
                     geoseries=result_gdf.geometry,
                     algorithm=prediction_cleanup_params["simplify_algorithm"],
                     tolerance=prediction_cleanup_params["simplify_tolerance"],
