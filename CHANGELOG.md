@@ -6,6 +6,8 @@
 
 - Add option to use topologic simplify (#22)
 - Add option to specify the minimum probability in the result (#23)
+- Add option to reclassify (small) features to the class of its neighbour (#30)
+- Add pre-simplify with RDP when using (inline) LANG simplification (#29)
 - Add option to ignore wms url in capabilities (#20)
 - Add epsg 31468 as crs with switched xy axes (#18)
 - Improve handling of empty features in training data (#16, #19)
