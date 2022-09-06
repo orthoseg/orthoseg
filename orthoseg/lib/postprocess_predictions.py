@@ -572,7 +572,7 @@ def polygonize_pred_multiclass_to_file(
     classes: list,
     output_vector_path: Path,
     min_probability: float = 0.5,
-    prediction_cleanup_params: Optional[dict] = None,
+    postprocess: dict = {},
     border_pixels_to_ignore: int = 0,
 ) -> bool:
 
@@ -583,7 +583,7 @@ def polygonize_pred_multiclass_to_file(
         image_transform=image_transform,
         classes=classes,
         min_probability=min_probability,
-        prediction_cleanup_params=prediction_cleanup_params,
+        postprocess=postprocess,
         border_pixels_to_ignore=border_pixels_to_ignore,
     )
 
@@ -601,7 +601,7 @@ def polygonize_pred_multiclass(
     image_transform,
     classes: list,
     min_probability: float = 0.5,
-    prediction_cleanup_params: Optional[dict] = None,
+    postprocess: dict = {},
     border_pixels_to_ignore: int = 0,
 ) -> Optional[gpd.GeoDataFrame]:
 
@@ -628,16 +628,15 @@ def polygonize_pred_multiclass(
         image_pred_decoded_arr[:, 0:border_pixels_to_ignore] = 0  # Top border
         image_pred_decoded_arr[:, -border_pixels_to_ignore:] = 0  # Bottom border
 
-    if prediction_cleanup_params is not None:
+    # Postprocessing on the raster output
+    if len(postprocess) > 0:
         # If fill_gaps_modal_size is asked...
         if (
-            "filter_background_modal_size" in prediction_cleanup_params
-            and prediction_cleanup_params["filter_background_modal_size"] is not None
-            and prediction_cleanup_params["filter_background_modal_size"] > 0
+            "filter_background_modal_size" in postprocess
+            and postprocess["filter_background_modal_size"] is not None
+            and postprocess["filter_background_modal_size"] > 0
         ):
-            filter_background_modal_size = prediction_cleanup_params[
-                "filter_background_modal_size"
-            ]
+            filter_background_modal_size = postprocess["filter_background_modal_size"]
             image_pred_decoded_modal_arr = skimage.filters.rank.modal(
                 image_pred_decoded_arr,
                 rectangle(filter_background_modal_size, filter_background_modal_size),
@@ -649,10 +648,20 @@ def polygonize_pred_multiclass(
             )
 
     # Polygonize
+    # If a reclassify qury is specified don't mask so the query is also applied to
+    # the background
+    mask_background = True
+    if (
+        len(postprocess) > 0
+        and postprocess.get("reclassify_to_neighbour_query", None) is not None
+    ):
+        mask_background = False
+
     result_gdf = polygonize_pred(
         image_pred_uint8_bin=image_pred_decoded_arr,
         image_crs=image_crs,
         image_transform=image_transform,
+        mask_background=mask_background,
         classnames=classes,
     )
     if result_gdf is None:
@@ -674,34 +683,111 @@ def polygonize_pred_multiclass(
         image_bounds[3] - border_pixels_to_ignore * y_pixsize,
     )
 
-    if prediction_cleanup_params is not None:
+    # Postprocessing on the vectorized result
+    if len(postprocess) > 0:
+        # If a reclassify query is specified
+        reclassify_to_neighbour_query = postprocess.get(
+            "reclassify_to_neighbour_query", None
+        )
+        if reclassify_to_neighbour_query is not None:
+            # Init columns needed in query
+            if "area" in reclassify_to_neighbour_query:
+                result_gdf["area"] = result_gdf.geometry.area
+            if "perimeter" in reclassify_to_neighbour_query:
+                result_gdf["perimeter"] = result_gdf.geometry.length
+
+            # First remove background polygons that don't match the reclassify query
+            class_background = classes[0]
+            nobackground_query = (
+                f"classname != '{class_background}' or "
+                f"(classname == '{class_background}' and "
+                f"({reclassify_to_neighbour_query}))"
+            )
+            result_gdf = result_gdf.query(nobackground_query).copy()
+
+            # Keep looking for polygons that comply with query and give the same class
+            # as neighbour till no changes can be made anymore.
+            # Stop after 5 iterations to be sure never to end up in endless loop
+            reclassify_counter = 0
+            reclassify_max = 5
+            result_gdf["no_neighbours"] = 0
+            reclassify_query = (
+                f"no_neighbours == 0 and ({reclassify_to_neighbour_query})"
+            )
+            while reclassify_counter < reclassify_max:
+                # Loop till no features were changed anymore
+                if reclassify_counter > 0:
+                    if "area" in reclassify_to_neighbour_query:
+                        result_gdf["area"] = result_gdf.geometry.area
+                    if "perimeter" in reclassify_to_neighbour_query:
+                        result_gdf["perimeter"] = result_gdf.geometry.length
+
+                result_reclass_gdf = result_gdf.query(reclassify_query)
+                if len(result_reclass_gdf) == 0:
+                    break
+                for row in result_reclass_gdf.itertuples():
+                    # Find neighbour with longest intersection
+                    neighbours_idx = result_gdf.geometry.sindex.query(
+                        row.geometry, predicate="intersects"
+                    ).tolist()
+                    if len(neighbours_idx) <= 1:
+                        result_gdf.loc[[row.Index], ["no_neighbours"]] = 1
+                        continue
+                    row_loc = result_gdf.index.get_loc(row.Index)
+                    neighbours_idx.remove(row_loc)
+                    neighbours_gdf = result_gdf.iloc[neighbours_idx]
+                    inters_geoseries = (
+                        neighbours_gdf.geometry.intersection(  # type: ignore
+                            row.geometry
+                        )
+                    )
+                    idx_max_length = inters_geoseries.length.idxmax()
+                    classname_neighbour = result_gdf.at[idx_max_length, "classname"]
+                    if result_gdf.loc[row.Index, "classname"] != classname_neighbour:
+                        result_gdf.loc[[row.Index], ["classname"]] = classname_neighbour
+
+                result_gdf = result_gdf.drop(
+                    columns=["area", "perimeter"], errors="ignore"
+                )
+                dissolve_columns = [
+                    col for col in result_gdf.columns if col != result_gdf.geometry.name
+                ]
+                result_gdf = result_gdf.dissolve(by=dissolve_columns, as_index=False)
+                result_gdf = result_gdf.explode(ignore_index=True)  # type: ignore
+
+                reclassify_counter += 1
+
+            # Make sure there is no background in the output
+            result_gdf = result_gdf.query(f"classname != '{class_background}'").copy()
+
         # If a simplify is asked...
-        if (
-            "simplify_algorithm" in prediction_cleanup_params
-            and prediction_cleanup_params["simplify_algorithm"] is not None
-        ):
+        simplify = postprocess.get("simplify", None)
+        if simplify is not None:
             # Define the bounds of the image as linestring, so points on this
             # border are preserved during the simplify
             border_polygon = sh_geom.box(*border_bounds)
             assert border_polygon.exterior is not None
             border_lines = sh_geom.LineString(border_polygon.exterior.coords)
-            simplify_topological = prediction_cleanup_params["simplify_topological"]
+
+            # Determine of topological or normal simplify needs to be used
+            simplify_topological = simplify["simplify_topological"]
             if simplify_topological is None:
                 simplify_topological = True if len(classes) > 2 else False
+
             if simplify_topological:
-                result_gdf.geometry = gfo_geoseries_util.simplify_topo_ext(
+                result_gdf.geometry = vector_util.simplify_topo_orthoseg(
                     geoseries=result_gdf.geometry,
-                    algorithm=prediction_cleanup_params["simplify_algorithm"],
-                    tolerance=prediction_cleanup_params["simplify_tolerance"],
-                    lookahead=prediction_cleanup_params["simplify_lookahead"],
+                    algorithm=simplify["simplify_algorithm"],
+                    tolerance=simplify["simplify_tolerance"],
+                    lookahead=simplify["simplify_lookahead"],
                     keep_points_on=border_lines,
                 )
             else:
                 result_gdf.geometry = gfo_geoseries_util.simplify_ext(
                     geoseries=result_gdf.geometry,
-                    algorithm=prediction_cleanup_params["simplify_algorithm"],
-                    tolerance=prediction_cleanup_params["simplify_tolerance"],
-                    lookahead=prediction_cleanup_params["simplify_lookahead"],
+                    algorithm=postprocess["simplify_algorithm"],
+                    tolerance=postprocess["simplify_tolerance"],
+                    lookahead=postprocess["simplify_lookahead"],
                     keep_points_on=border_lines,
                 )
 
@@ -710,16 +796,9 @@ def polygonize_pred_multiclass(
             result_gdf = result_gdf[~result_gdf.geometry.isna()]
             if len(result_gdf) == 0:
                 return None
-            # result_gdf.reset_index(drop=True, inplace=True)
             result_gdf = result_gdf.explode(ignore_index=True)  # type: ignore
-            # result_gdf.reset_index(drop=True, inplace=True)
 
-    # Now we can calculate the "onborder" property
-    result_gdf = vector_util.calc_onborder(result_gdf, border_bounds)  # type: ignore
-
-    # Add the area
-    result_gdf["area"] = result_gdf.geometry.area
-
+    assert isinstance(result_gdf, gpd.GeoDataFrame)
     return result_gdf
 
 
@@ -727,6 +806,7 @@ def polygonize_pred(
     image_pred_uint8_bin,
     image_crs: str,
     image_transform,
+    mask_background: bool = True,
     classnames: Optional[List[str]] = None,
     output_basefilepath: Optional[Path] = None,
 ) -> Optional[gpd.GeoDataFrame]:
@@ -734,10 +814,13 @@ def polygonize_pred(
     # Polygonize result
     try:
         # Returns a list of tupples with (geometry, value)
+        mask = None
+        if mask_background:
+            mask = image_pred_uint8_bin
         polygonized_records = list(
             rio_features.shapes(
                 image_pred_uint8_bin,
-                mask=image_pred_uint8_bin,
+                mask=mask,
                 transform=image_transform,
             )
         )
@@ -754,7 +837,7 @@ def polygonize_pred(
             data, columns=["geometry", "value"], crs=image_crs  # type: ignore
         )
 
-        # Add the classname if provided and area
+        # Add the classname if provided
         if classnames is not None:
             result_gdf["classname"] = [
                 classnames[value] for _, value in result_gdf["value"].T.iteritems()
@@ -977,11 +1060,3 @@ def get_pixelsize_x(transform):
 
 def get_pixelsize_y(transform):
     return -transform[4]
-
-
-# -------------------------------------------------------------
-# If the script is ran directly...
-# -------------------------------------------------------------
-
-if __name__ == "__main__":
-    raise Exception("Not implemented")
