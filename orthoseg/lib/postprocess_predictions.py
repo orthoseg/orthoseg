@@ -574,7 +574,7 @@ def polygonize_pred_multiclass_to_file(
     min_probability: float = 0.5,
     postprocess: dict = {},
     border_pixels_to_ignore: int = 0,
-) -> bool:
+) -> dict:
 
     # Polygonize the result...
     result_gdf = polygonize_pred_multiclass(
@@ -590,9 +590,9 @@ def polygonize_pred_multiclass_to_file(
     # If there were polygons, save them...
     if result_gdf is not None:
         gfo.to_file(result_gdf, output_vector_path, append=True, index=False)
-        return True
+        return {"nb_features_witten": len(result_gdf), "columns": result_gdf.columns}
     else:
-        return False
+        return {"nb_features_witten": None}
 
 
 def polygonize_pred_multiclass(
@@ -690,7 +690,14 @@ def polygonize_pred_multiclass(
             "reclassify_to_neighbour_query", None
         )
         if reclassify_to_neighbour_query is not None:
-            # Init columns needed in query
+            # Init column info
+            columns_orig = [col for col in result_gdf.columns]
+            columns_orig_nogeom = [
+                col for col in columns_orig if col != result_gdf.geometry.name
+            ]
+
+            # Init query + needed data
+            reclassify_query = reclassify_to_neighbour_query.replace("\n", " ")
             if "area" in reclassify_to_neighbour_query:
                 result_gdf["area"] = result_gdf.geometry.area
             if "perimeter" in reclassify_to_neighbour_query:
@@ -701,20 +708,19 @@ def polygonize_pred_multiclass(
             nobackground_query = (
                 f"classname != '{class_background}' or "
                 f"(classname == '{class_background}' and "
-                f"({reclassify_to_neighbour_query}))"
+                f"({reclassify_query}))"
             )
             result_gdf = result_gdf.query(nobackground_query).copy()
 
             # Keep looking for polygons that comply with query and give the same class
             # as neighbour till no changes can be made anymore.
             # Stop after 5 iterations to be sure never to end up in endless loop
-            reclassify_counter = 0
             reclassify_max = 5
             result_gdf["no_neighbours"] = 0
             reclassify_query = (
-                f"no_neighbours == 0 and ({reclassify_to_neighbour_query})"
+                f"no_neighbours == 0 and ({reclassify_query})"
             )
-            while reclassify_counter < reclassify_max:
+            for reclassify_counter in range(reclassify_max):
                 # Loop till no features were changed anymore
                 if reclassify_counter > 0:
                     if "area" in reclassify_to_neighbour_query:
@@ -742,22 +748,19 @@ def polygonize_pred_multiclass(
                         )
                     )
                     idx_max_length = inters_geoseries.length.idxmax()
+                    # Set classname to the neighbour found
                     classname_neighbour = result_gdf.at[idx_max_length, "classname"]
                     if result_gdf.loc[row.Index, "classname"] != classname_neighbour:
                         result_gdf.loc[[row.Index], ["classname"]] = classname_neighbour
 
-                result_gdf = result_gdf.drop(
-                    columns=["area", "perimeter"], errors="ignore"
-                )
-                dissolve_columns = [
-                    col for col in result_gdf.columns if col != result_gdf.geometry.name
-                ]
+                # Remove temp columns + dissolve
+                result_gdf = result_gdf[columns_orig + ["no_neighbours"]]
+                dissolve_columns = columns_orig_nogeom + ["no_neighbours"]
                 result_gdf = result_gdf.dissolve(by=dissolve_columns, as_index=False)
                 result_gdf = result_gdf.explode(ignore_index=True)  # type: ignore
 
-                reclassify_counter += 1
-
-            # Make sure there is no background in the output
+            # Finalize + make sure there is no background in the output
+            result_gdf = result_gdf[columns_orig]
             result_gdf = result_gdf.query(f"classname != '{class_background}'").copy()
 
         # If a simplify is asked...

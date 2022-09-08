@@ -468,7 +468,11 @@ def predict_dir(
                         # Get the result from the polygonization
                         try:
                             # Get the result (= exception when something went wrong)
-                            future.result()
+                            result = future.result()
+                            logger.debug(
+                                f"result for {postp_future_to_input_path[future].name}:"
+                                f" {result}"
+                            )
 
                             # Write filepath to file with files that are done
                             with images_done_log_filepath.open(

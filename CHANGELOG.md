@@ -20,7 +20,7 @@
 
 ### Deprecations and compatibility notes
 
-- 
+- Disable default simplify in postprocess (#32)
 
 ## 0.3.0 (2022-02-10)
 
