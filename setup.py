@@ -26,6 +26,7 @@ setuptools.setup(
         "pycron",
         "rasterio",
         "segmentation-models>=1.0,<1.1",
+        "simplification",
         "tensorflow>=2.5,<2.9",
     ],
     entry_points="""
