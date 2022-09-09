@@ -702,6 +702,10 @@ def polygonize_pred_multiclass(
                 result_gdf["area"] = result_gdf.geometry.area
             if "perimeter" in reclassify_to_neighbour_query:
                 result_gdf["perimeter"] = result_gdf.geometry.length
+            if "onborder" in reclassify_to_neighbour_query:
+                result_gdf = vector_util.calc_onborder(
+                    result_gdf, border_bounds  # type: ignore
+                )
 
             # First remove background polygons that don't match the reclassify query
             class_background = classes[0]
@@ -717,9 +721,7 @@ def polygonize_pred_multiclass(
             # Stop after 5 iterations to be sure never to end up in endless loop
             reclassify_max = 5
             result_gdf["no_neighbours"] = 0
-            reclassify_query = (
-                f"no_neighbours == 0 and ({reclassify_query})"
-            )
+            reclassify_query = f"no_neighbours == 0 and ({reclassify_query})"
             for reclassify_counter in range(reclassify_max):
                 # Loop till no features were changed anymore
                 if reclassify_counter > 0:
