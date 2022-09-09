@@ -788,9 +788,9 @@ def polygonize_pred_multiclass(
             else:
                 result_gdf.geometry = gfo_geoseries_util.simplify_ext(
                     geoseries=result_gdf.geometry,
-                    algorithm=postprocess["simplify_algorithm"],
-                    tolerance=postprocess["simplify_tolerance"],
-                    lookahead=postprocess["simplify_lookahead"],
+                    algorithm=simplify["simplify_algorithm"],
+                    tolerance=simplify["simplify_tolerance"],
+                    lookahead=simplify["simplify_lookahead"],
                     keep_points_on=border_lines,
                 )
 
