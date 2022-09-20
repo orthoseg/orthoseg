@@ -15,5 +15,6 @@ dependencies:
   - pytest
   - pytest-cov
   - pip:
-    - segmentation-models
+    - segmentation-models>=1.0,<1.1
     - simplification
+    - tensorflow>=2.5,<2.9
