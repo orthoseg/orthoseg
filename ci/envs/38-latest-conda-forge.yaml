@@ -1,0 +1,21 @@
+name: test
+channels:
+  - conda-forge
+dependencies:
+  - python=3.8
+  - pip
+  # required
+  - geofileops
+  - geopandas
+  - owslib
+  - pillow
+  - pycron
+  - pygeos
+  - pyproj
+  - rasterio
+  - segmentation-models
+  # testing
+  - pytest
+  - pytest-cov
+  - pip:
+    - simplification
