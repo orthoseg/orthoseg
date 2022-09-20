@@ -5,7 +5,7 @@ Tests for functionalities in orthoseg.lib.postprocess_predictions.
 import os
 from pathlib import Path
 import sys
-from typing import List, Optional
+from typing import List, Optional, Union
 
 import pytest
 from shapely import geometry as sh_geom
@@ -21,70 +21,46 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from orthoseg.helpers import config_helper
 from orthoseg.lib import prepare_traindatasets as prep_traindata
 from orthoseg.lib.prepare_traindatasets import ValidationError
-from tests import test_helper
-
-
-# Default test data
-# -----------------
-
-_test_classes = {
-    "background": {
-        "labelnames": ["ignore_for_train", "background"],
-        "weight": 1,
-        "burn_value": 0,
-    },
-    "test": {"labelnames": ["testlabel"], "weight": 1, "burn_value": 1},
-}
-
-_locations_data = {
-    "geometry": [
-        sh_geom.box(150000, 170000, 150128, 170128),
-        sh_geom.box(150000, 180000, 150128, 180128),
-        sh_geom.box(150000, 190000, 150128, 190128),
-    ],
-    "traindata_type": ["train", "train", "validation"],
-}
-
-_polygons_data = {
-    "geometry": [
-        sh_geom.box(150030, 170030, 150060, 170060),
-        sh_geom.box(150030, 180030, 150060, 180060),
-    ],
-    "label_name": ["testlabel", "testlabel"],
-}
+from tests.test_helper import TestData
 
 
 # Helper functions to prepare test data
 # -------------------------------------
 
 
-def _prepare_locations_file(tmp_path, locations_data: Optional[dict]) -> Path:
+def _prepare_locations_file(
+    tmp_path, locations: Optional[Union[dict, gpd.GeoDataFrame]]
+) -> Path:
     locations_path = tmp_path / "locations.gpkg"
-    if locations_data is None:
-        locations_data = _locations_data
+    if locations is None:
+        locations = TestData.locations_gdf
+    if isinstance(locations, dict):
+        locations = gpd.GeoDataFrame(locations, crs="EPSG:31370")  # type: ignore
 
-    locations_gdf = gpd.GeoDataFrame(locations_data, crs="epsg:31370")  # type: ignore
-    gfo.to_file(locations_gdf, locations_path)
+    gfo.to_file(locations, locations_path)
     return locations_path
 
 
-def _prepare_polygons_file(tmp_path, polygons_data: Optional[dict]) -> Path:
+def _prepare_polygons_file(
+    tmp_path, polygons: Optional[Union[dict, gpd.GeoDataFrame]]
+) -> Path:
     polygons_path = tmp_path / "polygons.gpkg"
-    if polygons_data is None:
-        polygons_data = _polygons_data
+    if polygons is None:
+        polygons = TestData.polygons_gdf
+    if isinstance(polygons, dict):
+        polygons = gpd.GeoDataFrame(polygons, crs="EPSG:31370")  # type: ignore
 
-    polygons_gdf = gpd.GeoDataFrame(polygons_data, crs="epsg:31370")  # type: ignore
-    gfo.to_file(polygons_gdf, polygons_path)
+    gfo.to_file(polygons, polygons_path)
     return polygons_path
 
 
 def _prepare_labelinfos(
     tmp_path,
-    locations_data: Optional[dict] = None,
-    polygons_data: Optional[dict] = None,
+    locations: Optional[Union[dict, gpd.GeoDataFrame]] = None,
+    polygons: Optional[Union[dict, gpd.GeoDataFrame]] = None,
 ) -> List[prep_traindata.LabelInfo]:
-    locations_path = _prepare_locations_file(tmp_path, locations_data)
-    polygons_path = _prepare_polygons_file(tmp_path, polygons_data)
+    locations_path = _prepare_locations_file(tmp_path, locations)
+    polygons_path = _prepare_polygons_file(tmp_path, polygons)
 
     label_info = prep_traindata.LabelInfo(
         locations_path=locations_path,
@@ -100,8 +76,8 @@ def _prepare_labelinfos(
 
 def test_default(tmp_path):
     # Prepare test data
-    classes = _test_classes
-    image_layers_config_path = test_helper.get_testprojects_dir() / "imagelayers.ini"
+    classes = TestData.classes
+    image_layers_config_path = TestData.testprojects_dir / "imagelayers.ini"
     image_layers = config_helper.read_layer_config(image_layers_config_path)
     label_infos = _prepare_labelinfos(tmp_path)
 
@@ -125,31 +101,37 @@ def test_default(tmp_path):
 def test_invalid_labelnames(tmp_path):
     # Test with None and incorrect label names
     # Prepare test data
-    classes = _test_classes
-    polygons_data = {
+    classes = TestData.classes
+    polygons = {
         "geometry": [
             sh_geom.box(150030, 170030, 150060, 170060),
             sh_geom.box(150030, 180030, 150060, 180060),
+            sh_geom.box(150030, 180030, 150060, 180060),
         ],
-        "label_name": ["testlabelwrong", None],
+        "label_name": ["testlabelwrong", None, "testlabel"],
     }
-    label_infos = _prepare_labelinfos(tmp_path, polygons_data=polygons_data)
+    label_infos = _prepare_labelinfos(tmp_path, polygons=polygons)
 
     # Test!
     with pytest.raises(
-        ValueError, match=r"Unknown labelnames \(not in config\) were found in"
-    ):
-        _, _ = prep_traindata.read_labeldata(
+        ValidationError,
+        match="Errors found in label data",
+    ) as ex:
+        _ = prep_traindata.read_labeldata(
             label_infos=label_infos,
             classes=classes,
             labelname_column="label_name",
         )
 
+    assert ex.value.errors is not None
+    assert len(ex.value.errors) == 2
+    assert ex.value.errors[0].startswith("Invalid classname in ")
+
 
 def test_invalid_geoms_polygons(tmp_path):
     # Test with None and incorrect label names
     # Prepare test data
-    classes = _test_classes
+    classes = TestData.classes
     invalid_poly = sh_geom.Polygon(
         [
             (150000, 190000),
@@ -160,7 +142,7 @@ def test_invalid_geoms_polygons(tmp_path):
             (150000, 190000),
         ]
     )
-    polygons_data = {
+    polygons = {
         "geometry": [
             sh_geom.box(150030, 170030, 150060, 170060),
             invalid_poly,
@@ -168,16 +150,16 @@ def test_invalid_geoms_polygons(tmp_path):
         ],
         "label_name": ["testlabel", "testlabel", "testlabel"],
     }
-    label_infos = _prepare_labelinfos(tmp_path, polygons_data=polygons_data)
+    label_infos = _prepare_labelinfos(tmp_path, polygons=polygons)
 
     # Test!
-    with pytest.raises(ValidationError, match=r"Errors found in label data") as ex:
+    with pytest.raises(ValidationError, match="Errors found in label data") as ex:
         _, _ = prep_traindata.read_labeldata(
             label_infos=label_infos,
             classes=classes,
             labelname_column="label_name",
         )
-    print(f"ValidationError: {ex}")
+
     assert ex.value.errors is not None
     assert len(ex.value.errors) == 2
     assert ex.value.errors[0].startswith("Invalid geom")
