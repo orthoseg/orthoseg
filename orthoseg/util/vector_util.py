@@ -11,6 +11,7 @@ import geofileops as gfo
 from geofileops import geometry_util
 from geofileops import geoseries_util
 import geopandas as gpd
+import pandas as pd
 import pygeos
 from shapely import geometry as sh_geom
 import topojson
@@ -65,6 +66,11 @@ def calc_onborder(
 
     geoms_gdf.reset_index(drop=True, inplace=True)
     return geoms_gdf
+
+
+def is_valid_reason(geoseries) -> pd.Series:
+    # Remark: should be moved to geofileops (till available in geopandas)!!!
+    return pd.Series(pygeos.is_valid_reason(geoseries.array.data))  # type: ignore
 
 
 def simplify_topo_orthoseg(
