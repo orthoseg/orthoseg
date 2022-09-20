@@ -13,9 +13,9 @@ dependencies:
   - pygeos
   - pyproj
   - rasterio
-  - segmentation-models
   # testing
   - pytest
   - pytest-cov
   - pip:
+    - segmentation-models
     - simplification
