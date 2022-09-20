@@ -130,20 +130,26 @@ def test_invalid_labelnames(tmp_path):
         "geometry": [
             sh_geom.box(150030, 170030, 150060, 170060),
             sh_geom.box(150030, 180030, 150060, 180060),
+            sh_geom.box(150030, 180030, 150060, 180060),
         ],
-        "label_name": ["testlabelwrong", None],
+        "label_name": ["testlabelwrong", None, "testlabel"],
     }
     label_infos = _prepare_labelinfos(tmp_path, polygons_data=polygons_data)
 
     # Test!
     with pytest.raises(
-        ValueError, match=r"Unknown labelnames \(not in config\) were found in"
-    ):
-        _, _ = prep_traindata.read_labeldata(
+        ValidationError,
+        match="Errors found in label data",
+    ) as ex:
+        _ = prep_traindata.read_labeldata(
             label_infos=label_infos,
             classes=classes,
             labelname_column="label_name",
         )
+
+    assert ex.value.errors is not None
+    assert len(ex.value.errors) == 2
+    assert ex.value.errors[0].startswith("Invalid classname in ")
 
 
 def test_invalid_geoms_polygons(tmp_path):
@@ -171,13 +177,13 @@ def test_invalid_geoms_polygons(tmp_path):
     label_infos = _prepare_labelinfos(tmp_path, polygons_data=polygons_data)
 
     # Test!
-    with pytest.raises(ValidationError, match=r"Errors found in label data") as ex:
+    with pytest.raises(ValidationError, match="Errors found in label data") as ex:
         _, _ = prep_traindata.read_labeldata(
             label_infos=label_infos,
             classes=classes,
             labelname_column="label_name",
         )
-    print(f"ValidationError: {ex}")
+
     assert ex.value.errors is not None
     assert len(ex.value.errors) == 2
     assert ex.value.errors[0].startswith("Invalid geom")

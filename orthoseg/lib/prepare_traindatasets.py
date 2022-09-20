@@ -475,15 +475,12 @@ def read_labeldata(
                 "burn_value",
             ] = classes[classname]["burn_value"]
 
-        # If there are burn_values that are not filled out, log + stop!
-        invalid_labelnames_gdf = labels_to_burn_gdf.loc[
-            labels_to_burn_gdf["burn_value"].isnull()
-        ]
-        if len(invalid_labelnames_gdf) > 0:
+        # Check if there are invalid class names
+        invalid_gdf = labels_to_burn_gdf.loc[labels_to_burn_gdf["burn_value"].isnull()]
+        for _, invalid_row in invalid_gdf.iterrows():
             errors_found.append(
-                "Unknown labelnames (not in config) were found in "
-                f"{len(invalid_labelnames_gdf)} rows, so stop: "
-                f"{invalid_labelnames_gdf[labelname_column].unique().tolist()}"
+                f"Invalid classname in {invalid_row['filepath'].name}: "
+                f"{invalid_row[labelname_column]}"
             )
 
         # Filter away rows that are going to burn 0, as this is useless...
@@ -519,11 +516,10 @@ def read_labeldata(
         labels_to_burn_gdf.geometry
     )
     invalid_gdf = labels_to_burn_gdf.query("is_valid_reason != 'Valid Geometry'")
-    if len(invalid_gdf) > 0:
-        for invalid in invalid_gdf.itertuples():
-            errors_found.append(
-                f"Invalid geom in {invalid.filepath.name}: {invalid.is_valid_reason}"
-            )
+    for invalid in invalid_gdf.itertuples():
+        errors_found.append(
+            f"Invalid geom in {invalid.filepath.name}: {invalid.is_valid_reason}"
+        )
 
     if len(errors_found) > 0:
         raise ValidationError(
