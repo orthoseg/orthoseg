@@ -5,15 +5,15 @@ dependencies:
   - python=3.9
   - geofileops
   - geopandas
+  - numpy
   - owslib
   - pillow
   - pycron
   - pygeos
   - pyproj
   - rasterio
-  # Dependencies of tensorflow that need to be conda versions to evade issues
+  # dependencies of tensorflow that need to be conda versions to evade binary compatibility issues
   - h5py
-  - numpy
   # testing
   - pytest
   - pytest-cov
