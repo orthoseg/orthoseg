@@ -11,6 +11,9 @@ dependencies:
   - pygeos
   - pyproj
   - rasterio
+  # Dependencies of tensorflow that need to be conda versions to evade issues
+  - h5py
+  - numpy
   # testing
   - pytest
   - pytest-cov
