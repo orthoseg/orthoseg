@@ -1,7 +1,7 @@
 # Orthophoto segmentation
 
-[![Actions Status](https://github.com/geofileops/geofileops/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/geofileops/geofileops/actions?query=workflow%3ATests) 
-[![PyPI version](https://img.shields.io/pypi/v/geofileops.svg)](https://pypi.org/project/geofileops)
+[![Actions Status](https://github.com/orthoseg/v/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/orthoseg/orthoseg/actions?query=workflow%3ATests) 
+[![PyPI version](https://img.shields.io/pypi/v/orthoseg.svg)](https://pypi.org/project/orthoseg)
 
 This project provides a procedure and (python) scripts to make it (relatively) easy to 
 1. create a training dataset for a topic of your choice
