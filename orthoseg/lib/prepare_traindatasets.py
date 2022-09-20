@@ -395,7 +395,7 @@ def read_labeldata(
         logger.debug(f"Read label locations from {label_file.locations_path}")
         file_labellocations_gdf = gfo.read_file(label_file.locations_path)
         if file_labellocations_gdf is not None and len(file_labellocations_gdf) > 0:
-            file_labellocations_gdf.loc[:, "filepath"] = label_file.locations_path
+            file_labellocations_gdf.loc[:, "filepath"] = str(label_file.locations_path)
             file_labellocations_gdf.loc[:, "image_layer"] = label_file.image_layer
             # Remark: geopandas 0.7.0 drops fid column internally, so can't be retrieved
             file_labellocations_gdf.loc[
@@ -417,7 +417,7 @@ def read_labeldata(
         logger.debug(f"Read label data from {label_file.polygons_path}")
         file_labelpolygons_gdf = gfo.read_file(label_file.polygons_path)
         if file_labelpolygons_gdf is not None and len(file_labelpolygons_gdf) > 0:
-            file_labelpolygons_gdf.loc[:, "filepath"] = label_file.polygons_path
+            file_labelpolygons_gdf.loc[:, "filepath"] = str(label_file.polygons_path)
             file_labelpolygons_gdf.loc[:, "image_layer"] = label_file.image_layer
 
             # Add to the other label locations
@@ -479,7 +479,7 @@ def read_labeldata(
         invalid_gdf = labels_to_burn_gdf.loc[labels_to_burn_gdf["burn_value"].isnull()]
         for _, invalid_row in invalid_gdf.iterrows():
             errors_found.append(
-                f"Invalid classname in {invalid_row['filepath'].name}: "
+                f"Invalid classname in {Path(invalid_row['filepath']).name}: "
                 f"{invalid_row[labelname_column]}"
             )
 
@@ -518,7 +518,7 @@ def read_labeldata(
     invalid_gdf = labels_to_burn_gdf.query("is_valid_reason != 'Valid Geometry'")
     for invalid in invalid_gdf.itertuples():
         errors_found.append(
-            f"Invalid geom in {invalid.filepath.name}: {invalid.is_valid_reason}"
+            f"Invalid geom in {Path(invalid.filepath).name}: {invalid.is_valid_reason}"
         )
 
     if len(errors_found) > 0:
