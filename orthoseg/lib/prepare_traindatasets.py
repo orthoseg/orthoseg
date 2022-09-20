@@ -75,7 +75,7 @@ def prepare_traindatasets(
     classes: dict,
     image_layers: dict,
     training_dir: Path,
-    labelname_column: str,
+    labelname_column: str = "classname",
     image_pixel_x_size: float = 0.25,
     image_pixel_y_size: float = 0.25,
     image_pixel_width: int = 512,
@@ -105,7 +105,8 @@ def prepare_traindatasets(
         image_layers (dict):
         training_dir (Path):
         labelname_column (str): the column where the label names are stored in
-            the polygon files
+            the polygon files. If the column name specified is not found, column
+            "label_name" is used if it exists for backwards compatibility.
         ssl_verify (bool or str, optional): True to use the default
             certificate bundle as installed on your system. False disables
             certificate validation (NOT recommended!). If a path to a
@@ -366,7 +367,7 @@ def prepare_traindatasets(
 def read_labeldata(
     label_infos: List[LabelInfo],
     classes: dict,
-    labelname_column: str,
+    labelname_column: str = "classname",
 ) -> Tuple[gpd.GeoDataFrame, gpd.GeoDataFrame]:
     """
     Read label data from the files specified in label_infos + check validity.
@@ -458,11 +459,22 @@ def read_labeldata(
             f"No crs in labellocations, labellocation_gdf.crs: {labellocations_gdf.crs}"
         )
 
+    if labelpolygons_gdf is None:
+        errors_found.append(
+            "No labelpolygons in the training data!"
+        )
+        raise ValidationError(
+            f"Errors found in label data: {len(errors_found)}", errors_found
+        )
+
     # Create list with only the input polygons that need to be burned in the mask
     labels_to_burn_gdf = None
-    if labelpolygons_gdf is not None and labelname_column in labelpolygons_gdf.columns:
-        # If there is a column labelname_column (default='label_name'), use the
-        # burn values specified in the configuration
+    if labelname_column not in labelpolygons_gdf.columns:
+        # For backwards compatibility, also support old default column name
+        labelname_column = "label_name"
+    if labelname_column in labelpolygons_gdf.columns:
+        # If there is a column labelname_column, use the burn values specified in the
+        # configuration
         labels_to_burn_gdf = labelpolygons_gdf
         labels_to_burn_gdf["burn_value"] = None
         for classname in classes:
