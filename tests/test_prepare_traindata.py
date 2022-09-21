@@ -88,7 +88,6 @@ def test_default(tmp_path):
         classes=classes,
         image_layers=image_layers,
         training_dir=training_dir,
-        labelname_column="label_name",
         image_pixel_x_size=0.25,
         image_pixel_y_size=0.25,
         image_pixel_width=512,
@@ -96,6 +95,29 @@ def test_default(tmp_path):
     )
 
     assert training_dir.exists() is True
+
+
+def test_label_name_column_backw_compat(tmp_path):
+    # Test bacwards compatibility for old label column name
+    # Prepare test data
+    classes = TestData.classes
+    polygons = {
+        "geometry": [
+            sh_geom.box(150030, 170030, 150060, 170060),
+            sh_geom.box(150030, 180030, 150060, 180060),
+        ],
+        "label_name": ["testlabel", "testlabel"],
+    }
+    label_infos = _prepare_labelinfos(tmp_path, polygons=polygons)
+
+    # Test!
+    locations_gdf, polygons_to_burn_gdf = prep_traindata.read_labeldata(
+        label_infos=label_infos,
+        classes=classes,
+        labelname_column="test_columnname"
+    )
+
+    assert len(polygons_to_burn_gdf) == 2
 
 
 def test_invalid_labelnames(tmp_path):
@@ -108,7 +130,7 @@ def test_invalid_labelnames(tmp_path):
             sh_geom.box(150030, 180030, 150060, 180060),
             sh_geom.box(150030, 180030, 150060, 180060),
         ],
-        "label_name": ["testlabelwrong", None, "testlabel"],
+        "classname": ["testlabelwrong", None, "testlabel"],
     }
     label_infos = _prepare_labelinfos(tmp_path, polygons=polygons)
 
@@ -120,7 +142,6 @@ def test_invalid_labelnames(tmp_path):
         _ = prep_traindata.read_labeldata(
             label_infos=label_infos,
             classes=classes,
-            labelname_column="label_name",
         )
 
     assert ex.value.errors is not None
@@ -148,7 +169,7 @@ def test_invalid_geoms_polygons(tmp_path):
             invalid_poly,
             invalid_poly,
         ],
-        "label_name": ["testlabel", "testlabel", "testlabel"],
+        "classname": ["testlabel", "testlabel", "testlabel"],
     }
     label_infos = _prepare_labelinfos(tmp_path, polygons=polygons)
 
@@ -157,7 +178,6 @@ def test_invalid_geoms_polygons(tmp_path):
         _, _ = prep_traindata.read_labeldata(
             label_infos=label_infos,
             classes=classes,
-            labelname_column="label_name",
         )
 
     assert ex.value.errors is not None
