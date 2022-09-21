@@ -135,7 +135,9 @@ def train(
             logger.critical(message)
             raise Exception(message)
 
-        train_log_df = pd.read_csv(csv_log_filepath, sep=";")
+        train_log_df = pd.read_csv(
+            csv_log_filepath, sep=";", usecols=["epoch", "lr"]
+        )
         assert isinstance(train_log_df, pd.DataFrame)
         logger.debug(f"train_log csv contents:\n{train_log_df}")
         start_epoch = train_log_df["epoch"].max()
@@ -196,6 +198,7 @@ def train(
             optimizer=hyperparams.train.optimizer,
             optimizer_params=hyperparams.train.optimizer_params,
             loss=hyperparams.train.loss_function,
+            nb_classes=len(hyperparams.architecture.classes),
             class_weights=hyperparams.train.class_weights,
         )
         logger.info(f"Train using single GPU or CPU, with nb_gpu: {nb_gpu}")
@@ -211,6 +214,7 @@ def train(
                 optimizer=hyperparams.train.optimizer,
                 optimizer_params=hyperparams.train.optimizer_params,
                 loss=hyperparams.train.loss_function,
+                nb_classes=len(hyperparams.architecture.classes),
                 class_weights=hyperparams.train.class_weights,
             )
 
@@ -330,6 +334,7 @@ def train(
                 optimizer=hyperparams.train.optimizer,
                 optimizer_params=hyperparams.train.optimizer_params,
                 loss=hyperparams.train.loss_function,
+                nb_classes=len(hyperparams.architecture.classes),
                 class_weights=hyperparams.train.class_weights,
             )
 
