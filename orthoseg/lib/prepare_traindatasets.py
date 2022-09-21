@@ -10,6 +10,7 @@ import math
 from pathlib import Path
 import pprint
 from typing import List, Optional, Tuple, Union
+import warnings
 import urllib3
 
 import geofileops as gfo
@@ -513,7 +514,7 @@ def prepare_labeldata(
                 f"Location geometry too small in {Path(location.path).name}: "
                 f"{location.geometry.wkt}"
             )
-        elif location_geom_aligned.area > 0.9 * sh_geom.box(*geom_bounds).area:
+        elif location_geom_aligned.area > 1.1 * sh_geom.box(*geom_bounds).area:
             logger.warn(
                 "Location geometry larger than expected in file "
                 f"{Path(location.path).name}: {location.geometry.wkt}"
@@ -548,7 +549,7 @@ def prepare_labeldata(
         # If there is a column labelname_column, use the burn values specified in the
         # configuration
         labels_to_burn_gdf = labelpolygons_gdf
-        labels_to_burn_gdf["burn_value"] = None
+        labels_to_burn_gdf.loc[:, "burn_value"] = None  # type: ignore
         for classname in classes:
             labels_to_burn_gdf.loc[
                 (
@@ -570,7 +571,7 @@ def prepare_labeldata(
         # Filter away rows that are going to burn 0, as this is useless...
         labels_to_burn_gdf = labels_to_burn_gdf.loc[
             labels_to_burn_gdf["burn_value"] != 0
-        ]
+        ].copy()
 
     elif len(classes) == 2:
         # There is no column with label names, but there are only 2 classes
@@ -586,7 +587,7 @@ def prepare_labeldata(
             f"specified: {classes}"
         )
 
-    # Check if we ended up with (valid) label data to burn.
+    # Check if we ended up with label data to burn.
     if labels_to_burn_gdf is None:
         errors_found.append(
             "Not any labelpolygon retained to burn in the training data!"
@@ -595,10 +596,17 @@ def prepare_labeldata(
             f"Errors found in label data: {len(errors_found)}", errors_found
         )
 
+    # Filter away None and empty geometries... they cannot be burned
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", "GeoSeries.notna", UserWarning)
+        labels_to_burn_gdf = labels_to_burn_gdf[
+            ~labels_to_burn_gdf.geometry.is_empty & labels_to_burn_gdf.geometry.notna()
+        ].copy()
+
     # Make sure all label polygons are valid
-    labels_to_burn_gdf["is_valid_reason"] = vector_util.is_valid_reason(
-        labels_to_burn_gdf.geometry
-    )
+    labels_to_burn_gdf.loc[  # type: ignore
+        :, "is_valid_reason"
+    ] = vector_util.is_valid_reason(labels_to_burn_gdf.geometry)
     invalid_gdf = labels_to_burn_gdf.query("is_valid_reason != 'Valid Geometry'")
     for invalid in invalid_gdf.itertuples():
         errors_found.append(

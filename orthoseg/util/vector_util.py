@@ -70,7 +70,9 @@ def calc_onborder(
 
 def is_valid_reason(geoseries) -> pd.Series:
     # Remark: should be moved to geofileops (till available in geopandas)!!!
-    return pd.Series(pygeos.is_valid_reason(geoseries.array.data))  # type: ignore
+    return pd.Series(
+        data=pygeos.is_valid_reason(geoseries.array.data), index=geoseries.index
+    )  # type: ignore
 
 
 def simplify_topo_orthoseg(
@@ -194,7 +196,10 @@ def simplify_topo_orthoseg(
             topo.output["arcs"][line_id] = topolines_simplified[line_id]
 
     topo_simpl_geoseries = topo.to_gdf(crs=geoseries.crs).geometry
-    topo_simpl_geoseries.array.data = pygeos.make_valid(topo_simpl_geoseries.array.data)
+    assert isinstance(topo_simpl_geoseries, gpd.GeoSeries)
+    topo_simpl_geoseries.array.data = pygeos.make_valid(  # type: ignore
+        topo_simpl_geoseries.array.data  # type: ignore
+    )
     geometry_types_orig = geoseries.type.unique()
     geometry_types_simpl = topo_simpl_geoseries.type.unique()
     if len(geometry_types_orig) == 1 and len(geometry_types_simpl) > 1:
