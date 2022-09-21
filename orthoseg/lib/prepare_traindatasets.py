@@ -20,6 +20,7 @@ import owslib
 import owslib.wms
 import owslib.util
 from PIL import Image
+import pygeos
 import rasterio as rio
 import rasterio.features as rio_features
 import rasterio.profiles as rio_profiles
@@ -66,7 +67,13 @@ class ValidationError(ValueError):
     def __repr__(self):
         repr = super().__repr__()
         if self.errors is not None and len(self.errors) > 0:
-            repr += f"\n{pprint.pformat(self.errors, indent=4,  width=100)}"
+            repr += f"\n  -> Errors: {pprint.pformat(self.errors, indent=4, width=100)}"
+        return repr
+
+    def __str__(self):
+        repr = super().__str__()
+        if self.errors is not None and len(self.errors) > 0:
+            repr += f"\n  -> Errors: {pprint.pformat(self.errors, indent=4, width=100)}"
         return repr
 
 
@@ -140,13 +147,6 @@ def prepare_traindatasets(
             f"By convention, the first class must be called background!\n{classes_str}"
         )
 
-    image_crs_width = math.fabs(
-        image_pixel_width * image_pixel_x_size
-    )  # tile width in units of crs => 500 m
-    image_crs_height = math.fabs(
-        image_pixel_height * image_pixel_y_size
-    )  # tile height in units of crs => 500 m
-
     # Check if the latest version of training data is already ok
     # Determine the current data version based on existing output data dir(s),
     # If dir ends on _TMP_* ignore it, as it (probably) ended with an error.
@@ -204,9 +204,19 @@ def prepare_traindatasets(
 
     # The input labels have changed: create new train version
     # -------------------------------------------------------
-    # Read the input files + validate data
-    labellocations_gdf, labels_to_burn_gdf = read_labeldata(
-        label_infos, classes, labelname_column
+    # Read the input label files
+    labellocations_gdf, labelpolygons_gdf = read_labeldata(label_infos=label_infos)
+
+    # validate and prepare data
+    labellocations_gdf, labels_to_burn_gdf = prepare_labeldata(
+        labellocations_gdf=labellocations_gdf,
+        labelpolygons_gdf=labelpolygons_gdf,
+        classes=classes,
+        labelname_column=labelname_column,
+        image_pixel_x_size=image_pixel_x_size,
+        image_pixel_y_size=image_pixel_y_size,
+        image_pixel_width=image_pixel_width,
+        image_pixel_height=image_pixel_height,
     )
     assert labellocations_gdf.crs is not None
 
@@ -256,23 +266,7 @@ def prepare_traindatasets(
             )
             for i, label_tuple in enumerate(labels_to_use_for_bounds_gdf.itertuples()):
 
-                # TODO: update the polygon if it doesn't match the size of the image...
-                # as a start... ideally make sure we use it entirely for cases with
-                # no abundance of data
-                # Make sure the image requested is of the correct size
-                label_geom = label_tuple.geometry
-                if label_geom is None or len(label_geom.bounds) < 4:
-                    logger.warn(
-                        f"No or empty geometry found in file {label_tuple.filepath} "
-                        f"for (zero based) row_nb_orig: {label_tuple.row_nb_orig}"
-                    )
-                    continue
-                geom_bounds = label_geom.bounds
-                xmin = geom_bounds[0] - (geom_bounds[0] % image_pixel_x_size)
-                ymin = geom_bounds[1] - (geom_bounds[1] % image_pixel_y_size)
-                xmax = xmin + image_crs_width
-                ymax = ymin + image_crs_height
-                img_bbox = sh_geom.box(xmin, ymin, xmax, ymax)
+                img_bbox = label_tuple.geometry
                 image_layer = getattr(label_tuple, "image_layer")
 
                 # If the wms to be used hasn't been initialised yet
@@ -366,25 +360,7 @@ def prepare_traindatasets(
 
 def read_labeldata(
     label_infos: List[LabelInfo],
-    classes: dict,
-    labelname_column: str = "classname",
 ) -> Tuple[gpd.GeoDataFrame, gpd.GeoDataFrame]:
-    """
-    Read label data from the files specified in label_infos + check validity.
-
-    Args:
-        label_infos (List[LabelInfo]): _description_
-        classes (dict): _description_
-        labelname_column (str): _description_
-
-    Raises:
-        ValidationError: if the data is somehow not valid. All issues are listed in the
-            errors property.
-
-    Returns:
-        Tuple[gpd.GeoDataFrame, gpd.GeoDataFrame]: returns the labellocations and the
-            label polygons to burn.
-    """
     # Read the label data from all input files
     # ----------------------------------------
     labelpolygons_gdf = None
@@ -396,7 +372,7 @@ def read_labeldata(
         logger.debug(f"Read label locations from {label_file.locations_path}")
         file_labellocations_gdf = gfo.read_file(label_file.locations_path)
         if file_labellocations_gdf is not None and len(file_labellocations_gdf) > 0:
-            file_labellocations_gdf.loc[:, "filepath"] = str(label_file.locations_path)
+            file_labellocations_gdf.loc[:, "path"] = str(label_file.locations_path)
             file_labellocations_gdf.loc[:, "image_layer"] = label_file.image_layer
             # Remark: geopandas 0.7.0 drops fid column internally, so can't be retrieved
             file_labellocations_gdf.loc[
@@ -418,7 +394,7 @@ def read_labeldata(
         logger.debug(f"Read label data from {label_file.polygons_path}")
         file_labelpolygons_gdf = gfo.read_file(label_file.polygons_path)
         if file_labelpolygons_gdf is not None and len(file_labelpolygons_gdf) > 0:
-            file_labelpolygons_gdf.loc[:, "filepath"] = str(label_file.polygons_path)
+            file_labelpolygons_gdf.loc[:, "path"] = str(label_file.polygons_path)
             file_labelpolygons_gdf.loc[:, "image_layer"] = label_file.image_layer
 
             # Add to the other label locations
@@ -434,24 +410,120 @@ def read_labeldata(
         else:
             logger.warn(f"No label data found in {label_file.polygons_path}")
 
-    # Validate + process the input data
-    # ---------------------------------
+    assert labellocations_gdf is not None
+    assert labelpolygons_gdf is not None
+    return (labellocations_gdf, labelpolygons_gdf)
+
+
+def prepare_labeldata(
+    labellocations_gdf: gpd.GeoDataFrame,
+    labelpolygons_gdf: gpd.GeoDataFrame,
+    classes: dict,
+    labelname_column: str,
+    image_pixel_x_size: float,
+    image_pixel_y_size: float,
+    image_pixel_width: int,
+    image_pixel_height: int,
+) -> Tuple[gpd.GeoDataFrame, gpd.GeoDataFrame]:
+    """
+    Read label data from the files specified in label_infos, validate it and prepare
+    it to use it to fetch train images and burn masks.
+
+    Args:
+        label_infos (List[LabelInfo]): the label files to read
+        classes (dict): dict with classes and their corresponding
+            label class names + weights.
+        labelname_column (str): the column name in the label polygon files where the
+            label classname can be found. Defaults to "classname".
+
+    Raises:
+        ValidationError: if the data is somehow not valid. All issues are listed in the
+            errors property.
+
+    Returns:
+        Tuple[gpd.GeoDataFrame, gpd.GeoDataFrame]: returns the labellocations and the
+            label polygons to burn.
+    """
+
+    # Validate + process the location data
+    # ------------------------------------
     errors_found = []
     # If no labellocations found, no use to go on...
     if labellocations_gdf is None:
         errors_found.append("No labellocations found in the training data")
         raise ValidationError("No labellocations found", errors_found)
 
-    # Check if all location geometries are valid
-    labellocations_gdf["is_valid_reason"] = vector_util.is_valid_reason(
-        labellocations_gdf.geometry
-    )
-    invalid_gdf = labellocations_gdf.query("is_valid_reason != 'Valid Geometry'")
-    if len(invalid_gdf) > 0:
-        for invalid in invalid_gdf.itertuples():
-            errors_found.append(
-                f"Invalid geom in {invalid.filepath.name}: {invalid.is_valid_reason}"
+    if "traindata_type" not in labellocations_gdf.columns:
+        raise ValidationError(
+            "Mandatory column traindata_type not in labellocations_gdf", errors_found
+        )
+
+    # Check + correct the geom of the location to make sure it matches the size of the
+    # training images/masks to be generated...
+    image_crs_width = math.fabs(
+        image_pixel_width * image_pixel_x_size
+    )  # tile width in units of crs => 500 m
+    image_crs_height = math.fabs(
+        image_pixel_height * image_pixel_y_size
+    )  # tile height in units of crs => 500 m
+    locations_none = []
+    for location in labellocations_gdf.itertuples():
+        if location.geometry is None or len(location.geometry.bounds) < 4:
+            logger.warn(
+                f"No or empty geometry found in file {Path(location.path).name} "
+                f"for index {location.Index}, it will be ignored"
             )
+            locations_none.append(location.Index)
+            continue
+
+        # Check if the traindata_type is valid
+        if location.traindata_type not in ["train", "validation", "test", "todo"]:
+            errors_found.append(
+                f"Invalid traindata_type in {Path(location.path).name}: "
+                f"{location.geometry.wkt}"
+            )
+
+        # Check if the geometry is valid
+        is_valid_reason = pygeos.is_valid_reason(
+            labellocations_gdf.geometry.array.data[location.Index]
+        )
+        if is_valid_reason != "Valid Geometry":
+            errors_found.append(
+                f"Invalid geometry in {Path(location.path).name}: " f"{is_valid_reason}"
+            )
+            continue
+
+        geom_bounds = location.geometry.bounds
+        xmin = geom_bounds[0] - (geom_bounds[0] % image_pixel_x_size)
+        ymin = geom_bounds[1] - (geom_bounds[1] % image_pixel_y_size)
+        xmax = xmin + image_crs_width
+        ymax = ymin + image_crs_height
+        location_geom_aligned = sh_geom.box(xmin, ymin, xmax, ymax)
+
+        # Check if the realigned geom overlaps good enough with the original
+        intersection = location_geom_aligned.intersection(
+            labellocations_gdf.at[location.Index, "geometry"]
+        )
+        area_1row_1col = (
+            image_pixel_x_size * image_crs_width + image_pixel_y_size * image_crs_height
+        )
+        if intersection.area < (location_geom_aligned.area - area_1row_1col):
+            # Original geom was digitized too small
+            errors_found.append(
+                f"Location geometry too small in {Path(location.path).name}: "
+                f"{location.geometry.wkt}"
+            )
+        elif location_geom_aligned.area > 0.9 * sh_geom.box(*geom_bounds).area:
+            logger.warn(
+                "Location geometry larger than expected in file "
+                f"{Path(location.path).name}: {location.geometry.wkt}"
+            )
+        labellocations_gdf.at[location.Index, "geometry"] = location_geom_aligned
+
+    # Remove locations with None or point/line geoms
+    labellocations_gdf = labellocations_gdf[
+        ~labellocations_gdf.index.isin(locations_none)
+    ]  # type: ignore
 
     # Check if labellocations has a proper crs
     if labellocations_gdf.crs is None:
@@ -459,10 +531,10 @@ def read_labeldata(
             f"No crs in labellocations, labellocation_gdf.crs: {labellocations_gdf.crs}"
         )
 
+    # Validate + process the polygons data
+    # ------------------------------------
     if labelpolygons_gdf is None:
-        errors_found.append(
-            "No labelpolygons in the training data!"
-        )
+        errors_found.append("No labelpolygons in the training data!")
         raise ValidationError(
             f"Errors found in label data: {len(errors_found)}", errors_found
         )
@@ -491,7 +563,7 @@ def read_labeldata(
         invalid_gdf = labels_to_burn_gdf.loc[labels_to_burn_gdf["burn_value"].isnull()]
         for _, invalid_row in invalid_gdf.iterrows():
             errors_found.append(
-                f"Invalid classname in {Path(invalid_row['filepath']).name}: "
+                f"Invalid classname in {Path(invalid_row['path']).name}: "
                 f"{invalid_row[labelname_column]}"
             )
 
@@ -530,7 +602,7 @@ def read_labeldata(
     invalid_gdf = labels_to_burn_gdf.query("is_valid_reason != 'Valid Geometry'")
     for invalid in invalid_gdf.itertuples():
         errors_found.append(
-            f"Invalid geom in {Path(invalid.filepath).name}: {invalid.is_valid_reason}"
+            f"Invalid geometry in {Path(invalid.path).name}: {invalid.is_valid_reason}"
         )
 
     if len(errors_found) > 0:

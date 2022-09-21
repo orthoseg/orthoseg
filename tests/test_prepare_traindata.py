@@ -74,7 +74,7 @@ def _prepare_labelinfos(
 # ------------
 
 
-def test_default(tmp_path):
+def test_preparefull_default(tmp_path):
     # Prepare test data
     classes = TestData.classes
     image_layers_config_path = TestData.testprojects_dir / "imagelayers.ini"
@@ -88,98 +88,116 @@ def test_default(tmp_path):
         classes=classes,
         image_layers=image_layers,
         training_dir=training_dir,
-        image_pixel_x_size=0.25,
-        image_pixel_y_size=0.25,
-        image_pixel_width=512,
-        image_pixel_height=512,
+        image_pixel_x_size=TestData.image_pixel_x_size,
+        image_pixel_y_size=TestData.image_pixel_y_size,
+        image_pixel_width=TestData.image_pixel_width,
+        image_pixel_height=TestData.image_pixel_height,
     )
 
     assert training_dir.exists() is True
 
 
-def test_label_name_column_backw_compat(tmp_path):
+def test_prepare_labeldata_columnname_backw_compat(tmp_path):
     # Test bacwards compatibility for old label column name
     # Prepare test data
-    classes = TestData.classes
-    polygons = {
-        "geometry": [
-            sh_geom.box(150030, 170030, 150060, 170060),
-            sh_geom.box(150030, 180030, 150060, 180060),
-        ],
-        "label_name": ["testlabel", "testlabel"],
-    }
-    label_infos = _prepare_labelinfos(tmp_path, polygons=polygons)
+    polygons_gdf = gpd.GeoDataFrame(
+        data={
+            "geometry": [TestData.polygon, TestData.polygon],
+            "label_name": ["testlabel1", "testlabel2"],
+            "path": "/tmp/polygons.gdf",
+        },
+        crs="EPSG:31370",  # type: ignore
+    )
 
     # Test!
-    locations_gdf, polygons_to_burn_gdf = prep_traindata.read_labeldata(
-        label_infos=label_infos,
-        classes=classes,
-        labelname_column="test_columnname"
+    locations_gdf, polygons_to_burn_gdf = prep_traindata.prepare_labeldata(
+        labellocations_gdf=TestData.locations_gdf,
+        labelpolygons_gdf=polygons_gdf,
+        classes=TestData.classes,
+        labelname_column="test_columnname",
+        image_pixel_x_size=TestData.image_pixel_x_size,
+        image_pixel_y_size=TestData.image_pixel_y_size,
+        image_pixel_width=TestData.image_pixel_width,
+        image_pixel_height=TestData.image_pixel_height,
     )
 
     assert len(polygons_to_burn_gdf) == 2
 
 
-def test_invalid_labelnames(tmp_path):
-    # Test with None and incorrect label names
-    # Prepare test data
-    classes = TestData.classes
-    polygons = {
-        "geometry": [
-            sh_geom.box(150030, 170030, 150060, 170060),
-            sh_geom.box(150030, 180030, 150060, 180060),
-            sh_geom.box(150030, 180030, 150060, 180060),
-        ],
-        "classname": ["testlabelwrong", None, "testlabel"],
-    }
-    label_infos = _prepare_labelinfos(tmp_path, polygons=polygons)
-
-    # Test!
-    with pytest.raises(
-        ValidationError,
-        match="Errors found in label data",
-    ) as ex:
-        _ = prep_traindata.read_labeldata(
-            label_infos=label_infos,
-            classes=classes,
-        )
-
-    assert ex.value.errors is not None
-    assert len(ex.value.errors) == 2
-    assert ex.value.errors[0].startswith("Invalid classname in ")
-
-
-def test_invalid_geoms_polygons(tmp_path):
-    # Test with None and incorrect label names
-    # Prepare test data
-    classes = TestData.classes
-    invalid_poly = sh_geom.Polygon(
-        [
-            (150000, 190000),
-            (150128, 190000),
-            (150128, 190128),
-            (150000, 190128),
-            (150002, 190130),
-            (150000, 190000),
-        ]
+@pytest.mark.parametrize(
+    "expected_error, geometry, traindata_type",
+    [
+        ["Invalid geometry ", TestData.location_invalid, "train"],
+        ["Invalid traindata_type ", TestData.location, "invalid_traindata_type"],
+        ["Location geometry too small ", TestData.location.buffer(-5), "train"],
+    ],
+)
+def test_prepare_labeldata_invalid_location_data(
+    expected_error, geometry, traindata_type
+):
+    # Prepare test data, by wrapping the parametrized invalid test data by proper data
+    # to make sure the checks work on multiple rows,...
+    locations_gdf = gpd.GeoDataFrame(
+        data={
+            "geometry": [TestData.polygon, geometry, geometry, TestData.polygon],
+            "traindata_type": ["train", traindata_type, traindata_type, "validation"],
+            "path": "/tmp/locations.gdf",
+        },
+        crs="EPSG:31370",  # type: ignore
     )
-    polygons = {
-        "geometry": [
-            sh_geom.box(150030, 170030, 150060, 170060),
-            invalid_poly,
-            invalid_poly,
-        ],
-        "classname": ["testlabel", "testlabel", "testlabel"],
-    }
-    label_infos = _prepare_labelinfos(tmp_path, polygons=polygons)
 
     # Test!
     with pytest.raises(ValidationError, match="Errors found in label data") as ex:
-        _, _ = prep_traindata.read_labeldata(
-            label_infos=label_infos,
-            classes=classes,
+        _, _ = prep_traindata.prepare_labeldata(
+            labellocations_gdf=locations_gdf,
+            labelpolygons_gdf=TestData.polygons_gdf,
+            classes=TestData.classes,
+            labelname_column="classname",
+            image_pixel_x_size=TestData.image_pixel_x_size,
+            image_pixel_y_size=TestData.image_pixel_y_size,
+            image_pixel_width=TestData.image_pixel_width,
+            image_pixel_height=TestData.image_pixel_height,
         )
 
     assert ex.value.errors is not None
     assert len(ex.value.errors) == 2
-    assert ex.value.errors[0].startswith("Invalid geom")
+    assert ex.value.errors[0].startswith(expected_error)
+    assert ex.value.errors[1].startswith(expected_error)
+
+
+@pytest.mark.parametrize(
+    "expected_error, geometry, classname",
+    [
+        ["Invalid geometry ", TestData.polygon_invalid, "testlabel1"],
+        ["Invalid classname ", TestData.polygon, "unknown"],
+    ],
+)
+def test_prepare_labeldata_invalid_polygon_data(expected_error, geometry, classname):
+    # Prepare test data, by wrapping the parametrized invalid test data by proper data
+    # to make sure the checks work on multiple rows,...
+    polygons_gdf = gpd.GeoDataFrame(
+        data={
+            "geometry": [TestData.polygon, geometry, geometry, TestData.polygon],
+            "classname": ["testlabel1", classname, classname, "testlabel2"],
+            "path": "/tmp/polygons.gdf",
+        },
+        crs="EPSG:31370",  # type: ignore
+    )
+
+    # Test!
+    with pytest.raises(ValidationError, match="Errors found in label data") as ex:
+        _, _ = prep_traindata.prepare_labeldata(
+            labellocations_gdf=TestData.locations_gdf,
+            labelpolygons_gdf=polygons_gdf,
+            classes=TestData.classes,
+            labelname_column="classname",
+            image_pixel_x_size=TestData.image_pixel_x_size,
+            image_pixel_y_size=TestData.image_pixel_y_size,
+            image_pixel_width=TestData.image_pixel_width,
+            image_pixel_height=TestData.image_pixel_height,
+        )
+
+    assert ex.value.errors is not None
+    assert len(ex.value.errors) == 2
+    assert ex.value.errors[0].startswith(expected_error)
+    assert ex.value.errors[1].startswith(expected_error)
