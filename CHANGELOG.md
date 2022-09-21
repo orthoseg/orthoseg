@@ -13,6 +13,7 @@
 - Add epsg 31468 as crs with switched xy axes (#18)
 - Improve handling of empty features in training data (#16, #19)
 - Add nb_parallel parameter to predict (#15)
+- In the polygons label file, change default class column name to "classname" (#39)
 - Apply black formatting to comply with pep8 (#27)
 - Enable running CI tests using github actions (#42)
 
