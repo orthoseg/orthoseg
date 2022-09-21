@@ -26,26 +26,52 @@ class TestData:
             "weight": 1,
             "burn_value": 0,
         },
-        "test": {"labelnames": ["testlabel"], "weight": 1, "burn_value": 1},
+        "test_classname1": {"labelnames": ["testlabel1"], "weight": 1, "burn_value": 1},
+        "test_classname2": {"labelnames": ["testlabel2"], "weight": 1, "burn_value": 1},
     }
+    image_pixel_x_size = 0.25
+    image_pixel_y_size = 0.25
+    image_pixel_width = 512
+    image_pixel_height = 512
+    image_crs_width = image_pixel_width * image_pixel_x_size
+    image_crs_height = image_pixel_height * image_pixel_y_size
+    crs_xmin = 150000
+    crs_ymin = 150000
+    crs = "EPSG:31370"
+    location = sh_geom.box(
+        crs_xmin,
+        crs_ymin,
+        crs_xmin + (image_pixel_width * image_pixel_x_size),
+        crs_ymin + (image_pixel_height * image_pixel_y_size),
+    )
+    location_invalid = sh_geom.Polygon(
+        [
+            (crs_xmin, crs_ymin),
+            (crs_xmin + image_crs_width, crs_ymin),
+            (crs_xmin + image_crs_width, crs_ymin + image_crs_height),
+            (crs_xmin, crs_ymin + image_crs_height),
+            (
+                crs_xmin + image_pixel_x_size,
+                crs_ymin + image_crs_height + image_pixel_y_size,
+            ),
+            (crs_xmin, crs_ymin),
+        ]
+    )
+    polygon = location
+    polygon_invalid = location_invalid
     locations_gdf = gpd.GeoDataFrame(
         {
-            "geometry": [
-                sh_geom.box(150000, 170000, 150128, 170128),
-                sh_geom.box(150000, 180000, 150128, 180128),
-                sh_geom.box(150000, 190000, 150128, 190128),
-            ],
-            "traindata_type": ["train", "train", "validation"],
+            "geometry": [location, location, location, location],
+            "traindata_type": ["train", "validation", "test", "todo"],
+            "path": "/tmp/locations.gdf",
         },
         crs="epsg:31370",
     )  # type: ignore
     polygons_gdf = gpd.GeoDataFrame(
         {
-            "geometry": [
-                sh_geom.box(150030, 170030, 150060, 170060),
-                sh_geom.box(150030, 180030, 150060, 180060),
-            ],
-            "label_name": ["testlabel", "testlabel"],
+            "geometry": [polygon, polygon],
+            "classname": ["testlabel1", "testlabel2"],
+            "path": "/tmp/polygons.gdf",
         },
         crs="epsg:31370",
     )  # type: ignore

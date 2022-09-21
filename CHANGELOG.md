@@ -9,6 +9,7 @@
 - Add option to reclassify (e.g. small) features to the class of its neighbour (#30, #36)
 - Add pre-simplify with RDP when using (inline) LANG simplification (#29)
 - Add list of invalid geometries + coordinates in train mail (#40)
+- Add check if location BBOXs are of the right size (#38)
 - Add option to ignore wms url in capabilities (#20)
 - Add epsg 31468 as crs with switched xy axes (#18)
 - Improve handling of empty features in training data (#16, #19)
