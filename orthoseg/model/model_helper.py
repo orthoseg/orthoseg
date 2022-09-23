@@ -252,9 +252,7 @@ def format_model_filename(
     traindata_id: int,
     architecture_id: int,
     trainparams_id: int,
-    acc_train: float,
-    acc_val: float,
-    acc_combined: float,
+    monitor_metric_accuracy: float,
     epoch: int,
     save_format: str,
 ) -> str:
@@ -266,9 +264,7 @@ def format_model_filename(
         traindata_id: the version of the data used to train the model
         architecture_id: the id of the model architecture used
         trainparams_id: the version of the hyper parameters used to train
-        acc_train: the accuracy reached for the training dataset
-        acc_val: the accuracy reached for the validation dataset
-        acc_combined: the average of the train and validation accuracy
+        monitor_metric_accuracy: the monitor metric accuracy
         epoch: the epoch during training that reached these model weights
         save_format (str): the format to save in:
             * keras format: 'h5'
@@ -281,7 +277,7 @@ def format_model_filename(
         architecture_id=architecture_id,
         trainparams_id=trainparams_id,
     )
-    filename += f"_{acc_combined:.5f}_{epoch}"
+    filename += f"_{monitor_metric_accuracy:.5f}_{epoch}"
 
     # Add suffix
     if save_format == "tf":
@@ -297,7 +293,7 @@ def parse_model_filename(filepath: Path) -> Optional[dict]:
     Parse a model_filename to a dict containing the properties of the model:
         * segment_subject: the segment subject
         * traindata_id: the version of the data used to train the model
-        * acc_combined: the average of the train and validation accuracy
+        * monitor_metric_accuracy: the monitored metric accuracy
         * trainparams_id: the version of the hyper parameters used to train
         * epoch: the epoch during training that reached these model weights
         * save_format (str): the format to save in:
@@ -323,9 +319,7 @@ def parse_model_filename(filepath: Path) -> Optional[dict]:
         if filepath.suffix in (".h5", ".hdf5"):
             save_format = "h5"
         else:
-            logger.warning(
-                f"Model file should have .h5 of .hdf5 as suffix: {filepath}"
-            )
+            logger.warning(f"Model file should have .h5 of .hdf5 as suffix: {filepath}")
             return None
 
     # Now extract the fields...
@@ -347,7 +341,7 @@ def parse_model_filename(filepath: Path) -> Optional[dict]:
         if len(model_info_values) > 2:
             trainparams_id = int(model_info_values[2])
 
-    acc_combined = float(param_values[2])
+    monitor_metric_accuracy = float(param_values[2])
     epoch = int(param_values[3])
 
     basefilename = format_model_basefilename(
@@ -365,7 +359,7 @@ def parse_model_filename(filepath: Path) -> Optional[dict]:
         "traindata_id": traindata_id,
         "architecture_id": architecture_id,
         "trainparams_id": trainparams_id,
-        "acc_combined": acc_combined,
+        "monitor_metric_accuracy": monitor_metric_accuracy,
         "epoch": epoch,
         "save_format": save_format,
     }
@@ -487,14 +481,14 @@ def get_best_model(
     if len(newest_model_info_list) == 1:
         return newest_model_info_list[0]
     else:
-        max_acc_combined = -1
-        max_acc_combined_idx = -1
+        max_monitor_metric_accuracy = -1
+        max_monitor_metric_accuracy_idx = -1
         for model_info_idx, model_info in enumerate(model_info_list):
-            if model_info["acc_combined"] > max_acc_combined:
-                max_acc_combined = model_info["acc_combined"]
-                max_acc_combined_idx = model_info_idx
+            if model_info["monitor_metric_accuracy"] > max_monitor_metric_accuracy:
+                max_monitor_metric_accuracy = model_info["monitor_metric_accuracy"]
+                max_monitor_metric_accuracy_idx = model_info_idx
 
-        return model_info_list[max_acc_combined_idx]
+        return model_info_list[max_monitor_metric_accuracy_idx]
 
 
 class ModelCheckpointExt(callbacks.Callback):
@@ -580,17 +574,11 @@ class ModelCheckpointExt(callbacks.Callback):
         # First determine the values of the monitor metric for train and validation
         # If the monitor_metric doesn't contain placeholder, it is easy
         if "{" not in self.monitor_metric:
-            new_model_monitor_train = logs.get(self.monitor_metric)
-            new_model_monitor_val = logs.get("val_" + self.monitor_metric)
+            new_model_monitor_value = logs.get(self.monitor_metric)
         else:
             # There are placeholders, so we need some more logic
-            monitor_metric_train_formatted = self.monitor_metric.format(**logs)
-            new_model_monitor_train = eval(monitor_metric_train_formatted, {}, {})
-
-            monitor_metric_val_formatted = self.monitor_metric.replace(
-                "{", "{val_"
-            ).format(**logs)
-            new_model_monitor_val = eval(monitor_metric_val_formatted, {}, {})
+            monitor_metric_formatted = self.monitor_metric.format(**logs)
+            new_model_monitor_value = eval(monitor_metric_formatted, {}, {})
 
         # Now we can save and clean models
         save_and_clean_models(
@@ -601,8 +589,7 @@ class ModelCheckpointExt(callbacks.Callback):
             trainparams_id=self.trainparams_id,
             monitor_metric_mode=self.monitor_metric_mode,
             new_model=self.model,
-            new_model_monitor_train=new_model_monitor_train,
-            new_model_monitor_val=new_model_monitor_val,
+            new_model_monitor_value=new_model_monitor_value,
             new_model_epoch=epoch,
             save_format=self.save_format,
             save_best_only=self.save_best_only,
@@ -623,8 +610,7 @@ def save_and_clean_models(
     trainparams_id: int,
     monitor_metric_mode: str,
     new_model=None,
-    new_model_monitor_train: Optional[float] = None,
-    new_model_monitor_val: Optional[float] = None,
+    new_model_monitor_value: Optional[float] = None,
     new_model_epoch: Optional[int] = None,
     save_format: str = "h5",
     save_best_only: bool = False,
@@ -650,10 +636,7 @@ def save_and_clean_models(
             metrics should be as low as possible, 'max' if a higher values
             is better.
         new_model (optional): the keras model object that will be saved
-        new_model_monitor_train (float, optional): the monitored metric on the
-            train dataset
-        new_model_monitor_val (float, optional): the monitored metric on the
-            validation dataset
+        new_model_monitor_value (float, optional): the monitored metric value
         new_model_epoch (int, optional): the epoch in the training
         save_format (SaveFormat, optional): The format to save in:
             * h5: keras format (= default)
@@ -697,46 +680,30 @@ def save_and_clean_models(
 
     # If there is a new model passed as param, add it to the list
     new_model_path = None
-    new_model_acc_combined = None
+    new_model_monitor_accuracy = None
     if new_model is not None:
 
-        if (
-            new_model_monitor_train is None
-            or new_model_monitor_val is None
-            or new_model_epoch is None
-        ):
+        if new_model_monitor_value is None or new_model_epoch is None:
             raise Exception(
                 "If new_model is not None, new_model_monitor_... parameters cannot be "
-                f"None either???, new_model_monitor_train: {new_model_monitor_train}, "
-                f"new_model_monitor_val: {new_model_monitor_val}, new_model_epoch: "
-                f"{new_model_epoch}"
+                f"None either???, new_model_monitor_value: {new_model_monitor_value}, "
+                f"new_model_epoch: {new_model_epoch}"
             )
-
-        # Calculate combined accuracy
-        new_model_monitor_combined = (
-            new_model_monitor_train + new_model_monitor_val
-        ) / 2
 
         # Build save filepath
         # Remark: accuracy values should always be as high as possible, so
         # recalculate values if monitor_metric_mode is 'min'
         if monitor_metric_mode == "max":
-            new_model_acc_combined = new_model_monitor_combined
-            new_model_acc_train = new_model_monitor_train
-            new_model_acc_val = new_model_monitor_val
+            new_model_monitor_accuracy = new_model_monitor_value
         else:
-            new_model_acc_combined = 1 - new_model_monitor_combined
-            new_model_acc_train = 1 - new_model_monitor_train
-            new_model_acc_val = 1 - new_model_monitor_val
+            new_model_monitor_accuracy = 1 - new_model_monitor_value
 
         new_model_filename = format_model_filename(
             segment_subject=segment_subject,
             traindata_id=traindata_id,
             architecture_id=architecture_id,
             trainparams_id=trainparams_id,
-            acc_combined=new_model_acc_combined,
-            acc_train=new_model_acc_train,
-            acc_val=new_model_acc_val,
+            monitor_metric_accuracy=new_model_monitor_accuracy,
             epoch=new_model_epoch,
             save_format=save_format,
         )
@@ -751,9 +718,7 @@ def save_and_clean_models(
                 "traindata_id": traindata_id,
                 "architecture_id": architecture_id,
                 "trainparams_id": trainparams_id,
-                "acc_combined": new_model_acc_combined,
-                "acc_train": new_model_acc_train,
-                "acc_val": new_model_acc_val,
+                "monitor_metric_accuracy": new_model_monitor_accuracy,
                 "epoch": new_model_epoch,
                 "save_format": save_format,
             }
@@ -763,16 +728,21 @@ def save_and_clean_models(
     # Remark: the list is sorted descending before iterating it, this way new
     # modelss are saved bevore deleting the previous best one(s)
     model_info_df = pd.DataFrame(model_info_list)
-    model_info_sorted_df = model_info_df.sort_values(by="acc_combined", ascending=False)
+    model_info_sorted_df = model_info_df.sort_values(
+        by="monitor_metric_accuracy", ascending=False
+    )
     for model_info in model_info_sorted_df.itertuples(index=False):
 
-        # If only the best needs to be kept, check only on acc_combined...
+        # If only the best needs to be kept, check only on monitor_metric_accuracy...
         keep_model = True
         better_ones_df = None
         if save_best_only:
             better_ones_df = model_info_df[
                 (model_info_df.filepath != model_info.filepath)
-                & (model_info_df.acc_combined >= model_info.acc_combined)
+                & (
+                    model_info_df.monitor_metric_accuracy
+                    >= model_info.monitor_metric_accuracy
+                )
             ]
             if len(better_ones_df) > 0:
                 keep_model = False
@@ -792,7 +762,7 @@ def save_and_clean_models(
             ):
                 if (
                     new_model_epoch > save_min_accuracy_ignored_epoch
-                    or model_info.acc_combined > save_min_accuracy
+                    or model_info.monitor_metric_accuracy > save_min_accuracy
                 ):
                     logger.debug("Save model start")
                     if save_weights_only:
@@ -808,8 +778,8 @@ def save_and_clean_models(
                     logger.debug("Save model ready")
                 else:
                     print(
-                        "New model is best, but acc_combined < save_min_accuracy: "
-                        f"{new_model_acc_combined} < {save_min_accuracy}"
+                        "New model is best, but accuracy < save_min_accuracy: "
+                        f"{new_model_monitor_accuracy} < {save_min_accuracy}"
                     )
         else:
             # Bad model... can be removed (or not saved)
@@ -838,10 +808,6 @@ def save_and_clean_models(
         if best_model is not None:
             logger.info(
                 f"Current best model for {segment_subject}_{traindata_id}: "
-                f"acc_combined: {best_model['acc_combined']}, "
+                f"monitor_metric_accuracy: {best_model['monitor_metric_accuracy']}, "
                 f"epoch: {best_model['epoch']}"
             )
-
-
-if __name__ == "__main__":
-    raise Exception("Not implemented")

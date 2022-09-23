@@ -174,6 +174,7 @@ def compile_model(
     optimizer: str,
     optimizer_params: dict,
     loss: str,
+    nb_classes: int,
     metrics: Optional[List[str]] = None,
     sample_weight_mode: Optional[str] = None,
     class_weights: Optional[list] = None,
@@ -189,6 +190,7 @@ def compile_model(
             * categorical_crossentropy
             * weighted_categorical_crossentropy: class_weights should be specified!
 
+        nb_classes (int): number of classes.
         metrics (List[Metric], optional): metrics to use. Defaults to None.
             Possible values:
             *
@@ -207,14 +209,10 @@ def compile_model(
         elif loss == "binary_crossentropy":
             metric_funcs.append("binary_accuracy")
 
-        iou_score = sm.metrics.IOUScore()
-        metric_funcs.append(iou_score)
-        f1_score = sm.metrics.FScore()
-        metric_funcs.append(f1_score)
-        # metric_funcs.append(jaccard_coef_round)
-        # metric_funcs=[jaccard_coef, jaccard_coef_flat,
-        #          jaccard_coef_int, dice_coef, 'accuracy', 'binary_accuracy']
-
+        onehot_mean_iou = tf.keras.metrics.OneHotMeanIoU(
+            num_classes=nb_classes, name="one_hot_mean_iou"
+        )
+        metric_funcs.append(onehot_mean_iou)
     else:
         raise Exception("Specifying metrics not yet implemented")
 
@@ -278,11 +276,25 @@ def load_model(model_to_use_filepath: Path, compile: bool = True) -> keras.model
     """
     errors = []
     model = None
+    model_basestem = f"{'_'.join(model_to_use_filepath.stem.split('_')[0:2])}"
 
     # If it is a file with the complete model, try loading it entirely...
     if not model_to_use_filepath.stem.endswith("_weights"):
+        # Load the hyperparams file
+        hyperparams_json_filepath = (
+            model_to_use_filepath.parent / f"{model_basestem}_hyperparams.json"
+        )
+        nb_classes = 1
+        if hyperparams_json_filepath.exists():
+            with hyperparams_json_filepath.open("r") as src:
+                hyperparams = json.load(src)
+                nb_classes = len(hyperparams["architecture"]["classes"])
+
         iou_score = sm.metrics.IOUScore()
         f1_score = sm.metrics.FScore()
+        onehot_mean_iou = tf.keras.metrics.OneHotMeanIoU(
+            num_classes=nb_classes, name="one_hot_mean_iou"
+        )
 
         try:
             model = tf.keras.models.load_model(
@@ -294,6 +306,7 @@ def load_model(model_to_use_filepath: Path, compile: bool = True) -> keras.model
                     "dice_coef": dice_coef,
                     "iou_score": iou_score,
                     "f1_score": f1_score,
+                    "one_hot_mean_iou": onehot_mean_iou,
                     "weighted_categorical_crossentropy": weighted_categorical_crossentropy,  # noqa: E501
                 },
                 compile=compile,
@@ -306,8 +319,6 @@ def load_model(model_to_use_filepath: Path, compile: bool = True) -> keras.model
     # If no model returned yet, try loading loading architecture and weights seperately
     if model is None:
         # Load the architecture from a model.json file
-        model_basestem = f"{'_'.join(model_to_use_filepath.stem.split('_')[0:2])}"
-
         # Check if there is a specific model.json file for these weights
         model_json_filepath = model_to_use_filepath.parent / (
             model_to_use_filepath.stem.replace("_weights", "") + ".json"
