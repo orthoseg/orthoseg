@@ -227,10 +227,17 @@ def prepare_traindatasets(
         training_dir, f"{dataversion_new:02d}", remove_existing=True
     )
 
-    # Copy the label input files to dest dir so we know which files were used.
+    # Copy the label input files to dest dir + to a backup dir.
     for label_file in label_infos:
         gfo.copy(label_file.locations_path, output_tmp_dir)
         gfo.copy(label_file.polygons_path, output_tmp_dir)
+        backup_dir = label_file.locations_path.parent / f"backup_v{dataversion_new:02d}"
+        shutil.rmtree(backup_dir)
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        gfo.copy(label_file.locations_path, backup_dir)
+        gfo.copy(label_file.polygons_path, backup_dir)
+
+    # Also put a copy in a backup dir in the labels dir
 
     # Now create the images/masks for the new train version
     # Prepare the image data for the different traindata types.
