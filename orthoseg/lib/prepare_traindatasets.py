@@ -232,7 +232,7 @@ def prepare_traindatasets(
         gfo.copy(label_file.locations_path, output_tmp_dir)
         gfo.copy(label_file.polygons_path, output_tmp_dir)
         backup_dir = label_file.locations_path.parent / f"backup_v{dataversion_new:02d}"
-        shutil.rmtree(backup_dir)
+        shutil.rmtree(backup_dir, ignore_errors=True)
         backup_dir.mkdir(parents=True, exist_ok=True)
         gfo.copy(label_file.locations_path, backup_dir)
         gfo.copy(label_file.polygons_path, backup_dir)
