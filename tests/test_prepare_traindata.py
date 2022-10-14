@@ -95,11 +95,17 @@ def test_prepare_labeldata_locations(geometry, traindata_type, expected_len_loca
         },
         crs="EPSG:31370",  # type: ignore
     )
+    label_info = prep_traindata.LabelInfo(
+        locations_path=Path("locations"),
+        polygons_path=Path("polygons"),
+        image_layer="BEFL-2019",
+        locations_gdf=locations_gdf,
+        polygons_gdf=TestData.polygons_gdf,
+    )
 
     # Test!
-    labellocations_gdf, labelpolygons_gdf = prep_traindata.prepare_labeldata(
-        labellocations_gdf=locations_gdf,
-        labelpolygons_gdf=TestData.polygons_gdf,
+    labeldata = prep_traindata.prepare_labeldata(
+        label_infos=[label_info],
         classes=TestData.classes,
         labelname_column="classname",
         image_pixel_x_size=TestData.image_pixel_x_size,
@@ -107,6 +113,7 @@ def test_prepare_labeldata_locations(geometry, traindata_type, expected_len_loca
         image_pixel_width=TestData.image_pixel_width,
         image_pixel_height=TestData.image_pixel_height,
     )
+    labellocations_gdf, labelpolygons_gdf = labeldata[0]
 
     assert len(labelpolygons_gdf) == len(TestData.polygons_gdf)
     assert len(labellocations_gdf) == expected_len_locations
@@ -131,12 +138,18 @@ def test_prepare_labeldata_locations_invalid(expected_error, geometry, traindata
         },
         crs="EPSG:31370",  # type: ignore
     )
+    label_info = prep_traindata.LabelInfo(
+        locations_path=Path("locations"),
+        polygons_path=Path("polygons"),
+        image_layer="BEFL-2019",
+        locations_gdf=locations_gdf,
+        polygons_gdf=TestData.polygons_gdf,
+    )
 
     # Test!
     with pytest.raises(ValidationError, match="Errors found in label data") as ex:
-        _, _ = prep_traindata.prepare_labeldata(
-            labellocations_gdf=locations_gdf,
-            labelpolygons_gdf=TestData.polygons_gdf,
+        _ = prep_traindata.prepare_labeldata(
+            label_infos=[label_info],
             classes=TestData.classes,
             labelname_column="classname",
             image_pixel_x_size=TestData.image_pixel_x_size,
@@ -170,11 +183,17 @@ def test_prepare_labeldata_polygons(geometry, classname, expected_len_polygons):
         },
         crs="EPSG:31370",  # type: ignore
     )
+    label_info = prep_traindata.LabelInfo(
+        locations_path=Path("locations"),
+        polygons_path=Path("polygons"),
+        image_layer="BEFL-2019",
+        locations_gdf=TestData.locations_gdf,
+        polygons_gdf=polygons_gdf,
+    )
 
     # Test!
-    labellocations_gdf, labelpolygons_gdf = prep_traindata.prepare_labeldata(
-        labellocations_gdf=TestData.locations_gdf,
-        labelpolygons_gdf=polygons_gdf,
+    labeldata = prep_traindata.prepare_labeldata(
+        label_infos=[label_info],
         classes=TestData.classes,
         labelname_column="classname",
         image_pixel_x_size=TestData.image_pixel_x_size,
@@ -182,6 +201,7 @@ def test_prepare_labeldata_polygons(geometry, classname, expected_len_polygons):
         image_pixel_width=TestData.image_pixel_width,
         image_pixel_height=TestData.image_pixel_height,
     )
+    labellocations_gdf, labelpolygons_gdf = labeldata[0]
 
     assert len(labelpolygons_gdf) == expected_len_polygons
     assert len(labellocations_gdf) == len(TestData.locations_gdf)
@@ -205,12 +225,18 @@ def test_prepare_labeldata_polygons_invalid(expected_error, geometry, classname)
         },
         crs="EPSG:31370",  # type: ignore
     )
+    label_info = prep_traindata.LabelInfo(
+        locations_path=Path("locations"),
+        polygons_path=Path("polygons"),
+        image_layer="BEFL-2019",
+        locations_gdf=TestData.locations_gdf,
+        polygons_gdf=polygons_gdf,
+    )
 
     # Test!
     with pytest.raises(ValidationError, match="Errors found in label data") as ex:
-        _, _ = prep_traindata.prepare_labeldata(
-            labellocations_gdf=TestData.locations_gdf,
-            labelpolygons_gdf=polygons_gdf,
+        _ = prep_traindata.prepare_labeldata(
+            label_infos=[label_info],
             classes=TestData.classes,
             labelname_column="classname",
             image_pixel_x_size=TestData.image_pixel_x_size,
@@ -236,11 +262,17 @@ def test_prepare_labeldata_polygons_columnname_backw_compat(tmp_path):
         },
         crs="EPSG:31370",  # type: ignore
     )
+    label_info = prep_traindata.LabelInfo(
+        locations_path=Path("locations"),
+        polygons_path=Path("polygons"),
+        image_layer="BEFL-2019",
+        locations_gdf=TestData.locations_gdf,
+        polygons_gdf=polygons_gdf,
+    )
 
     # Test!
-    locations_gdf, polygons_to_burn_gdf = prep_traindata.prepare_labeldata(
-        labellocations_gdf=TestData.locations_gdf,
-        labelpolygons_gdf=polygons_gdf,
+    labeldata = prep_traindata.prepare_labeldata(
+        label_infos=[label_info],
         classes=TestData.classes,
         labelname_column="test_columnname",
         image_pixel_x_size=TestData.image_pixel_x_size,
@@ -248,6 +280,7 @@ def test_prepare_labeldata_polygons_columnname_backw_compat(tmp_path):
         image_pixel_width=TestData.image_pixel_width,
         image_pixel_height=TestData.image_pixel_height,
     )
+    locations_gdf, polygons_to_burn_gdf = labeldata[0]
 
     assert len(polygons_to_burn_gdf) == 2
 
