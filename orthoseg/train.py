@@ -107,9 +107,7 @@ def train(config_path: Path):
                 "segment_subject must be overridden in the subject specific config file"
             )
         elif "_" in segment_subject:
-            raise Exception(
-                f"segment_subject cannot contain '_': {segment_subject}"
-            )
+            raise Exception(f"segment_subject cannot contain '_': {segment_subject}")
 
         # Create the output dir's if they don't exist yet...
         for dir in [
@@ -278,7 +276,12 @@ def train(config_path: Path):
             # errors in (new) added labels in the datasets.
 
             # Get the current best model that already exists for this subject
-            best_recent_model = mh.get_best_model(model_dir=model_dir)
+            best_recent_model = mh.get_best_model(
+                model_dir=model_dir,
+                segment_subject=segment_subject,
+                architecture_id=architectureparams.architecture_id,
+                trainparams_id=trainparams.trainparams_id,
+            )
             if best_recent_model is not None:
                 try:
                     # TODO: move the hyperparams filename formatting to get_models...
