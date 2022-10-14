@@ -129,12 +129,12 @@ then
   echo
   echo "Install the pip package"
   echo
-  pip install "orthoseg>=0.3.0"
+  pip install "orthoseg>=0.4.0a5"
 else
   echo
   echo "Prepare for development: conda install dev tools"
   echo
-  conda install -y pylint pytest rope
+  conda install -y pytest black flake8
  
   echo
   echo "Prepare for development: pip install dependencies of orthoseg that need pip"
