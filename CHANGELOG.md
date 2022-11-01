@@ -7,18 +7,19 @@
 - Add option to use topologic simplify (#22)
 - Add option to specify the minimum probability in the result (#23)
 - Add option to reclassify (e.g. small) features to the class of its neighbour (#30, #36)
-- Add pre-simplify with RDP when using (inline) LANG simplification (#29)
-- Add list of invalid geometries + coordinates in train mail (#40)
 - Add check if location BBOXs are of the right size (#38)
-- Add option to ignore wms url in capabilities (#20)
-- Add epsg 31468 as crs with switched xy axes (#18)
 - Improve handling of empty features in training data (#16, #19)
-- Add nb_parallel parameter to predict (#15)
 - In the polygons label file, change default class column name to "classname" (#39)
 - Add traindata type todo (#37)
-- Add support for training data from layers in different projections (#56)
+- Add support for training data from layers in different projections (#56, #60)
+- Add list of invalid geometries + coordinates in train mail (#40)
+- Add option to ignore wms url in capabilities (#20)
+- Add epsg 31468 as crs with switched xy axes (#18)
+- Add nb_parallel parameter to predict (#15)
+- Add pre-simplify with RDP when using (inline) LANG simplification (#29)
 - Apply black formatting to comply with pep8 (#27)
 - Enable running CI tests using github actions (#42)
+- Support newer versions of used packages (#59)
 
 ### Bugs fixed
 
@@ -27,6 +28,7 @@
 ### Deprecations and compatibility notes
 
 - Disable default simplify in postprocess (#32)
+- Command 'scriptrunner' renamed to 'osscriptrunner' (#59)
 
 ## 0.3.0 (2022-02-10)
 
