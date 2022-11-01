@@ -241,11 +241,21 @@ def prepare_traindatasets(
         gfo.copy(label_file.locations_path, backup_dir)
         gfo.copy(label_file.polygons_path, backup_dir)
 
-    # Also put a copy in a backup dir in the labels dir
+    # Now create the images/masks for the new train version for the different traindata
+    # types.
+    traindata_types = ["train", "validation", "test"]
+    nb_todo = 0
+    for labellocations_gdf, _ in labeldata:
+        labellocations_curr_gdf = labellocations_gdf[
+            labellocations_gdf["traindata_type"].isin(traindata_types)
+        ]
+        nb_todo += len(labellocations_curr_gdf)
+    progress = ProgressHelper(
+        message="prepare training images", nb_steps_total=nb_todo
+    )
+    logger.info(f"Get images for {nb_todo} labels")
 
-    # Now create the images/masks for the new train version
-    # Prepare the image data for the different traindata types.
-    for traindata_type in ["train", "validation", "test"]:
+    for traindata_type in traindata_types:
         # Create output dirs...
         output_imagedatatype_dir = output_tmp_dir / traindata_type
         output_imagedata_image_dir = output_imagedatatype_dir / "image"
@@ -266,14 +276,9 @@ def prepare_traindatasets(
                 ]
 
                 # Loop trough all locations labels to get an image for each of them
-                nb_todo = len(labellocations_curr_gdf)
-                logger.info(f"Get images for {nb_todo} {traindata_type} labels")
                 created_images_gdf = gpd.GeoDataFrame()
                 created_images_gdf["geometry"] = None
                 wms_imagelayer_layersources = {}
-                progress = ProgressHelper(
-                    message="prepare training images", nb_steps_total=nb_todo
-                )
                 for i, label_tuple in enumerate(labellocations_curr_gdf.itertuples()):
 
                     img_bbox = label_tuple.geometry
@@ -570,8 +575,11 @@ def prepare_labeldata(
 
         elif len(classes) == 2:
             # There is no column with label names, but there are only 2 classes
-            # (background + subsject), so no problem...
-            logger.info(f"Column ({labelname_column}) not found, so use all polygons")
+            # (background + subject), so no problem...
+            logger.info(
+                f"Column ({labelname_column}) not found, so use all polygons in "
+                f"{label_info.polygons_path.name}"
+            )
             labels_to_burn_gdf = labelpolygons_gdf
             labels_to_burn_gdf.loc[:, "burn_value"] = 1  # type: ignore
 
