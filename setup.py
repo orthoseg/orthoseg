@@ -35,7 +35,7 @@ setuptools.setup(
             orthoseg_train=orthoseg.train:main
             orthoseg_predict=orthoseg.predict:main
             orthoseg_postprocess=orthoseg.postprocess:main
-            scriptrunner=orthoseg.scriptrunner:main
+            osscriptrunner=orthoseg.scriptrunner:main
             orthoseg_load_sampleprojects=orthoseg.load_sampleprojects:main
             """,
     classifiers=[
