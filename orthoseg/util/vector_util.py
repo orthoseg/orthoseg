@@ -8,8 +8,8 @@ import logging
 from typing import Optional, Tuple
 
 import geofileops as gfo
-from geofileops import geometry_util
-from geofileops import geoseries_util
+from geofileops.util import geometry_util
+from geofileops.util import geoseries_util
 import geopandas as gpd
 import pandas as pd
 import pygeos

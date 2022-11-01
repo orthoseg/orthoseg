@@ -11,7 +11,7 @@ from typing import List, Optional
 
 # Evade having many info warnings about self intersections from shapely
 import geofileops as gfo
-from geofileops.util import geoseries_util as gfo_geoseries_util
+from geofileops.util import geoseries_util
 import geopandas as gpd
 import numpy as np
 import rasterio as rio
@@ -787,7 +787,7 @@ def polygonize_pred_multiclass(
                     keep_points_on=border_lines,
                 )
             else:
-                result_gdf.geometry = gfo_geoseries_util.simplify_ext(
+                result_gdf.geometry = geoseries_util.simplify_ext(
                     geoseries=result_gdf.geometry,
                     algorithm=simplify["simplify_algorithm"],
                     tolerance=simplify["simplify_tolerance"],
