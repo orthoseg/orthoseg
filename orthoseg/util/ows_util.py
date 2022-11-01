@@ -1062,7 +1062,7 @@ def _get_cleaned_write_profile(
         # Don't copy profile keys to cleaned version that are not supported for JPEG
         profile_cleaned = {}
         for profile_key in profile:
-            if profile_key not in ["tiled", "interleave"]:
+            if profile_key not in ["tiled", "interleave", "blockxsize", "blockysize"]:
                 profile_cleaned[profile_key] = profile[profile_key]
     else:
         profile_cleaned = profile.copy()
