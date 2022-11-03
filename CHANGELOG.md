@@ -19,7 +19,7 @@
 - Add pre-simplify with RDP when using (inline) LANG simplification (#29)
 - Apply black formatting to comply with pep8 (#27)
 - Enable running CI tests using github actions (#42)
-- Support newer versions of used packages (#59)
+- Support newer versions of used packages (#59, #61)
 
 ### Bugs fixed
 
