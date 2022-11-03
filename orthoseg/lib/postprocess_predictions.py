@@ -844,7 +844,7 @@ def polygonize_pred(
         # Add the classname if provided
         if classnames is not None:
             result_gdf["classname"] = [
-                classnames[value] for _, value in result_gdf["value"].T.iteritems()
+                classnames[value] for _, value in result_gdf["value"].T.items()
             ]
             result_gdf = result_gdf.drop(columns=["value"])
 
