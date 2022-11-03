@@ -338,14 +338,6 @@ def predict_dir(
                 perfinfo = f"waiting for read took {perf_time_now-perf_time_start}"
                 perf_time_start = perf_time_now
 
-                # Init progress only at 2nd batch, as the first is very slow
-                if progress is None and nb_processed > batch_size * 2:
-                    progress = ProgressHelper(
-                        message=f"predict to {output_image_dir.parent.name}/{output_image_dir.name}",  # noqa: E501
-                        nb_steps_total=nb_to_process,
-                        nb_steps_done=batch_size,
-                    )
-
                 # Predict!
                 logger.debug(f"Start prediction for {len(predict_images)} images")
                 perf_time_start = datetime.datetime.now()
@@ -528,6 +520,14 @@ def predict_dir(
                     logger.debug(perfinfo)
                 if progress is not None:
                     progress.step(nb_steps=batch_size)
+                # Init progress only when some imags were already processed, as the
+                # first are very slow.
+                if progress is None and nb_processed > 0:
+                    progress = ProgressHelper(
+                        message=f"predict to {output_image_dir.parent.name}/{output_image_dir.name}",  # noqa: E501
+                        nb_steps_total=nb_to_process,
+                        nb_steps_done=batch_size,
+                    )
 
         # If alle images were processed, rename to real output file + cleanup
         if (
