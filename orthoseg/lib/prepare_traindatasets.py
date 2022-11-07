@@ -142,9 +142,8 @@ def prepare_traindatasets(
             elif ssl_verify.lower() == "false":
                 ssl_verify = False
 
-        assert isinstance(ssl_verify, bool)
-        auth = owslib.util.Authentication(verify=ssl_verify)
-        if ssl_verify is False:
+        auth = owslib.util.Authentication(verify=ssl_verify)  # type: ignore
+        if isinstance(ssl_verify, bool) and ssl_verify is False:
             urllib3.disable_warnings()
             logger.warn("SSL VERIFICATION IS TURNED OFF!!!")
 
@@ -250,9 +249,7 @@ def prepare_traindatasets(
             labellocations_gdf["traindata_type"].isin(traindata_types)
         ]
         nb_todo += len(labellocations_curr_gdf)
-    progress = ProgressHelper(
-        message="prepare training images", nb_steps_total=nb_todo
-    )
+    progress = ProgressHelper(message="prepare training images", nb_steps_total=nb_todo)
     logger.info(f"Get images for {nb_todo} labels")
 
     for traindata_type in traindata_types:
