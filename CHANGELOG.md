@@ -17,6 +17,7 @@
 - Add epsg 31468 as crs with switched xy axes (#18)
 - Add nb_parallel parameter to predict (#15)
 - Add pre-simplify with RDP when using (inline) LANG simplification (#29)
+- Add option to disable ssl verification when downloading sample projects (#64)
 - Apply black formatting to comply with pep8 (#27)
 - Enable running CI tests using github actions (#42)
 - Support newer versions of used packages (#59, #61, #62)

@@ -1,8 +1,10 @@
 #!/usr/bin/python3
-# Downloaded from https://github.com/sdushantha/gitdir/blob/master/gitdir/gitdir.py
+# Based on https://github.com/sdushantha/gitdir/blob/master/gitdir/gitdir.py
 
 import re
 import os
+import ssl
+from typing import Union
 import urllib.request
 import json
 from pathlib import Path
@@ -30,11 +32,37 @@ def create_url(url):
     return api_url, download_dirs
 
 
-def download(repo_url: str, output_dir: Path):
+def download(
+    repo_url: str, output_dir: Path, ssl_verify: Union[bool, str, None] = None
+):
     """
-    Downloads the files and directories in repo_url. If flatten is specified, the
-    contents of any and all sub-directories will be pulled upwards into the root folder.
+    Downloads the files and directories in repo_url.
+
+    Args
+        repo_url (str): url to the repository to download.
+        output_dir (Path): directory to download the repository to.
+        ssl_verify (bool or str, optional): True or None to use the default
+            certificate bundle as installed on your system. False disables
+            certificate validation (NOT recommended!). If a path to a
+            certificate bundle file (.pem) is passed, this will be used.
+            In corporate networks using a proxy server this is often needed
+            to evade CERTIFICATE_VERIFY_FAILED errors. Defaults to None.
     """
+    context = None
+    if ssl_verify is not None:
+        # If it is a string, make sure it isn't actually a bool
+        if isinstance(ssl_verify, str):
+            if ssl_verify.lower() == "true":
+                context = None
+            elif ssl_verify.lower() == "false":
+                ssl_verify = False
+            else:
+                context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                context.load_verify_locations(ssl_verify)
+
+        if isinstance(ssl_verify, bool) and not ssl_verify:
+            context = ssl._create_unverified_context()
+            print("SSL VERIFICATION IS TURNED OFF!!!")
 
     # generate the url which returns the JSON data
     api_url, download_dirs = create_url(repo_url)
@@ -45,17 +73,15 @@ def download(repo_url: str, output_dir: Path):
     else:
         dir_out = output_dir / "/".join(download_dirs.split("/")[0:-1])
 
-    response = urllib.request.urlretrieve(api_url)
+    # Download the file
+    with urllib.request.urlopen(api_url, context=context) as u:
+        # make a directory with the name which is taken from
+        # the actual repo
+        dir_out.mkdir(parents=True, exist_ok=True)
 
-    # make a directory with the name which is taken from
-    # the actual repo
-    os.makedirs(str(dir_out), exist_ok=True)
-
-    # total files count
-    total_files = 0
-
-    with open(response[0], "r") as f:
-        raw_data = f.read()
+        # total files count
+        total_files = 0
+        raw_data = u.read()
         data = json.loads(raw_data)
 
         # Get the total number of files
@@ -64,7 +90,11 @@ def download(repo_url: str, output_dir: Path):
         # If the data is a file, download it as one.
         if isinstance(data, dict) and data["type"] == "file":
             # download the file
-            urllib.request.urlretrieve(data["download_url"], dir_out / data["name"])
+            with (
+                urllib.request.urlopen(data["download_url"], context=context) as u,
+                open(dir_out / data["name"], "wb") as f,
+            ):
+                f.write(u.read())
             return total_files
 
         # Loop over all files/dirs found
@@ -75,7 +105,11 @@ def download(repo_url: str, output_dir: Path):
 
             # If it is a file, download it, if dir, start recursively
             if file_url is not None:
-                urllib.request.urlretrieve(file_url, path)
+                with (
+                    urllib.request.urlopen(file_url, context=context) as u,
+                    open(path, "wb") as f,
+                ):
+                    f.write(u.read())
             else:
                 download(file["html_url"], output_dir)
 
