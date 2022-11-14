@@ -22,10 +22,6 @@
 - Enable running CI tests using github actions (#42)
 - Support newer versions of used packages (#59, #61, #62)
 
-### Bugs fixed
-
-- 
-
 ### Deprecations and compatibility notes
 
 - Disable default simplify in postprocess (#32)
