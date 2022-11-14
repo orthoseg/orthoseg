@@ -1,0 +1,23 @@
+name: test
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - geofileops
+  - geopandas
+  - numpy
+  - owslib
+  - pillow
+  - pycron
+  - pygeos
+  - pyproj
+  - rasterio
+  # dependencies of tensorflow that need to be conda versions to evade binary compatibility issues
+  - h5py
+  # testing
+  - pytest
+  - pytest-cov
+  - pip:
+    - segmentation-models>=1.0,<1.1
+    - simplification
+    - tensorflow>=2.5,<2.9

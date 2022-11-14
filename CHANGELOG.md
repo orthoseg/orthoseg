@@ -19,12 +19,8 @@
 - Add pre-simplify with RDP when using (inline) LANG simplification (#29)
 - Add option to disable ssl verification when downloading sample projects (#64)
 - Apply black formatting to comply with pep8 (#27)
-- Enable running CI tests using github actions (#42)
+- Enable running CI tests using github actions (#42, #67)
 - Support newer versions of used packages (#59, #61, #62)
-
-### Bugs fixed
-
-- 
 
 ### Deprecations and compatibility notes
 
