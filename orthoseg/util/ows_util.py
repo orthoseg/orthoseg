@@ -658,8 +658,9 @@ def getmap_to_file(
             size[0] + 2 * image_pixels_ignore_border,
             size[1] + 2 * image_pixels_ignore_border,
         )
-    # Dirty hack to support y,x cordinate system
-    if crs.to_epsg() in [3059, 31468]:
+
+    # For coordinate systems with switched axis (y, x or lon, lat), switch x and y
+    if _has_switched_axes(crs):
         bbox_for_getmap = (
             bbox_for_getmap[1],
             bbox_for_getmap[0],
@@ -1013,6 +1014,34 @@ def _create_filename(
     output_filename += image_ext
 
     return output_filename
+
+
+def _has_switched_axes(crs: pyproj.CRS):
+    if len(crs.axis_info) < 2:
+        logger.warning(
+            f"has_switched_axes False: len(crs_31370.axis_info) < 2 for {crs}"
+        )
+
+    has_switched_axes_options = [
+        {"abbrev": "x", "direction": "east", "has_switched_axes": False},
+        {"abbrev": "y", "direction": "north", "has_switched_axes": False},
+        {"abbrev": "x", "direction": "north", "has_switched_axes": True},
+        {"abbrev": "y", "direction": "east", "has_switched_axes": True},
+        {"abbrev": "lat", "direction": "north", "has_switched_axes": False},
+        {"abbrev": "lon", "direction": "east", "has_switched_axes": False},
+        {"abbrev": "lat", "direction": "east", "has_switched_axes": True},
+        {"abbrev": "lon", "direction": "north", "has_switched_axes": True},
+    ]
+    for axis_info in crs.axis_info:
+        for option in has_switched_axes_options:
+            if (
+                axis_info.abbrev.lower() == option["abbrev"]
+                and axis_info.direction.lower() == option["direction"]
+            ):
+                return option["has_switched_axes"]
+
+    logger.warning(f"has_switched_axes option not found, so assume False for {crs}")
+    return False
 
 
 def _get_ext_for_image_format(image_format: str) -> str:
