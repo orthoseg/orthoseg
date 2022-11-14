@@ -9,10 +9,25 @@ import sys
 import owslib
 import owslib.wms
 import owslib.util
+import pyproj
+import pytest
 
 # Add path so the local orthoseg packages are found
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from orthoseg.util import ows_util
+
+
+@pytest.mark.parametrize(
+    "crs_epsg, has_switched_axes",
+    [
+        [4326, False],
+        [31370, False],
+        [3059, True],
+        [31468, True],
+    ],
+)
+def test_has_switched_axes(crs_epsg: int, has_switched_axes: bool):
+    assert ows_util._has_switched_axes(pyproj.CRS(crs_epsg)) is has_switched_axes
 
 
 def test_getmap_to_file(tmpdir):

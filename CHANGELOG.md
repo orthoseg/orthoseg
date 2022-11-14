@@ -14,7 +14,7 @@
 - Add support for training data from layers in different projections (#56, #60)
 - Add list of invalid geometries + coordinates in train mail (#40)
 - Add option to ignore wms url in capabilities (#20)
-- Add epsg 31468 as crs with switched xy axes (#18)
+- Add support for crs's with switched axes order (#50)
 - Add nb_parallel parameter to predict (#15)
 - Add pre-simplify with RDP when using (inline) LANG simplification (#29)
 - Add option to disable ssl verification when downloading sample projects (#64)
