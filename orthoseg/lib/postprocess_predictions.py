@@ -779,6 +779,7 @@ def polygonize_pred_multiclass(
                 simplify_topological = True if len(classes) > 2 else False
 
             if simplify_topological:
+                assert isinstance(result_gdf.geometry, gpd.GeoSeries)
                 result_gdf.geometry = vector_util.simplify_topo_orthoseg(
                     geoseries=result_gdf.geometry,
                     algorithm=simplify["simplify_algorithm"],

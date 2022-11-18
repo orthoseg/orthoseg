@@ -141,14 +141,21 @@ def simplify_topo_orthoseg(
         # Copy the results of the simplified lines
         if _algorithm == gfo.SimplifyAlgorithm.LANG:
             # For LANG, a simple copy is OK
-            assert isinstance(topolines_simpl, sh_geom.MultiLineString)
-            return [list(geom.coords) for geom in topolines_simpl.geoms]
+            if isinstance(topolines_simpl, sh_geom.LineString):
+                return [list(topolines_simpl.coords)]
+            else:
+                assert isinstance(topolines_simpl, sh_geom.MultiLineString)
+                return [list(geom.coords) for geom in topolines_simpl.geoms]
         else:
             # For RDP, only overwrite the lines that have a valid result
             topolines_copy = copy.deepcopy(_topolines)
             for index in range(len(topolines_copy)):
+                # Get the coordinates of the simplified version
+                if isinstance(topolines_simpl, sh_geom.base.BaseMultipartGeometry):
+                    topoline_simpl = topolines_simpl.geoms[index].coords  # type: ignore
+                else:
+                    topoline_simpl = topolines_simpl.coords
                 # If the result of the simplify is a point, keep original
-                topoline_simpl = topolines_simpl.geoms[index].coords  # type: ignore
                 if len(topoline_simpl) < 2:
                     continue
                 elif (
