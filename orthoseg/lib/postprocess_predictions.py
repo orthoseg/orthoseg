@@ -788,6 +788,7 @@ def polygonize_pred_multiclass(
                     keep_points_on=border_lines,
                 )
             else:
+                assert isinstance(result_gdf.geometry, gpd.GeoSeries)
                 result_gdf.geometry = geoseries_util.simplify_ext(
                     geoseries=result_gdf.geometry,
                     algorithm=simplify["simplify_algorithm"],
