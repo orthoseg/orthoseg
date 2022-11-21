@@ -102,7 +102,15 @@ def simplify_topo_orthoseg(
     Returns:
         gpd.GeoSeries: the simplified geoseries
     """
-    topo = topojson.Topology(geoseries, prequantize=False, shared_coords=False)
+    # Copy geoseries
+    geoseries_copy = geoseries.copy()  # type: ignore
+
+    # Set empty geometries to None
+    empty_idxs = pygeos.is_empty(geoseries_copy.array.data).nonzero()
+    if len(empty_idxs) > 0:
+        geoseries_copy.iloc[empty_idxs] = None
+
+    topo = topojson.Topology(geoseries_copy, prequantize=False, shared_coords=False)
     # 46889.5, 211427.5
     # 46932.5, 211391.5
 
@@ -208,8 +216,12 @@ def simplify_topo_orthoseg(
         topo_simpl_geoseries.array.data  # type: ignore
     )
     geometry_types_orig = geoseries.type.unique()
+    geometry_types_orig = geometry_types_orig[geometry_types_orig != None]
     geometry_types_simpl = topo_simpl_geoseries.type.unique()
-    if len(geometry_types_orig) == 1 and len(geometry_types_simpl) > 1:
+    if len(geometry_types_orig) == 1 and (
+        len(geometry_types_simpl) > 1
+        or geometry_types_orig[0] != geometry_types_simpl[0]
+    ):
         topo_simpl_geoseries = geoseries_util.geometry_collection_extract(
             topo_simpl_geoseries,
             gfo.GeometryType(geometry_types_orig[0]).to_primitivetype,
