@@ -6,22 +6,23 @@ import os
 from pathlib import Path
 import sys
 
+import geopandas as gpd
+from geopandas.testing import assert_geoseries_equal
+import geofileops as gfo
 import pandas as pd
 
 # Make hdf5 version warning non-blocking
 os.environ["HDF5_DISABLE_VERSION_CHECK"] = "1"
 
-import geopandas as gpd
-import geofileops as gfo
-
 # Add path so the local orthoseg packages are found
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from orthoseg.util import vector_util
-from tests.test_helper import TestData
 
 
 def test_simplify_topo_orthoseg():
-    # Prepare raw test data
+    # Test with several different types of geometries
+    # -----------------------------------------------
+    # Prepare test data
     columns = ["descr", "wkt"]
     testdata = [
         ["Geom None", None],
@@ -62,3 +63,35 @@ def test_simplify_topo_orthoseg():
         else:
             if index == 4:
                 assert geometry.type == simplified_gdf["geometry"][index].type
+
+    # Test empty geoseries
+    # --------------------
+    result = vector_util.simplify_topo_orthoseg(
+        gpd.GeoSeries(), tolerance=0.375, algorithm=gfo.SimplifyAlgorithm.LANG
+    )
+    assert result is not None
+    assert len(result) == 0
+
+    # Test with only empty geometries
+    # -------------------------------
+    # Prepare test data
+    columns = ["descr", "wkt"]
+    testdata = [
+        ["Geom None", None],
+        ["Geom None", None],
+        ["to be removed", None],
+        ["Polygon EMPTY", "POLYGON(EMPTY)"],
+    ]
+    df = pd.DataFrame(testdata, columns=columns)
+    gs = gpd.GeoSeries.from_wkt(df["wkt"])
+    df = df.drop(columns="wkt")
+    testdata_gdf = gpd.GeoDataFrame(df, geometry=gs)  # type: ignore
+    # Remove a row to test if the index is properly maintained in view_angles
+    testdata_gdf = testdata_gdf.drop([2], axis=0)
+
+    simplified_gdf = testdata_gdf.copy()
+    assert isinstance(testdata_gdf.geometry, gpd.GeoSeries)
+    simplified_gdf.geometry = vector_util.simplify_topo_orthoseg(
+        testdata_gdf.geometry, tolerance=0.375, algorithm=gfo.SimplifyAlgorithm.LANG
+    )
+    assert_geoseries_equal(testdata_gdf.geometry, simplified_gdf.geometry)

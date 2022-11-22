@@ -11,6 +11,7 @@ import geofileops as gfo
 from geofileops.util import geometry_util
 from geofileops.util import geoseries_util
 import geopandas as gpd
+import numpy as np
 import pandas as pd
 import pygeos
 from shapely import geometry as sh_geom
@@ -102,13 +103,19 @@ def simplify_topo_orthoseg(
     Returns:
         gpd.GeoSeries: the simplified geoseries
     """
+    # Just return empty geoseries
+    if len(geoseries) == 0:
+        return geoseries
+
     # Copy geoseries
     geoseries_copy = geoseries.copy()  # type: ignore
 
-    # Set empty geometries to None
+    # Set empty geometries to None, if no geometries are left, return
     empty_idxs = pygeos.is_empty(geoseries_copy.array.data).nonzero()
     if len(empty_idxs) > 0:
         geoseries_copy.iloc[empty_idxs] = None
+    if len(geoseries_copy[geoseries_copy != np.array(None)]) == 0:
+        return geoseries
 
     topo = topojson.Topology(geoseries_copy, prequantize=False, shared_coords=False)
     # 46889.5, 211427.5
