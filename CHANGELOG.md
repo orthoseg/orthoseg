@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.4.1 (???)
+
+### Bugs fixed
+
+- Fix: Non blocking errors in prediction are ignored/not reported (#72)
+
 ## 0.4.0 (2022-11-14)
 
 ### Improvements
