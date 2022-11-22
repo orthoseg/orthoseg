@@ -4,6 +4,7 @@ Module with high-level operations to segment images.
 """
 
 from concurrent import futures
+import csv
 import datetime
 import json
 import logging
@@ -12,10 +13,12 @@ from pathlib import Path
 import shutil
 import tempfile
 import time
+import traceback
 from typing import List, Optional
 
 import geofileops as gfo
 import numpy as np
+import pandas as pd
 import rasterio as rio
 import rasterio.crs as rio_crs
 import rasterio.plot as rio_plot
@@ -149,7 +152,6 @@ def predict_dir(
     # If force is false, get list of all existing predictions
     # Getting the list once is way faster than checking file per file later on!
     images_done_log_filepath = output_image_dir / "images_done.txt"
-    images_error_log_filepath = output_image_dir / "images_error.txt"
     image_done_filenames = set()
     if force is False:
         # First read the listing files if they exists
@@ -157,15 +159,15 @@ def predict_dir(
             with images_done_log_filepath.open() as f:
                 for filename in f:
                     image_done_filenames.add(filename.rstrip())
-        if images_error_log_filepath.exists():
-            with images_error_log_filepath.open() as f:
-                for filename in f:
-                    image_done_filenames.add(filename.rstrip())
         if len(image_done_filenames) > 0:
             logger.info(
-                f"{len(image_done_filenames)} images in {images_done_log_filepath} and "
-                f"{images_error_log_filepath}, they will be skipped"
+                f"{len(image_done_filenames)} images in were procssed before, "
+                f"they will be skipped"
             )
+
+    # Clear error file
+    images_error_log_filepath = output_image_dir / "images_error.csv"
+    images_error_log_filepath.unlink(missing_ok=True)
 
     # Write output to tmp files, so we know if the process completed correctly or not
     pred_tmp_output_path = None
@@ -183,6 +185,8 @@ def predict_dir(
     predict_images = []
     nb_to_process = nb_images
     nb_processed = 0
+    nb_errors = 0
+    max_errors = 2
     progress = None
     postp_future_to_input_path = {}
     read_future_to_input_path = {}
@@ -421,19 +425,10 @@ def predict_dir(
                                 image_donelog_file.write(
                                     f"{image_info['input_image_filepath'].name}\n"
                                 )
-                    except Exception:
-                        logger.exception(
-                            "Error postprocessing pred for "
-                            f"{image_info['input_image_filepath']}"
-                        )
-
-                        # Write filepath to file with errors
-                        with images_error_log_filepath.open(
-                            "a+"
-                        ) as image_errorlog_file:
-                            image_errorlog_file.write(
-                                image_info["input_image_filepath"].name + "\n"
-                            )
+                    except Exception as ex:
+                        nb_errors += 1
+                        image_path = image_info["input_image_filepath"]
+                        _handle_error(image_path, ex, images_error_log_filepath)
 
                 perf_time_now = datetime.datetime.now()
                 perfinfo += (
@@ -473,18 +468,11 @@ def predict_dir(
                                 image_donelog_file.write(
                                     postp_future_to_input_path[future].name + "\n"
                                 )
-                        except Exception:
-                            # Write filepath to file with errors
-                            logger.exception(
-                                "Error postprocessing result for "
-                                f"{postp_future_to_input_path[future].name}"
-                            )
-                            with images_error_log_filepath.open(
-                                "a+"
-                            ) as image_errorlog_file:
-                                image_errorlog_file.write(
-                                    postp_future_to_input_path[future].name + "\n"
-                                )
+                        except Exception as ex:
+                            nb_errors += 1
+                            image_path = postp_future_to_input_path[future]
+                            _handle_error(image_path, ex, images_error_log_filepath)
+
                         finally:
                             # Remove from queue...
                             del postp_future_to_input_path[future]
@@ -529,6 +517,19 @@ def predict_dir(
                         nb_steps_done=batch_size,
                     )
 
+                # If max number errors reached, stop processings
+                if nb_errors >= max_errors:
+                    break
+
+        # If errors occured, raise error
+        if images_error_log_filepath.exists():
+            errors = pd.read_csv(
+                images_error_log_filepath,
+                usecols=["filename", "error"]
+                # ).to_string(justify="left", index=False)
+            ).to_html(justify="left", index=False)
+            raise Exception(f"Error(s) occured while predicting:\n{errors}")
+
         # If alle images were processed, rename to real output file + cleanup
         if (
             last_image_reached is True
@@ -539,6 +540,25 @@ def predict_dir(
             gfo.move(pred_tmp_output_path, output_vector_path)
             gfo.rename_layer(output_vector_path, output_vector_path.stem)
             shutil.rmtree(output_image_dir)
+
+
+def _handle_error(image_path: Path, ex: Exception, log_path: Path):
+    # Print exception + trace
+    exception_trace = traceback.format_exc()
+    exception_trace_print = exception_trace.replace("\n", "\n\t")
+    logger.error(f"Error postprocessing pred for {image_path}: {exception_trace_print}")
+
+    # Write error to error log file
+    first_error = False
+    if not log_path.exists():
+        first_error = True
+    with log_path.open("a+") as log_file:
+        if first_error:
+            log_file.write("filename,error,traceback\n")
+        writer = csv.writer(log_file)
+        exception_trace_csv = exception_trace.replace("\n", "\\n")
+        fields = [image_path.name, ex, exception_trace_csv]
+        writer.writerow(fields)
 
 
 def read_image(
