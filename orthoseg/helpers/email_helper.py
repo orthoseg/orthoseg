@@ -51,6 +51,7 @@ def sendmail(subject: str, body: Optional[str] = None, stop_on_error: bool = Fal
         msg.add_header("subject", subject)
         if body is not None:
             msg.set_payload(body)
+            msg.add_header("Content-Type", "text/html")
 
         # Send the email
         server = smtplib.SMTP(mail_server)
@@ -63,8 +64,3 @@ def sendmail(subject: str, body: Optional[str] = None, stop_on_error: bool = Fal
             logger.exception("Error sending email")
         else:
             raise Exception("Error sending email") from ex
-
-
-# If the script is ran directly...
-if __name__ == "__main__":
-    raise Exception("Not implemented")
