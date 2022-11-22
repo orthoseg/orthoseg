@@ -4,7 +4,8 @@
 
 ### Bugs fixed
 
-- Fix: Non blocking errors in prediction are ignored/not reported (#72)
+- Fix: non blocking errors in prediction are ignored/not reported (#72)
+- Fix: errors when predicting with topologic simplify (#69)
 
 ## 0.4.0 (2022-11-14)
 

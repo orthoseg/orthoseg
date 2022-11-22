@@ -6,11 +6,11 @@ import os
 from pathlib import Path
 import sys
 
+import geofileops as gfo
+import pandas as pd
+
 # Make hdf5 version warning non-blocking
 os.environ["HDF5_DISABLE_VERSION_CHECK"] = "1"
-
-import geopandas as gpd
-import geofileops as gfo
 
 # Add path so the local orthoseg packages are found
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -49,9 +49,8 @@ def test_clean_vectordata(tmpdir):
     )
     input1_gdf = gfo.read_file(input1_path)
     input2_gdf = gfo.read_file(input2_path)
-    input_gdf = gpd.GeoDataFrame(
-        input1_gdf.append(input2_gdf), crs=input1_gdf.crs  # type: ignore
-    )
+    input_gdf = pd.concat([input1_gdf, input2_gdf])
+    assert input1_gdf.crs == input_gdf.crs
     input_path = temp_dir / "vector_input.gpkg"
     gfo.to_file(input_gdf, input_path)
     output_path = temp_dir / input_path.name
