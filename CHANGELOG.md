@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.4.1 (???)
+
+### Bugs fixed
+
+- Fix error when predicting with topologic simplify (#69)
+
 ## 0.4.0 (2022-11-14)
 
 ### Improvements
