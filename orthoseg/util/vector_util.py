@@ -11,6 +11,7 @@ import geofileops as gfo
 from geofileops.util import geometry_util
 from geofileops.util import geoseries_util
 import geopandas as gpd
+import numpy as np
 import pandas as pd
 import pygeos
 from shapely import geometry as sh_geom
@@ -102,7 +103,21 @@ def simplify_topo_orthoseg(
     Returns:
         gpd.GeoSeries: the simplified geoseries
     """
-    topo = topojson.Topology(geoseries, prequantize=False, shared_coords=False)
+    # Just return empty geoseries
+    if len(geoseries) == 0:
+        return geoseries
+
+    # Copy geoseries
+    geoseries_copy = geoseries.copy()  # type: ignore
+
+    # Set empty geometries to None, if no geometries are left, return
+    empty_idxs = pygeos.is_empty(geoseries_copy.array.data).nonzero()
+    if len(empty_idxs) > 0:
+        geoseries_copy.iloc[empty_idxs] = None
+    if len(geoseries_copy[geoseries_copy != np.array(None)]) == 0:
+        return geoseries
+
+    topo = topojson.Topology(geoseries_copy, prequantize=False, shared_coords=False)
     # 46889.5, 211427.5
     # 46932.5, 211391.5
 
@@ -141,14 +156,21 @@ def simplify_topo_orthoseg(
         # Copy the results of the simplified lines
         if _algorithm == gfo.SimplifyAlgorithm.LANG:
             # For LANG, a simple copy is OK
-            assert isinstance(topolines_simpl, sh_geom.MultiLineString)
-            return [list(geom.coords) for geom in topolines_simpl.geoms]
+            if isinstance(topolines_simpl, sh_geom.LineString):
+                return [list(topolines_simpl.coords)]
+            else:
+                assert isinstance(topolines_simpl, sh_geom.MultiLineString)
+                return [list(geom.coords) for geom in topolines_simpl.geoms]
         else:
             # For RDP, only overwrite the lines that have a valid result
             topolines_copy = copy.deepcopy(_topolines)
             for index in range(len(topolines_copy)):
+                # Get the coordinates of the simplified version
+                if isinstance(topolines_simpl, sh_geom.base.BaseMultipartGeometry):
+                    topoline_simpl = topolines_simpl.geoms[index].coords  # type: ignore
+                else:
+                    topoline_simpl = topolines_simpl.coords
                 # If the result of the simplify is a point, keep original
-                topoline_simpl = topolines_simpl.geoms[index].coords  # type: ignore
                 if len(topoline_simpl) < 2:
                     continue
                 elif (
@@ -201,8 +223,12 @@ def simplify_topo_orthoseg(
         topo_simpl_geoseries.array.data  # type: ignore
     )
     geometry_types_orig = geoseries.type.unique()
+    geometry_types_orig = geometry_types_orig[geometry_types_orig != None]
     geometry_types_simpl = topo_simpl_geoseries.type.unique()
-    if len(geometry_types_orig) == 1 and len(geometry_types_simpl) > 1:
+    if len(geometry_types_orig) == 1 and (
+        len(geometry_types_simpl) > 1
+        or geometry_types_orig[0] != geometry_types_simpl[0]
+    ):
         topo_simpl_geoseries = geoseries_util.geometry_collection_extract(
             topo_simpl_geoseries,
             gfo.GeometryType(geometry_types_orig[0]).to_primitivetype,

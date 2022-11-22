@@ -464,7 +464,7 @@ def prepare_labeldata(
         locations_none = []
         for location in labellocations_gdf.itertuples():
             if location.geometry is None or len(location.geometry.bounds) < 4:
-                logger.warn(
+                logger.warning(
                     f"No or empty geometry found in file {Path(location.path).name} "
                     f"for index {location.Index}, it will be ignored"
                 )
