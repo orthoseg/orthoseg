@@ -316,7 +316,7 @@ def train(config_path: Path):
                         classes=best_hyperparams.architecture.classes,
                         min_probability=min_probability,
                         cancel_filepath=conf.files.getpath("cancel_filepath"),
-                        max_errors=conf.predict("max_errors"),
+                        max_prediction_errors=conf.predict.getint("max_prediction_errors"),
                     )
 
                     # Predict validation dataset
@@ -332,7 +332,7 @@ def train(config_path: Path):
                         classes=best_hyperparams.architecture.classes,
                         min_probability=min_probability,
                         cancel_filepath=conf.files.getpath("cancel_filepath"),
-                        max_errors=conf.predict("max_errors"),
+                        max_prediction_errors=conf.predict.getint("max_prediction_errors"),
                     )
                     del best_model
                 except Exception as ex:
@@ -409,7 +409,7 @@ def train(config_path: Path):
             classes=classes,
             min_probability=min_probability,
             cancel_filepath=conf.files.getpath("cancel_filepath"),
-            max_errors=conf.predict("max_errors"),
+            max_prediction_errors=conf.predict.getint("max_prediction_errors"),
         )
 
         # Predict validation dataset
@@ -425,7 +425,7 @@ def train(config_path: Path):
             classes=classes,
             min_probability=min_probability,
             cancel_filepath=conf.files.getpath("cancel_filepath"),
-            max_errors=conf.predict("max_errors"),
+            max_prediction_errors=conf.predict.getint("max_prediction_errors"),
         )
 
         # Predict test dataset, if it exists
@@ -442,7 +442,7 @@ def train(config_path: Path):
                 classes=classes,
                 min_probability=min_probability,
                 cancel_filepath=conf.files.getpath("cancel_filepath"),
-                max_errors=conf.predict("max_errors"),
+                max_prediction_errors=conf.predict.getint("max_prediction_errors"),
             )
 
         # Predict extra test dataset with random images in the roi, to add to
@@ -461,7 +461,7 @@ def train(config_path: Path):
                 classes=classes,
                 min_probability=min_probability,
                 cancel_filepath=conf.files.getpath("cancel_filepath"),
-                max_errors=conf.predict("max_errors"),
+                max_prediction_errors=conf.predict.getint("max_prediction_errors"),
             )
 
         # Free resources...

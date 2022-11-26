@@ -275,7 +275,7 @@ def predict(config_path: Path):
             evaluate_mode=False,
             cancel_filepath=conf.files.getpath("cancel_filepath"),
             nb_parallel_postprocess=nb_parallel,
-            max_errors=conf.predict("max_errors"),
+            max_prediction_errors=conf.predict.getint("max_prediction_errors"),
         )
 
         # Log and send mail
