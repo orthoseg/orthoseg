@@ -6,6 +6,7 @@
 
 - Fix: non blocking errors in prediction are ignored/not reported (#72)
 - Fix: errors when predicting with topologic simplify (#69)
+- Fix error in prediction on ubuntu 22.04 (#73)
 
 ## 0.4.0 (2022-11-14)
 
