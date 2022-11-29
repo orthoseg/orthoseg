@@ -161,7 +161,7 @@ def predict_dir(
                     image_done_filenames.add(filename.rstrip())
         if len(image_done_filenames) > 0:
             logger.info(
-                f"{len(image_done_filenames)} images in were procssed before, "
+                f"{len(image_done_filenames)} images in were processed before, "
                 f"they will be skipped"
             )
 
@@ -537,6 +537,7 @@ def predict_dir(
             and pred_tmp_output_path is not None
             and pred_tmp_output_path.exists()
         ):
+            output_vector_path.parent.mkdir(parents=True, exist_ok=True)
             gfo.move(pred_tmp_output_path, output_vector_path)
             gfo.rename_layer(output_vector_path, output_vector_path.stem)
             shutil.rmtree(output_image_dir)
