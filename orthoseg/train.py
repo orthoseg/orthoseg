@@ -92,11 +92,9 @@ def train(config_path: Path):
     global logger
     logger = log_util.main_log_init(conf.dirs.getpath("log_dir"), __name__)
 
-    # Log start + send email
-    message = f"Start train for config {config_path.stem}"
-    logger.info(message)
+    # Log start
+    logger.info(f"Start train for config {config_path.stem}")
     logger.debug(f"Config used: \n{conf.pformat_config()}")
-    email_helper.sendmail(message)
 
     try:
 
@@ -188,6 +186,8 @@ def train(config_path: Path):
                 ssl_verify=conf.general["ssl_verify"],
             )
 
+        # Send mail that we are starting train
+        email_helper.sendmail(f"Start train for config {config_path.stem}")
         logger.info(
             f"Traindata dir to use is {training_dir}, with traindata_id: {traindata_id}"
         )
@@ -316,6 +316,7 @@ def train(config_path: Path):
                         classes=best_hyperparams.architecture.classes,
                         min_probability=min_probability,
                         cancel_filepath=conf.files.getpath("cancel_filepath"),
+                        max_prediction_errors=conf.predict.getint("max_prediction_errors"),
                     )
 
                     # Predict validation dataset
@@ -331,6 +332,7 @@ def train(config_path: Path):
                         classes=best_hyperparams.architecture.classes,
                         min_probability=min_probability,
                         cancel_filepath=conf.files.getpath("cancel_filepath"),
+                        max_prediction_errors=conf.predict.getint("max_prediction_errors"),
                     )
                     del best_model
                 except Exception as ex:
@@ -407,6 +409,7 @@ def train(config_path: Path):
             classes=classes,
             min_probability=min_probability,
             cancel_filepath=conf.files.getpath("cancel_filepath"),
+            max_prediction_errors=conf.predict.getint("max_prediction_errors"),
         )
 
         # Predict validation dataset
@@ -422,6 +425,7 @@ def train(config_path: Path):
             classes=classes,
             min_probability=min_probability,
             cancel_filepath=conf.files.getpath("cancel_filepath"),
+            max_prediction_errors=conf.predict.getint("max_prediction_errors"),
         )
 
         # Predict test dataset, if it exists
@@ -438,6 +442,7 @@ def train(config_path: Path):
                 classes=classes,
                 min_probability=min_probability,
                 cancel_filepath=conf.files.getpath("cancel_filepath"),
+                max_prediction_errors=conf.predict.getint("max_prediction_errors"),
             )
 
         # Predict extra test dataset with random images in the roi, to add to
@@ -456,6 +461,7 @@ def train(config_path: Path):
                 classes=classes,
                 min_probability=min_probability,
                 cancel_filepath=conf.files.getpath("cancel_filepath"),
+                max_prediction_errors=conf.predict.getint("max_prediction_errors"),
             )
 
         # Free resources...
@@ -472,9 +478,11 @@ def train(config_path: Path):
     except Exception as ex:
         message = f"ERROR while running train for task {config_path.stem}"
         logger.exception(message)
-        email_helper.sendmail(
-            subject=message, body=f"Exception: {ex}\n\n {traceback.format_exc()}"
-        )
+        if isinstance(ex, prep.ValidationError):
+            message_body = f"Validation error: {ex.to_html()}"
+        else:
+            message_body = f"Exception: {ex}<br/><br/>{traceback.format_exc()}"
+        email_helper.sendmail(subject=message, body=message_body)
         raise Exception(message) from ex
 
 
