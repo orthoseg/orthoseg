@@ -161,7 +161,9 @@ def predict(config_path: Path):
                 from tensorflow.python.compiler.tensorrt import trt_convert as trt
 
                 # Import didn't fail, so optimize model
-                logger.info("Tensorrt is available, so use optimized model")
+                logger.info(
+                    "Tensorrt is available, so try to create and use optimized model"
+                )
                 savedmodel_optim_dir = (
                     best_model["filepath"].parent
                     / f"{best_model['filepath'].stem}_optim"
@@ -184,7 +186,7 @@ def predict(config_path: Path):
                     # Now optimize model
                     logger.info(f"Optimize + save model to {savedmodel_optim_dir}")
                     converter = trt.TrtGraphConverterV2(
-                        input_saved_model_dir=savedmodel_dir,
+                        input_saved_model_dir=str(savedmodel_dir),
                         is_dynamic_op=True,
                         precision_mode="FP16",
                     )
@@ -194,13 +196,14 @@ def predict(config_path: Path):
                 logger.info(
                     f"Load optimized model + weights from {savedmodel_optim_dir}"
                 )
-                model = tf.keras.models.load_model(savedmodel_optim_dir)
+                model = tf.keras.models.load_model(str(savedmodel_optim_dir))
 
             except ImportError:
                 logger.info("Tensorrt is not available, so load unoptimized model")
-            except Exception:
+            except Exception as ex:
                 logger.info(
-                    "An error occured trying to use tensorrt, so load unoptimized model"
+                    "An error occured trying to use tensorrt, "
+                    f"so load unoptimized model. Error: {ex}"
                 )
 
         # If model isn't loaded yet... load!
