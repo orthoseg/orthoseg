@@ -163,8 +163,8 @@ def predict(config_path: Path):
                 # Import didn't fail, so optimize model
                 logger.info("Tensorrt is available, so use optimized model")
                 savedmodel_optim_dir = (
-                    best_model["filepath"].parent / best_model["filepath"].stem
-                    + "_optim"
+                    best_model["filepath"].parent
+                    / f"{best_model['filepath'].stem}_optim"
                 )
                 if not savedmodel_optim_dir.exists():
                     # If base model not yet in savedmodel format
@@ -198,6 +198,10 @@ def predict(config_path: Path):
 
             except ImportError:
                 logger.info("Tensorrt is not available, so load unoptimized model")
+            except Exception:
+                logger.info(
+                    "An error occured trying to use tensorrt, so load unoptimized model"
+                )
 
         # If model isn't loaded yet... load!
         if model is None:
