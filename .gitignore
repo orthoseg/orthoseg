@@ -23,6 +23,7 @@ sample_projects/footballfields/training
 
 # Exclude tests/test_projects subdirs we don't want in git
 tests/test_projects/_image_cache
+tests/test_projects/footballfields/labels/backup_v02
 tests/test_projects/footballfields/models
 tests/test_projects/footballfields/output_vector
 tests/test_projects/footballfields/training/01/test

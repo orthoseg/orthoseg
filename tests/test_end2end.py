@@ -3,11 +3,14 @@
 Tests for functionalities in orthoseg.train.
 """
 
+from datetime import datetime
+import os
 from pathlib import Path
 import shutil
 import sys
 
 import geofileops as gfo
+import pytest
 
 # Add path so the local orthoseg packages are found
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -53,6 +56,10 @@ def test_load_images():
     assert len(files) == 8
 
 
+@pytest.mark.skipif(
+    os.getenv("GITHUB_ACTIONS") and os.name == "nt",
+    reason="crashes on github CI on windows",
+)
 def test_train():
     # Load project config to init some vars.
     config_path = (
@@ -72,24 +79,13 @@ def test_train():
         for modelfile_path in modelfile_paths:
             modelfile_path.unlink()
 
-    # Download the version 01 model
-    model_hdf5_path = model_dir / "footballfields_01_0.92512_242.hdf5"
-    if model_hdf5_path.exists() is False:
-        gdrive_util.download_file("1XmAenCW6K_RVwqC6xbkapJ5ws-f7-QgH", model_hdf5_path)
-    model_hyperparams_path = model_dir / "footballfields_01_hyperparams.json"
-    if model_hyperparams_path.exists() is False:
-        gdrive_util.download_file(
-            "1umxcd4RkB81sem9PdIpLoWeiIW8ga1u7", model_hyperparams_path
-        )
-    model_modeljson_path = model_dir / "footballfields_01_model.json"
-    if model_modeljson_path.exists() is False:
-        gdrive_util.download_file(
-            "16qe8thBTrO3dFfLMU1T22gWcfHVXt8zQ", model_modeljson_path
-        )
+    # Make sure the labl files in version 01 are older than those in the label dir
+    # so a new model will be trained
+    label_01_path = training_dir / "01/footballfields_BEFL-2019_polygons.gpkg"
+    timestamp_old = datetime(year=2020, month=1, day=1).timestamp()
+    os.utime(label_01_path, (timestamp_old, timestamp_old))
 
     # Run train session
-    # The label files are newer than the ones used to train the current model,
-    # so a new model will be trained.
     orthoseg.train(config_path)
 
     # Check if the training (image) data was created
@@ -107,6 +103,11 @@ def test_train():
     assert best_model["epoch"] == 0
 
 
+@pytest.mark.skipif(
+    os.getenv("GITHUB_ACTIONS") and os.name == "nt",
+    reason="crashes on github CI on windows",
+)
+@pytest.mark.order(after="test_load_images")
 def test_predict():
     # Load project config to init some vars.
     config_path = (
@@ -130,16 +131,38 @@ def test_predict():
         # Make sure is is deleted now!
         assert result_vector_dir.exists() is False
 
+    # Download the version 01 model
+    model_dir = conf.dirs.getpath("model_dir")
+    model_dir.mkdir(parents=True, exist_ok=True)
+    model_hdf5_path = model_dir / "footballfields_01_0.97392_201.hdf5"
+    if model_hdf5_path.exists() is False:
+        gdrive_util.download_file("1UlNorZ74ADCr3pL4MCJ_tnKRNoeZX79g", model_hdf5_path)
+    model_hyperparams_path = model_dir / "footballfields_01_hyperparams.json"
+    if model_hyperparams_path.exists() is False:
+        gdrive_util.download_file(
+            "1NwrVVjx9IsjvaioQ4-bkPMrq7S6HeWIo", model_hyperparams_path
+        )
+    model_modeljson_path = model_dir / "footballfields_01_model.json"
+    if model_modeljson_path.exists() is False:
+        gdrive_util.download_file(
+            "1LNPLypM5in3aZngBKK_U4Si47Oe97ZWN", model_modeljson_path
+        )
+
     # Run task to predict
     orthoseg.predict(config_path)
 
     # Check results
-    result_vector_path = result_vector_dir / "footballfields_01_242_BEFL-2019.gpkg"
+    result_vector_path = result_vector_dir / "footballfields_01_201_BEFL-2019.gpkg"
     assert result_vector_path.exists() is True
     result_gdf = gfo.read_file(result_vector_path)
-    assert len(result_gdf) == 11
+    assert len(result_gdf) == 356
 
 
+@pytest.mark.skipif(
+    os.getenv("GITHUB_ACTIONS") and os.name == "nt",
+    reason="crashes on github CI on windows",
+)
+@pytest.mark.order(after="test_predict")
 def test_postprocess():
     # Load project config to init some vars.
     config_path = (
@@ -150,15 +173,10 @@ def test_postprocess():
     # Cleanup result if it isn't empty yet
     result_vector_dir = conf.dirs.getpath("output_vector_dir")
     result_diss_path = (
-        result_vector_dir / "footballfields_01_242_BEFL-2019_dissolve.gpkg"
-    )
-    result_simpl_path = (
-        result_vector_dir / "footballfields_01_242_BEFL-2019_dissolve_simpl.gpkg"
+        result_vector_dir / "footballfields_01_201_BEFL-2019_dissolve.gpkg"
     )
     if result_diss_path.exists():
         gfo.remove(result_diss_path)
-    if result_simpl_path.exists():
-        gfo.remove(result_simpl_path)
 
     # Run task to postprocess
     orthoseg.postprocess(config_path)
@@ -166,15 +184,4 @@ def test_postprocess():
     # Check results
     assert result_diss_path.exists() is True
     result_gdf = gfo.read_file(result_diss_path)
-    assert len(result_gdf) == 10
-
-    assert result_simpl_path.exists() is True
-    result_gdf = gfo.read_file(result_simpl_path)
-    assert len(result_gdf) == 10
-
-
-if __name__ == "__main__":
-    test_load_images()
-    test_train()
-    test_predict()
-    test_postprocess()
+    assert len(result_gdf) == 350

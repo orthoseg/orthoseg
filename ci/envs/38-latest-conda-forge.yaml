@@ -19,6 +19,7 @@ dependencies:
   # testing
   - pytest
   - pytest-cov
+  - pytest-order
   - pip:
     - segmentation-models>=1.0,<1.1
     - simplification
