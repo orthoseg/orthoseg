@@ -2,6 +2,10 @@
 
 ## 0.4.1 (???)
 
+### Improvements
+
+= Avoid warning blockysize is not supported for jpeg when downloading images (#77)
+
 ### Bugs fixed
 
 - Fix non blocking errors in prediction being ignored/not reported + format error email in html (#72, #76)
