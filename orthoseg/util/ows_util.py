@@ -1085,13 +1085,20 @@ def _get_cleaned_write_profile(
         # Don't copy profile keys to cleaned version that are not supported for JPEG
         profile_cleaned = {}
         for profile_key in profile:
-            if profile_key not in ["tiled", "compress", "interleave", "photometric"]:
+            if profile_key not in [
+                "blockxsize",
+                "blockysize",
+                "compress",
+                "interleave",
+                "photometric",
+                "tiled",
+            ]:
                 profile_cleaned[profile_key] = profile[profile_key]
     elif profile.get("driver") == "PNG":
         # Don't copy profile keys to cleaned version that are not supported for JPEG
         profile_cleaned = {}
         for profile_key in profile:
-            if profile_key not in ["tiled", "interleave", "blockxsize", "blockysize"]:
+            if profile_key not in ["blockxsize", "blockysize", "interleave", "tiled"]:
                 profile_cleaned[profile_key] = profile[profile_key]
     else:
         profile_cleaned = profile.copy()
