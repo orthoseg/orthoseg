@@ -56,6 +56,7 @@ def test_load_images():
     assert len(files) == 8
 
 
+@pytest.mark.skipif(os.name == "nt", reason="crashes on github windows")
 def test_train():
     # Load project config to init some vars.
     config_path = (
