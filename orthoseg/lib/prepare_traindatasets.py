@@ -86,6 +86,13 @@ class ValidationError(ValueError):
             repr += f"\n  -> Errors: {pprint.pformat(self.errors, indent=4, width=100)}"
         return repr
 
+    def to_html(self):
+        repr = super().__str__()
+        if self.errors is not None and len(self.errors) > 0:
+            errors_df = pd.DataFrame(self.errors, columns=["error"])
+            repr += f"{errors_df.to_html()}"
+        return repr
+
 
 def prepare_traindatasets(
     label_infos: List[LabelInfo],

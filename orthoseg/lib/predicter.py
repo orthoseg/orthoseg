@@ -56,6 +56,7 @@ def predict_dir(
     evaluate_mode: bool = False,
     cancel_filepath: Optional[Path] = None,
     nb_parallel_postprocess: int = 1,
+    max_prediction_errors: int = 100,
     force: bool = False,
 ):
     """
@@ -103,6 +104,8 @@ def predict_dir(
         nb_parallel_postprocess (int, optional): The number of parallel
             processes used to vectorize,... the predictions. If -1, all
             available CPU's are used. Defaults to 1.
+        max_prediction_errors (int, optional): the maximum number of errors that is
+            tolerated before stopping prediction. If -1, no limit. Defaults to 100.
         force: False to skip images that already have a prediction, true to
             ignore existing predictions and overwrite them
     """
@@ -186,7 +189,7 @@ def predict_dir(
     nb_to_process = nb_images
     nb_processed = 0
     nb_errors = 0
-    max_errors = 2
+    read_sleep_logged = False
     progress = None
     postp_future_to_input_path = {}
     read_future_to_input_path = {}
@@ -251,7 +254,6 @@ def predict_dir(
                 last_image_reached = True
 
             # Prepare batch_size images that have been read for prediction
-            read_sleep_logged = False
             while (
                 len(read_future_to_input_path) > 0 and len(predict_images) < batch_size
             ):
@@ -337,7 +339,7 @@ def predict_dir(
             if len(predict_images) == batch_size or (
                 last_image_reached is True and len(predict_images) > 0
             ):
-
+                read_sleep_logged = False
                 perf_time_now = datetime.datetime.now()
                 perfinfo = f"waiting for read took {perf_time_now-perf_time_start}"
                 perf_time_start = perf_time_now
@@ -518,7 +520,7 @@ def predict_dir(
                     )
 
                 # If max number errors reached, stop processings
-                if nb_errors >= max_errors:
+                if max_prediction_errors >= 0 and nb_errors >= max_prediction_errors:
                     break
 
         # If errors occured, raise error

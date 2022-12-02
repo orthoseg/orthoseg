@@ -4,7 +4,7 @@
 
 ### Bugs fixed
 
-- Fix non blocking errors in prediction that are ignored/not reported (#72)
+- Fix non blocking errors in prediction being ignored/not reported + format error email in html (#72, #76)
 - Fix occasional errors when predicting with topologic simplify (#69)
 - Fix error in prediction on ubuntu 22.04 (#73)
 - Fix error when prediction output dir doesn't exist yet (#75)
