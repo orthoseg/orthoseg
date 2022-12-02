@@ -181,7 +181,7 @@ def predict(config_path: Path):
                         model = mf.load_model(best_model["filepath"], compile=False)
                         logger.info(f"Now save again as savedmodel to {savedmodel_dir}")
                         tf.saved_model.save(model, str(savedmodel_dir))
-                        del model
+                        model = None
 
                     # Now optimize model
                     logger.info(f"Optimize + save model to {savedmodel_optim_dir}")
