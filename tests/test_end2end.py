@@ -56,7 +56,6 @@ def test_load_images():
     assert len(files) == 8
 
 
-@pytest.mark.order(after="test_load_images")
 def test_train():
     # Load project config to init some vars.
     config_path = (
@@ -75,21 +74,6 @@ def test_train():
         modelfile_paths = model_dir.glob(f"footballfields_{traindata_id_result:02d}_*")
         for modelfile_path in modelfile_paths:
             modelfile_path.unlink()
-
-    # Download the version 01 model
-    model_hdf5_path = model_dir / "footballfields_01_0.97392_201.hdf5"
-    if model_hdf5_path.exists() is False:
-        gdrive_util.download_file("1UlNorZ74ADCr3pL4MCJ_tnKRNoeZX79g", model_hdf5_path)
-    model_hyperparams_path = model_dir / "footballfields_01_hyperparams.json"
-    if model_hyperparams_path.exists() is False:
-        gdrive_util.download_file(
-            "1NwrVVjx9IsjvaioQ4-bkPMrq7S6HeWIo", model_hyperparams_path
-        )
-    model_modeljson_path = model_dir / "footballfields_01_model.json"
-    if model_modeljson_path.exists() is False:
-        gdrive_util.download_file(
-            "1LNPLypM5in3aZngBKK_U4Si47Oe97ZWN", model_modeljson_path
-        )
 
     # Make sure the labl files in version 01 are older than those in the label dir
     # so a new model will be trained
@@ -115,7 +99,7 @@ def test_train():
     assert best_model["epoch"] == 0
 
 
-@pytest.mark.order(after="test_train")
+@pytest.mark.order(after="test_load_images")
 def test_predict():
     # Load project config to init some vars.
     config_path = (
@@ -138,6 +122,23 @@ def test_predict():
         shutil.rmtree(result_vector_dir)
         # Make sure is is deleted now!
         assert result_vector_dir.exists() is False
+
+    # Download the version 01 model
+    model_dir = conf.dirs.getpath("model_dir")
+    model_dir.mkdir(parents=True, exist_ok=True)
+    model_hdf5_path = model_dir / "footballfields_01_0.97392_201.hdf5"
+    if model_hdf5_path.exists() is False:
+        gdrive_util.download_file("1UlNorZ74ADCr3pL4MCJ_tnKRNoeZX79g", model_hdf5_path)
+    model_hyperparams_path = model_dir / "footballfields_01_hyperparams.json"
+    if model_hyperparams_path.exists() is False:
+        gdrive_util.download_file(
+            "1NwrVVjx9IsjvaioQ4-bkPMrq7S6HeWIo", model_hyperparams_path
+        )
+    model_modeljson_path = model_dir / "footballfields_01_model.json"
+    if model_modeljson_path.exists() is False:
+        gdrive_util.download_file(
+            "1LNPLypM5in3aZngBKK_U4Si47Oe97ZWN", model_modeljson_path
+        )
 
     # Run task to predict
     orthoseg.predict(config_path)
