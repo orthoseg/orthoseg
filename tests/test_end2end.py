@@ -56,7 +56,10 @@ def test_load_images():
     assert len(files) == 8
 
 
-@pytest.mark.skipif(os.name == "nt", reason="crashes on github windows")
+@pytest.mark.skipif(
+    os.getenv("GITHUB_ACTIONS") and os.name == "nt",
+    reason="crashes on github CI on windows",
+)
 def test_train():
     # Load project config to init some vars.
     config_path = (
@@ -100,6 +103,10 @@ def test_train():
     assert best_model["epoch"] == 0
 
 
+@pytest.mark.skipif(
+    os.getenv("GITHUB_ACTIONS") and os.name == "nt",
+    reason="crashes on github CI on windows",
+)
 @pytest.mark.order(after="test_load_images")
 def test_predict():
     # Load project config to init some vars.
@@ -151,6 +158,10 @@ def test_predict():
     assert len(result_gdf) == 356
 
 
+@pytest.mark.skipif(
+    os.getenv("GITHUB_ACTIONS") and os.name == "nt",
+    reason="crashes on github CI on windows",
+)
 @pytest.mark.order(after="test_predict")
 def test_postprocess():
     # Load project config to init some vars.
