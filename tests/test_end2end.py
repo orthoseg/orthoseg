@@ -3,6 +3,8 @@
 Tests for functionalities in orthoseg.train.
 """
 
+from datetime import datetime
+import os
 from pathlib import Path
 import shutil
 import sys
@@ -89,9 +91,13 @@ def test_train():
             "1LNPLypM5in3aZngBKK_U4Si47Oe97ZWN", model_modeljson_path
         )
 
+    # Make sure the labl files in version 01 are older than those in the label dir
+    # so a new model will be trained
+    label_01_path = training_dir / "01/footballfields_BEFL-2019_polygons.gpkg"
+    timestamp_old = datetime(year=2020, month=1, day=1).timestamp()
+    os.utime(label_01_path, (timestamp_old, timestamp_old))
+
     # Run train session
-    # The label files are newer than the ones used to train the current model,
-    # so a new model will be trained.
     orthoseg.train(config_path)
 
     # Check if the training (image) data was created
