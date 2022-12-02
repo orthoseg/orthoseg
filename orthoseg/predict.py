@@ -153,8 +153,12 @@ def predict(config_path: Path):
             predict_out_subdir += f"_{trainparams_id}"
         predict_out_subdir += f"_{best_model['epoch']}"
 
-        # Try optimizing model with tensorrt. Not supported on Windows
+        # Load model to predict with
+        # --------------------------
         model = None
+        # Try optimizing model with tensorrt. Not supported on Windows
+        # -> disabled for now till I have access again to a linux machine
+        """
         if os.name != "nt":
             try:
                 # Try import
@@ -181,7 +185,7 @@ def predict(config_path: Path):
                         model = mf.load_model(best_model["filepath"], compile=False)
                         logger.info(f"Now save again as savedmodel to {savedmodel_dir}")
                         tf.saved_model.save(model, str(savedmodel_dir))
-                        del model
+                        model = None
 
                     # Now optimize model
                     logger.info(f"Optimize + save model to {savedmodel_optim_dir}")
@@ -205,6 +209,7 @@ def predict(config_path: Path):
                     "An error occured trying to use tensorrt, "
                     f"so load unoptimized model. Error: {ex}"
                 )
+        """
 
         # If model isn't loaded yet... load!
         if model is None:
