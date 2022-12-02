@@ -73,6 +73,7 @@ def test_train():
             modelfile_path.unlink()
 
     # Download the version 01 model
+    """
     model_hdf5_path = model_dir / "footballfields_01_0.92512_242.hdf5"
     if model_hdf5_path.exists() is False:
         gdrive_util.download_file("1XmAenCW6K_RVwqC6xbkapJ5ws-f7-QgH", model_hdf5_path)
@@ -86,6 +87,7 @@ def test_train():
         gdrive_util.download_file(
             "16qe8thBTrO3dFfLMU1T22gWcfHVXt8zQ", model_modeljson_path
         )
+    """
 
     # Run train session
     # The label files are newer than the ones used to train the current model,
