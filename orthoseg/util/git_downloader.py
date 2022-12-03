@@ -104,10 +104,9 @@ def download(
 
             # If it is a file, download it, if dir, start recursively
             if file_url is not None:
-                with (
-                    urllib.request.urlopen(file_url, context=context) as u,
-                    open(path, "wb") as f,
-                ):
+                with urllib.request.urlopen(file_url, context=context) as u, open(
+                    path, "wb"
+                ) as f:
                     f.write(u.read())
             else:
                 download(file["html_url"], output_dir)
