@@ -14,7 +14,8 @@ import geofileops as gfo
 import pytest
 
 # Add path so the local orthoseg packages are found
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+root_dir = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(root_dir))
 import orthoseg
 from orthoseg import load_sampleprojects  
 
@@ -22,9 +23,10 @@ from orthoseg.helpers import config_helper as conf
 import orthoseg.model.model_helper as mh
 from orthoseg.util import gdrive_util
 
-sampleprojects_dir = Path(tempfile.gettempdir()) / "orthoseg/sample_projects"
-footballfields_dir = sampleprojects_dir / "footballfields"
-projecttemplate_dir = sampleprojects_dir / "project_template"
+sampleprojects_dir = root_dir / "sample_projects"
+testprojects_dir = Path(tempfile.gettempdir()) / "orthoseg/sample_projects"
+footballfields_dir = testprojects_dir / "footballfields"
+projecttemplate_dir = testprojects_dir / "project_template"
 
 # ----------------------------------------------------
 # Tests
@@ -33,29 +35,14 @@ projecttemplate_dir = sampleprojects_dir / "project_template"
 def get_testdata_dir() -> Path:
     return Path(__file__).resolve().parent / "data"
 
-
-def test_load_sampleprojects():
-    shutil.rmtree(sampleprojects_dir, ignore_errors=True)
-    load_sampleprojects.load_sampleprojects(
-        dest_dir=sampleprojects_dir.parent, ssl_verify=False
-    )
-    # Check if the right number of files was loaded
-    assert sampleprojects_dir.exists()
-    assert (sampleprojects_dir / "imagelayers.ini").exists()
-    assert (sampleprojects_dir / "project_defaults_overrule.ini").exists()
-    assert (sampleprojects_dir / "run_footballfields.py").exists()
-
-    assert footballfields_dir.exists()
-    files = list((footballfields_dir / "labels").glob("**/*.gpkg"))
-    assert len(files) == 2
-
-    assert projecttemplate_dir.exists()
-    files = list((projecttemplate_dir / "labels").glob("**/*.gpkg"))
-    assert len(files) == 2
+    
+def test_1_init_testproject():
+    shutil.rmtree(testprojects_dir, ignore_errors=True)
+    shutil.copytree(sampleprojects_dir, testprojects_dir)
 
 
-@pytest.mark.order(after="test_load_sampleprojects")
-def test_load_images():
+@pytest.mark.order(after="test_1_init_testproject")
+def test_2_load_images():
     # Load project config to init some vars.
     config_path = footballfields_dir / "footballfields_BEFL-2019.ini"
     conf.read_orthoseg_config(config_path)
@@ -80,7 +67,8 @@ def test_load_images():
     os.getenv("GITHUB_ACTIONS") and os.name == "nt",
     reason="crashes on github CI on windows",
 )
-def test_train():
+@pytest.mark.order(after="test_1_init_testproject")
+def test_3_train():
     # Load project config to init some vars.
     config_path = footballfields_dir / "footballfields_train.ini"
     conf.read_orthoseg_config(config_path)
@@ -97,11 +85,13 @@ def test_train():
         for modelfile_path in modelfile_paths:
             modelfile_path.unlink()
 
-    # Make sure the labl files in version 01 are older than those in the label dir
+    # Make sure the label files in version 01 are older than those in the label dir
     # so a new model will be trained
+    """
     label_01_path = training_dir / "01/footballfields_BEFL-2019_polygons.gpkg"
     timestamp_old = datetime(year=2020, month=1, day=1).timestamp()
     os.utime(label_01_path, (timestamp_old, timestamp_old))
+    """
 
     # Run train session
     orthoseg.train(config_path)
@@ -125,8 +115,8 @@ def test_train():
     os.getenv("GITHUB_ACTIONS") and os.name == "nt",
     reason="crashes on github CI on windows",
 )
-@pytest.mark.order(after="test_load_images")
-def test_predict():
+@pytest.mark.order(after="test_2_load_images")
+def test_4_predict():
     # Load project config to init some vars.
     config_path = footballfields_dir / "footballfields_BEFL-2019.ini"
     conf.read_orthoseg_config(config_path)
@@ -178,8 +168,8 @@ def test_predict():
     os.getenv("GITHUB_ACTIONS") and os.name == "nt",
     reason="crashes on github CI on windows",
 )
-@pytest.mark.order(after="test_predict")
-def test_postprocess():
+@pytest.mark.order(after="test_4_predict")
+def test_5_postprocess():
     # Load project config to init some vars.
     config_path = footballfields_dir / "footballfields_BEFL-2019.ini"
     conf.read_orthoseg_config(config_path)
