@@ -90,10 +90,9 @@ def download(
         # If the data is a file, download it as one.
         if isinstance(data, dict) and data["type"] == "file":
             # download the file
-            with (
-                urllib.request.urlopen(data["download_url"], context=context) as u,
-                open(dir_out / data["name"], "wb") as f,
-            ):
+            with urllib.request.urlopen(
+                data["download_url"], context=context
+            ) as u, open(dir_out / data["name"], "wb") as f:
                 f.write(u.read())
             return total_files
 
