@@ -5,7 +5,7 @@
 ### Improvements
 
 - Avoid warning blockysize is not supported for jpeg when downloading images (#77)
-- Add __version__ attribute to orthoseg (#)
+- Add __version__ attribute to orthoseg (#80)
 
 ### Bugs fixed
 
