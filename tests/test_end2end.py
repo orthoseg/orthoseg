@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import shutil
 import sys
+import tempfile
 
 import geofileops as gfo
 import pytest
@@ -15,29 +16,48 @@ import pytest
 # Add path so the local orthoseg packages are found
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import orthoseg
+from orthoseg import load_sampleprojects  
 
 from orthoseg.helpers import config_helper as conf
 import orthoseg.model.model_helper as mh
 from orthoseg.util import gdrive_util
 
+sampleprojects_dir = Path(tempfile.gettempdir()) / "orthoseg/sample_projects"
+footballfields_dir = sampleprojects_dir / "footballfields"
+projecttemplate_dir = sampleprojects_dir / "project_template"
+
 # ----------------------------------------------------
 # Tests
 # ----------------------------------------------------
-
 
 def get_testdata_dir() -> Path:
     return Path(__file__).resolve().parent / "data"
 
 
-def get_test_projects_dir() -> Path:
-    return Path(__file__).resolve().parent / "test_projects"
+def test_load_sampleprojects():
+    shutil.rmtree(sampleprojects_dir, ignore_errors=True)
+    load_sampleprojects.load_sampleprojects(
+        dest_dir=sampleprojects_dir.parent, ssl_verify=False
+    )
+    # Check if the right number of files was loaded
+    assert sampleprojects_dir.exists()
+    assert (sampleprojects_dir / "imagelayers.ini").exists()
+    assert (sampleprojects_dir / "project_defaults_overrule.ini").exists()
+    assert (sampleprojects_dir / "run_footballfields.py").exists()
+
+    assert footballfields_dir.exists()
+    files = list((footballfields_dir / "labels").glob("**/*.gpkg"))
+    assert len(files) == 2
+
+    assert projecttemplate_dir.exists()
+    files = list((projecttemplate_dir / "labels").glob("**/*.gpkg"))
+    assert len(files) == 2
 
 
+@pytest.mark.order(after="test_load_sampleprojects")
 def test_load_images():
     # Load project config to init some vars.
-    config_path = (
-        get_test_projects_dir() / "footballfields" / "footballfields_BEFL-2019.ini"
-    )
+    config_path = footballfields_dir / "footballfields_BEFL-2019.ini"
     conf.read_orthoseg_config(config_path)
     image_cache_dir = conf.dirs.getpath("predict_image_input_dir")
 
@@ -62,9 +82,7 @@ def test_load_images():
 )
 def test_train():
     # Load project config to init some vars.
-    config_path = (
-        get_test_projects_dir() / "footballfields" / "footballfields_train.ini"
-    )
+    config_path = footballfields_dir / "footballfields_train.ini"
     conf.read_orthoseg_config(config_path)
 
     # Init + cleanup result dirs
@@ -110,9 +128,7 @@ def test_train():
 @pytest.mark.order(after="test_load_images")
 def test_predict():
     # Load project config to init some vars.
-    config_path = (
-        get_test_projects_dir() / "footballfields" / "footballfields_BEFL-2019.ini"
-    )
+    config_path = footballfields_dir / "footballfields_BEFL-2019.ini"
     conf.read_orthoseg_config(config_path)
 
     # Cleanup result if it isn't empty yet
@@ -165,9 +181,7 @@ def test_predict():
 @pytest.mark.order(after="test_predict")
 def test_postprocess():
     # Load project config to init some vars.
-    config_path = (
-        get_test_projects_dir() / "footballfields" / "footballfields_BEFL-2019.ini"
-    )
+    config_path = footballfields_dir / "footballfields_BEFL-2019.ini"
     conf.read_orthoseg_config(config_path)
 
     # Cleanup result if it isn't empty yet
