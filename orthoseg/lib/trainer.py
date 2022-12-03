@@ -361,7 +361,7 @@ def train(
                 columns_to_keep.append(column)
 
         train_log_vis_df = train_log_df[columns_to_keep]
-        train_log_vis_df.plot().get_figure().savefig(train_report_path)
+        train_log_vis_df.plot().get_figure().savefig(str(train_report_path))
 
     finally:
         # Release the memory from the GPU...
