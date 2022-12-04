@@ -6,8 +6,8 @@
 
 - Avoid warning blockysize is not supported for jpeg when downloading images (#77)
 - Add __version__ attribute to orthoseg (#80)
-- Improve test coverage (#79)
 - Reuse sample_project for tests so it is tested as well (#81)
+- Improve test coverage (#79, #82)
 
 ### Bugs fixed
 
@@ -15,6 +15,10 @@
 - Fix occasional errors when predicting with topologic simplify (#69)
 - Fix error in prediction on ubuntu 22.04 (#73)
 - Fix error when prediction output dir doesn't exist yet (#75)
+
+### Deprecations and compatibility notes
+
+- Remove old model architectures: standard+unet and ternaus+unet (#82)
 
 ## 0.4.0 (2022-11-14)
 

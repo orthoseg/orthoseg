@@ -198,7 +198,6 @@ def train(
             optimizer=hyperparams.train.optimizer,
             optimizer_params=hyperparams.train.optimizer_params,
             loss=hyperparams.train.loss_function,
-            nb_classes=len(hyperparams.architecture.classes),
             class_weights=hyperparams.train.class_weights,
         )
         logger.info(f"Train using single GPU or CPU, with nb_gpu: {nb_gpu}")
@@ -214,7 +213,6 @@ def train(
                 optimizer=hyperparams.train.optimizer,
                 optimizer_params=hyperparams.train.optimizer_params,
                 loss=hyperparams.train.loss_function,
-                nb_classes=len(hyperparams.architecture.classes),
                 class_weights=hyperparams.train.class_weights,
             )
 
@@ -334,7 +332,6 @@ def train(
                 optimizer=hyperparams.train.optimizer,
                 optimizer_params=hyperparams.train.optimizer_params,
                 loss=hyperparams.train.loss_function,
-                nb_classes=len(hyperparams.architecture.classes),
                 class_weights=hyperparams.train.class_weights,
             )
 

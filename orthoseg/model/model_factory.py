@@ -83,46 +83,8 @@ def get_model(
     decoder = segment_architecture_parts[1]
 
     if decoder.lower() == "unet":
-        # These two unet variants are implemented in a seperate module
-        if encoder.lower() == "standard":
-            logger.warning(
-                f"Architecture {architecture} not tested in long time: use at own risk"
-            )
-            import orthoseg.model.model_unet_standard as m
-
-            if init_weights_with is not None:
-                init_weights = True
-            else:
-                init_weights = False
-            return m.get_model(
-                input_width=input_width,  # type: ignore
-                input_height=input_height,  # type: ignore
-                nb_channels=nb_channels,
-                nb_classes=nb_classes,
-                init_model_weights=init_weights,
-            )
-        elif encoder.lower() == "ternaus":
-            logger.warning(
-                f"Architecture {architecture} not tested in long time: use at own risk"
-            )
-            import orthoseg.model.model_unet_ternaus as m
-
-            if init_weights_with is not None:
-                init_weights = True
-            else:
-                init_weights = False
-            return m.get_model(
-                input_width=input_width,  # type: ignore
-                input_height=input_height,  # type: ignore
-                nb_channels=nb_channels,
-                nb_classes=nb_classes,
-                init_model_weights=init_weights,
-            )
-
-        # Some other unet variants is implemented using the segmentation_models library
+        # Architecture implemented using the segmentation_models library
         from segmentation_models import Unet
-
-        # from segmentation_models.backbones import get_preprocessing
 
         model = Unet(
             backbone_name=encoder.lower(),
@@ -133,10 +95,10 @@ def get_model(
             encoder_freeze=freeze,
         )
         return model
-    elif decoder.lower() == "pspnet":
-        from segmentation_models import PSPNet
 
-        # from segmentation_models.backbones import get_preprocessing
+    elif decoder.lower() == "pspnet":
+        # Architecture implemented using the segmentation_models library
+        from segmentation_models import PSPNet
 
         model = PSPNet(
             backbone_name=encoder.lower(),
@@ -147,10 +109,10 @@ def get_model(
             encoder_freeze=freeze,
         )
         return model
-    elif decoder.lower() == "linknet":
-        from segmentation_models import Linknet
 
-        # from segmentation_models.backbones import get_preprocessing
+    elif decoder.lower() == "linknet":
+        # Architecture implemented using the segmentation_models library
+        from segmentation_models import Linknet
 
         # First check if input size is compatible with linknet
         if input_width is not None and input_height is not None:
@@ -165,8 +127,9 @@ def get_model(
             encoder_freeze=freeze,
         )
         return model
+
     else:
-        raise Exception(f"Unknown decoder architecture: {decoder}")
+        raise ValueError(f"Unknown decoder architecture: {decoder}")
 
 
 def compile_model(
@@ -174,7 +137,6 @@ def compile_model(
     optimizer: str,
     optimizer_params: dict,
     loss: str,
-    nb_classes: int,
     metrics: Optional[List[str]] = None,
     sample_weight_mode: Optional[str] = None,
     class_weights: Optional[list] = None,
@@ -190,15 +152,15 @@ def compile_model(
             * categorical_crossentropy
             * weighted_categorical_crossentropy: class_weights should be specified!
 
-        nb_classes (int): number of classes.
-        metrics (List[Metric], optional): metrics to use. Defaults to None.
-            Possible values:
+        metrics (List[Metric], optional): metrics to use. Defaults to None. One of:
             *
         sample_weight_mode (str, optional): sample weight mode to use. Defaults to None.
         class_weights (list, optional): class weigths to use. Defaults to None.
     """
+    # Get number classes of model
+    nb_classes = model.output[-1].shape[-1]
 
-    # If no merics specified, use default ones
+    # If no metrics specified, use default ones
     metric_funcs: List[Any] = []
     if metrics is None:
         if loss in ["categorical_crossentropy", "weighted_categorical_crossentropy"]:
@@ -407,11 +369,11 @@ def check_image_size(decoder: str, input_width: int, input_height: int):
             input_height and (input_height % 16) != 0
         ):
             message = (
-                f"STOP: input_width ({input_width} and input_height ({input_height}) "
-                "should be divisable by 16!"
+                f"for decoder linknet, input_width ({input_width} and input_height "
+                f"({input_height}) should be divisable by 16!"
             )
             logger.error(message)
-            raise Exception(message)
+            raise ValueError(message)
     else:
         logger.info(f"check_image_size is not implemented for this model: {decoder}")
 
@@ -460,7 +422,9 @@ def bootstrapped_crossentropy(y_true, y_pred, bootstrap_type="hard", alpha=0.95)
     _epsilon = tf.convert_to_tensor(
         tf.keras.backend.epsilon(), prediction_tensor.dtype.base_dtype
     )
-    prediction_tensor = tf.clip_by_value(prediction_tensor, _epsilon, 1 - _epsilon)
+    prediction_tensor = tf.clip_by_value(
+        prediction_tensor, _epsilon, 1 - _epsilon  # type: ignore
+    )
     prediction_tensor = tf.keras.backend.log(
         prediction_tensor / (1 - prediction_tensor)  # type: ignore
     )
@@ -472,7 +436,7 @@ def bootstrapped_crossentropy(y_true, y_pred, bootstrap_type="hard", alpha=0.95)
     else:
         bootstrap_target_tensor = alpha * target_tensor + (1.0 - alpha) * tf.cast(
             tf.sigmoid(prediction_tensor) > 0.5, tf.float32
-        )
+        )  # type: ignore
     return tf.keras.backend.mean(
         tf.nn.sigmoid_cross_entropy_with_logits(
             labels=bootstrap_target_tensor, logits=prediction_tensor
