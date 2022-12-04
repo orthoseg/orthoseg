@@ -6,22 +6,22 @@ Tests for functionalities in orthoseg.train.
 from pathlib import Path
 import shutil
 import sys
-import tempfile
 
 # Add path so the local orthoseg packages are found
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from orthoseg import load_sampleprojects  
+from orthoseg import load_sampleprojects
 
 # ----------------------------------------------------
 # Tests
 # ----------------------------------------------------
 
+
 def get_testdata_dir() -> Path:
     return Path(__file__).resolve().parent / "data"
 
 
-def test_load_sampleprojects():
-    sampleprojects_dir = Path(tempfile. gettempdir()) / "orthoseg/sample_projects"
+def test_load_sampleprojects(tmp_path):
+    sampleprojects_dir = tmp_path / "sample_projects"
     shutil.rmtree(sampleprojects_dir, ignore_errors=True)
     load_sampleprojects.load_sampleprojects(
         dest_dir=sampleprojects_dir.parent, ssl_verify=False

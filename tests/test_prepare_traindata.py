@@ -23,9 +23,9 @@ from orthoseg.lib import prepare_traindatasets as prep_traindata
 from orthoseg.lib.prepare_traindatasets import ValidationError
 from tests.test_helper import TestData
 
-
+# ----------------------------------------------------
 # Helper functions to prepare test data
-# -------------------------------------
+# ----------------------------------------------------
 
 
 def _prepare_locations_file(
@@ -288,13 +288,13 @@ def test_prepare_labeldata_polygons_columnname_backw_compat(tmp_path):
 def test_prepare_traindata_full(tmp_path):
     # Prepare test data
     classes = TestData.classes
-    image_layers_config_path = TestData.testprojects_dir / "imagelayers.ini"
+    image_layers_config_path = TestData.sampleprojects_dir / "imagelayers.ini"
     image_layers = config_helper.read_layer_config(image_layers_config_path)
     label_infos = _prepare_labelinfos(tmp_path)
 
     # Test with the default data...
     training_dir = tmp_path / "training_dir"
-    training_dir, traindata_id = prep_traindata.prepare_traindatasets(
+    training_dir, _ = prep_traindata.prepare_traindatasets(
         label_infos=label_infos,
         classes=classes,
         image_layers=image_layers,
@@ -305,4 +305,4 @@ def test_prepare_traindata_full(tmp_path):
         image_pixel_height=TestData.image_pixel_height,
     )
 
-    assert training_dir.exists() is True
+    assert training_dir.exists()
