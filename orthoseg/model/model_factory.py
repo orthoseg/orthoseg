@@ -369,11 +369,11 @@ def check_image_size(decoder: str, input_width: int, input_height: int):
             input_height and (input_height % 16) != 0
         ):
             message = (
-                f"STOP: input_width ({input_width} and input_height ({input_height}) "
-                "should be divisable by 16!"
+                f"for decoder linknet, input_width ({input_width} and input_height "
+                f"({input_height}) should be divisable by 16!"
             )
             logger.error(message)
-            raise Exception(message)
+            raise ValueError(message)
     else:
         logger.info(f"check_image_size is not implemented for this model: {decoder}")
 

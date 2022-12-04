@@ -4,12 +4,36 @@ Tests for functionalities in orthoseg.model.model_factory.
 """
 from pathlib import Path
 import sys
+from typing import Optional
 
 import pytest
 
 # Add path so the local orthoseg packages are found
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from orthoseg.model import model_factory
+
+
+@pytest.mark.parametrize(
+    "decoder, input_width, input_height, expected_error",
+    [
+        ["linknet", 256, 256, None],
+        ["pspnet", 144, 144, None],
+        ["pspnet", 256, 256, "for decoder linknet"],
+        ["unet", 256, 256, None],
+    ],
+)
+def test_check_image_size(
+    decoder: str, input_width: int, input_height: int, expected_error: Optional[str]
+):
+    if expected_error is not None:
+        with pytest.raises(ValueError, match="for decoder linknet"):
+            model_factory.check_image_size(
+                decoder=decoder, input_width=input_width, input_height=input_height
+            )
+    else:
+        model_factory.check_image_size(
+            decoder=decoder, input_width=input_width, input_height=input_height
+        )
 
 
 @pytest.mark.parametrize(
@@ -28,7 +52,7 @@ def test_get_compile_save_load_model(
         architecture=architecture,
         input_width=input_width,
         input_height=input_height,
-        nb_classes=5
+        nb_classes=5,
     )
     assert model is not None
 
