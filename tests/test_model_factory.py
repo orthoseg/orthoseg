@@ -16,9 +16,9 @@ from orthoseg.model import model_factory
 @pytest.mark.parametrize(
     "decoder, input_width, input_height, expected_error",
     [
+        ["linknet", 100, 100, "for decoder linknet"],
         ["linknet", 256, 256, None],
         ["pspnet", 144, 144, None],
-        ["pspnet", 256, 256, "for decoder linknet"],
         ["unet", 256, 256, None],
     ],
 )
@@ -26,7 +26,7 @@ def test_check_image_size(
     decoder: str, input_width: int, input_height: int, expected_error: Optional[str]
 ):
     if expected_error is not None:
-        with pytest.raises(ValueError, match="for decoder linknet"):
+        with pytest.raises(ValueError, match=expected_error):
             model_factory.check_image_size(
                 decoder=decoder, input_width=input_width, input_height=input_height
             )
