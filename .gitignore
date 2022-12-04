@@ -19,7 +19,7 @@ dist/
 sample_projects/_image_cache
 sample_projects/footballfields/models
 sample_projects/footballfields/output_vector
-sample_projects/footballfields/training
+sample_projects/footballfields/training/02
 
 # Exclude tests/test_projects subdirs we don't want in git
 tests/test_projects/_image_cache

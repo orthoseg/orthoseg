@@ -4,7 +4,9 @@ Download the sample project.
 """
 
 import argparse
+import logging
 from pathlib import Path
+import shlex
 import sys
 
 # orthoseg is higher in dir hierarchy, add root to sys.path
@@ -13,14 +15,30 @@ from orthoseg.util import gdrive_util
 from orthoseg.util import git_downloader
 
 
-def main():
+# -------------------------------------------------------------
+# First define/init general variables/constants
+# -------------------------------------------------------------
+# Get a logger...
+logger = logging.getLogger(__name__)
+
+# -------------------------------------------------------------
+# The real work
+# -------------------------------------------------------------
+
+
+def parse_load_sampleprojects_argstr(argstr):
+    args = shlex.split(argstr)
+    parse_load_sampleprojects_args(args)
+
+
+def parse_load_sampleprojects_args(args) -> dict:
 
     # Define supported arguments
     parser = argparse.ArgumentParser(add_help=False)
 
     help = (
-        "The directory to download the orthoseg sample projects to. "
-        "Use ~ for your home directory."
+        "The directory to create the sample_projects dir in. "
+        "Eg. ~/orthoseg will create orthoseg/sample_projects in your home directory."
     )
     parser.add_argument("dest_dir", help=help)
 
@@ -36,10 +54,15 @@ def main():
     parser.add_argument("--ssl_verify", default=True, help=help)
 
     # Interprete arguments
-    args = parser.parse_args()
+    args = parser.parse_args(args)
     dest_dir = Path(args.dest_dir).expanduser() / "orthoseg"
     ssl_verify = args.ssl_verify
 
+    # Return arguments
+    return {"dest_dir": dest_dir, "ssl_verify": ssl_verify}
+
+
+def load_sampleprojects(dest_dir: Path, ssl_verify: bool):
     dest_dir_full = dest_dir / "sample_projects"
     if dest_dir_full.exists():
         raise Exception(f"Destination directory already exists: {dest_dir_full}")
@@ -78,6 +101,15 @@ def main():
             ssl_verify=ssl_verify,
         )
     print("Download finished")
+
+
+def main():
+    try:
+        parsed_args = parse_load_sampleprojects_args(sys.argv[1:])
+        load_sampleprojects(**parsed_args)
+    except Exception as ex:
+        logger.exception(f"Error: {ex}")
+        raise
 
 
 if __name__ == "__main__":

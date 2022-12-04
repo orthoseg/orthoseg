@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 class TestData:
     testdata_dir = Path(__file__).resolve().parent / "data"
-    testprojects_dir = Path(__file__).resolve().parent / "test_projects"
+    sampleprojects_dir = Path(__file__).resolve().parent.parent / "sample_projects"
 
     classes = {
         "background": {
