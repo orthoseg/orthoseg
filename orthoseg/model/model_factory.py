@@ -422,7 +422,9 @@ def bootstrapped_crossentropy(y_true, y_pred, bootstrap_type="hard", alpha=0.95)
     _epsilon = tf.convert_to_tensor(
         tf.keras.backend.epsilon(), prediction_tensor.dtype.base_dtype
     )
-    prediction_tensor = tf.clip_by_value(prediction_tensor, _epsilon, 1 - _epsilon)
+    prediction_tensor = tf.clip_by_value(
+        prediction_tensor, _epsilon, 1 - _epsilon  # type: ignore
+    )
     prediction_tensor = tf.keras.backend.log(
         prediction_tensor / (1 - prediction_tensor)  # type: ignore
     )
@@ -434,7 +436,7 @@ def bootstrapped_crossentropy(y_true, y_pred, bootstrap_type="hard", alpha=0.95)
     else:
         bootstrap_target_tensor = alpha * target_tensor + (1.0 - alpha) * tf.cast(
             tf.sigmoid(prediction_tensor) > 0.5, tf.float32
-        )
+        )  # type: ignore
     return tf.keras.backend.mean(
         tf.nn.sigmoid_cross_entropy_with_logits(
             labels=bootstrap_target_tensor, logits=prediction_tensor
