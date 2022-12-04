@@ -90,10 +90,9 @@ def download(
         # If the data is a file, download it as one.
         if isinstance(data, dict) and data["type"] == "file":
             # download the file
-            with (
-                urllib.request.urlopen(data["download_url"], context=context) as u,
-                open(dir_out / data["name"], "wb") as f,
-            ):
+            with urllib.request.urlopen(
+                data["download_url"], context=context
+            ) as u, open(dir_out / data["name"], "wb") as f:
                 f.write(u.read())
             return total_files
 
@@ -105,10 +104,9 @@ def download(
 
             # If it is a file, download it, if dir, start recursively
             if file_url is not None:
-                with (
-                    urllib.request.urlopen(file_url, context=context) as u,
-                    open(path, "wb") as f,
-                ):
+                with urllib.request.urlopen(file_url, context=context) as u, open(
+                    path, "wb"
+                ) as f:
                     f.write(u.read())
             else:
                 download(file["html_url"], output_dir)
