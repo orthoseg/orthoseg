@@ -7,9 +7,11 @@ from pathlib import Path
 import sys
 
 import geopandas as gpd
-from geopandas.testing import assert_geoseries_equal
+from geopandas.testing import assert_geodataframe_equal, assert_geoseries_equal
 import geofileops as gfo
 import pandas as pd
+import pytest
+from shapely import geometry as sh_geom
 
 # Make hdf5 version warning non-blocking
 os.environ["HDF5_DISABLE_VERSION_CHECK"] = "1"
@@ -17,6 +19,66 @@ os.environ["HDF5_DISABLE_VERSION_CHECK"] = "1"
 # Add path so the local orthoseg packages are found
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from orthoseg.util import vector_util
+
+
+@pytest.mark.parametrize("onborder_column_name", ["onborder_custom", "default_value"])
+def test_calc_onborder(onborder_column_name: str):
+    # Prepare test data
+    border_bounds = (0.0, 0, 20, 20)
+    expected_onborder_column_name = "expected_onborder"
+    assert expected_onborder_column_name != onborder_column_name
+    columns = ["descr", "geometry", expected_onborder_column_name]
+    testdata = [
+        ["Geom None", None, 0],
+        ["Geom None", None, 0],
+        ["to be removed", None, 0],
+        ["Polygon EMPTY", sh_geom.Polygon(), 0],
+        [
+            "polygon on border",
+            sh_geom.Polygon(shell=[(10, 10), (10, 20), (20, 20), (20, 10), (10, 10)]),
+            1,
+        ],
+        [
+            "polygon not on border",
+            sh_geom.Polygon(shell=[(10, 10), (10, 11), (11, 11), (11, 10), (10, 10)]),
+            0,
+        ],
+    ]
+    df = pd.DataFrame(testdata, columns=columns)
+    testdata_gdf = gpd.GeoDataFrame(df, geometry="geometry")  # type: ignore
+    # Remove a row to test if the index is properly maintained
+    testdata_gdf = testdata_gdf.drop([2], axis=0)
+    assert isinstance(testdata_gdf, gpd.GeoDataFrame)
+
+    if onborder_column_name == "default_value":
+        result_gdf = vector_util.calc_onborder(
+            testdata_gdf, border_bounds=border_bounds
+        )
+        onborder_column_name = "onborder"
+    else:
+        result_gdf = vector_util.calc_onborder(
+            testdata_gdf,
+            border_bounds=border_bounds,
+            onborder_column_name=onborder_column_name,
+        )
+
+    # Compare result with expected result
+    assert onborder_column_name in result_gdf.columns
+    assert onborder_column_name not in testdata_gdf.columns
+    result_gdf[expected_onborder_column_name] = result_gdf[onborder_column_name]
+    result_gdf = result_gdf.drop(columns=[onborder_column_name])
+    assert_geodataframe_equal(testdata_gdf, result_gdf)
+
+    # Test empty GeoDataFrame
+    # --------------------
+    result_gdf = vector_util.calc_onborder(
+        gpd.GeoDataFrame(),
+        border_bounds=border_bounds,
+        onborder_column_name=onborder_column_name,
+    )
+    assert result_gdf is not None
+    assert onborder_column_name in result_gdf.columns
+    assert len(result_gdf) == 0
 
 
 def test_simplify_topo_orthoseg():

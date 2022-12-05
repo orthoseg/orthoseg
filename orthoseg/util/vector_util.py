@@ -48,24 +48,23 @@ def calc_onborder(
     """
     # Split geoms that need unioning versus geoms that don't
     # -> They are on the edge of a tile
-    if geoms_gdf is not None and len(geoms_gdf.index) > 0:
+    geoms_gdf = geoms_gdf.copy()  # type: ignore
+    geoms_gdf[onborder_column_name] = 0
 
+    if geoms_gdf is not None and len(geoms_gdf.index) > 0:
         # Check
         for i, geom_row in geoms_gdf.iterrows():
-            # Check if the geom is on the border of the tile
-            geom_bounds = geom_row["geometry"].bounds  # type: ignore
-            onborder = 0
-            if (
-                geom_bounds[0] <= border_bounds[0]
-                or geom_bounds[1] <= border_bounds[1]
-                or geom_bounds[2] >= border_bounds[2]
-                or geom_bounds[3] >= border_bounds[3]
-            ):
-                onborder = 1
+            if geom_row["geometry"] is not None and not geom_row["geometry"].is_empty:
+                # Check if the geom is on the border of the tile
+                geom_bounds = geom_row["geometry"].bounds  # type: ignore
+                if (
+                    geom_bounds[0] <= border_bounds[0]
+                    or geom_bounds[1] <= border_bounds[1]
+                    or geom_bounds[2] >= border_bounds[2]
+                    or geom_bounds[3] >= border_bounds[3]
+                ):
+                    geoms_gdf.loc[i, onborder_column_name] = 1  # type: ignore
 
-            geoms_gdf.loc[i, onborder_column_name] = onborder  # type: ignore
-
-    geoms_gdf.reset_index(drop=True, inplace=True)
     return geoms_gdf
 
 
