@@ -46,22 +46,24 @@ def is_onborder(
         onborder_column_name: the column name of the onborder column
 
     """
+    if gdf is None or len(gdf.index) == 0:
+        return gdf
+
     result_gdf = gdf.copy()  # type: ignore
     result_gdf[onborder_column_name] = 0
 
-    if result_gdf is not None and len(result_gdf.index) > 0:
-        # Check
-        for i, geom_row in result_gdf.iterrows():
-            if geom_row["geometry"] is not None and not geom_row["geometry"].is_empty:
-                # Check if the geom is on the border of the tile
-                geom_bounds = geom_row["geometry"].bounds  # type: ignore
-                if (
-                    geom_bounds[0] <= border_bounds[0]
-                    or geom_bounds[1] <= border_bounds[1]
-                    or geom_bounds[2] >= border_bounds[2]
-                    or geom_bounds[3] >= border_bounds[3]
-                ):
-                    result_gdf.loc[i, onborder_column_name] = 1  # type: ignore
+    # Check
+    for i, geom_row in result_gdf.iterrows():
+        if geom_row["geometry"] is not None and not geom_row["geometry"].is_empty:
+            # Check if the geom is on the border of the tile
+            geom_bounds = geom_row["geometry"].bounds  # type: ignore
+            if (
+                geom_bounds[0] <= border_bounds[0]
+                or geom_bounds[1] <= border_bounds[1]
+                or geom_bounds[2] >= border_bounds[2]
+                or geom_bounds[3] >= border_bounds[3]
+            ):
+                result_gdf.loc[i, onborder_column_name] = 1  # type: ignore
 
     assert isinstance(result_gdf, gpd.GeoDataFrame)
     return result_gdf
@@ -83,7 +85,8 @@ def reclassify_neighbours(
 ) -> gpd.GeoDataFrame:
     """
     For features that comply to the query, if they have a neighbour (touch/overlap),
-    change their classname to that of the neighbour with the longest intersection.
+    change their classname to that of the neighbour with the longest intersection and
+    dissolve to merge them.
 
     The query should follow the syntax of pandas.query queries and can us the following
     fields:
@@ -142,7 +145,8 @@ def reclassify_neighbours(
         f"({reclassify_column} == '{class_background}' and "
         f"({query}))"
     )
-    result_gdf = result_gdf.query(nobackground_query)
+    # Use copy() to avoid view-versus-copy warnings
+    result_gdf = result_gdf.query(nobackground_query).copy()
 
     # Keep looking for polygons that comply with query and give the same class
     # as neighbour till no changes can be made anymore.
@@ -156,7 +160,8 @@ def reclassify_neighbours(
             assert isinstance(result_gdf, gpd.GeoDataFrame)
             result_gdf = _add_needed_columns(result_gdf, query, border_bounds)
 
-        result_reclass_gdf = result_gdf.query(query)
+        # Use copy() to avoid view-versus-copy warnings
+        result_reclass_gdf = result_gdf.query(query).copy()
         if len(result_reclass_gdf) == 0:
             break
         for row in result_reclass_gdf.itertuples():
@@ -182,14 +187,20 @@ def reclassify_neighbours(
         # Remove temp columns + dissolve
         result_gdf = result_gdf[columns_orig + ["no_neighbours"]]
         dissolve_columns = [reclassify_column, "no_neighbours"]
-        result_gdf = result_gdf.dissolve(
-            by=dissolve_columns, as_index=False, aggfunc=", ".join
-        )
+        # If there are extra columns, use aggfunc join to concatenate values
+        if len(columns_orig) > 2:
+            result_gdf = result_gdf.dissolve(
+                by=dissolve_columns, as_index=False, aggfunc=", ".join
+            )
+        else:
+            result_gdf = result_gdf.dissolve(by=dissolve_columns, as_index=False)
+
         result_gdf = result_gdf.explode(ignore_index=True)  # type: ignore
 
     # Finalize + make sure there is no background in the output
     result_gdf = result_gdf[columns_orig]
-    result_gdf = result_gdf.query(f"{reclassify_column} != '{class_background}'")
+    # Use copy() to avoid view-versus-copy warnings
+    result_gdf = result_gdf.query(f"{reclassify_column} != '{class_background}'").copy()
     assert isinstance(result_gdf, gpd.GeoDataFrame)
     return result_gdf
 

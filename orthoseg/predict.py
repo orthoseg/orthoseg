@@ -255,9 +255,10 @@ def predict(config_path: Path):
         postprocess["filter_background_modal_size"] = conf.predict.getint(
             "filter_background_modal_size"
         )
-        postprocess["reclassify_to_neighbour_query"] = conf.predict.get(
-            "reclassify_to_neighbour_query"
-        )
+        query = conf.predict.get("reclassify_to_neighbour_query")
+        if query is not None:
+            query = query.replace("\n", " ")
+        postprocess["reclassify_to_neighbour_query"] = query
         logger.info(f"Inline postprocessing:\n{pprint.pformat(postprocess)}")
 
         # Prepare the output dirs/paths

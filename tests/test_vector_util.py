@@ -23,7 +23,7 @@ from orthoseg.util import vector_util
 
 
 @pytest.mark.parametrize("onborder_column_name", ["onborder_custom", "default_value"])
-def test_calc_onborder(onborder_column_name: str):
+def test_is_onborder(onborder_column_name: str):
     # Prepare test data
     border_bounds = (0.0, 0, 20, 20)
     expected_onborder_column_name = "expected_onborder"
@@ -76,7 +76,6 @@ def test_calc_onborder(onborder_column_name: str):
         onborder_column_name=onborder_column_name,
     )
     assert result_gdf is not None
-    assert onborder_column_name in result_gdf.columns
     assert len(result_gdf) == 0
 
 
@@ -109,14 +108,14 @@ def test_reclassify_neighbours():
             "poly3",
             "neighbour of polygon1, small (1m²), not onborder",
             "is merged with poly1",
-            sh_geom.Polygon(shell=[(15, 5), (16, 5), (16, 6), (15, 6), (15, 5)]),
+            sh_geom.Polygon(shell=[(10, 5), (11, 5), (11, 6), (10, 6), (10, 5)]),
             "class_small3",
         ],
         [
             "poly4",
             "neighbour of poly3, small (1m²), not onborder",
             "is merged with poly1 and poly3",
-            sh_geom.Polygon(shell=[(16, 5), (17, 5), (17, 6), (16, 6), (16, 5)]),
+            sh_geom.Polygon(shell=[(11, 5), (12, 5), (12, 6), (11, 6), (11, 5)]),
             "class_small4",
         ],
     ]
@@ -126,10 +125,12 @@ def test_reclassify_neighbours():
     testdata_gdf = testdata_gdf.drop([2], axis=0)
 
     expected_result_df = pd.DataFrame(
-        [["poly1, poly3, poly4", "class_large"], ["poly2", "class_small"]],
+        [["poly1, poly3, poly4", "class_large"], ["poly2", "class_small2"]],
         columns=["test_id", reclassify_column],
     )
 
+    # Test with extra column, values are concatenated
+    # -----------------------------------------------
     # reclassify only supported on gdf with only the reclassify column
     testdata_prepared_gdf = testdata_gdf[["test_id", "geometry", reclassify_column]]
     assert isinstance(testdata_prepared_gdf, gpd.GeoDataFrame)
@@ -139,6 +140,21 @@ def test_reclassify_neighbours():
     assert result_gdf is not None
     assert len(result_gdf) == 2
     result_df = pd.DataFrame(result_gdf[["test_id", reclassify_column]])
+    assert_frame_equal(result_df, expected_result_df)
+
+    # Test with no extra column
+    # -------------------------
+    expected_result_df = expected_result_df[[reclassify_column]]
+
+    # reclassify only supported on gdf with only the reclassify column
+    testdata_prepared_gdf = testdata_gdf[["geometry", reclassify_column]]
+    assert isinstance(testdata_prepared_gdf, gpd.GeoDataFrame)
+    result_gdf = vector_util.reclassify_neighbours(
+        testdata_prepared_gdf, reclassify_column, query, border_bounds
+    )
+    assert result_gdf is not None
+    assert len(result_gdf) == 2
+    result_df = pd.DataFrame(result_gdf[[reclassify_column]])
     assert_frame_equal(result_df, expected_result_df)
 
 
