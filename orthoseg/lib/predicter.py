@@ -48,7 +48,7 @@ def predict_dir(
     output_vector_path: Optional[Path],
     classes: list,
     min_probability: float = 0.5,
-    postproces: dict = {},
+    postprocess: dict = {},
     border_pixels_to_ignore: int = 0,
     projection_if_missing: Optional[str] = None,
     input_mask_dir: Optional[Path] = None,
@@ -391,7 +391,7 @@ def predict_dir(
                                 classes,
                                 pred_tmp_output_path,
                                 min_probability,
-                                postproces,
+                                postprocess,
                                 border_pixels_to_ignore,
                             )
                             postp_future_to_input_path[future] = image_info[
