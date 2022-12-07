@@ -7,7 +7,7 @@
 - Avoid warning blockysize is not supported for jpeg when downloading images (#77)
 - Add __version__ attribute to orthoseg (#80)
 - Reuse sample_project for tests so it is tested as well (#81)
-- Improve test coverage (#79, #82)
+- Improve test coverage (#79, #82, #83)
 
 ### Bugs fixed
 

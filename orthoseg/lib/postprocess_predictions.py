@@ -686,83 +686,15 @@ def polygonize_pred_multiclass(
     # Postprocessing on the vectorized result
     if len(postprocess) > 0:
         # If a reclassify query is specified
-        reclassify_to_neighbour_query = postprocess.get(
-            "reclassify_to_neighbour_query", None
-        )
-        if reclassify_to_neighbour_query is not None:
-            # Init column info
-            columns_orig = [col for col in result_gdf.columns]
-            columns_orig_nogeom = [
-                col for col in columns_orig if col != result_gdf.geometry.name
-            ]
-
-            # Init query + needed data
-            reclassify_query = reclassify_to_neighbour_query.replace("\n", " ")
-
-            def _add_needed_columns(gdf, query: str):
-                if "area" in query:
-                    gdf["area"] = gdf.geometry.area
-                if "perimeter" in query:
-                    gdf["perimeter"] = gdf.geometry.length
-                if "onborder" in query:
-                    gdf = vector_util.calc_onborder(gdf, border_bounds)  # type: ignore
-
-            _add_needed_columns(gdf=result_gdf, query=reclassify_query)
-
-            # First remove background polygons that don't match the reclassify query
-            class_background = classes[0]
-            nobackground_query = (
-                f"classname != '{class_background}' or "
-                f"(classname == '{class_background}' and "
-                f"({reclassify_query}))"
+        reclassify_query = postprocess.get("reclassify_to_neighbour_query", None)
+        if reclassify_query is not None:
+            result_gdf = vector_util.reclassify_neighbours(
+                result_gdf,
+                reclassify_column="classname",
+                query=reclassify_query,
+                border_bounds=border_bounds,
+                class_background=classes[0],
             )
-            result_gdf = result_gdf.query(nobackground_query).copy()
-
-            # Keep looking for polygons that comply with query and give the same class
-            # as neighbour till no changes can be made anymore.
-            # Stop after 5 iterations to be sure never to end up in endless loop
-            reclassify_max = 5
-            result_gdf["no_neighbours"] = 0
-            reclassify_query = f"no_neighbours == 0 and ({reclassify_query})"
-            for reclassify_counter in range(reclassify_max):
-                # Loop till no features were changed anymore
-                if reclassify_counter > 0:
-                    _add_needed_columns(gdf=result_gdf, query=reclassify_query)
-
-                result_reclass_gdf = result_gdf.query(reclassify_query)
-                if len(result_reclass_gdf) == 0:
-                    break
-                for row in result_reclass_gdf.itertuples():
-                    # Find neighbour with longest intersection
-                    neighbours_idx = result_gdf.geometry.sindex.query(
-                        row.geometry, predicate="intersects"
-                    ).tolist()
-                    if len(neighbours_idx) <= 1:
-                        result_gdf.loc[[row.Index], ["no_neighbours"]] = 1
-                        continue
-                    row_loc = result_gdf.index.get_loc(row.Index)
-                    neighbours_idx.remove(row_loc)
-                    neighbours_gdf = result_gdf.iloc[neighbours_idx]
-                    inters_geoseries = (
-                        neighbours_gdf.geometry.intersection(  # type: ignore
-                            row.geometry
-                        )
-                    )
-                    idx_max_length = inters_geoseries.length.idxmax()
-                    # Set classname to the neighbour found
-                    classname_neighbour = result_gdf.at[idx_max_length, "classname"]
-                    if result_gdf.loc[row.Index, "classname"] != classname_neighbour:
-                        result_gdf.loc[[row.Index], ["classname"]] = classname_neighbour
-
-                # Remove temp columns + dissolve
-                result_gdf = result_gdf[columns_orig + ["no_neighbours"]]
-                dissolve_columns = columns_orig_nogeom + ["no_neighbours"]
-                result_gdf = result_gdf.dissolve(by=dissolve_columns, as_index=False)
-                result_gdf = result_gdf.explode(ignore_index=True)  # type: ignore
-
-            # Finalize + make sure there is no background in the output
-            result_gdf = result_gdf[columns_orig]
-            result_gdf = result_gdf.query(f"classname != '{class_background}'").copy()
 
         # If a simplify is asked...
         simplify = postprocess.get("simplify", None)
