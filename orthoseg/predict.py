@@ -7,6 +7,7 @@ import argparse
 import logging
 import os
 from pathlib import Path
+import pprint
 import shlex
 import sys
 import traceback
@@ -238,11 +239,11 @@ def predict(config_path: Path):
 
         # Prepare params for the inline postprocessing of the prediction
         min_probability = conf.predict.getfloat("min_probability")
-        postproces = {}
+        postprocess = {}
         simplify_algorithm = conf.predict.get("simplify_algorithm")
         if simplify_algorithm is not None:
-            postproces["simplify"] = {}
-            simplify = postproces["simplify"]
+            postprocess["simplify"] = {}
+            simplify = postprocess["simplify"]
 
             simplify_algorithm = gfo.SimplifyAlgorithm[simplify_algorithm]
             simplify["simplify_algorithm"] = simplify_algorithm
@@ -251,12 +252,14 @@ def predict(config_path: Path):
             simplify["simplify_topological"] = conf.predict.getboolean_ext(
                 "simplify_topological"
             )
-        postproces["filter_background_modal_size"] = conf.predict.getint(
+        postprocess["filter_background_modal_size"] = conf.predict.getint(
             "filter_background_modal_size"
         )
-        postproces["reclassify_to_neighbour_query"] = conf.predict.get(
-            "reclassify_to_neighbour_query"
-        )
+        query = conf.predict.get("reclassify_to_neighbour_query")
+        if query is not None:
+            query = query.replace("\n", " ")
+        postprocess["reclassify_to_neighbour_query"] = query
+        logger.info(f"Inline postprocessing:\n{pprint.pformat(postprocess)}")
 
         # Prepare the output dirs/paths
         predict_output_dir = Path(
@@ -279,7 +282,7 @@ def predict(config_path: Path):
             output_vector_path=output_vector_path,
             classes=hyperparams.architecture.classes,
             min_probability=min_probability,
-            postproces=postproces,
+            postprocess=postprocess,
             border_pixels_to_ignore=conf.predict.getint("image_pixels_overlap"),
             projection_if_missing=image_layer["projection"],
             input_mask_dir=None,

@@ -7,14 +7,15 @@
 - Avoid warning blockysize is not supported for jpeg when downloading images (#77)
 - Add __version__ attribute to orthoseg (#80)
 - Reuse sample_project for tests so it is tested as well (#81)
-- Improve test coverage (#79, #82)
+- Improve test coverage (#79, #82, #83)
 
 ### Bugs fixed
 
-- Fix non blocking errors in prediction being ignored/not reported + format error email in html (#72, #76)
 - Fix occasional errors when predicting with topologic simplify (#69)
+- Fix non blocking errors in prediction being ignored/not reported + format error email in html (#72, #76)
 - Fix error in prediction on ubuntu 22.04 (#73)
 - Fix error when prediction output dir doesn't exist yet (#75)
+- Fix reclassify_to_neighbours giving undetermined result when 2+ neighbours are reclassification candidates (#84)
 
 ### Deprecations and compatibility notes
 
