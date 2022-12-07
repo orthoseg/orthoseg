@@ -11,10 +11,11 @@
 
 ### Bugs fixed
 
-- Fix non blocking errors in prediction being ignored/not reported + format error email in html (#72, #76)
 - Fix occasional errors when predicting with topologic simplify (#69)
+- Fix non blocking errors in prediction being ignored/not reported + format error email in html (#72, #76)
 - Fix error in prediction on ubuntu 22.04 (#73)
 - Fix error when prediction output dir doesn't exist yet (#75)
+- Fix reclassify_to_neighbours giving undetermined result when 2+ neighbours are reclassification candidates (#84)
 
 ### Deprecations and compatibility notes
 
