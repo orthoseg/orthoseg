@@ -126,6 +126,10 @@ def postprocess(config_path: Path):
 
         dissolve = conf.postprocess.getboolean("dissolve")
         dissolve_tiles_path = conf.postprocess.getpath("dissolve_tiles_path")
+        reclassify_query = conf.postprocess.get("reclassify_to_neighbour_query")
+        if reclassify_query is not None:
+            reclassify_query = reclassify_query.replace("\n", " ")
+
         simplify_algorithm = conf.postprocess.get("simplify_algorithm")
         if simplify_algorithm is not None:
             simplify_algorithm = gfo.SimplifyAlgorithm[simplify_algorithm]
@@ -140,6 +144,7 @@ def postprocess(config_path: Path):
             output_path=output_vector_path,
             dissolve=dissolve,
             dissolve_tiles_path=dissolve_tiles_path,
+            reclassify_to_neighbour_query=reclassify_query,
             simplify_algorithm=simplify_algorithm,
             simplify_tolerance=simplify_tolerance,
             simplify_lookahead=simplify_lookahead,
