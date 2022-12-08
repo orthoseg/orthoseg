@@ -23,6 +23,7 @@ import shapely.geometry as sh_geom
 import tensorflow as tf
 
 from orthoseg.util import vector_util
+from orthoseg.helpers import vectorfile_helper
 
 
 logging.getLogger("shapely.geos").setLevel(logging.WARNING)
@@ -48,6 +49,7 @@ def postprocess_predictions(
     output_path: Path,
     dissolve: bool,
     dissolve_tiles_path: Optional[Path] = None,
+    reclassify_to_neighbour_query: Optional[str] = None,
     simplify_algorithm: Optional[gfo.SimplifyAlgorithm] = None,
     simplify_tolerance: float = 1,
     simplify_lookahead: int = 8,
@@ -125,6 +127,19 @@ def postprocess_predictions(
             )
 
         # The curr_output_path becomes the new current input path
+        curr_input_path = curr_output_path
+        output_paths.append(curr_output_path)
+
+    if reclassify_to_neighbour_query is not None:
+        curr_output_path = (
+            output_path.parent / f"{output_path.stem}_reclass{output_path.suffix}"
+        )
+        vectorfile_helper.reclassify_neighbours(
+            input_path=curr_input_path,
+            reclassify_column="classname",
+            query=reclassify_to_neighbour_query,
+            output_path=output_path,
+        )
         curr_input_path = curr_output_path
         output_paths.append(curr_output_path)
 
