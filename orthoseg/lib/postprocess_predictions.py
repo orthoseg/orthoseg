@@ -23,6 +23,7 @@ import shapely.geometry as sh_geom
 import tensorflow as tf
 
 from orthoseg.util import vector_util
+from orthoseg.helpers import vectorfile_helper
 
 
 logging.getLogger("shapely.geos").setLevel(logging.WARNING)
@@ -133,32 +134,12 @@ def postprocess_predictions(
         curr_output_path = (
             output_path.parent / f"{output_path.stem}_reclass{output_path.suffix}"
         )
-        logger.info("start reclassify_neighbours")
-        input_gdf = gfo.read_file(curr_input_path, columns=["classname"])
-        output_gdf = vector_util.reclassify_neighbours(
-            input_gdf,
+        vectorfile_helper.reclassify_neighbours(
+            input_path=curr_input_path,
             reclassify_column="classname",
             query=reclassify_to_neighbour_query,
-            border_bounds=None,
+            output_path=output_path,
         )
-        gfo.to_file(output_gdf, curr_output_path)
-
-        # Add/recalculate columns with area and nbcoords
-        gfo.add_column(
-            path=curr_output_path,
-            name="area",
-            type=gfo.DataType.REAL,
-            expression="ST_Area(geom)",
-            force_update=True,
-        )
-        gfo.add_column(
-            path=curr_output_path,
-            name="nbcoords",
-            type=gfo.DataType.INTEGER,
-            expression="ST_NPoints(geom)",
-            force_update=True,
-        )
-
         curr_input_path = curr_output_path
         output_paths.append(curr_output_path)
 
