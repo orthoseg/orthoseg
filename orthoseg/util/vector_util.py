@@ -171,16 +171,6 @@ def reclassify_neighbours(
 
         for row in result_reclass_gdf.itertuples():
             # Find neighbours (query returns iloc's, not indexes!)
-            """
-            if (
-                row.geometry.bounds[0] > 142492
-                and row.geometry.bounds[0] < 142498
-                and row.geometry.bounds[1] > 171219
-                and row.geometry.bounds[1] < 171224
-            ):
-                logger.info("here we are")
-            """
-
             neighbours_ilocs = result_gdf.geometry.sindex.query(
                 row.geometry, predicate="intersects"
             ).tolist()
