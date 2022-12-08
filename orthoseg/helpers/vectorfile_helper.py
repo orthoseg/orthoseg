@@ -27,6 +27,7 @@ def reclassify_neighbours(
     query: str,
     output_path: Path,
     class_background: str = "background",
+    force: bool = False,
 ):
     """
     For features that comply to the query, if they have a neighbour (touch/overlap),
@@ -44,11 +45,21 @@ def reclassify_neighbours(
         query (str): th query to find the features to reclassify.
         class_background (str, optional): the classname to treat as background.
             Defaults to "background".
+        force (bool, optional): True to force calculation even if output file exists.
+            Defaults to False.
 
     Raises:
         ValueError: raised if incompatible parameters are passed.
     """
-    logger.info("start reclassify_neighbours")
+    if output_path.exists():
+        if not force:
+            logger.info(
+                f"reclassify_neighbours: return as output_path exists: {output_path}"
+            )
+            return
+        gfo.remove(output_path)
+
+    logger.info(f"reclassify_neighbours on {input_path} to {output_path}")
     input_gdf = gfo.read_file(input_path, columns=[reclassify_column])
     output_gdf = vector_util.reclassify_neighbours(
         input_gdf,

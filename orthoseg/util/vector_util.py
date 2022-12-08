@@ -103,6 +103,7 @@ def reclassify_neighbours(
             border to use for th onborder field in the query.
         class_background (str, optional): the classname to treat as background.
             Defaults to "background".
+        aggfunc ()
 
     Raises:
         ValueError: raised if incompatible parameters are passed.
@@ -169,35 +170,38 @@ def reclassify_neighbours(
         result_reclass_gdf = result_reclass_gdf.sort_values(by=["area"])
 
         for row in result_reclass_gdf.itertuples():
-            # Find neighbour with longest intersection
-            neighbours_idx = result_gdf.geometry.sindex.query(
+            # Find neighbours (query returns iloc's, not indexes!)
+            neighbours_ilocs = result_gdf.geometry.sindex.query(
                 row.geometry, predicate="intersects"
             ).tolist()
-            if len(neighbours_idx) <= 1:
+            if len(neighbours_ilocs) <= 1:
                 result_gdf.loc[[row.Index], ["no_neighbours"]] = 1
                 continue
+
+            # Remove yourself
             row_loc = result_gdf.index.get_loc(row.Index)
-            neighbours_idx.remove(row_loc)
-            neighbours_gdf = result_gdf.iloc[neighbours_idx]
+            neighbours_ilocs.remove(row_loc)
+
+            # Find neighbour with longest intersection
+            neighbours_gdf = result_gdf.iloc[neighbours_ilocs]
             inters_geoseries = neighbours_gdf.geometry.intersection(  # type: ignore
                 row.geometry
             )
-            idx_max_length = inters_geoseries.length.idxmax()
+            max_length_index = inters_geoseries.length.idxmax()
 
-            # Change the class to the onee of the smallest of the two
+            # Change the class of the smallest one to the oher's class
             class_curr = result_gdf.at[row.Index, reclassify_column]
-            class_neighbour = result_gdf.at[idx_max_length, reclassify_column]
+            class_neighbour = result_gdf.at[max_length_index, reclassify_column]
             if class_curr != class_neighbour:
                 # If the neighbour is not a reclass feature or if its area is larger
                 # than the current feature, use its class
                 if (
-                    idx_max_length not in result_reclass_gdf.index
-                    or result_gdf.at[idx_max_length, "area"] >= row.area
+                    max_length_index not in result_reclass_gdf.index
+                    or result_gdf.at[max_length_index, "area"] >= row.area
                 ):
                     result_gdf.loc[[row.Index], [reclassify_column]] = class_neighbour
                 else:
-                    result_gdf.loc[[idx_max_length], [reclassify_column]] = class_curr
-                result_gdf.loc[[row.Index], [reclassify_column]] = class_neighbour
+                    result_gdf.loc[[max_length_index], [reclassify_column]] = class_curr
 
         # Remove temp columns + dissolve
         result_gdf = result_gdf[columns_orig + ["no_neighbours"]]
