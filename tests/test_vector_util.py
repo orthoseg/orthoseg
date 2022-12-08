@@ -106,14 +106,14 @@ def test_reclassify_neighbours():
         ],
         [
             "poly3",
-            "neighbour of polygon1, small (1m²), not onborder",
+            "small (1m²), neighbour of poly1 and poly4, not onborder",
             "is merged with poly1",
             sh_geom.Polygon(shell=[(10, 5), (11, 5), (11, 6), (10, 6), (10, 5)]),
             "class_3_small",
         ],
         [
             "poly4",
-            "neighbour of poly3, small (1m²), not onborder",
+            "small (1m²), neighbour of poly3, not onborder",
             "is merged with poly1 and poly3",
             sh_geom.Polygon(shell=[(11, 5), (12, 5), (12, 6), (11, 6), (11, 5)]),
             "class_4_small",

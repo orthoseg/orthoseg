@@ -138,7 +138,7 @@ def postprocess_predictions(
             input_path=curr_input_path,
             reclassify_column="classname",
             query=reclassify_to_neighbour_query,
-            output_path=output_path,
+            output_path=curr_output_path,
         )
         curr_input_path = curr_output_path
         output_paths.append(curr_output_path)
