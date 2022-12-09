@@ -170,9 +170,9 @@ def compile_model(
             logger.warning("loss == sparse_categorical_crossentropy not implementedd")
         elif loss == "binary_crossentropy":
             metric_funcs.append("binary_accuracy")
-
+        # Be convention, class 0 is the background class in orthoseg.
         onehot_mean_iou = tf.keras.metrics.OneHotMeanIoU(
-            num_classes=nb_classes, name="one_hot_mean_iou"
+            num_classes=nb_classes, name="one_hot_mean_iou", ignore_class=0
         )
         metric_funcs.append(onehot_mean_iou)
     else:
@@ -254,8 +254,9 @@ def load_model(model_to_use_filepath: Path, compile: bool = True) -> keras.model
 
         iou_score = sm.metrics.IOUScore()
         f1_score = sm.metrics.FScore()
+        # Be convention, class 0 is the background class in orthoseg.
         onehot_mean_iou = tf.keras.metrics.OneHotMeanIoU(
-            num_classes=nb_classes, name="one_hot_mean_iou"
+            num_classes=nb_classes, name="one_hot_mean_iou", ignore_class=0
         )
 
         try:
