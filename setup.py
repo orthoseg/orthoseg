@@ -27,7 +27,7 @@ setuptools.setup(
         "rasterio",
         "segmentation-models>=1.0,<1.1",
         "simplification",
-        "tensorflow>=2.10,<2.11",
+        "tensorflow>=2.5,<2.11",
     ],
     entry_points="""
             [console_scripts]
