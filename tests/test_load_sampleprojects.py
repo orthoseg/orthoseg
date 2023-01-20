@@ -3,9 +3,13 @@
 Tests for functionalities in orthoseg.train.
 """
 
+import os
 from pathlib import Path
+import platform
 import shutil
 import sys
+
+import pytest
 
 # Add path so the local orthoseg packages are found
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -20,6 +24,15 @@ def get_testdata_dir() -> Path:
     return Path(__file__).resolve().parent / "data"
 
 
+@pytest.mark.skipif(
+    "GITHUB_ACTIONS" in os.environ
+    and not (
+        platform.system() == "Linux"
+        and sys.version_info.major == 3
+        and sys.version_info.minor == 10
+    ),
+    reason="on github CI, run this only in one env to avoid rate limit exceeded",
+)
 def test_load_sampleprojects(tmp_path):
     sampleprojects_dir = tmp_path / "sample_projects"
     shutil.rmtree(sampleprojects_dir, ignore_errors=True)
