@@ -9,6 +9,7 @@
 - Add option to specify reclassify to neighbour query as postprocessing (#86, #88)
 - Reuse sample_project for tests so it is tested as well (#81)
 - Improve test coverage (#79, #82, #83)
+- Add support for shapely 2 (#92)
 
 ### Bugs fixed
 
