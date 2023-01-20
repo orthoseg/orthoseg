@@ -8,6 +8,7 @@ import logging
 from pathlib import Path
 import shlex
 import sys
+from typing import Optional
 
 # orthoseg is higher in dir hierarchy, add root to sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -62,7 +63,7 @@ def parse_load_sampleprojects_args(args) -> dict:
     return {"dest_dir": dest_dir, "ssl_verify": ssl_verify}
 
 
-def load_sampleprojects(dest_dir: Path, ssl_verify: bool):
+def load_sampleprojects(dest_dir: Path, ssl_verify: Optional[bool] = None):
     dest_dir_full = dest_dir / "sample_projects"
     if dest_dir_full.exists():
         raise Exception(f"Destination directory already exists: {dest_dir_full}")
