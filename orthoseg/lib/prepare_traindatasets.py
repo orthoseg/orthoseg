@@ -470,7 +470,7 @@ def prepare_labeldata(
         )  # tile height in units of crs => 500 m
         locations_none = []
         for location in labellocations_gdf.itertuples():
-            if location.geometry is None or len(location.geometry.bounds) < 4:
+            if location.geometry is None or location.geometry.is_empty:
                 logger.warning(
                     f"No or empty geometry found in file {Path(location.path).name} "
                     f"for index {location.Index}, it will be ignored"
