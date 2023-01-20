@@ -23,9 +23,8 @@ def get_testdata_dir() -> Path:
 def test_load_sampleprojects(tmp_path):
     sampleprojects_dir = tmp_path / "sample_projects"
     shutil.rmtree(sampleprojects_dir, ignore_errors=True)
-    load_sampleprojects.load_sampleprojects(
-        dest_dir=sampleprojects_dir.parent, ssl_verify=False
-    )
+    load_sampleprojects.load_sampleprojects(dest_dir=sampleprojects_dir.parent)
+
     # Check if the right number of files was loaded
     assert sampleprojects_dir.exists()
     assert (sampleprojects_dir / "imagelayers.ini").exists()
