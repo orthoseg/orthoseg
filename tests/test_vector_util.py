@@ -216,7 +216,7 @@ def test_simplify_topo_orthoseg():
             assert simplified_gdf["geometry"][index] is None
         else:
             if index == 4:
-                assert geometry.type == simplified_gdf["geometry"][index].type
+                assert geometry.geom_type == simplified_gdf["geometry"][index].geom_type
 
     # Test empty geoseries
     # --------------------
