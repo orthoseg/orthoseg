@@ -4,6 +4,7 @@
 import re
 import os
 import ssl
+import time
 from typing import Union
 import urllib.request
 import json
@@ -33,7 +34,10 @@ def create_url(url):
 
 
 def download(
-    repo_url: str, output_dir: Path, ssl_verify: Union[bool, str, None] = None
+    repo_url: str,
+    output_dir: Path,
+    ssl_verify: Union[bool, str, None] = None,
+    limit_rate: bool = True,
 ):
     """
     Downloads the files and directories in repo_url.
@@ -47,6 +51,9 @@ def download(
             certificate bundle file (.pem) is passed, this will be used.
             In corporate networks using a proxy server this is often needed
             to evade CERTIFICATE_VERIFY_FAILED errors. Defaults to None.
+        limit_rate (bool, optional): If True, limit the rate requests are done to
+            github to the maximum level allowed for unauthenticated users.
+            Defaults to True.
     """
     context = None
     if ssl_verify is not None:
@@ -64,7 +71,7 @@ def download(
             context = ssl._create_unverified_context()
             print("SSL VERIFICATION IS TURNED OFF!!!")
 
-    # generate the url which returns the JSON data
+    # Generate the url which returns the JSON data
     api_url, download_dirs = create_url(repo_url)
 
     # To handle file names.
@@ -74,12 +81,15 @@ def download(
         dir_out = output_dir / "/".join(download_dirs.split("/")[0:-1])
 
     # Download the file
+    # If limit_rate enabled, always sleep 1 second before doing a request!
+    if limit_rate:
+        time.sleep(1)
     with urllib.request.urlopen(api_url, context=context) as u:
-        # make a directory with the name which is taken from
+        # Make a directory with the name which is taken from
         # the actual repo
         dir_out.mkdir(parents=True, exist_ok=True)
 
-        # total files count
+        # Total files count
         total_files = 0
         raw_data = u.read()
         data = json.loads(raw_data)
@@ -89,7 +99,9 @@ def download(
 
         # If the data is a file, download it as one.
         if isinstance(data, dict) and data["type"] == "file":
-            # download the file
+            # Download the file
+            if limit_rate:
+                time.sleep(1)
             with urllib.request.urlopen(
                 data["download_url"], context=context
             ) as u, open(dir_out / data["name"], "wb") as f:
@@ -104,6 +116,8 @@ def download(
 
             # If it is a file, download it, if dir, start recursively
             if file_url is not None:
+                if limit_rate:
+                    time.sleep(1)
                 with urllib.request.urlopen(file_url, context=context) as u, open(
                     path, "wb"
                 ) as f:
