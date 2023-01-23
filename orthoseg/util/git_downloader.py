@@ -37,7 +37,7 @@ def download(
     repo_url: str,
     output_dir: Path,
     ssl_verify: Union[bool, str, None] = None,
-    limit_rate: bool = False,
+    limit_rate: bool = True,
 ):
     """
     Downloads the files and directories in repo_url.
@@ -52,7 +52,8 @@ def download(
             In corporate networks using a proxy server this is often needed
             to evade CERTIFICATE_VERIFY_FAILED errors. Defaults to None.
         limit_rate (bool, optional): If True, limit the rate requests are done to
-            github. Defaults to False.
+            github to the maximum level allowed for unauthenticated users.
+            Defaults to True.
     """
     context = None
     if ssl_verify is not None:
