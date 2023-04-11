@@ -6,7 +6,6 @@ easier.
 
 import concurrent.futures as futures
 import datetime
-import itertools as it
 import logging
 import math
 from pathlib import Path
@@ -136,22 +135,6 @@ def get_images_for_grid(
     # Init
     if image_format_save is None:
         image_format_save = image_format
-
-    # Interprete ssl_verify
-    auth = None
-    if ssl_verify is not None:
-        # If it is a string, make sure it isn't actually a bool
-        if isinstance(ssl_verify, str):
-            if ssl_verify.lower() == "true":
-                ssl_verify = True
-            elif ssl_verify.lower() == "false":
-                ssl_verify = False
-
-        assert isinstance(ssl_verify, bool)
-        auth = owslib.util.Authentication(verify=ssl_verify)
-        if ssl_verify is False:
-            urllib3.disable_warnings()
-            logger.warn("SSL VERIFICATION IS TURNED OFF!!!")
 
     crs_width = math.fabs(
         image_pixel_width * image_crs_pixel_x_size
@@ -300,6 +283,8 @@ def get_images_for_grid(
                 gfo.to_file(roi_gdf, gridded_roi_path)
 
     # Inits to start getting images
+    # Prepare authentication object
+    auth = _interprete_ssl_verify(ssl_verify=ssl_verify)
     layersources_prepared = []
     for layersource in layersources:
         wms_service = owslib.wms.WebMapService(
@@ -331,17 +316,16 @@ def get_images_for_grid(
 
         # Loop through all columns and get the images...
         logger.info("Start loading images")
-        start_time = None
+        start_time = datetime.datetime.now()
+        has_switched_axes = _has_switched_axes(crs)
         start_time_lastprogress = None
-        nb_todo = cols * rows
+        nb_total = cols * rows
         nb_processed = 0
         nb_processed_lastprogress = 0
+        nb_to_download = 0
         nb_downloaded = 0
         nb_ignore_in_progress = 0
-        bbox_list = []
-        size_list = []
-        output_filename_list = []
-        output_dir_list = []
+        download_queue = {}
         for col in range(column_start, cols):
 
             image_xmin = col * crs_width + image_gen_bounds[0]
@@ -404,11 +388,10 @@ def get_images_for_grid(
                 output_filepath = output_dir / output_filename
 
                 # Do some checks to know if the image needs to be downloaded
-                image_to_be_skipped = False
                 if nb_images_to_skip > 0 and (nb_processed % nb_images_to_skip) != 0:
                     # If we need to skip images, do so...
                     nb_ignore_in_progress += 1
-                    image_to_be_skipped = True
+                    continue
                 elif (
                     not force
                     and output_filepath.exists()
@@ -416,8 +399,8 @@ def get_images_for_grid(
                 ):
                     # Image exists already
                     nb_ignore_in_progress += 1
-                    image_to_be_skipped = True
                     logger.debug("    -> image exists already, so skip")
+                    continue
                 elif roi_gdf is not None:
                     # If roi was provided, check first if the current image overlaps
                     image_shape = sh_geom.box(
@@ -435,105 +418,152 @@ def get_images_for_grid(
                     if len(precise_matches_gdf) == 0:
                         nb_ignore_in_progress += 1
                         logger.debug("    -> image doesn't overlap with roi, so skip")
-                        image_to_be_skipped = True
+                        continue
 
-                # If the image doesn't need to be skipped... append the image
-                # info to the batch arrays so they can be treated in
-                # bulk if the batch size is reached
-                if image_to_be_skipped is False:
-                    bbox_list.append((image_xmin, image_ymin, image_xmax, image_ymax))
-                    size_list.append(
-                        (
-                            image_pixel_width + 2 * pixels_overlap,
-                            image_pixel_height + 2 * pixels_overlap,
-                        )
-                    )
-                    output_filename_list.append(output_filename)
-                    output_dir_list.append(output_dir)
+                # Submit the image to be downloaded
+                future = pool.submit(
+                    getmap_to_file,  # Function
+                    layersources=layersources_prepared,
+                    output_dir=output_dir,
+                    crs=crs,
+                    bbox=(image_xmin, image_ymin, image_xmax, image_ymax),
+                    size=(
+                        image_pixel_width + 2 * pixels_overlap,
+                        image_pixel_height + 2 * pixels_overlap,
+                    ),
+                    image_format=image_format,
+                    image_format_save=image_format_save,
+                    output_filename=output_filename,
+                    transparent=transparent,
+                    tiff_compress=tiff_compress,
+                    image_pixels_ignore_border=image_pixels_ignore_border,
+                    has_switched_axes=has_switched_axes,
+                    force=force,
+                )
+                download_queue[future] = output_filename
+                nb_to_download += 1
 
-                # If the batch size is reached or we are at the last images
-                nb_images_in_batch = len(bbox_list)
-                if nb_images_in_batch == nb_concurrent_calls or nb_processed == (
-                    nb_todo - 1
-                ):
+                # Process finished downloads
+                while True:
+                    # Process downloads that are ready
+                    futures_done = []
+                    for future in download_queue:
+                        if not future.done():
+                            continue
 
-                    # Now we are getting to start fetching images... init start_time
-                    if start_time is None or start_time_lastprogress is None:
-                        start_time = datetime.datetime.now()
-                        nb_processed_lastprogress = nb_processed
-
-                    # Exec in parallel
-                    read_results = pool.map(
-                        getmap_to_file,  # Function
-                        it.repeat(layersources_prepared),
-                        output_dir_list,
-                        it.repeat(crs),
-                        bbox_list,
-                        size_list,
-                        it.repeat(image_format),
-                        it.repeat(image_format_save),
-                        output_filename_list,
-                        it.repeat(transparent),
-                        it.repeat(tiff_compress),
-                        it.repeat(image_pixels_ignore_border),
-                        it.repeat(force),
-                    )
-
-                    for _ in read_results:
+                        # Fetch result: will throw exception if something went wrong
+                        _ = future.result()
                         nb_downloaded += 1
+                        futures_done.append(future)
 
-                    # Progress
-                    logger.debug(
-                        f"Process image {nb_processed} out of {cols*rows}: "
-                        f"{nb_processed/(cols*rows):.2f} %"
-                    )
-
-                    # Log the progress and prediction speed
-                    time_between_progress_s = 60
-                    time_passed_s = (
-                        datetime.datetime.now() - start_time
-                    ).total_seconds()
-                    if start_time_lastprogress is None:
-                        time_passed_lastprogress_s = time_between_progress_s
-                    else:
-                        time_passed_lastprogress_s = (
-                            datetime.datetime.now() - start_time_lastprogress
-                        ).total_seconds()
-                    if (
-                        time_passed_s > 0
-                        and time_passed_lastprogress_s >= time_between_progress_s
-                    ):
-                        nb_per_hour = (
-                            (nb_processed - nb_ignore_in_progress) / time_passed_s
-                        ) * 3600
-                        nb_per_hour_lastprogress = (
-                            nb_processed_lastprogress
-                            - nb_processed / time_passed_lastprogress_s
-                        ) * 3600
-                        hours_to_go = (int)((nb_todo - nb_processed) / nb_per_hour)
-                        min_to_go = (int)(
-                            (((nb_todo - nb_processed) / nb_per_hour) % 1) * 60
-                        )
-                        progress_message = (
+                        # Log the progress and download speed
+                        base_message = (
                             f"load_images to {output_image_dir.parent.name}/"
-                            f"{output_image_dir.name}, {hours_to_go:3d}:{min_to_go:2d} "
-                            f"left for {nb_todo-nb_processed} images at "
-                            f"{nb_per_hour:0.0f}/h ({nb_per_hour_lastprogress:0.0f}/h "
-                            f"last batch), with {nb_ignore_in_progress} skipped"
+                            f"{output_image_dir.name}"
                         )
-                        logger.info(progress_message)
+                        _log_progress(
+                            base_message=base_message,
+                            start_time_lastprogress=start_time_lastprogress,
+                            nb_total=nb_total,
+                            nb_processed=nb_processed,
+                            nb_processed_lastprogress=nb_processed_lastprogress,
+                        )
 
                         start_time_lastprogress = datetime.datetime.now()
                         nb_processed_lastprogress = nb_processed
 
-                    # Reset variable for next batch
-                    bbox_list = []
-                    size_list = []
-                    output_filename_list = []
-                    output_dir_list = []
+                    # Remove futures that are done
+                    for future in futures_done:
+                        del download_queue[future]
+                    futures_done = []
 
-                    if max_nb_images > -1 and nb_downloaded >= max_nb_images:
-                        return
+                    # If all image tiles have been processed or if the max number of
+                    # images to download is reached...
+                    if (
+                        nb_processed >= nb_total
+                        or max_nb_images > -1
+                        and nb_downloaded >= max_nb_images
+                    ):
+                        if len(download_queue) == 0:
+                            return
+                    else:
+                        # Not all tiles have been processed yet, and the queue isn't too
+                        # full, so process some more
+                        if len(download_queue) < nb_concurrent_calls * 2:
+                            break
+
+                    # Sleep a bit before checking again if there are downloads ready
+                    time.sleep(0.1)
+
+
+def _log_progress(
+    base_message: str,
+    start_time_lastprogress: Optional[datetime.datetime],
+    nb_total: int,
+    nb_processed: int,
+    nb_processed_lastprogress: int,
+):
+    progress_message = _format_progress(
+        base_message=base_message,
+        start_time_lastprogress=start_time_lastprogress,
+        nb_total=nb_total,
+        nb_processed=nb_processed,
+        nb_processed_lastprogress=nb_processed_lastprogress,
+    )
+    if progress_message is not None:
+        logger.info(progress_message)
+
+
+def _format_progress(
+    base_message: str,
+    start_time_lastprogress: Optional[datetime.datetime],
+    nb_total: int,
+    nb_processed: int,
+    nb_processed_lastprogress: int,
+) -> Optional[str]:
+    progress_message = None
+    time_between_progress_s = 60
+    if start_time_lastprogress is None:
+        time_passed_lastprogress_s = time_between_progress_s
+    else:
+        time_passed_lastprogress_s = (
+            datetime.datetime.now() - start_time_lastprogress
+        ).total_seconds()
+    if time_passed_lastprogress_s >= time_between_progress_s:
+        nb_per_hour_lastprogress = (
+            (nb_processed - nb_processed_lastprogress) / time_passed_lastprogress_s
+        ) * 3600
+        hours_to_go = (int)((nb_total - nb_processed) / nb_per_hour_lastprogress)
+        min_to_go = (int)(
+            (((nb_total - nb_processed) / nb_per_hour_lastprogress) % 1) * 60
+        )
+        progress_message = (
+            f"{base_message}, {hours_to_go:3d}:{min_to_go:2d} "
+            f"left for {nb_total-nb_processed} images at "
+            f"{nb_per_hour_lastprogress:0.0f}/h"
+        )
+
+    return progress_message
+
+
+def _interprete_ssl_verify(ssl_verify: Union[bool, str, None]):
+    # Interprete ssl_verify
+    auth = None
+    if ssl_verify is not None:
+        # If it is a string, make sure it isn't actually a bool
+        if isinstance(ssl_verify, str):
+            if ssl_verify.lower() == "true":
+                ssl_verify = True
+            elif ssl_verify.lower() == "false":
+                ssl_verify = False
+
+        assert isinstance(ssl_verify, bool)
+        auth = owslib.util.Authentication(verify=ssl_verify)
+        if ssl_verify is False:
+            urllib3.disable_warnings()
+            logger.warn("SSL VERIFICATION IS TURNED OFF!!!")
+
+    return auth
 
 
 class LayerSource:
@@ -568,6 +598,7 @@ def getmap_to_file(
     image_pixels_ignore_border: int = 0,
     force: bool = False,
     layername_in_filename: bool = False,
+    has_switched_axes: Optional[bool] = None,
 ) -> Optional[Path]:
     """
 
@@ -588,6 +619,9 @@ def getmap_to_file(
         image_pixels_ignore_border (int, optional): [description]. Defaults to 0.
         force (bool, optional): [description]. Defaults to False.
         layername_in_filename (bool, optional): [description]. Defaults to False.
+        has_switched_axes (bool, optional): True if x and y axes should be switched to
+            in the WMS GetMap request. If None, an effort is made to determine it
+            automatically based on the crs. Defaults to None.
 
     Raises:
         Exception: [description]
@@ -662,7 +696,9 @@ def getmap_to_file(
         )
 
     # For coordinate systems with switched axis (y, x or lon, lat), switch x and y
-    if _has_switched_axes(crs):
+    if has_switched_axes is None:
+        has_switched_axes = _has_switched_axes(crs)
+    if has_switched_axes:
         bbox_for_getmap = (
             bbox_for_getmap[1],
             bbox_for_getmap[0],
