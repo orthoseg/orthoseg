@@ -140,6 +140,10 @@ def read_layer_config(layer_config_filepath: Path) -> dict:
                     layersource["random_sleep"] = 0
                 if "wms_ignore_capabilities_url" not in layersource:
                     layersource["wms_ignore_capabilities_url"] = False
+                if "wms_username" not in layersource:
+                    layersource["wms_username"] = None
+                if "wms_password" not in layersource:
+                    layersource["wms_password"] = None
 
         else:
             # If not, the layersource should be specified in seperate parameters
@@ -149,6 +153,12 @@ def read_layer_config(layer_config_filepath: Path) -> dict:
             )
             layersource["wms_version"] = layer_config[image_layer].get(
                 "wms_version", fallback="1.3.0"
+            )
+            layersource["wms_username"] = layer_config[image_layer].get(
+                "wms_username", fallback=None
+            )
+            layersource["wms_password"] = layer_config[image_layer].get(
+                "wms_password", fallback=None
             )
             # The layer names and layer styles are lists
             layersource["layernames"] = layer_config[image_layer].getlist(
