@@ -305,6 +305,8 @@ def get_images_for_grid(
         wms_service = owslib.wms.WebMapService(
             url=layersource["wms_server_url"],
             version=layersource["wms_version"],
+            username=layersource["wms_username"],
+            password=layersource["wms_password"],
             auth=auth,
         )
         if layersource["wms_ignore_capabilities_url"]:
