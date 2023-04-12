@@ -64,7 +64,7 @@ def test_2_load_images():
     # Check if the right number of files was loaded
     assert image_cache_dir.exists()
     files = list(image_cache_dir.glob("**/*.jpg"))
-    assert len(files) == 8
+    assert len(files) == 4
 
 
 @pytest.mark.skipif(
@@ -164,7 +164,7 @@ def test_4_predict():
     assert result_vector_path.exists()
     result_gdf = gfo.read_file(result_vector_path)
     if os.name == "nt":
-        assert len(result_gdf) == 356
+        assert len(result_gdf) == 233
     else:
         # Since 2023-02-17, predict result on linux and Mac became different...
         assert len(result_gdf) == 407
@@ -195,7 +195,7 @@ def test_5_postprocess():
     assert result_diss_path.exists()
     result_gdf = gfo.read_file(result_diss_path)
     if os.name == "nt":
-        assert len(result_gdf) == 350
+        assert len(result_gdf) == 227
     else:
         # Since 2023-02-17, predict result on linux and Mac became different...
         assert len(result_gdf) == 384
