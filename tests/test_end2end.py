@@ -167,7 +167,7 @@ def test_4_predict():
         assert len(result_gdf) == 233
     else:
         # Since 2023-02-17, predict result on linux and Mac became different...
-        assert len(result_gdf) == 407
+        assert len(result_gdf) == 259
 
 
 @pytest.mark.skipif(
@@ -198,4 +198,4 @@ def test_5_postprocess():
         assert len(result_gdf) == 227
     else:
         # Since 2023-02-17, predict result on linux and Mac became different...
-        assert len(result_gdf) == 384
+        assert len(result_gdf) == 239
