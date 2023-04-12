@@ -146,95 +146,53 @@ def get_images_for_grid(
         )
 
     # Read the region of interest file if provided
+    grid_bounds = image_gen_bounds
     roi_gdf = None
     if image_gen_roi_filepath is not None:
         # Read roi
         logger.info(f"Read + optimize region of interest from {image_gen_roi_filepath}")
         roi_gdf = gpd.read_file(str(image_gen_roi_filepath))
 
-        # If the generate_window wasn't specified, calculate the bounds
-        # based on the roi (but make sure they fit the grid!)
-        if image_gen_bounds is None:
-            roi_bounds = roi_gdf.geometry.total_bounds
-            image_gen_bounds = (
-                roi_bounds[0] - ((roi_bounds[0] - grid_xmin) % crs_width),
-                roi_bounds[1] - ((roi_bounds[1] - grid_ymin) % crs_height),
-                roi_bounds[2] + (grid_xmin - ((roi_bounds[2] - grid_xmin) % crs_width)),
-                roi_bounds[3]
-                + (grid_ymin - ((roi_bounds[3] - grid_ymin) % crs_height)),
-            )
-            logger.debug(
-                f"roi_bounds: {roi_bounds}, image_gen_bounds: {image_gen_bounds}"
-            )
+        # If the generate_window not specified, use bounds of the roi
+        if grid_bounds is None:
+            grid_bounds = roi_gdf.geometry.total_bounds
 
     # If there is still no image_gen_bounds, stop.
-    if image_gen_bounds is None:
+    if grid_bounds is None:
         raise Exception(
             "Either image_gen_bounds or an image_gen_roi_filepath should be specified."
         )
 
-    # Check if the image_gen_bounds are compatible with the grid...
-    if (image_gen_bounds[0] - grid_xmin) % crs_width != 0:
-        xmin_new = image_gen_bounds[0] - ((image_gen_bounds[0] - grid_xmin) % crs_width)
-        logger.warning(
-            f"xmin {image_gen_bounds[0]} incompatible with grid, {xmin_new} used"
-        )
-        image_gen_bounds = (
-            xmin_new,
-            image_gen_bounds[1],
-            image_gen_bounds[2],
-            image_gen_bounds[3],
-        )
-    if (image_gen_bounds[1] - grid_ymin) % crs_height != 0:
-        ymin_new = image_gen_bounds[1] - (
-            (image_gen_bounds[1] - grid_ymin) % crs_height
-        )
-        logger.warning(
-            f"ymin {image_gen_bounds[1]} incompatible with grid, {ymin_new} used"
-        )
-        image_gen_bounds = (
-            image_gen_bounds[0],
-            ymin_new,
-            image_gen_bounds[2],
-            image_gen_bounds[3],
-        )
-    if (image_gen_bounds[2] - grid_xmin) % crs_width != 0:
+    # Make grid_bounds compatible with the grid
+    grid_bounds = list(grid_bounds)
+    if (grid_bounds[0] - grid_xmin) % crs_width != 0:
+        xmin_new = grid_bounds[0] - ((grid_bounds[0] - grid_xmin) % crs_width)
+        logger.warning(f"xmin {grid_bounds[0]} incompatible with grid, {xmin_new} used")
+        grid_bounds[0] = xmin_new
+    if (grid_bounds[1] - grid_ymin) % crs_height != 0:
+        ymin_new = grid_bounds[1] - ((grid_bounds[1] - grid_ymin) % crs_height)
+        logger.warning(f"ymin {grid_bounds[1]} incompatible with grid, {ymin_new} used")
+        grid_bounds[1] = ymin_new
+    if (grid_bounds[2] - grid_xmin) % crs_width != 0:
         xmax_new = (
-            image_gen_bounds[2]
-            + crs_width
-            - ((image_gen_bounds[2] - grid_xmin) % crs_width)
+            grid_bounds[2] + crs_width - ((grid_bounds[2] - grid_xmin) % crs_width)
         )
-        logger.warning(
-            f"xmax {image_gen_bounds[2]} incompatible with grid, {xmax_new} used"
-        )
-        image_gen_bounds = (
-            image_gen_bounds[0],
-            image_gen_bounds[1],
-            xmax_new,
-            image_gen_bounds[3],
-        )
-    if (image_gen_bounds[3] - grid_ymin) % crs_height != 0:
+        logger.warning(f"xmax {grid_bounds[2]} incompatible with grid, {xmax_new} used")
+        grid_bounds[2] = xmax_new
+    if (grid_bounds[3] - grid_ymin) % crs_height != 0:
         ymax_new = (
-            image_gen_bounds[3]
-            + crs_height
-            - ((image_gen_bounds[3] - grid_ymin) % crs_height)
+            grid_bounds[3] + crs_height - ((grid_bounds[3] - grid_ymin) % crs_height)
         )
-        logger.warning(
-            f"ymax {image_gen_bounds[3]} incompatible with grid, {ymax_new} used"
-        )
-        image_gen_bounds = (
-            image_gen_bounds[0],
-            image_gen_bounds[1],
-            image_gen_bounds[2],
-            ymax_new,
-        )
+        logger.warning(f"ymax {grid_bounds[3]} incompatible with grid, {ymax_new} used")
+        grid_bounds[3] = ymax_new
+    grid_bounds = tuple(grid_bounds)
 
     # Create the output dir if it doesn't exist yet
     output_image_dir.mkdir(parents=True, exist_ok=True)
 
     # Create a grid of the images that need to be downloaded
     tiles_to_download_gdf = geofileops.util.grid_util.create_grid3(
-        image_gen_bounds, width=crs_width, height=crs_height, crs=crs
+        grid_bounds, width=crs_width, height=crs_height, crs=crs
     )
 
     # If an roi is defined, filter the split it using a grid as large objects are small
