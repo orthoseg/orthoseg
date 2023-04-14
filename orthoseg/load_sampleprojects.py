@@ -10,9 +10,10 @@ import shlex
 import sys
 from typing import Optional
 
+import gdown
+
 # orthoseg is higher in dir hierarchy, add root to sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from orthoseg.util import gdrive_util
 from orthoseg.util import git_downloader
 
 
@@ -77,29 +78,31 @@ def load_sampleprojects(dest_dir: Path, ssl_verify: Optional[bool] = None):
     )
     print("Download finished")
     print("Start download of footballfields pretrained neural net")
+    verify = True if ssl_verify is None else ssl_verify
     footballfields_model_dir = dest_dir_full / "footballfields/models"
+    footballfields_model_dir.mkdir(parents=True, exist_ok=True)
     model_hdf5_path = footballfields_model_dir / "footballfields_01_0.92512_242.hdf5"
     if model_hdf5_path.exists() is False:
-        gdrive_util.download_file(
-            "1XmAenCW6K_RVwqC6xbkapJ5ws-f7-QgH",
-            model_hdf5_path,
-            ssl_verify=ssl_verify,
+        gdown.download(
+            id="1XmAenCW6K_RVwqC6xbkapJ5ws-f7-QgH",
+            output=str(model_hdf5_path),
+            verify=verify,
         )
     model_hyperparams_path = (
         footballfields_model_dir / "footballfields_01_hyperparams.json"
     )
     if model_hyperparams_path.exists() is False:
-        gdrive_util.download_file(
-            "1umxcd4RkB81sem9PdIpLoWeiIW8ga1u7",
-            model_hyperparams_path,
-            ssl_verify=ssl_verify,
+        gdown.download(
+            id="1umxcd4RkB81sem9PdIpLoWeiIW8ga1u7",
+            output=str(model_hyperparams_path),
+            verify=verify
         )
     model_modeljson_path = footballfields_model_dir / "footballfields_01_model.json"
     if model_modeljson_path.exists() is False:
-        gdrive_util.download_file(
-            "16qe8thBTrO3dFfLMU1T22gWcfHVXt8zQ",
-            model_modeljson_path,
-            ssl_verify=ssl_verify,
+        gdown.download(
+            id="16qe8thBTrO3dFfLMU1T22gWcfHVXt8zQ",
+            output=str(model_modeljson_path),
+            verify=verify
         )
     print("Download finished")
 

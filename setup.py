@@ -19,6 +19,7 @@ setuptools.setup(
     include_package_data=True,
     install_requires=[
         "fiona",
+        "gdown",
         "geofileops>0.5,<0.7",
         "geopandas",
         "owslib",
