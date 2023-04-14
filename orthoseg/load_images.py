@@ -108,7 +108,6 @@ def load_images(config_path: Path, load_testsample_images: bool = False):
             image_format = ows_util.FORMAT_JPEG
 
             # To create the testsample, fetch only on every ... images
-            column_start = 1
             nb_images_to_skip = 50
 
         else:
@@ -123,7 +122,6 @@ def load_images(config_path: Path, load_testsample_images: bool = False):
             image_format = ows_util.FORMAT_JPEG
 
             # For the real prediction dataset, no skipping obviously...
-            column_start = 0
             nb_images_to_skip = 0
 
         # Get ssl_verify setting
@@ -162,7 +160,6 @@ def load_images(config_path: Path, load_testsample_images: bool = False):
             cron_schedule=download_cron_schedule,
             image_format=image_format,
             pixels_overlap=image_pixels_overlap,
-            column_start=column_start,
             nb_images_to_skip=nb_images_to_skip,
             ssl_verify=ssl_verify,
         )

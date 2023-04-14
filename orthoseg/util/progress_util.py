@@ -1,24 +1,17 @@
 # -*- coding: utf-8 -*-
 """
-Module with specific helper functions to manage progress reporting.
+Module with functions to manage progress logging.
 """
 
 import datetime
 import logging
 from typing import Optional
 
-# -------------------------------------------------------------
-# First define/init general variables/constants
-# -------------------------------------------------------------
 # Get a logger...
 logger = logging.getLogger(__name__)
 
-# -------------------------------------------------------------
-# The real work
-# -------------------------------------------------------------
 
-
-class ProgressHelper:
+class ProgressLogger:
     first_reporting_done = False
 
     def __init__(
@@ -95,8 +88,3 @@ class ProgressHelper:
             self.nb_steps_done_lastreporting = self.nb_steps_done
             if self.first_reporting_done is False:
                 self.first_reporting_done = True
-
-
-# If the script is ran directly...
-if __name__ == "__main__":
-    raise Exception("Not implemented")

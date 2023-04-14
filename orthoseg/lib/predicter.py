@@ -26,7 +26,7 @@ import tensorflow as tf
 import keras.models
 
 import orthoseg.lib.postprocess_predictions as postp
-from orthoseg.helpers.progress_helper import ProgressHelper
+from orthoseg.util.progress_util import ProgressLogger
 from orthoseg.util import general_util
 
 # -------------------------------------------------------------
@@ -513,7 +513,7 @@ def predict_dir(
                 # Init progress only when some imags were already processed, as the
                 # first are very slow.
                 if progress is None and nb_processed > 0:
-                    progress = ProgressHelper(
+                    progress = ProgressLogger(
                         message=f"predict to {output_image_dir.parent.name}/{output_image_dir.name}",  # noqa: E501
                         nb_steps_total=nb_to_process,
                         nb_steps_done=batch_size,
