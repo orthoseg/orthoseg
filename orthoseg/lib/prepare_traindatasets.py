@@ -27,7 +27,7 @@ import rasterio.features as rio_features
 import rasterio.profiles as rio_profiles
 import shapely.geometry as sh_geom
 
-from orthoseg.helpers.progress_helper import ProgressHelper
+from orthoseg.util.progress_util import ProgressLogger
 from orthoseg.util import ows_util
 from orthoseg.util import vector_util
 
@@ -256,7 +256,7 @@ def prepare_traindatasets(
             labellocations_gdf["traindata_type"].isin(traindata_types)
         ]
         nb_todo += len(labellocations_curr_gdf)
-    progress = ProgressHelper(message="prepare training images", nb_steps_total=nb_todo)
+    progress = ProgressLogger(message="prepare training images", nb_steps_total=nb_todo)
     logger.info(f"Get images for {nb_todo} labels")
 
     for traindata_type in traindata_types:

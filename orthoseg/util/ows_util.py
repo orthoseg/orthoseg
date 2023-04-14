@@ -5,8 +5,6 @@ easier.
 """
 
 import concurrent.futures as futures
-import datetime
-import itertools as it
 import logging
 import math
 from pathlib import Path
@@ -19,6 +17,7 @@ import warnings
 import numpy as np
 import geofileops as gfo
 import geofileops.util.grid_util
+import geopandas as gpd
 import owslib
 import owslib.wms
 import owslib.util
@@ -29,8 +28,8 @@ import rasterio.errors as rio_errors
 from rasterio import profiles as rio_profiles
 from rasterio import transform as rio_transform
 from rasterio import windows as rio_windows
-import geopandas as gpd
-import shapely.geometry as sh_geom
+
+from . import progress_util
 
 # -------------------------------------------------------------
 # First define/init some general variables/constants
@@ -80,7 +79,6 @@ def get_images_for_grid(
     tiff_compress: str = "lzw",
     transparent: bool = False,
     pixels_overlap: int = 0,
-    column_start: int = 0,
     nb_images_to_skip: int = 0,
     max_nb_images: int = -1,
     ssl_verify: Union[bool, str] = True,
@@ -118,7 +116,6 @@ def get_images_for_grid(
         tiff_compress (str, optional): [description]. Defaults to 'lzw'.
         transparent (bool, optional): [description]. Defaults to False.
         pixels_overlap (int, optional): [description]. Defaults to 0.
-        column_start (int, optional): [description]. Defaults to 0.
         nb_images_to_skip (int, optional): [description]. Defaults to 0.
         max_nb_images (int, optional): [description]. Defaults to -1.
         ssl_verify (bool or str, optional): True to use the default
@@ -137,22 +134,6 @@ def get_images_for_grid(
     if image_format_save is None:
         image_format_save = image_format
 
-    # Interprete ssl_verify
-    auth = None
-    if ssl_verify is not None:
-        # If it is a string, make sure it isn't actually a bool
-        if isinstance(ssl_verify, str):
-            if ssl_verify.lower() == "true":
-                ssl_verify = True
-            elif ssl_verify.lower() == "false":
-                ssl_verify = False
-
-        assert isinstance(ssl_verify, bool)
-        auth = owslib.util.Authentication(verify=ssl_verify)
-        if ssl_verify is False:
-            urllib3.disable_warnings()
-            logger.warn("SSL VERIFICATION IS TURNED OFF!!!")
-
     crs_width = math.fabs(
         image_pixel_width * image_crs_pixel_x_size
     )  # tile width in units of crs => 500 m
@@ -166,140 +147,75 @@ def get_images_for_grid(
         )
 
     # Read the region of interest file if provided
+    grid_bounds = image_gen_bounds
     roi_gdf = None
     if image_gen_roi_filepath is not None:
         # Read roi
         logger.info(f"Read + optimize region of interest from {image_gen_roi_filepath}")
         roi_gdf = gpd.read_file(str(image_gen_roi_filepath))
 
-        # If the generate_window wasn't specified, calculate the bounds
-        # based on the roi (but make sure they fit the grid!)
-        if image_gen_bounds is None:
-            roi_bounds = roi_gdf.geometry.total_bounds
-            image_gen_bounds = (
-                roi_bounds[0] - ((roi_bounds[0] - grid_xmin) % crs_width),
-                roi_bounds[1] - ((roi_bounds[1] - grid_ymin) % crs_height),
-                roi_bounds[2] + (grid_xmin - ((roi_bounds[2] - grid_xmin) % crs_width)),
-                roi_bounds[3]
-                + (grid_ymin - ((roi_bounds[3] - grid_ymin) % crs_height)),
-            )
-            logger.debug(
-                f"roi_bounds: {roi_bounds}, image_gen_bounds: {image_gen_bounds}"
-            )
+        # If the generate_window not specified, use bounds of the roi
+        if grid_bounds is None:
+            grid_bounds = roi_gdf.geometry.total_bounds
 
     # If there is still no image_gen_bounds, stop.
-    if image_gen_bounds is None:
+    if grid_bounds is None:
         raise Exception(
             "Either image_gen_bounds or an image_gen_roi_filepath should be specified."
         )
 
-    # Check if the image_gen_bounds are compatible with the grid...
-    if (image_gen_bounds[0] - grid_xmin) % crs_width != 0:
-        xmin_new = image_gen_bounds[0] - ((image_gen_bounds[0] - grid_xmin) % crs_width)
-        logger.warning(
-            f"xmin {image_gen_bounds[0]} incompatible with grid, {xmin_new} used"
-        )
-        image_gen_bounds = (
-            xmin_new,
-            image_gen_bounds[1],
-            image_gen_bounds[2],
-            image_gen_bounds[3],
-        )
-    if (image_gen_bounds[1] - grid_ymin) % crs_height != 0:
-        ymin_new = image_gen_bounds[1] - (
-            (image_gen_bounds[1] - grid_ymin) % crs_height
-        )
-        logger.warning(
-            f"ymin {image_gen_bounds[1]} incompatible with grid, {ymin_new} used"
-        )
-        image_gen_bounds = (
-            image_gen_bounds[0],
-            ymin_new,
-            image_gen_bounds[2],
-            image_gen_bounds[3],
-        )
-    if (image_gen_bounds[2] - grid_xmin) % crs_width != 0:
+    # Make grid_bounds compatible with the grid
+    grid_bounds = list(grid_bounds)
+    if (grid_bounds[0] - grid_xmin) % crs_width != 0:
+        xmin_new = grid_bounds[0] - ((grid_bounds[0] - grid_xmin) % crs_width)
+        logger.warning(f"xmin {grid_bounds[0]} incompatible with grid, {xmin_new} used")
+        grid_bounds[0] = xmin_new
+    if (grid_bounds[1] - grid_ymin) % crs_height != 0:
+        ymin_new = grid_bounds[1] - ((grid_bounds[1] - grid_ymin) % crs_height)
+        logger.warning(f"ymin {grid_bounds[1]} incompatible with grid, {ymin_new} used")
+        grid_bounds[1] = ymin_new
+    if (grid_bounds[2] - grid_xmin) % crs_width != 0:
         xmax_new = (
-            image_gen_bounds[2]
-            + crs_width
-            - ((image_gen_bounds[2] - grid_xmin) % crs_width)
+            grid_bounds[2] + crs_width - ((grid_bounds[2] - grid_xmin) % crs_width)
         )
-        logger.warning(
-            f"xmax {image_gen_bounds[2]} incompatible with grid, {xmax_new} used"
-        )
-        image_gen_bounds = (
-            image_gen_bounds[0],
-            image_gen_bounds[1],
-            xmax_new,
-            image_gen_bounds[3],
-        )
-    if (image_gen_bounds[3] - grid_ymin) % crs_height != 0:
+        logger.warning(f"xmax {grid_bounds[2]} incompatible with grid, {xmax_new} used")
+        grid_bounds[2] = xmax_new
+    if (grid_bounds[3] - grid_ymin) % crs_height != 0:
         ymax_new = (
-            image_gen_bounds[3]
-            + crs_height
-            - ((image_gen_bounds[3] - grid_ymin) % crs_height)
+            grid_bounds[3] + crs_height - ((grid_bounds[3] - grid_ymin) % crs_height)
         )
-        logger.warning(
-            f"ymax {image_gen_bounds[3]} incompatible with grid, {ymax_new} used"
-        )
-        image_gen_bounds = (
-            image_gen_bounds[0],
-            image_gen_bounds[1],
-            image_gen_bounds[2],
-            ymax_new,
-        )
+        logger.warning(f"ymax {grid_bounds[3]} incompatible with grid, {ymax_new} used")
+        grid_bounds[3] = ymax_new
+    grid_bounds = tuple(grid_bounds)
 
     # Create the output dir if it doesn't exist yet
     output_image_dir.mkdir(parents=True, exist_ok=True)
 
-    # Write the cache image grid to file
-    grid_path = output_image_dir / "imagecache_grid.gpkg"
-    if not grid_path.exists():
-        grid_for_roi_gdf = geofileops.util.grid_util.create_grid3(
-            image_gen_bounds, width=crs_width, height=crs_height, crs=crs
-        )
-        gfo.to_file(grid_for_roi_gdf, grid_path)
+    # Create a grid of the images that need to be downloaded
+    tiles_to_download_gdf = geofileops.util.grid_util.create_grid3(
+        grid_bounds, width=crs_width, height=crs_height, crs=crs
+    )
 
-    # Calculate width and height...
-    dx = math.fabs(
-        image_gen_bounds[0] - image_gen_bounds[2]
-    )  # area width in units of crs
-    dy = math.fabs(
-        image_gen_bounds[1] - image_gen_bounds[3]
-    )  # area height in units of crs
-    cols = int(math.ceil(dx / crs_width)) + 1
-    rows = int(math.ceil(dy / crs_height)) + 1
-
-    # If an roi is defined, split it using a grid as large objects are small
+    # If an roi is defined, filter the split it using a grid as large objects are small
     if roi_gdf is not None:
-        # TODO: support creating a grid in latlon????
-        if crs.is_projected:
+        # The tiles should intersect, but touching is not enough
+        tiles_intersects_roi_gdf = tiles_to_download_gdf.sjoin(
+            roi_gdf[["geometry"]], how="inner", predicate="intersects"
+        )
+        tiles_touches_roi_gdf = tiles_to_download_gdf.sjoin(
+            roi_gdf[["geometry"]], how="inner", predicate="touches"
+        )
+        tiles_to_download_gdf = tiles_intersects_roi_gdf.loc[
+            ~tiles_intersects_roi_gdf.index.isin(tiles_touches_roi_gdf.index)
+        ]
 
-            # Create grid
-            grid_for_roi_gdf = geofileops.util.grid_util.create_grid3(
-                image_gen_bounds, width=crs_width, height=crs_height, crs=crs
-            )
+    # Write the tiles to download to file for reference
+    tiles_path = output_image_dir / "tiles_to_download.gpkg"
+    if not tiles_path.exists():
+        gfo.to_file(tiles_to_download_gdf, tiles_path)
 
-            # Create intersection layer between grid and roi
-            roi_gdf = gpd.overlay(grid_for_roi_gdf, roi_gdf, how="intersection")
-
-            # Explode possible multipolygons to polygons
-            # roi_gdf.reset_index(drop=True, inplace=True)
-            # assert to evade pyLance warning
-            assert isinstance(roi_gdf, gpd.GeoDataFrame)
-            roi_gdf = roi_gdf.explode(ignore_index=True)
-            # roi_gdf.reset_index(drop=True, inplace=True)
-
-            # Write to file
-            grid_for_roi_path = output_image_dir / "grid_for_roi.gpkg"
-            if grid_for_roi_path.exists() is False:
-                gfo.to_file(grid_for_roi_gdf, grid_for_roi_path)
-            assert isinstance(roi_gdf, gpd.GeoDataFrame)
-            gridded_roi_path = output_image_dir / "gridded_roi.gpkg"
-            if gridded_roi_path.exists() is False:
-                gfo.to_file(roi_gdf, gridded_roi_path)
-
-    # Inits to start getting images
+    # Prepare WMS connection(s)
+    auth = _interprete_ssl_verify(ssl_verify=ssl_verify)
     layersources_prepared = []
     for layersource in layersources:
         wms_service = owslib.wms.WebMapService(
@@ -330,210 +246,158 @@ def get_images_for_grid(
     with futures.ThreadPoolExecutor(nb_concurrent_calls) as pool:
 
         # Loop through all columns and get the images...
-        logger.info("Start loading images")
-        start_time = None
-        start_time_lastprogress = None
-        nb_todo = cols * rows
+        has_switched_axes = _has_switched_axes(crs)
+        nb_total = len(tiles_to_download_gdf)
         nb_processed = 0
-        nb_processed_lastprogress = 0
         nb_downloaded = 0
-        nb_ignore_in_progress = 0
-        bbox_list = []
-        size_list = []
-        output_filename_list = []
-        output_dir_list = []
-        for col in range(column_start, cols):
+        download_queue = {}
+        logger.info(f"Start loading {nb_total} images")
+        progress = None
+        for tile in tiles_to_download_gdf.geometry.bounds.itertuples():
+            # If a cron_schedule is specified, check if we should be running
+            if cron_schedule is not None and cron_schedule != "":
+                # Sleep till the schedule becomes active
+                first_cron_check = True
+                while not pycron.is_now(cron_schedule):
+                    # The first time, log message that we are going to sleep...
+                    if first_cron_check is True:
+                        logger.info(f"Time schedule specified: sleep: {cron_schedule}")
+                        first_cron_check = False
+                    time.sleep(60)
 
-            image_xmin = col * crs_width + image_gen_bounds[0]
-            image_xmax = (col + 1) * crs_width + image_gen_bounds[0]
+            # Init progress
+            if progress is None:
+                message = (
+                    f"load_images to {output_image_dir.parent.name}/"
+                    f"{output_image_dir.name}"
+                )
+                progress = progress_util.ProgressLogger(
+                    message=message,
+                    nb_steps_total=nb_total,
+                    nb_steps_done=0,
+                )
+
+            nb_processed += 1
+            _, tile_xmin, tile_ymin, tile_xmax, tile_ymax = tile
+            tile_pixel_width = image_pixel_width
+            tile_pixel_height = image_pixel_height
 
             # If overlapping images are wanted... increase image bbox
             if pixels_overlap:
-                image_xmin = image_xmin - (pixels_overlap * image_crs_pixel_x_size)
-                image_xmax = image_xmax + (pixels_overlap * image_crs_pixel_x_size)
+                tile_xmin -= pixels_overlap * image_crs_pixel_x_size
+                tile_xmax += pixels_overlap * image_crs_pixel_x_size
+                tile_ymin -= pixels_overlap * image_crs_pixel_y_size
+                tile_ymax += pixels_overlap * image_crs_pixel_y_size
+                tile_pixel_width += 2 * pixels_overlap
+                tile_pixel_height += 2 * pixels_overlap
 
-            # Put all the images of this column in a dir
+            # Create output filepath
             if crs.is_projected:
-                output_dir = output_image_dir / f"{image_xmin:06.0f}"
+                output_dir = output_image_dir / f"{tile_xmin:06.0f}"
             else:
-                output_dir = output_image_dir / f"{image_xmin:09.4f}"
-            if not output_dir.exists():
-                output_dir.mkdir()
-
-            logger.debug(
-                f"load_images to {output_image_dir.parent.name}/{output_image_dir.name}"
-                f", column {col} ({output_dir.name})"
+                output_dir = output_image_dir / f"{tile_xmin:09.4f}"
+            output_filename = _create_filename(
+                crs=crs,
+                bbox=(tile_xmin, tile_ymin, tile_xmax, tile_ymax),
+                size=(tile_pixel_width, tile_pixel_height),
+                image_format=image_format,
+                layername=None,
             )
-            for row in range(0, rows):
+            output_filepath = output_dir / output_filename
 
-                # If a cron_schedule is specified, check if we should be running
-                if cron_schedule is not None and cron_schedule != "":
-                    # Sleep till the schedule becomes active
-                    first_time = True
-                    while not pycron.is_now(cron_schedule):
-                        # The first time, log message that we are going to sleep...
-                        if first_time is True:
-                            logger.info(
-                                f"Time schedule specified: sleep: {cron_schedule}"
-                            )
-                            first_time = False
-                        time.sleep(60)
+            # Do some checks to know if the image needs to be downloaded
+            if nb_images_to_skip > 0 and (nb_processed % nb_images_to_skip) != 0:
+                # If we need to skip images, do so...
+                progress.step()
+                continue
+            elif (
+                not force
+                and output_filepath.exists()
+                and output_filepath.stat().st_size > 0
+            ):
+                # Image exists already
+                progress.step()
+                logger.debug("    -> image exists already, so skip")
+                continue
 
-                nb_processed += 1
+            # Submit the image to be downloaded
+            output_dir.mkdir(parents=True, exist_ok=True)
+            future = pool.submit(
+                getmap_to_file,  # Function
+                layersources=layersources_prepared,
+                output_dir=output_dir,
+                crs=crs,
+                bbox=(tile_xmin, tile_ymin, tile_xmax, tile_ymax),
+                size=(tile_pixel_width, tile_pixel_height),
+                image_format=image_format,
+                image_format_save=image_format_save,
+                output_filename=output_filename,
+                transparent=transparent,
+                tiff_compress=tiff_compress,
+                image_pixels_ignore_border=image_pixels_ignore_border,
+                has_switched_axes=has_switched_axes,
+                force=force,
+            )
+            download_queue[future] = output_filename
 
-                # Calculate y bounds
-                image_ymin = row * crs_height + image_gen_bounds[1]
-                image_ymax = (row + 1) * crs_height + image_gen_bounds[1]
+            # Process finished downloads till queue is of acceptable size
+            while True:
+                # Process downloads that are ready
+                futures_done = []
+                for future in download_queue:
+                    if not future.done():
+                        continue
 
-                # If overlapping images are wanted... increase image bbox
-                if pixels_overlap:
-                    image_ymin = image_ymin - (pixels_overlap * image_crs_pixel_y_size)
-                    image_ymax = image_ymax + (pixels_overlap * image_crs_pixel_y_size)
+                    # Fetch result: will throw exception if something went wrong
+                    _ = future.result()
+                    nb_downloaded += 1
+                    futures_done.append(future)
 
-                # Create output filename
-                output_filename = _create_filename(
-                    crs=crs,
-                    bbox=(image_xmin, image_ymin, image_xmax, image_ymax),
-                    size=(
-                        image_pixel_width + 2 * pixels_overlap,
-                        image_pixel_height + 2 * pixels_overlap,
-                    ),
-                    image_format=image_format,
-                    layername=None,
-                )
-                output_filepath = output_dir / output_filename
+                    # Log the progress and download speed
+                    progress.step()
 
-                # Do some checks to know if the image needs to be downloaded
-                image_to_be_skipped = False
-                if nb_images_to_skip > 0 and (nb_processed % nb_images_to_skip) != 0:
-                    # If we need to skip images, do so...
-                    nb_ignore_in_progress += 1
-                    image_to_be_skipped = True
-                elif (
-                    not force
-                    and output_filepath.exists()
-                    and output_filepath.stat().st_size > 0
+                # Remove futures that are done
+                for future in futures_done:
+                    del download_queue[future]
+                futures_done = []
+
+                # If all image tiles have been processed or if the max number of
+                # images to download is reached...
+                if (
+                    nb_processed >= nb_total
+                    or max_nb_images > -1
+                    and nb_downloaded >= max_nb_images
                 ):
-                    # Image exists already
-                    nb_ignore_in_progress += 1
-                    image_to_be_skipped = True
-                    logger.debug("    -> image exists already, so skip")
-                elif roi_gdf is not None:
-                    # If roi was provided, check first if the current image overlaps
-                    image_shape = sh_geom.box(
-                        image_xmin, image_ymin, image_xmax, image_ymax
-                    )
-
-                    possible_match_indexes = list(
-                        roi_gdf.geometry.sindex.query(image_shape)
-                    )
-                    possible_matches_gdf = roi_gdf.iloc[possible_match_indexes]
-                    precise_matches_gdf = possible_matches_gdf.loc[
-                        possible_matches_gdf.intersects(image_shape)
-                    ]
-
-                    if len(precise_matches_gdf) == 0:
-                        nb_ignore_in_progress += 1
-                        logger.debug("    -> image doesn't overlap with roi, so skip")
-                        image_to_be_skipped = True
-
-                # If the image doesn't need to be skipped... append the image
-                # info to the batch arrays so they can be treated in
-                # bulk if the batch size is reached
-                if image_to_be_skipped is False:
-                    bbox_list.append((image_xmin, image_ymin, image_xmax, image_ymax))
-                    size_list.append(
-                        (
-                            image_pixel_width + 2 * pixels_overlap,
-                            image_pixel_height + 2 * pixels_overlap,
-                        )
-                    )
-                    output_filename_list.append(output_filename)
-                    output_dir_list.append(output_dir)
-
-                # If the batch size is reached or we are at the last images
-                nb_images_in_batch = len(bbox_list)
-                if nb_images_in_batch == nb_concurrent_calls or nb_processed == (
-                    nb_todo - 1
-                ):
-
-                    # Now we are getting to start fetching images... init start_time
-                    if start_time is None or start_time_lastprogress is None:
-                        start_time = datetime.datetime.now()
-                        nb_processed_lastprogress = nb_processed
-
-                    # Exec in parallel
-                    read_results = pool.map(
-                        getmap_to_file,  # Function
-                        it.repeat(layersources_prepared),
-                        output_dir_list,
-                        it.repeat(crs),
-                        bbox_list,
-                        size_list,
-                        it.repeat(image_format),
-                        it.repeat(image_format_save),
-                        output_filename_list,
-                        it.repeat(transparent),
-                        it.repeat(tiff_compress),
-                        it.repeat(image_pixels_ignore_border),
-                        it.repeat(force),
-                    )
-
-                    for _ in read_results:
-                        nb_downloaded += 1
-
-                    # Progress
-                    logger.debug(
-                        f"Process image {nb_processed} out of {cols*rows}: "
-                        f"{nb_processed/(cols*rows):.2f} %"
-                    )
-
-                    # Log the progress and prediction speed
-                    time_between_progress_s = 60
-                    time_passed_s = (
-                        datetime.datetime.now() - start_time
-                    ).total_seconds()
-                    if start_time_lastprogress is None:
-                        time_passed_lastprogress_s = time_between_progress_s
-                    else:
-                        time_passed_lastprogress_s = (
-                            datetime.datetime.now() - start_time_lastprogress
-                        ).total_seconds()
-                    if (
-                        time_passed_s > 0
-                        and time_passed_lastprogress_s >= time_between_progress_s
-                    ):
-                        nb_per_hour = (
-                            (nb_processed - nb_ignore_in_progress) / time_passed_s
-                        ) * 3600
-                        nb_per_hour_lastprogress = (
-                            nb_processed_lastprogress
-                            - nb_processed / time_passed_lastprogress_s
-                        ) * 3600
-                        hours_to_go = (int)((nb_todo - nb_processed) / nb_per_hour)
-                        min_to_go = (int)(
-                            (((nb_todo - nb_processed) / nb_per_hour) % 1) * 60
-                        )
-                        progress_message = (
-                            f"load_images to {output_image_dir.parent.name}/"
-                            f"{output_image_dir.name}, {hours_to_go:3d}:{min_to_go:2d} "
-                            f"left for {nb_todo-nb_processed} images at "
-                            f"{nb_per_hour:0.0f}/h ({nb_per_hour_lastprogress:0.0f}/h "
-                            f"last batch), with {nb_ignore_in_progress} skipped"
-                        )
-                        logger.info(progress_message)
-
-                        start_time_lastprogress = datetime.datetime.now()
-                        nb_processed_lastprogress = nb_processed
-
-                    # Reset variable for next batch
-                    bbox_list = []
-                    size_list = []
-                    output_filename_list = []
-                    output_dir_list = []
-
-                    if max_nb_images > -1 and nb_downloaded >= max_nb_images:
+                    if len(download_queue) == 0:
                         return
+                else:
+                    # Not all tiles have been processed yet, and the queue isn't too
+                    # full, so process some more
+                    if len(download_queue) < nb_concurrent_calls * 2:
+                        break
+
+                # Sleep a bit before checking again if there are downloads ready
+                time.sleep(0.1)
+
+
+def _interprete_ssl_verify(ssl_verify: Union[bool, str, None]):
+    # Interprete ssl_verify
+    auth = None
+    if ssl_verify is not None:
+        # If it is a string, make sure it isn't actually a bool
+        if isinstance(ssl_verify, str):
+            if ssl_verify.lower() == "true":
+                ssl_verify = True
+            elif ssl_verify.lower() == "false":
+                ssl_verify = False
+
+        assert isinstance(ssl_verify, bool)
+        auth = owslib.util.Authentication(verify=ssl_verify)
+        if ssl_verify is False:
+            urllib3.disable_warnings()
+            logger.warn("SSL VERIFICATION IS TURNED OFF!!!")
+
+    return auth
 
 
 class LayerSource:
@@ -568,6 +432,7 @@ def getmap_to_file(
     image_pixels_ignore_border: int = 0,
     force: bool = False,
     layername_in_filename: bool = False,
+    has_switched_axes: Optional[bool] = None,
 ) -> Optional[Path]:
     """
 
@@ -588,6 +453,9 @@ def getmap_to_file(
         image_pixels_ignore_border (int, optional): [description]. Defaults to 0.
         force (bool, optional): [description]. Defaults to False.
         layername_in_filename (bool, optional): [description]. Defaults to False.
+        has_switched_axes (bool, optional): True if x and y axes should be switched to
+            in the WMS GetMap request. If None, an effort is made to determine it
+            automatically based on the crs. Defaults to None.
 
     Raises:
         Exception: [description]
@@ -662,7 +530,9 @@ def getmap_to_file(
         )
 
     # For coordinate systems with switched axis (y, x or lon, lat), switch x and y
-    if _has_switched_axes(crs):
+    if has_switched_axes is None:
+        has_switched_axes = _has_switched_axes(crs)
+    if has_switched_axes:
         bbox_for_getmap = (
             bbox_for_getmap[1],
             bbox_for_getmap[0],
