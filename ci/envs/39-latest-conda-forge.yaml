@@ -5,6 +5,8 @@ dependencies:
   - python=3.9
   - pip
   # required
+  - fiona
+  - gdown
   - geofileops
   - geopandas
   - numpy

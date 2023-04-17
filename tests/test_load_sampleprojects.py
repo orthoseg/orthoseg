@@ -38,7 +38,7 @@ def test_load_sampleprojects(tmp_path):
     shutil.rmtree(sampleprojects_dir, ignore_errors=True)
     load_sampleprojects.load_sampleprojects(dest_dir=sampleprojects_dir.parent)
 
-    # Check if the right number of files was loaded
+    # Check if the files were correctly loaded
     assert sampleprojects_dir.exists()
     assert (sampleprojects_dir / "imagelayers.ini").exists()
     assert (sampleprojects_dir / "project_defaults_overrule.ini").exists()
@@ -50,6 +50,10 @@ def test_load_sampleprojects(tmp_path):
     assert len(files) > 0
     files = list((footballfields_dir / "labels").glob("**/*.gpkg"))
     assert len(files) == 2
+    model_path = footballfields_dir / "models" / "footballfields_01_0.92512_242.hdf5"
+    assert model_path.exists()
+    # The model should be larger than 50 MB, otherwise not normal
+    assert model_path.stat().st_size > 50 * 1024 * 1024
 
     projecttemplate_dir = sampleprojects_dir / "project_template"
     assert projecttemplate_dir.exists()
