@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 0.4.2 (???)
+
+### Improvements
+
+- Add support for username/password logon for WMS (#97)
+- Improve performance of load_images (#99)
+
+### Bugs fixed
+
+- Fix download of model in load_sampleprojects (#100)
+
 ## 0.4.1 (2023-01-20)
 
 ### Improvements

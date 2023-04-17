@@ -10,6 +10,7 @@ import shutil
 import sys
 import tempfile
 
+import gdown
 import geofileops as gfo
 import pytest
 
@@ -19,7 +20,7 @@ sys.path.insert(0, str(root_dir))
 import orthoseg
 from orthoseg.helpers import config_helper as conf
 import orthoseg.model.model_helper as mh
-from orthoseg.util import gdrive_util
+
 from tests.test_helper import TestData
 
 # ----------------------------------------------------
@@ -144,16 +145,18 @@ def test_4_predict():
     model_dir.mkdir(parents=True, exist_ok=True)
     model_hdf5_path = model_dir / "footballfields_01_0.97392_201.hdf5"
     if not model_hdf5_path.exists():
-        gdrive_util.download_file("1UlNorZ74ADCr3pL4MCJ_tnKRNoeZX79g", model_hdf5_path)
+        gdown.download(
+            id="1UlNorZ74ADCr3pL4MCJ_tnKRNoeZX79g", output=str(model_hdf5_path)
+        )
     model_hyperparams_path = model_dir / "footballfields_01_hyperparams.json"
     if not model_hyperparams_path.exists():
-        gdrive_util.download_file(
-            "1NwrVVjx9IsjvaioQ4-bkPMrq7S6HeWIo", model_hyperparams_path
+        gdown.download(
+            id="1NwrVVjx9IsjvaioQ4-bkPMrq7S6HeWIo", output=str(model_hyperparams_path)
         )
     model_modeljson_path = model_dir / "footballfields_01_model.json"
     if not model_modeljson_path.exists():
-        gdrive_util.download_file(
-            "1LNPLypM5in3aZngBKK_U4Si47Oe97ZWN", model_modeljson_path
+        gdown.download(
+            id="1LNPLypM5in3aZngBKK_U4Si47Oe97ZWN", output=str(model_modeljson_path)
         )
 
     # Run task to predict
