@@ -20,7 +20,7 @@ setuptools.setup(
     install_requires=[
         "fiona",
         "gdown",
-        "geofileops>0.5,<0.7",
+        "geofileops>0.5,<0.8",
         "geopandas",
         "owslib",
         "pillow",
