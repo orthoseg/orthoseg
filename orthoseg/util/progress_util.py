@@ -56,9 +56,14 @@ class ProgressLogger:
             time_passed_for_eta_s = (time_now - self.start_time).total_seconds()
             nb_steps_done_eta = self.nb_steps_done
 
-        # Print progress on first step or if time between reporting has passed
+        # Print progress on first step, if sufficient time between reporting has passed
+        # or if sufficient progress since last reporting
+        pct_progress_since_last_reporting = (
+            self.nb_steps_done - self.nb_steps_done_lastreporting
+        ) / self.nb_steps_total
         if (
             time_passed_lastprogress_s >= self.time_between_reporting_s
+            or pct_progress_since_last_reporting > 0.1
             or self.first_reporting_done is False
         ):
             # Evade divisions by zero
