@@ -211,8 +211,7 @@ def get_images_for_grid(
 
     # Write the tiles to download to file for reference
     tiles_path = output_image_dir / "tiles_to_download.gpkg"
-    if not tiles_path.exists():
-        gfo.to_file(tiles_to_download_gdf, tiles_path)
+    gfo.to_file(tiles_to_download_gdf, tiles_path)
 
     # Prepare WMS connection(s)
     auth = _interprete_ssl_verify(ssl_verify=ssl_verify)
