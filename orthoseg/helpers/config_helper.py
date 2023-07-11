@@ -8,8 +8,10 @@ import json
 import logging
 from pathlib import Path
 import pprint
+from typing import List, Optional
 
 from orthoseg.util import config_util
+from orthoseg.util.ows_util import FileLayerSource, WMSLayerSource
 
 # -------------------------------------------------------------
 # First define/init some general variables/constants
@@ -98,6 +100,28 @@ def read_orthoseg_config(config_path: Path):
     image_layers = read_layer_config(layer_config_filepath=layer_config_filepath)
 
 
+def str2list(input: Optional[str]):
+    if input is None:
+        return None
+    if isinstance(input, List):
+        return input
+    return [part.strip() for part in input.split(",")]
+
+
+def str2intlist(input: Optional[str]):
+    if input is None:
+        return None
+    if isinstance(input, List):
+        return input
+    return [int(i.strip()) for i in input.split(",")]
+
+
+def str2bool(input: Optional[str]):
+    if isinstance(input, bool):
+        return input
+    return input.lower() in ("yes", "true", "false", "1")
+
+
 def read_layer_config(layer_config_filepath: Path) -> dict:
     # Init
     if not layer_config_filepath.exists():
@@ -107,8 +131,8 @@ def read_layer_config(layer_config_filepath: Path) -> dict:
     layer_config = configparser.ConfigParser(
         interpolation=configparser.ExtendedInterpolation(),
         converters={
-            "list": lambda x: [i.strip() for i in x.split(",")],
-            "listint": lambda x: [int(i.strip()) for i in x.split(",")],
+            "list": lambda x: str2list(x),
+            "listint": lambda x: str2intlist(x),
             "dict": lambda x: None if x is None else json.loads(x),
             "path": lambda x: Path(x),
         },
@@ -120,7 +144,7 @@ def read_layer_config(layer_config_filepath: Path) -> dict:
     for image_layer in layer_config.sections():
         # First check if the image_layer code doesn't contain 'illegal' characters
         if any(illegal_char in image_layer for illegal_char in illegal_chars_in_codes):
-            raise Exception(
+            raise ValueError(
                 f"Section name [{image_layer}] in layer config should not contain any"
                 f"of these chars: {illegal_chars_in_codes}, in {layer_config_filepath}"
             )
@@ -128,56 +152,78 @@ def read_layer_config(layer_config_filepath: Path) -> dict:
         # Init layer with all parameters in the section as dict
         image_layers[image_layer] = dict(layer_config[image_layer])
 
+        # Check if the mandatory layer-level properties are present
+        if "projection" not in image_layers[image_layer]:
+            raise ValueError(
+                f"Image layer [{image_layer}] in layer config needs a 'projection' key!"
+            )
+
         # If the layer source(s) are specified in a json parameter, parse it
         if "layersources" in image_layers[image_layer]:
             image_layers[image_layer]["layersources"] = layer_config[
                 image_layer
             ].getdict("layersources")
-
-            # Give default values to some optional properties of a server
-            for layersource in image_layers[image_layer]["layersources"]:
-                if "random_sleep" not in layersource:
-                    layersource["random_sleep"] = 0
-                if "wms_ignore_capabilities_url" not in layersource:
-                    layersource["wms_ignore_capabilities_url"] = False
-                if "wms_username" not in layersource:
-                    layersource["wms_username"] = None
-                if "wms_password" not in layersource:
-                    layersource["wms_password"] = None
-
         else:
-            # If not, the layersource should be specified in seperate parameters
+            # If not, the layersource is specified in some top-level parameters
             layersource = {}
-            layersource["wms_server_url"] = layer_config[image_layer].get(
-                "wms_server_url"
-            )
-            layersource["wms_version"] = layer_config[image_layer].get(
-                "wms_version", fallback="1.3.0"
-            )
-            layersource["wms_username"] = layer_config[image_layer].get(
-                "wms_username", fallback=None
-            )
-            layersource["wms_password"] = layer_config[image_layer].get(
-                "wms_password", fallback=None
-            )
-            # The layer names and layer styles are lists
-            layersource["layernames"] = layer_config[image_layer].getlist(
-                "wms_layernames"
-            )
-            layersource["layerstyles"] = layer_config[image_layer].getlist(
-                "wms_layerstyles"
-            )
-            # Some more properties
-            layersource["bands"] = layer_config[image_layer].getlist(
-                "bands", fallback=None
-            )
-            layersource["random_sleep"] = layer_config[image_layer].getint(
-                "random_sleep", fallback=0
-            )
-            layersource["wms_ignore_capabilities_url"] = layer_config[
-                image_layer
-            ].getboolean("wms_ignore_capabilities_url", fallback=False)
+            layersource_keys = [
+                "wms_server_url",
+                "wms_version",
+                "wms_layernames",
+                "wms_layerstyles",
+                "bands",
+                "random_sleep",
+                "wms_ignore_capabilities_url",
+                "path",
+                "layername",
+            ]
+            for key in layersource_keys:
+                if key in layer_config[image_layer]:
+                    layersource[key] = layer_config[image_layer][key]
             image_layers[image_layer]["layersources"] = [layersource]
+
+        # Convert the layersource dicts to layersource objects
+        layersource_objects = []
+        for layersource in image_layers[image_layer]["layersources"]:
+            layersource_object = None
+            try:
+                # If not, the layersource should be specified in seperate parameters
+                if "wms_server_url" in layersource:
+                    layersource_object = WMSLayerSource(
+                        wms_server_url=layersource.get("wms_server_url"),
+                        wms_version=layersource.get("wms_version", "1.3.0"),
+                        layernames=str2list(
+                            layersource["wms_layernames"]
+                        ),  # type: ignore
+                        layerstyles=str2list(layersource.get("wms_layerstyles")),
+                        bands=str2intlist(layersource.get("bands", None)),
+                        random_sleep=int(layersource.get("random_sleep", 0)),
+                        wms_ignore_capabilities_url=str2bool(
+                            layersource.get("wms_ignore_capabilities_url", False)
+                        ),  # type: ignore
+                    )
+                elif "path" in layersource:
+                    path = Path(layersource["path"])
+                    if not path.is_absolute():
+                        # Resolve relative path based on layer_config_filepath.parent
+                        path = layer_config_filepath.parent / layersource["path"]
+                        path = path.resolve()
+                    layersource_object = FileLayerSource(
+                        path=path,
+                        layernames=layersource["layername"],  # type: ignore
+                        bands=str2intlist(layersource.get("bands", None)),
+                    )
+            except Exception as ex:
+                raise ValueError(
+                    f"Missing parameter in image_layer {image_layer}, layersource "
+                    f"{layersource}: {ex}"
+                ) from ex
+            if layersource_object is None:
+                raise ValueError(
+                    "Invalid layersource, should be WMS or file: " f"{layersource}"
+                )
+            layersource_objects.append(layersource_object)
+        image_layers[image_layer]["layersources"] = layersource_objects
 
         # Read nb_concurrent calls param
         image_layers[image_layer]["nb_concurrent_calls"] = layer_config[
@@ -227,8 +273,3 @@ def pformat_config():
     message += "Layer config info listing:\n"
     message += pprint.pformat(image_layers)
     return message
-
-
-# If the script is ran directly...
-if __name__ == "__main__":
-    raise Exception("Not implemented")
