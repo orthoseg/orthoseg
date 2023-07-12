@@ -49,7 +49,7 @@ def test_getmap_to_file(tmpdir):
 
     # Test getting a standard 3 band image from a WMS layer
     wms_server_url = (
-        "https://geoservices.informatievlaanderen.be/raadpleegdiensten/omw/wms?"
+        "https://geo.api.vlaanderen.be/omw/wms?"
     )
     wms_version = "1.3.0"
     auth = owslib.util.Authentication()
@@ -87,14 +87,14 @@ def test_getmap_to_file(tmpdir):
     auth = owslib.util.Authentication()
     # WMS server for skyview and hillshade
     wms_server_url_dhm = (
-        "https://geoservices.informatievlaanderen.be/raadpleegdiensten/DHMV/wms?"
+        "https://geo.api.vlaanderen.be/DHMV/wms?"
     )
     wms_service_dhm = owslib.wms.WebMapService(
         wms_server_url_dhm, version=wms_version, auth=auth
     )
     # WMS server for rgb images taken together with dhm2
     wms_server_url_dhm_ortho = (
-        "https://geoservices.informatievlaanderen.be/raadpleegdiensten/ogw/wms?"
+        "https://geo.api.vlaanderen.be/ogw/wms?"
     )
     wms_service_dhm_ortho = owslib.wms.WebMapService(
         wms_server_url_dhm_ortho, version=wms_version, auth=auth
@@ -130,14 +130,14 @@ def test_getmap_to_file(tmpdir):
     auth = owslib.util.Authentication()
     # WMS server for skyview and hillshade
     wms_server_url_dhm = (
-        "https://geoservices.informatievlaanderen.be/raadpleegdiensten/DHMV/wms?"
+        "https://geo.api.vlaanderen.be/DHMV/wms?"
     )
     wms_service_dhm = owslib.wms.WebMapService(
         wms_server_url_dhm, version=wms_version, auth=auth
     )
     # WMS server for rgb images taken together with dhm2
     wms_server_url_dhm_ortho = (
-        "https://geoservices.informatievlaanderen.be/raadpleegdiensten/ogw/wms?"
+        "https://geo.api.vlaanderen.be/ogw/wms?"
     )
     wms_service_dhm_ortho = owslib.wms.WebMapService(
         wms_server_url_dhm_ortho, version=wms_version, auth=auth
