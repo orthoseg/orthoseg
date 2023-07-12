@@ -316,7 +316,9 @@ def train(config_path: Path):
                         classes=best_hyperparams.architecture.classes,
                         min_probability=min_probability,
                         cancel_filepath=conf.files.getpath("cancel_filepath"),
-                        max_prediction_errors=conf.predict.getint("max_prediction_errors"),
+                        max_prediction_errors=conf.predict.getint(
+                            "max_prediction_errors"
+                        ),
                     )
 
                     # Predict validation dataset
@@ -332,7 +334,9 @@ def train(config_path: Path):
                         classes=best_hyperparams.architecture.classes,
                         min_probability=min_probability,
                         cancel_filepath=conf.files.getpath("cancel_filepath"),
-                        max_prediction_errors=conf.predict.getint("max_prediction_errors"),
+                        max_prediction_errors=conf.predict.getint(
+                            "max_prediction_errors"
+                        ),
                     )
                     del best_model
                 except Exception as ex:
@@ -489,8 +493,13 @@ def train(config_path: Path):
 def _search_label_files(
     labelpolygons_pattern: Path, labellocations_pattern: Path
 ) -> List[prep.LabelInfo]:
-    label_infos = []
 
+    if not labelpolygons_pattern.parent.exists():
+        raise ValueError(f"Label dir {labelpolygons_pattern.parent} doesn't exist")
+    if not labellocations_pattern.parent.exists():
+        raise ValueError(f"Label dir {labellocations_pattern.parent} doesn't exist")
+
+    label_infos = []
     labelpolygons_pattern_searchpath = Path(
         str(labelpolygons_pattern).format(image_layer="*")
     )
@@ -512,7 +521,7 @@ def _search_label_files(
     for labellocations_path in labellocations_paths:
         tokens = _unformat(labellocations_path.stem, labellocations_pattern.stem)
         if "image_layer" not in tokens:
-            raise Exception(
+            raise ValueError(
                 f"image_layer token not found in {labellocations_path} using pattern "
                 f"{labellocations_pattern}"
             )
@@ -523,7 +532,7 @@ def _search_label_files(
         for labelpolygons_path in labelpolygons_paths:
             tokens = _unformat(labelpolygons_path.stem, labelpolygons_pattern.stem)
             if "image_layer" not in tokens:
-                raise Exception(
+                raise ValueError(
                     f"image_layer token not found in {labelpolygons_path} using "
                     f"pattern {labelpolygons_pattern}"
                 )
@@ -538,7 +547,7 @@ def _search_label_files(
                     )
                 )
         if found is False:
-            raise Exception(f"No matching data file found for {labellocations_path}")
+            raise ValueError(f"No matching data file found for {labellocations_path}")
 
     return label_infos
 
