@@ -206,10 +206,12 @@ def reclassify_neighbours(
         # Remove temp columns + dissolve
         result_gdf = result_gdf[columns_orig + ["no_neighbours"]]
         dissolve_columns = [reclassify_column, "no_neighbours"]
+
         # If there are extra columns, use aggfunc join to concatenate values
+        assert isinstance(result_gdf, gpd.GeoDataFrame)
         if len(columns_orig) > 2:
             result_gdf = result_gdf.dissolve(
-                by=dissolve_columns, as_index=False, aggfunc=", ".join
+                by=dissolve_columns, as_index=False, aggfunc=", ".join  # type: ignore
             )
         else:
             result_gdf = result_gdf.dissolve(by=dissolve_columns, as_index=False)
