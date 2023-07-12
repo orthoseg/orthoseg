@@ -5,15 +5,11 @@ Helper functions for all tests.
 
 import logging
 from pathlib import Path
-import sys
 import tempfile
 from typing import Optional
 
 import geopandas as gpd
 from shapely import geometry as sh_geom
-
-# Add path so the local geofileops packages are found
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 
 class TestData:

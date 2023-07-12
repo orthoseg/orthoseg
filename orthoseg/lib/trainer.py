@@ -220,7 +220,11 @@ def train(
     train_callbacks = []
     # Reduce the learning rate if the loss doesn't improve anymore
     reduce_lr = kr.callbacks.ReduceLROnPlateau(
-        monitor="loss", factor=0.2, patience=20, min_lr=1e-20, verbose=True
+        monitor="loss",
+        factor=0.2,
+        patience=20,
+        min_lr=1e-20,  # type: ignore
+        verbose=True,
     )
     train_callbacks.append(reduce_lr)
 
@@ -508,7 +512,7 @@ def create_train_generator(
     image_generator = image_datagen.flow_from_directory(
         directory=str(input_data_dir),
         classes=[image_subdir],
-        class_mode=None,
+        class_mode=None,  # type: ignore
         color_mode=image_color_mode,
         target_size=target_size,
         batch_size=batch_size,
@@ -521,7 +525,7 @@ def create_train_generator(
     mask_generator = mask_datagen.flow_from_directory(
         directory=str(input_data_dir),
         classes=[mask_subdir],
-        class_mode=None,
+        class_mode=None,  # type: ignore
         color_mode=mask_color_mode,
         target_size=target_size,
         batch_size=batch_size,
