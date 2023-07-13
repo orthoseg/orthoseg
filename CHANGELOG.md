@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 0.4.3 (???)
+
+### Improvements
+
+- Improve performance of prepare_traindatasets for large label files (#116)
+
+### Bugs fixed
+
+
 ## 0.4.2 (2023-04-19)
 
 ### Improvements
