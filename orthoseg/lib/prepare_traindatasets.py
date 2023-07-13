@@ -728,6 +728,7 @@ def _create_mask(
     with rio.open(input_image_filepath) as image_ds:
         image_input_profile = image_ds.profile
         image_transform_affine = image_ds.transform
+        bounds = image_ds.bounds
 
     # Prepare the file profile for the mask depending on output type
     output_ext_lower = output_mask_filepath.suffix.lower()
@@ -746,6 +747,13 @@ def _create_mask(
         height=image_input_profile["height"],
         dtype=rio.uint8,
     )
+
+    # Filter the vectors that intersect the image bounds
+    labels_to_burn_gdf = labels_to_burn_gdf.loc[
+        labels_to_burn_gdf.intersects(
+            sh_geom.box(bounds.left, bounds.bottom, bounds.right, bounds.top)
+        )
+    ].copy()  # type: ignore
 
     # Burn the vectors in a mask
     burn_shapes = [
