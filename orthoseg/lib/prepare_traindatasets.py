@@ -263,7 +263,6 @@ def prepare_traindatasets(
                 created_images_gdf = gpd.GeoDataFrame()
                 created_images_gdf["geometry"] = None
                 for i, label_tuple in enumerate(labellocations_curr_gdf.itertuples()):
-
                     img_bbox = label_tuple.geometry
                     image_layer = getattr(label_tuple, "image_layer")
 
@@ -489,6 +488,18 @@ def prepare_labeldata(
                 f"{labellocations_gdf.crs}"
             )
 
+        # Check that there is at least one train location and one validation location.
+        if len(labellocations_gdf.query("traindata_type == 'train'")) < 1:
+            errors_found.append(
+                "No labellocations with traindata_type == 'train' found! At least one "
+                "needed"
+            )
+        if len(labellocations_gdf.query("traindata_type == 'validation'")) < 1:
+            errors_found.append(
+                "No labellocations with traindata_type == 'validation' found! At least "
+                "one needed, but ~10% of the number of 'train' locations recommended."
+            )
+
         # Validate + process the polygons data
         # ------------------------------------
         if labelpolygons_gdf is None:
@@ -671,7 +682,6 @@ def _create_mask(
     minimum_pct_labeled: float = 0.0,
     force: bool = False,
 ) -> Optional[bool]:
-
     # If file exists already and force is False... stop.
     if force is False and output_mask_filepath.exists():
         logger.debug(
