@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 0.4.3 (???)
+
+### Improvements
+
+- Improve performance of prepare_traindatasets for large label files (#116)
+- Add check that train and validation data is mandatory (#118)
+
+### Bugs fixed
+
+
 ## 0.4.2 (2023-04-19)
 
 ### Improvements
