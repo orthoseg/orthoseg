@@ -120,20 +120,38 @@ def test_prepare_labeldata_locations(geometry, traindata_type, expected_len_loca
 
 
 @pytest.mark.parametrize(
-    "expected_error, geometry, traindata_type",
+    "expected_errors, geometries, traindata_types",
     [
-        ["Invalid geometry ", TestData.location_invalid, "train"],
-        ["Invalid traindata_type ", TestData.location, "invalid_traindata_type"],
-        ["Location geometry too small ", TestData.location.buffer(-5), "train"],
+        (["Invalid geometry "] * 4, [TestData.location_invalid] * 4, None),
+        (
+            "Invalid traindata_type ",
+            None,
+            ["train", "train", "validation", "invalid_traindata_type"],
+        ),
+        (
+            ["Location geometry skewed or too small "] * 4,
+            [TestData.location.buffer(-5)] * 4,
+            None,
+        ),
+        ("No labellocations with traindata_type == 'validation' ", None, ["train"] * 4),
+        ("No labellocations with traindata_type == 'train' ", None, ["validation"] * 4),
     ],
 )
-def test_prepare_labeldata_locations_invalid(expected_error, geometry, traindata_type):
+def test_prepare_labeldata_locations_invalid(
+    expected_errors, geometries, traindata_types
+):
     # Prepare test data, by wrapping the parametrized invalid test data by proper data
     # to make sure the checks work on multiple rows,...
+    if isinstance(expected_errors, str):
+        expected_errors = [expected_errors]
+    if geometries is None:
+        geometries = [TestData.location] * 4
+    if traindata_types is None:
+        traindata_types = ["train", "train", "train", "validation"]
     locations_gdf = gpd.GeoDataFrame(
         data={
-            "geometry": [TestData.polygon, geometry, geometry, TestData.polygon],
-            "traindata_type": ["train", traindata_type, traindata_type, "validation"],
+            "geometry": geometries,
+            "traindata_type": traindata_types,
             "path": "/tmp/locations.gdf",
         },
         crs="EPSG:31370",  # type: ignore
@@ -159,9 +177,9 @@ def test_prepare_labeldata_locations_invalid(expected_error, geometry, traindata
         )
 
     assert ex.value.errors is not None
-    assert len(ex.value.errors) == 2
-    assert ex.value.errors[0].startswith(expected_error)
-    assert ex.value.errors[1].startswith(expected_error)
+    assert len(ex.value.errors) == len(expected_errors)
+    for idx, expected_error in enumerate(expected_errors):
+        assert ex.value.errors[idx].startswith(expected_error)
 
 
 @pytest.mark.parametrize(
