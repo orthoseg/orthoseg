@@ -513,8 +513,8 @@ def prepare_labeldata(
             if intersection.area < (location_geom_aligned.area - area_1row_1col):
                 # Original geom was digitized too small
                 errors_found.append(
-                    f"Location geometry too small in {Path(location.path).name}: "
-                    f"{location.geometry.wkt}"
+                    "Location geometry skewed or too small in "
+                    f"{Path(location.path).name}: {location.geometry.wkt}"
                 )
             elif location_geom_aligned.area > 1.1 * sh_geom.box(*geom_bounds).area:
                 logger.warn(
