@@ -29,14 +29,15 @@ jobs:
         os: [ubuntu-latest]
         dev: [false]
         env:
-          - ci/envs/38-latest-conda-forge.yaml
-          - ci/envs/39-latest-conda-forge.yaml
-          - ci/envs/310-latest-conda-forge.yaml
+          - ci/envs/38-minimal.yaml
+          - ci/envs/38-latest.yaml
+          - ci/envs/39-latest.yaml
+          - ci/envs/310-latest.yaml
         include:
-          - env: ci/envs/310-latest-conda-forge.yaml
+          - env: ci/envs/310-latest.yaml
             os: macos-latest
             dev: false
-          - env: ci/envs/310-latest-conda-forge.yaml
+          - env: ci/envs/310-latest.yaml
             os: windows-latest
             dev: false
             
