@@ -1,11 +1,12 @@
 # CHANGELOG
 
-## 0.4.3 (???)
+## 0.5.0 (???)
 
 ### Improvements
 
 - Improve performance of prepare_traindatasets for large label files (#116)
 - Add check that train and validation data is mandatory (#118)
+- Support geopandas 0.13 + remove dependency on pygeos (#121)
 
 ### Bugs fixed
 

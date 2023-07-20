@@ -11,12 +11,17 @@ import geofileops as gfo
 from geofileops.util import geometry_util
 from geofileops.util import geoseries_util
 import geopandas as gpd
+import geopandas._compat as gpd_compat
 import numpy as np
 import pandas as pd
-import pygeos
 from shapely import geometry as sh_geom
 import topojson
 import topojson.ops
+
+if gpd_compat.USE_PYGEOS:
+    import pygeos as shapely2_or_pygeos
+else:
+    import shapely as shapely2_or_pygeos
 
 # -------------------------------------------------------------
 # First define/init some general variables/constants
@@ -69,11 +74,12 @@ def is_onborder(
     return result_gdf
 
 
-def is_valid_reason(geoseries) -> pd.Series:
-    # Remark: should be moved to geofileops (till available in geopandas)!!!
+def is_valid_reason(geoseries: gpd.GeoSeries) -> pd.Series:
+    # Get result and keep geoseries indexes
     return pd.Series(
-        data=pygeos.is_valid_reason(geoseries.array.data), index=geoseries.index
-    )  # type: ignore
+        data=shapely2_or_pygeos.is_valid_reason(geoseries.array.data),
+        index=geoseries.index,
+    )
 
 
 def reclassify_neighbours(
@@ -258,10 +264,10 @@ def simplify_topo_orthoseg(
         return geoseries
 
     # Copy geoseries
-    geoseries_copy = geoseries.copy()  # type: ignore
+    geoseries_copy = geoseries.copy()
 
     # Set empty geometries to None, if no geometries are left, return
-    empty_idxs = pygeos.is_empty(geoseries_copy.array.data).nonzero()  # type: ignore
+    empty_idxs = geoseries_copy.is_empty.to_numpy().nonzero()
     if len(empty_idxs) > 0:
         geoseries_copy.iloc[empty_idxs] = None
     if len(geoseries_copy[geoseries_copy != np.array(None)]) == 0:
@@ -369,9 +375,7 @@ def simplify_topo_orthoseg(
 
     topo_simpl_geoseries = topo.to_gdf(crs=geoseries.crs).geometry
     assert isinstance(topo_simpl_geoseries, gpd.GeoSeries)
-    topo_simpl_geoseries.array.data = pygeos.make_valid(  # type: ignore
-        topo_simpl_geoseries.array.data  # type: ignore
-    )
+    topo_simpl_geoseries = topo_simpl_geoseries.make_valid()
     geometry_types_orig = geoseries.type.unique()
     geometry_types_orig = geometry_types_orig[geometry_types_orig != None]  # noqa: E711
     geometry_types_simpl = topo_simpl_geoseries.type.unique()
