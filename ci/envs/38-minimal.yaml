@@ -23,6 +23,6 @@ dependencies:
   - pytest-cov
   - pytest-order
   - pip:
-    - segmentation-models =1.0
+    - segmentation-models ==1.0
     - simplification
-    - tensorflow =2.5
+    - tensorflow ==2.5
