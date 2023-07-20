@@ -30,7 +30,6 @@ jobs:
         dev: [false]
         env:
           - ci/envs/38-latest.yaml
-          - ci/envs/38-minimal.yaml
           - ci/envs/39-latest.yaml
           - ci/envs/310-latest.yaml
         include:

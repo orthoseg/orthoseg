@@ -29,7 +29,7 @@ setuptools.setup(
         "segmentation-models>=1.0,<1.1",
         "shapely>=2",
         "simplification",
-        "tensorflow>=2.5,<2.11",
+        "tensorflow>=2.7,<2.11",
     ],
     entry_points="""
             [console_scripts]
