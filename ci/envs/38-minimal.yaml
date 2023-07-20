@@ -9,7 +9,7 @@ dependencies:
   - gdown
   - geofileops =0.6
   - geopandas =0.12
-  - numpy  # =1.19.5  # Needed for tensorflow 2.5
+  - numpy =1.19.5  # Needed for tensorflow 2.6
   - owslib
   - pillow
   - pycron
