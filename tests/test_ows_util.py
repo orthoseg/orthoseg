@@ -30,7 +30,9 @@ def test_getmap_to_file_filelayer(tmpdir):
     # Init some stuff
     tmpdir = Path(tmpdir)
     filelayer_path = (
-        TestData.testdata_dir / "BEFL-TEST_s2_2023-06-05_2023-06-11_B08-B04-B03.tif"
+        TestData.sampleprojects_dir
+        / "fields/input_raster"
+        / "BEFL-TEST-s2_2023-05-01_2023-07-01_B08-B04-B03_min_byte.tif"
     )
 
     with rio.open(filelayer_path) as filelayer:
