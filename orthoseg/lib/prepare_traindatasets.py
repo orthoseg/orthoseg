@@ -21,10 +21,10 @@ import owslib
 import owslib.wms
 import owslib.util
 from PIL import Image
-import pygeos
 import rasterio as rio
 import rasterio.features as rio_features
 import rasterio.profiles as rio_profiles
+import shapely
 import shapely.geometry as sh_geom
 
 from orthoseg.util.progress_util import ProgressLogger
@@ -485,8 +485,8 @@ def prepare_labeldata(
                 )
 
             # Check if the geometry is valid
-            is_valid_reason = pygeos.is_valid_reason(
-                labellocations_gdf.geometry.array.data[location.Index]
+            is_valid_reason = shapely.is_valid_reason(
+                labellocations_gdf.geometry[location.Index]
             )
             if is_valid_reason != "Valid Geometry":
                 errors_found.append(
