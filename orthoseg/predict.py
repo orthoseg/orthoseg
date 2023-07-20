@@ -5,7 +5,6 @@ High-level API to run a segmentation.
 
 import argparse
 import logging
-import os
 from pathlib import Path
 import pprint
 import shlex
@@ -44,7 +43,6 @@ def predict_argstr(argstr):
 
 
 def predict_args(args):
-
     # Interprete arguments
     parser = argparse.ArgumentParser(add_help=False)
 
@@ -241,7 +239,7 @@ def predict(config_path: Path):
         min_probability = conf.predict.getfloat("min_probability")
         postprocess = {}
         simplify_algorithm = conf.predict.get("simplify_algorithm")
-        if simplify_algorithm is not None:
+        if simplify_algorithm is not None and simplify_algorithm != (""):
             postprocess["simplify"] = {}
             simplify = postprocess["simplify"]
 

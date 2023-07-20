@@ -114,6 +114,12 @@ def process_nice_to_priority_class(nice_value: int) -> int:
 
 
 def setprocessnice(nice_value: int):
+    """
+    Make the process nicer to other processes.
+
+    Args:
+        nice_value (int): Value between -20 (highest priority) and 20 (lowest priority)
+    """
     p = psutil.Process(os.getpid())
     if os.name == "nt":
         p.nice(process_nice_to_priority_class(nice_value))
@@ -122,6 +128,12 @@ def setprocessnice(nice_value: int):
 
 
 def getprocessnice() -> int:
+    """
+    Get the niceness of the process.
+
+    Returns:
+        int: Value between -20 (highest priority) and 20 (lowest priority)
+    """
     p = psutil.Process(os.getpid())
     nice_value = p.nice()
     if os.name == "nt":
