@@ -10,6 +10,7 @@
 
 ### Bugs fixed
 
+- Fix occasional "database locked" error while predicting (#120)
 
 ## 0.4.2 (2023-04-19)
 

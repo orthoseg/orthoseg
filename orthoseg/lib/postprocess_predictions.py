@@ -7,6 +7,7 @@ import logging
 import math
 from pathlib import Path
 import shutil
+import time
 from typing import List, Optional
 
 # Evade having many info warnings about self intersections from shapely
@@ -198,7 +199,6 @@ def read_prediction_file(
 
 
 def to_binary_uint8(in_arr: np.ndarray, thresshold_ok: int = 128) -> np.ndarray:
-
     # Check input parameters
     if in_arr.dtype != np.uint8:
         raise Exception("Input should be dtype = uint8, not: {in_arr.dtype}")
@@ -248,7 +248,6 @@ def postprocess_for_evaluation(
     logger.debug(f"Start postprocess for {image_pred_filepath}")
     all_black = False
     try:
-
         # If the image wasn't saved, it must have been all black
         if image_pred_filepath is None:
             all_black = True
@@ -408,7 +407,6 @@ def postprocess_for_evaluation(
 def polygonize_pred_for_evaluation(
     image_pred_uint8_bin, image_crs: str, image_transform, output_basefilepath: Path
 ):
-
     # Polygonize result
     try:
         # Returns a list of tupples with (geometry, value)
@@ -542,7 +540,6 @@ def polygonize_pred_from_file(
     border_pixels_to_ignore: int = 0,
     save_to_file: bool = False,
 ) -> Optional[gpd.GeoDataFrame]:
-
     try:
         with rio.open(image_pred_filepath) as image_ds:
             # Read geo info
@@ -589,8 +586,8 @@ def polygonize_pred_multiclass_to_file(
     min_probability: float = 0.5,
     postprocess: dict = {},
     border_pixels_to_ignore: int = 0,
+    create_spatial_index: bool = True,
 ) -> dict:
-
     # Polygonize the result...
     result_gdf = polygonize_pred_multiclass(
         image_pred_uint8=image_pred_arr,
@@ -604,7 +601,14 @@ def polygonize_pred_multiclass_to_file(
 
     # If there were polygons, save them...
     if result_gdf is not None:
-        gfo.to_file(result_gdf, output_vector_path, append=True, index=False)
+        gfo.to_file(
+            result_gdf,
+            output_vector_path,
+            append=True,
+            index=False,
+            force_multitype=True,
+            create_spatial_index=create_spatial_index,
+        )
         return {"nb_features_witten": len(result_gdf), "columns": result_gdf.columns}
     else:
         return {"nb_features_witten": None}
@@ -619,7 +623,6 @@ def polygonize_pred_multiclass(
     postprocess: dict = {},
     border_pixels_to_ignore: int = 0,
 ) -> Optional[gpd.GeoDataFrame]:
-
     # Init
     """
     for channel_id in range(0, nb_channels):
@@ -663,7 +666,7 @@ def polygonize_pred_multiclass(
             )
 
     # Polygonize
-    # If a reclassify qury is specified don't mask so the query is also applied to
+    # If a reclassify query is specified don't mask so the query is also applied to
     # the background
     mask_background = True
     if (
@@ -763,7 +766,6 @@ def polygonize_pred(
     classnames: Optional[List[str]] = None,
     output_basefilepath: Optional[Path] = None,
 ) -> Optional[gpd.GeoDataFrame]:
-
     # Polygonize result
     try:
         # Returns a list of tupples with (geometry, value)
@@ -807,7 +809,7 @@ def polygonize_pred(
 
 
 def clean_and_save_prediction(
-    image_image_filepath: Path,
+    input_image_filepath: Path,
     image_crs: str,
     image_transform: str,
     output_dir: Path,
@@ -820,7 +822,6 @@ def clean_and_save_prediction(
     evaluate_mode: bool = False,
     force: bool = False,
 ) -> bool:
-
     # If nb. channels in prediction > 1, skip the first as it is the background
     image_pred_shape = image_pred_arr.shape
     nb_channels = image_pred_shape[2]
@@ -846,7 +847,6 @@ def clean_and_save_prediction(
             )
             or evaluate_mode is True
         ):
-
             # Find the class name in the classes list
             class_name = None
             for class_id, (classname) in enumerate(classes):
@@ -859,7 +859,7 @@ def clean_and_save_prediction(
             # Now save prediction
             output_suffix = f"_{class_name}"
             image_pred_filepath = save_prediction_uint8(
-                image_filepath=image_image_filepath,
+                image_filepath=input_image_filepath,
                 image_pred_uint8_cleaned=image_pred_uint8_cleaned_curr,
                 image_crs=image_crs,
                 image_transform=image_transform,
@@ -875,7 +875,7 @@ def clean_and_save_prediction(
                     image_pred_uint8_cleaned_curr, 125
                 )
                 postprocess_for_evaluation(
-                    image_filepath=image_image_filepath,
+                    image_filepath=input_image_filepath,
                     image_crs=image_crs,
                     image_transform=image_transform,
                     image_pred_filepath=image_pred_filepath,
@@ -965,7 +965,6 @@ def save_prediction_uint8(
     border_pixels_to_ignore: Optional[int] = None,
     force: bool = False,
 ) -> Path:
-
     # Init
     # If no decent transform metadata, stop!
     if image_transform is None or image_transform[0] == 0:
