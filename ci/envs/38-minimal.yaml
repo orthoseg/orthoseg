@@ -9,7 +9,7 @@ dependencies:
   - gdown
   - geofileops =0.6
   - geopandas =0.12
-  - numpy =1.19.5  # Needed for tensorflow 2.6
+  - numpy
   - owslib
   - pillow
   - pycron
@@ -25,4 +25,4 @@ dependencies:
   - pip:
     - segmentation-models ==1.0
     - simplification
-    - tensorflow ==2.6
+    - tensorflow ==2.7
