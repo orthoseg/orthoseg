@@ -117,6 +117,8 @@ def str2intlist(input: Optional[str]):
 
 
 def str2bool(input: Optional[str]):
+    if input is None:
+        return None
     if isinstance(input, bool):
         return input
     return input.lower() in ("yes", "true", "false", "1")
