@@ -2,20 +2,20 @@ name: test
 channels:
   - conda-forge
 dependencies:
-  - python=3.10
+  - python =3.8
   - pip
   # required
   - fiona
   - gdown
-  - geofileops
-  - geopandas
+  - geofileops >=0.6,<0.8
+  - geopandas >=0.12
   - numpy
   - owslib
   - pillow
   - pycron
-  - pygeos
   - pyproj
   - rasterio
+  - shapely >=2
   # dependencies of tensorflow that need to be conda versions to evade binary compatibility issues
   - h5py
   # testing
@@ -23,6 +23,6 @@ dependencies:
   - pytest-cov
   - pytest-order
   - pip:
-    - segmentation-models>=1.0,<1.1
+    - segmentation-models >=1.0,<1.1
     - simplification
-    - tensorflow>=2.5,<2.11
+    - tensorflow >=2.7,<2.11
