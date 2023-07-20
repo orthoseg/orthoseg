@@ -267,7 +267,7 @@ def simplify_topo_orthoseg(
     geoseries_copy = geoseries.copy()
 
     # Set empty geometries to None, if no geometries are left, return
-    empty_idxs = geoseries_copy.is_empty().nonzero()
+    empty_idxs = geoseries_copy.is_empty.to_numpy().nonzero()
     if len(empty_idxs) > 0:
         geoseries_copy.iloc[empty_idxs] = None
     if len(geoseries_copy[geoseries_copy != np.array(None)]) == 0:
