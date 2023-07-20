@@ -21,7 +21,7 @@ setuptools.setup(
         "fiona",
         "gdown",
         "geofileops>0.5,<0.8",
-        "geopandas",
+        "geopandas>=0.12",
         "owslib",
         "pillow",
         "pycron",

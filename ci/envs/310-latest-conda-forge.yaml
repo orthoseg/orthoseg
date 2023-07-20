@@ -13,7 +13,6 @@ dependencies:
   - owslib
   - pillow
   - pycron
-  - pygeos
   - pyproj
   - rasterio
   # dependencies of tensorflow that need to be conda versions to evade binary compatibility issues
