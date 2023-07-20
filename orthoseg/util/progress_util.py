@@ -35,8 +35,18 @@ class ProgressLogger:
         self.time_between_reporting_s = time_between_reporting_s
         self.calculate_eta_since_lastreporting = calculate_eta_since_lastreporting
 
-    def step(self, message: Optional[str] = None, nb_steps: int = 1):
+    def update(
+        self,
+        nb_steps_done: int,
+        nb_steps_total: int = None,
+        message: Optional[str] = None,
+    ):
+        if nb_steps_total is not None:
+            self.nb_steps_total = nb_steps_total
+        self.nb_steps_done = nb_steps_done
+        self.step(message=message, nb_steps=0)
 
+    def step(self, message: Optional[str] = None, nb_steps: int = 1):
         # Increase done counter
         self.nb_steps_done += nb_steps
 
