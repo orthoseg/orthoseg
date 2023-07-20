@@ -5,7 +5,6 @@ High-level API to run a segmentation.
 
 import argparse
 import logging
-import os
 from pathlib import Path
 import pprint
 import shlex

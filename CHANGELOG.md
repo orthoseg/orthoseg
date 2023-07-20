@@ -7,9 +7,11 @@
 - Improve performance of prepare_traindatasets for large label files (#116)
 - Add check that train and validation data is mandatory (#118)
 - Support geopandas 0.13 + remove dependency on pygeos (#121)
+- Several small improvements to logging, linting,... (#110, #112, #122,...)
 
 ### Bugs fixed
 
+- Fix occasional "database locked" error while predicting (#120)
 
 ## 0.4.2 (2023-04-19)
 
