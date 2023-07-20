@@ -11,13 +11,13 @@ https://github.com/qubvel/segmentation_models
 
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Any, List, Optional
 
 import numpy as np
 import tensorflow as tf
 import keras.models
-import segmentation_models as sm
 
 # -------------------------------------------------------------
 # First define/init some general variables/constants
@@ -25,10 +25,7 @@ import segmentation_models as sm
 # Get a logger...
 logger = logging.getLogger(__name__)
 # logger.setLevel(logging.INFO)
-
-# Force using the keras implementation in tensorflow, because the default
-# use of this implementation seems broken with tensorflow 2.5
-sm.set_framework("tf.keras")
+os.environ['SM_FRAMEWORK'] = 'tf.keras'
 
 # -------------------------------------------------------------
 # The real work
@@ -157,6 +154,8 @@ def compile_model(
         sample_weight_mode (str, optional): sample weight mode to use. Defaults to None.
         class_weights (list, optional): class weigths to use. Defaults to None.
     """
+    import segmentation_models
+
     # Get number classes of model
     nb_classes = model.output[-1].shape[-1]
 
@@ -182,9 +181,9 @@ def compile_model(
     if loss == "bcedice":
         loss_func = dice_coef_loss_bce
     elif loss == "dice_loss":
-        loss_func = sm.losses.DiceLoss()
+        loss_func = segmentation_models.losses.DiceLoss()
     elif loss == "jaccard_loss":
-        loss_func = sm.losses.JaccardLoss()
+        loss_func = segmentation_models.losses.JaccardLoss()
     elif loss == "weighted_categorical_crossentropy":
         if class_weights is None:
             raise Exception(f"With loss == {loss}, class_weights cannot be None!")
@@ -236,6 +235,8 @@ def load_model(model_to_use_filepath: Path, compile: bool = True) -> keras.model
     Returns:
         tf.keras.models.Model: The loaded model.
     """
+    import segmentation_models
+
     errors = []
     model = None
     model_basestem = f"{'_'.join(model_to_use_filepath.stem.split('_')[0:2])}"
@@ -252,8 +253,8 @@ def load_model(model_to_use_filepath: Path, compile: bool = True) -> keras.model
                 hyperparams = json.load(src)
                 nb_classes = len(hyperparams["architecture"]["classes"])
 
-        iou_score = sm.metrics.IOUScore()
-        f1_score = sm.metrics.FScore()
+        iou_score = segmentation_models.metrics.IOUScore()
+        f1_score = segmentation_models.metrics.FScore()
         onehot_mean_iou = tf.keras.metrics.OneHotMeanIoU(
             num_classes=nb_classes, name="one_hot_mean_iou"
         )
@@ -358,7 +359,8 @@ def load_model(model_to_use_filepath: Path, compile: bool = True) -> keras.model
 
 
 def set_trainable(model, recompile: bool = True):
-    sm.utils.set_trainable(
+    import segmentation_models
+    segmentation_models.utils.set_trainable(
         model=model, recompile=recompile
     )  # doesn't seem to work, so save and load model
 
