@@ -131,8 +131,6 @@ def postprocess(config_path: Path):
             reclassify_query = reclassify_query.replace("\n", " ")
 
         simplify_algorithm = conf.postprocess.get("simplify_algorithm")
-        if simplify_algorithm is not None:
-            simplify_algorithm = gfo.SimplifyAlgorithm[simplify_algorithm]
         simplify_tolerance = conf.postprocess.geteval("simplify_tolerance")
         simplify_lookahead = conf.postprocess.get("simplify_lookahead")
         if simplify_lookahead is not None:

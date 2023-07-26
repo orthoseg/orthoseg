@@ -12,9 +12,9 @@ from typing import List, Optional
 
 # Evade having many info warnings about self intersections from shapely
 import geofileops as gfo
-from geofileops.util import geoseries_util
 import geopandas as gpd
 import numpy as np
+import pygeoops
 import rasterio as rio
 import rasterio.features as rio_features
 import rasterio.transform as rio_transform
@@ -51,7 +51,7 @@ def postprocess_predictions(
     dissolve: bool,
     dissolve_tiles_path: Optional[Path] = None,
     reclassify_to_neighbour_query: Optional[str] = None,
-    simplify_algorithm: Optional[gfo.SimplifyAlgorithm] = None,
+    simplify_algorithm: Optional[str] = None,
     simplify_tolerance: float = 1,
     simplify_lookahead: int = 8,
     nb_parallel: int = -1,
@@ -158,7 +158,7 @@ def postprocess_predictions(
             gfo.simplify(
                 input_path=curr_input_path,
                 output_path=curr_output_path,
-                algorithm=simplify_algorithm,
+                algorithm=gfo.SimplifyAlgorithm(simplify_algorithm),
                 tolerance=simplify_tolerance,
                 lookahead=simplify_lookahead,
                 nb_parallel=nb_parallel,
@@ -728,26 +728,18 @@ def polygonize_pred_multiclass(
             if simplify_topological is None:
                 simplify_topological = True if len(classes) > 2 else False
 
-            if simplify_topological:
-                assert isinstance(result_gdf.geometry, gpd.GeoSeries)
-                result_gdf.geometry = vector_util.simplify_topo_orthoseg(
-                    geoseries=result_gdf.geometry,
-                    algorithm=simplify["simplify_algorithm"],
-                    tolerance=simplify["simplify_tolerance"],
-                    lookahead=simplify["simplify_lookahead"],
-                    keep_points_on=border_lines,
-                )
-            else:
-                assert isinstance(result_gdf.geometry, gpd.GeoSeries)
-                result_gdf.geometry = geoseries_util.simplify_ext(
-                    geoseries=result_gdf.geometry,
-                    algorithm=simplify["simplify_algorithm"],
-                    tolerance=simplify["simplify_tolerance"],
-                    lookahead=simplify["simplify_lookahead"],
-                    keep_points_on=border_lines,
-                )
+            assert isinstance(result_gdf.geometry, gpd.GeoSeries)
+            result_gdf.geometry = pygeoops.simplify(
+                geometry=result_gdf.geometry,
+                algorithm=simplify["simplify_algorithm"],
+                tolerance=simplify["simplify_tolerance"],
+                lookahead=simplify["simplify_lookahead"],
+                preserve_common_boundaries=simplify_topological,
+                keep_points_on=border_lines,
+            )
 
             # Remove geom rows that became empty after simplify + explode
+            assert result_gdf.geometry is not None
             result_gdf = result_gdf[~result_gdf.geometry.is_empty]
             result_gdf = result_gdf[~result_gdf.geometry.isna()]
             if len(result_gdf) == 0:
