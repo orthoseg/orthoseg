@@ -13,6 +13,57 @@ from orthoseg.util import ows_util
 from tests.test_helper import TestData
 
 
+def test_get_images_for_grid(tmp_path):
+    # Init some stuff
+    filelayer_path = (
+        TestData.sampleprojects_dir
+        / "fields/input_raster"
+        / "BEFL-TEST-s2_2023-05-01_2023-07-01_B08-B04-B03_min_byte.tif"
+    )
+    # File bounds: left: 484500, bottom: 5642970, right: 499500, top: 5651030
+
+    crs = "epsg:32631"
+    pixsize_x = 5
+    pixsize_y = pixsize_x
+    width_pix = 512
+    height_pix = 256
+    width_crs = width_pix * pixsize_x
+    height_crs = height_pix * pixsize_y
+    pixels_overlap = 64
+    xmin = 484500
+    ymin = 5642970
+    image_gen_bbox = (xmin, ymin, xmin + width_crs * 2, ymin + height_crs * 2)
+
+    # Test getting the images for this grid
+    # -------------------------------------
+    layersource_rgb = ows_util.FileLayerSource(path=filelayer_path, layernames=["S1"])
+    ows_util.get_images_for_grid(
+        layersources=[layersource_rgb],
+        output_image_dir=tmp_path,
+        crs=crs,
+        image_gen_bbox=image_gen_bbox,
+        image_crs_pixel_x_size=pixsize_x,
+        image_crs_pixel_y_size=pixsize_y,
+        image_pixel_width=width_pix,
+        image_pixel_height=height_pix,
+        nb_concurrent_calls=1,
+        image_format=ows_util.FORMAT_GEOTIFF,
+        pixels_overlap=pixels_overlap,
+        ssl_verify=True,
+    )
+
+    assert tmp_path.exists()
+    image_paths = list(tmp_path.glob("**/*.tif"))
+
+    assert len(image_paths) == 9
+    for image_path in image_paths:
+        assert image_path.exists()
+        assert image_path.stat().st_size > 50000, "Image should be larger than 50kB"
+        with rio.open(image_path) as image_file:
+            assert image_file.width == width_pix + 2 * pixels_overlap
+            assert image_file.height == height_pix + 2 * pixels_overlap
+
+
 @pytest.mark.parametrize(
     "crs_epsg, has_switched_axes",
     [
@@ -26,27 +77,26 @@ def test_has_switched_axes(crs_epsg: int, has_switched_axes: bool):
     assert ows_util._has_switched_axes(pyproj.CRS(crs_epsg)) is has_switched_axes
 
 
-def test_getmap_to_file_filelayer(tmpdir):
+def test_getmap_to_file_filelayer(tmp_path):
     # Init some stuff
-    tmpdir = Path(tmpdir)
     filelayer_path = (
         TestData.sampleprojects_dir
         / "fields/input_raster"
         / "BEFL-TEST-s2_2023-05-01_2023-07-01_B08-B04-B03_min_byte.tif"
     )
-
+    # File bounds: left: 484500, bottom: 5642970, right: 499500, top: 5651030
     with rio.open(filelayer_path) as filelayer:
         file_bounds = filelayer.bounds
 
-    projection = "epsg:32631"
+    crs = "epsg:32631"
     pixsize_x = 5
     pixsize_y = pixsize_x
     width_pix = 512
     height_pix = 256
     width_crs = width_pix * pixsize_x
     height_crs = height_pix * pixsize_y
-    xmin = 596745
-    ymin = 5658820
+    xmin = 484400
+    ymin = 5642900
     bbox = (xmin, ymin, xmin + width_crs, ymin + height_crs)
 
     # Align box to pixel size + make sure width stays the asked number of pixels
@@ -62,10 +112,10 @@ def test_getmap_to_file_filelayer(tmpdir):
     # Test getting a standard 3 band image from a file layer
     # ------------------------------------------------------
     layersource_rgb = ows_util.FileLayerSource(path=filelayer_path, layernames=["S1"])
-    image_filepath = ows_util.getmap_to_file(
+    image_path = ows_util.getmap_to_file(
         layersources=layersource_rgb,
-        output_dir=tmpdir,
-        crs=projection,
+        output_dir=tmp_path,
+        crs=crs,
         bbox=bbox,
         size=(width_pix, height_pix),
         image_pixels_ignore_border=0,
@@ -73,17 +123,17 @@ def test_getmap_to_file_filelayer(tmpdir):
         layername_in_filename=True,
     )
 
-    assert image_filepath is not None
-    assert image_filepath.exists() is True
-    with rio.open(image_filepath) as image_file:
+    assert image_path is not None
+    assert image_path.exists()
+    assert image_path.stat().st_size > 50000, "Image should be larger than 50kB"
+    with rio.open(image_path) as image_file:
         assert tuple(image_file.bounds) == bbox
         assert image_file.width == width_pix
         assert image_file.height == height_pix
 
 
-def test_getmap_to_file_wmslayer(tmpdir):
+def test_getmap_to_file_wmslayer(tmp_path):
     # Init some stuff
-    tmpdir = Path(tmpdir)
     projection = "epsg:31370"
     pixsize_x = 0.25
     pixsize_y = pixsize_x
@@ -102,9 +152,9 @@ def test_getmap_to_file_wmslayer(tmpdir):
         layernames=["OMWRGB20VL"],
         layerstyles=["default"],
     )
-    image_filepath = ows_util.getmap_to_file(
+    image_path = ows_util.getmap_to_file(
         layersources=layersource_rgb,
-        output_dir=tmpdir,
+        output_dir=tmp_path,
         crs=projection,
         bbox=bbox,
         size=(width_pix, height_pix),
@@ -114,9 +164,10 @@ def test_getmap_to_file_wmslayer(tmpdir):
         layername_in_filename=True,
     )
 
-    assert image_filepath is not None
-    assert image_filepath.exists() is True
-    with rio.open(image_filepath) as image_file:
+    assert image_path is not None
+    assert image_path.exists()
+    assert image_path.stat().st_size > 50000, "Image should be larger than 50kB"
+    with rio.open(image_path) as image_file:
         # assert tuple(image_file.bounds) == bbox
         assert image_file.width == width_pix
         assert image_file.height == height_pix
@@ -129,9 +180,9 @@ def test_getmap_to_file_wmslayer(tmpdir):
         layernames=["OGWRGB13_15VL"],
         bands=[-1],
     )
-    image_filepath = ows_util.getmap_to_file(
+    image_path = ows_util.getmap_to_file(
         layersources=layersource_dhm_ortho_grey,
-        output_dir=tmpdir,
+        output_dir=tmp_path,
         crs=projection,
         bbox=bbox,
         size=(width_pix, height_pix),
@@ -142,9 +193,9 @@ def test_getmap_to_file_wmslayer(tmpdir):
         layername_in_filename=True,
     )
 
-    assert image_filepath is not None
-    assert image_filepath.exists() is True
-    with rio.open(image_filepath) as image_file:
+    assert image_path is not None
+    assert image_path.exists() is True
+    with rio.open(image_path) as image_file:
         # assert tuple(image_file.bounds) == bbox
         assert image_file.width == width_pix
         assert image_file.height == height_pix
@@ -168,9 +219,9 @@ def test_getmap_to_file_wmslayer(tmpdir):
         layersource_dhm_hill,
         layersource_dhm_ortho_grey,
     ]
-    image_filepath = ows_util.getmap_to_file(
+    image_path = ows_util.getmap_to_file(
         layersources=layersources,
-        output_dir=tmpdir,
+        output_dir=tmp_path,
         crs=projection,
         bbox=bbox,
         size=(width_pix, height_pix),
@@ -181,9 +232,9 @@ def test_getmap_to_file_wmslayer(tmpdir):
         layername_in_filename=True,
     )
 
-    assert image_filepath is not None
-    assert image_filepath.exists() is True
-    with rio.open(image_filepath) as image_file:
+    assert image_path is not None
+    assert image_path.exists() is True
+    with rio.open(image_path) as image_file:
         # assert tuple(image_file.bounds) == bbox
         assert image_file.width == width_pix
         assert image_file.height == height_pix

@@ -22,6 +22,7 @@ import owslib
 import owslib.wms
 import owslib.util
 import pycron
+import pygeoops
 import pyproj
 import rasterio as rio
 import rasterio.enums
@@ -105,7 +106,7 @@ class FileLayerSource:
 def get_images_for_grid(
     layersources: List[Union[FileLayerSource, WMSLayerSource]],
     output_image_dir: Path,
-    crs: pyproj.CRS,
+    crs: Union[str, pyproj.CRS],
     image_gen_bbox: Optional[Tuple[float, float, float, float]] = None,
     image_gen_roi_filepath: Optional[Path] = None,
     grid_xmin: float = 0.0,
@@ -135,7 +136,7 @@ def get_images_for_grid(
             sources can be specified to create a combined image, eg. use band
             1 of a WMS service with band 2 and 3 of another one.
         output_image_dir (Path): Directory to save the images to.
-        crs (pyproj.CRS): The crs of the source and destination images.
+        crs (Union[str, pyproj.CRS]): The crs of the source and destination images.
         image_gen_bbox (Tuple[float, float, float, float], optional): bbox of the roi to
             request/save images for. Defaults to None.
         image_gen_roi_filepath (Optional[Path], optional): File with the roi
@@ -176,6 +177,8 @@ def get_images_for_grid(
     # Init
     if image_format_save is None:
         image_format_save = image_format
+    if not isinstance(crs, pyproj.CRS):
+        crs = pyproj.CRS(crs)
 
     crs_width = math.fabs(
         image_pixel_width * image_crs_pixel_x_size
@@ -221,8 +224,9 @@ def get_images_for_grid(
     output_image_dir.mkdir(parents=True, exist_ok=True)
 
     # Create a grid of the images that need to be downloaded
-    tiles_to_download_gdf = geofileops.util.grid_util.create_grid3(
-        grid_bbox, width=crs_width, height=crs_height, crs=crs
+    tiles_to_download_gdf = gpd.GeoDataFrame(
+        geometry=pygeoops.create_grid3(grid_bbox, width=crs_width, height=crs_height),
+        crs=crs,
     )
 
     # If an roi is defined, filter the split it using a grid as large objects are small
@@ -243,7 +247,6 @@ def get_images_for_grid(
     gfo.to_file(tiles_to_download_gdf, tiles_path)
 
     with futures.ThreadPoolExecutor(nb_concurrent_calls) as pool:
-
         # Loop through all columns and get the images...
         has_switched_axes = _has_switched_axes(crs)
         nb_total = len(tiles_to_download_gdf)
@@ -910,7 +913,6 @@ def getmap_to_file(
 
         # If the image format to save is different, or if a border needs to be ignored
         if image_format != image_format_save or image_pixels_ignore_border > 0:
-
             # Read image
             with rio.open(str(output_filepath)) as image_file:
                 image_profile_orig = image_file.profile
@@ -966,7 +968,6 @@ def getmap_to_file(
 def _create_filename(
     crs: pyproj.CRS, bbox, size, image_format: str, layername: Optional[str] = None
 ):
-
     # Get image extension based on format
     image_ext = _get_ext_for_image_format(image_format)
 
@@ -1071,7 +1072,6 @@ def _get_world_ext_for_image_format(image_format: str) -> str:
 def _get_cleaned_write_profile(
     profile: Union[dict, rio_profiles.Profile],
 ) -> Union[dict, rio_profiles.Profile]:
-
     # Depending on the driver, different profile keys are supported
     if profile.get("driver") == "JPEG":
         # Don't copy profile keys to cleaned version that are not supported for JPEG
