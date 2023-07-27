@@ -12,8 +12,6 @@ import traceback
 
 import pyproj
 
-# orthoseg is higher in dir hierarchy, so add root to sys.path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from orthoseg.helpers import config_helper as conf
 from orthoseg.helpers import email_helper
 from orthoseg.util import log_util
@@ -147,7 +145,7 @@ def load_images(config_path: Path, load_testsample_images: bool = False):
             layersources=layersources,
             output_image_dir=output_image_dir,
             crs=crs,
-            image_gen_bounds=bbox,
+            image_gen_bbox=bbox,
             image_gen_roi_filepath=roi_filepath,
             grid_xmin=grid_xmin,
             grid_ymin=grid_ymin,

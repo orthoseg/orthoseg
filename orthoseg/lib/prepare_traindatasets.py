@@ -11,15 +11,11 @@ from pathlib import Path
 import pprint
 from typing import List, Optional, Tuple, Union
 import warnings
-import urllib3
 
 import geofileops as gfo
 import pandas as pd
 import geopandas as gpd
 import numpy as np
-import owslib
-import owslib.wms
-import owslib.util
 from PIL import Image
 import rasterio as rio
 import rasterio.features as rio_features
@@ -111,8 +107,8 @@ def prepare_traindatasets(
     This function prepares training data for the vector labels provided.
 
     It will:
-        * get orthophoto's from a WMS server
-        * create the corresponding label mask for each orthophoto
+        * get orthophoto images from the correct image_layer
+        * create the corresponding label mask for each image
 
     Returns a tuple with (output_dir, dataversion):
         output_dir: the dir where the traindataset was created/found
@@ -120,7 +116,7 @@ def prepare_traindatasets(
 
     Args
         label_infos (List[LabelInfo]): paths to the files with label polygons
-            and locations to generate images for
+            and locations to generate images for.
         classes (dict): dict with the classes to detect as keys. The values
             are the following:
                 - labelnames: list of labels to use for this class
@@ -138,22 +134,6 @@ def prepare_traindatasets(
             In corporate networks using a proxy server this is often needed
             to evade CERTIFICATE_VERIFY_FAILED errors. Defaults to True.
     """
-    # Init stuff
-    # Interprete ssl_verify
-    auth = None
-    if ssl_verify is not None:
-        # If it is a string, make sure it isn't actually a bool
-        if isinstance(ssl_verify, str):
-            if ssl_verify.lower() == "true":
-                ssl_verify = True
-            elif ssl_verify.lower() == "false":
-                ssl_verify = False
-
-        auth = owslib.util.Authentication(verify=ssl_verify)  # type: ignore
-        if isinstance(ssl_verify, bool) and ssl_verify is False:
-            urllib3.disable_warnings()
-            logger.warn("SSL VERIFICATION IS TURNED OFF!!!")
-
     # Check if the first class is named "background"
     if len(classes) == 0:
         raise Exception("No classes specified")
@@ -282,49 +262,20 @@ def prepare_traindatasets(
                 # Loop trough all locations labels to get an image for each of them
                 created_images_gdf = gpd.GeoDataFrame()
                 created_images_gdf["geometry"] = None
-                wms_imagelayer_layersources = {}
                 for i, label_tuple in enumerate(labellocations_curr_gdf.itertuples()):
                     img_bbox = label_tuple.geometry
                     image_layer = getattr(label_tuple, "image_layer")
-
-                    # If the wms to be used hasn't been initialised yet
-                    if image_layer not in wms_imagelayer_layersources:
-                        wms_imagelayer_layersources[image_layer] = []
-                        for layersource in image_layers[image_layer]["layersources"]:
-                            wms_service = owslib.wms.WebMapService(
-                                url=layersource["wms_server_url"],
-                                version=layersource["wms_version"],
-                                auth=auth,
-                            )
-                            if layersource["wms_ignore_capabilities_url"]:
-                                # If the wms url in capabilities should be ignored,
-                                # overwrite with original url
-                                nb = len(
-                                    wms_service.getOperationByName("GetMap").methods
-                                )
-                                for method_id in range(nb):
-                                    wms_service.getOperationByName("GetMap").methods[
-                                        method_id
-                                    ]["url"] = layersource["wms_server_url"]
-                            wms_imagelayer_layersources[image_layer].append(
-                                ows_util.LayerSource(
-                                    wms_service=wms_service,
-                                    layernames=layersource["layernames"],
-                                    layerstyles=layersource["layerstyles"],
-                                    bands=layersource["bands"],
-                                    random_sleep=layersource["random_sleep"],
-                                )
-                            )
 
                     # Now really get the image
                     logger.debug(f"Get image for coordinates {img_bbox.bounds}")
                     assert labellocations_gdf.crs is not None
                     image_filepath = ows_util.getmap_to_file(
-                        layersources=wms_imagelayer_layersources[image_layer],
+                        layersources=image_layers[image_layer]["layersources"],
                         output_dir=output_imagedata_image_dir,
                         crs=labellocations_gdf.crs,
                         bbox=img_bbox.bounds,  # type: ignore
                         size=(image_pixel_width, image_pixel_height),
+                        ssl_verify=ssl_verify,
                         image_format=ows_util.FORMAT_PNG,
                         # image_format_save=ows_util.FORMAT_TIFF,
                         image_pixels_ignore_border=image_layers[image_layer][
@@ -513,13 +464,15 @@ def prepare_labeldata(
             if intersection.area < (location_geom_aligned.area - area_1row_1col):
                 # Original geom was digitized too small
                 errors_found.append(
-                    "Location geometry skewed or too small in "
+                    f"Location geometry skewed or too small ({intersection.area}, "
+                    f"based on train config expected {location_geom_aligned.area}) in "
                     f"{Path(location.path).name}: {location.geometry.wkt}"
                 )
-            elif location_geom_aligned.area > 1.1 * sh_geom.box(*geom_bounds).area:
-                logger.warn(
-                    "Location geometry larger than expected in file "
-                    f"{Path(location.path).name}: {location.geometry.wkt}"
+            elif sh_geom.box(*geom_bounds).area > location_geom_aligned.area * 1.1:
+                errors_found.append(
+                    f"Location geometry too large ({sh_geom.box(*geom_bounds).area}, "
+                    f"based on train config expected {location_geom_aligned.area}) "
+                    f"in file {Path(location.path).name}: {location.geometry.wkt}"
                 )
             labellocations_gdf.at[location.Index, "geometry"] = location_geom_aligned
 
@@ -571,12 +524,16 @@ def prepare_labeldata(
                         )
                     ),
                     "burn_value",
-                ] = classes[classname]["burn_value"]
+                ] = classes[
+                    classname
+                ][  # type: ignore
+                    "burn_value"
+                ]  # type: ignore
 
             # Check if there are invalid class names
             invalid_gdf = labels_to_burn_gdf.loc[
                 labels_to_burn_gdf["burn_value"].isnull()
-            ]
+            ]  # type: ignore
             for _, invalid_row in invalid_gdf.iterrows():
                 errors_found.append(
                     f"Invalid classname in {Path(invalid_row['path']).name}: "
@@ -586,7 +543,7 @@ def prepare_labeldata(
             # Filter away rows that are going to burn 0, as this is useless...
             labels_to_burn_gdf = labels_to_burn_gdf.loc[
                 labels_to_burn_gdf["burn_value"] != 0
-            ].copy()
+            ].copy()  # type: ignore
 
         elif len(classes) == 2:
             # There is no column with label names, but there are only 2 classes
