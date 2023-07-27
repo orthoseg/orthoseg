@@ -5,7 +5,6 @@ dependencies:
   - python =3.10
   - pip
   # required
-  - fiona
   - gdown
   - geofileops >=0.6,<0.8
   - geopandas >=0.12
@@ -13,6 +12,7 @@ dependencies:
   - owslib
   - pillow
   - pycron
+  - pygeoops >=0.2,<0.3
   - pyproj
   - rasterio
   - shapely >=2
@@ -23,7 +23,6 @@ dependencies:
   - pytest-cov
   - pytest-order
   - pip:
-    - pygeoops ==0.2.0a4
     - segmentation-models >=1.0,<1.1
     - simplification
     - tensorflow >=2.7,<2.11
