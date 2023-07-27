@@ -11,14 +11,10 @@ import shlex
 import sys
 import traceback
 
-import geofileops as gfo
-
 # import os
 # os.environ["CUDA_VISIBLE_DEVICES"] = "-1" # Disable using GPU
 import tensorflow as tf
 
-# orthoseg is higher in dir hierarchy, add root to sys.path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from orthoseg.helpers import config_helper as conf
 from orthoseg.helpers import email_helper
 from orthoseg.lib import predicter
@@ -26,15 +22,8 @@ import orthoseg.model.model_factory as mf
 import orthoseg.model.model_helper as mh
 from orthoseg.util import log_util
 
-# -------------------------------------------------------------
-# First define/init general variables/constants
-# -------------------------------------------------------------
 # Get a logger...
 logger = logging.getLogger(__name__)
-
-# -------------------------------------------------------------
-# The real work
-# -------------------------------------------------------------
 
 
 def predict_argstr(argstr):
@@ -243,7 +232,6 @@ def predict(config_path: Path):
             postprocess["simplify"] = {}
             simplify = postprocess["simplify"]
 
-            simplify_algorithm = gfo.SimplifyAlgorithm[simplify_algorithm]
             simplify["simplify_algorithm"] = simplify_algorithm
             simplify["simplify_tolerance"] = conf.predict.geteval("simplify_tolerance")
             simplify["simplify_lookahead"] = conf.predict.getint("simplify_lookahead")
