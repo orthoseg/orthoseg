@@ -25,6 +25,7 @@ setuptools.setup(
         "owslib",
         "pillow",
         "pycron",
+        "pygeoops",
         "rasterio",
         "segmentation-models>=1.0,<1.1",
         "shapely>=2",

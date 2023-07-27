@@ -10,25 +10,14 @@ import shlex
 import sys
 import traceback
 
-import geofileops as gfo
-
-# Because orthoseg isn't installed as package + it is higher in dir hierarchy, add root
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from orthoseg.helpers import config_helper as conf
 from orthoseg.helpers import email_helper
 from orthoseg.lib import postprocess_predictions as postp
 import orthoseg.model.model_helper as mh
 from orthoseg.util import log_util
 
-# -------------------------------------------------------------
-# First define/init general variables/constants
-# -------------------------------------------------------------
 # Get a logger...
 logger = logging.getLogger(__name__)
-
-# -------------------------------------------------------------
-# The real work
-# -------------------------------------------------------------
 
 
 def postprocess_argstr(argstr):
@@ -131,8 +120,6 @@ def postprocess(config_path: Path):
             reclassify_query = reclassify_query.replace("\n", " ")
 
         simplify_algorithm = conf.postprocess.get("simplify_algorithm")
-        if simplify_algorithm is not None:
-            simplify_algorithm = gfo.SimplifyAlgorithm[simplify_algorithm]
         simplify_tolerance = conf.postprocess.geteval("simplify_tolerance")
         simplify_lookahead = conf.postprocess.get("simplify_lookahead")
         if simplify_lookahead is not None:

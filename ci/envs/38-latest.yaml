@@ -23,6 +23,7 @@ dependencies:
   - pytest-cov
   - pytest-order
   - pip:
+    - pygeoops ==0.2.0a4
     - segmentation-models >=1.0,<1.1
     - simplification
     - tensorflow >=2.7,<2.11
