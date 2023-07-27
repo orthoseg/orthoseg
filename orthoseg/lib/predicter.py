@@ -168,8 +168,7 @@ def predict_dir(
                     image_done_filenames.add(filename.rstrip())
         if len(image_done_filenames) > 0:
             logger.info(
-                f"{len(image_done_filenames)} images in were processed before, "
-                f"they will be skipped"
+                f"Skip {len(image_done_filenames)} images that are already processed"
             )
 
     # Clear error file
