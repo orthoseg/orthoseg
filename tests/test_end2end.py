@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Tests for functionalities in orthoseg.train.
 """
@@ -11,25 +10,16 @@ import tempfile
 
 import gdown
 import geofileops as gfo
-import pytest
-
 import orthoseg
 from orthoseg.helpers import config_helper as conf
 import orthoseg.model.model_helper as mh
+import pytest
 
 from tests.test_helper import TestData
-
-# ----------------------------------------------------
-# Init
-# ----------------------------------------------------
 
 testprojects_dir = Path(tempfile.gettempdir()) / "orthoseg_test_end2end/sample_projects"
 footballfields_dir = testprojects_dir / "footballfields"
 projecttemplate_dir = testprojects_dir / "project_template"
-
-# ----------------------------------------------------
-# Tests
-# ----------------------------------------------------
 
 
 def get_testdata_dir() -> Path:
