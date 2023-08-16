@@ -307,7 +307,7 @@ def test_prepare_traindata_full(tmp_path):
     # Prepare test data
     classes = TestData.classes
     image_layers_config_path = TestData.sampleprojects_dir / "imagelayers.ini"
-    image_layers = config_helper.read_layer_config(image_layers_config_path)
+    image_layers = config_helper._read_layer_config(image_layers_config_path)
     label_infos = _prepare_labelinfos(tmp_path)
 
     # Test with the default data...

@@ -135,6 +135,16 @@ def predict(config_path: Path):
         )
         hyperparams = mh.HyperParams(path=hyperparams_path)
 
+        # Validate the image prediction size for the model architecture
+        overlap = conf.predict.getint("image_pixels_overlap", 0)
+        input_width_pred = conf.predict.getint("image_pixel_width") + 2 * overlap
+        input_height_pred = conf.predict.getint("image_pixel_height") + 2 * overlap
+        mf.check_image_size(
+            architecture=hyperparams.architecture.architecture,
+            input_width=input_width_pred,
+            input_height=input_height_pred,
+        )
+
         # Prepare output subdir to be used for predictions
         predict_out_subdir = f"{best_model['basefilename']}"
         if trainparams_id > 0:

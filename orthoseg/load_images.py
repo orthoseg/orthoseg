@@ -14,6 +14,7 @@ import pyproj
 
 from orthoseg.helpers import config_helper as conf
 from orthoseg.helpers import email_helper
+import orthoseg.model.model_factory as mf
 from orthoseg.util import log_util
 from orthoseg.util import ows_util
 
@@ -34,7 +35,6 @@ def load_images_argstr(argstr):
 
 
 def load_images_args(args):
-
     # Interprete arguments
     parser = argparse.ArgumentParser(add_help=False)
 
@@ -116,11 +116,20 @@ def load_images(config_path: Path, load_testsample_images: bool = False):
             image_pixel_height = conf.predict.getint("image_pixel_height")
             image_pixel_x_size = conf.predict.getfloat("image_pixel_x_size")
             image_pixel_y_size = conf.predict.getfloat("image_pixel_y_size")
-            image_pixels_overlap = conf.predict.getint("image_pixels_overlap")
+            image_pixels_overlap = conf.predict.getint("image_pixels_overlap", 0)
             image_format = ows_util.FORMAT_JPEG
 
             # For the real prediction dataset, no skipping obviously...
             nb_images_to_skip = 0
+
+        # Validate the image size for the model architecture
+        input_width_pred = image_pixel_width + 2 * image_pixels_overlap
+        input_height_pred = image_pixel_height + 2 * image_pixels_overlap
+        mf.check_image_size(
+            architecture=conf.model.get("architecture"),
+            input_width=input_width_pred,
+            input_height=input_height_pred,
+        )
 
         # Get ssl_verify setting
         ssl_verify = conf.general["ssl_verify"]
