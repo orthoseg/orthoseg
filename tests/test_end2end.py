@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Tests for functionalities in orthoseg.train.
 """
@@ -7,33 +6,20 @@ from datetime import datetime
 import os
 from pathlib import Path
 import shutil
-import sys
 import tempfile
 
 import gdown
 import geofileops as gfo
-import pytest
-
-# Add path so the local orthoseg packages are found
-root_dir = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(root_dir))
 import orthoseg
 from orthoseg.helpers import config_helper as conf
 import orthoseg.model.model_helper as mh
+import pytest
 
 from tests.test_helper import TestData
-
-# ----------------------------------------------------
-# Init
-# ----------------------------------------------------
 
 testprojects_dir = Path(tempfile.gettempdir()) / "orthoseg_test_end2end/sample_projects"
 footballfields_dir = testprojects_dir / "footballfields"
 projecttemplate_dir = testprojects_dir / "project_template"
-
-# ----------------------------------------------------
-# Tests
-# ----------------------------------------------------
 
 
 def get_testdata_dir() -> Path:
@@ -49,7 +35,7 @@ def test_1_init_testproject():
 @pytest.mark.order(after="test_1_init_testproject")
 def test_2_load_images():
     # Load project config to init some vars.
-    config_path = footballfields_dir / "footballfields_BEFL-2019.ini"
+    config_path = footballfields_dir / "footballfields_BEFL-2019_test.ini"
     conf.read_orthoseg_config(config_path)
     image_cache_dir = conf.dirs.getpath("predict_image_input_dir")
 
@@ -65,7 +51,7 @@ def test_2_load_images():
     # Check if the right number of files was loaded
     assert image_cache_dir.exists()
     files = list(image_cache_dir.glob("**/*.jpg"))
-    assert len(files) == 4
+    assert len(files) == 6
 
 
 @pytest.mark.skipif(
@@ -75,7 +61,7 @@ def test_2_load_images():
 @pytest.mark.order(after="test_1_init_testproject")
 def test_3_train():
     # Load project config to init some vars.
-    config_path = footballfields_dir / "footballfields_train.ini"
+    config_path = footballfields_dir / "footballfields_train_test.ini"
     conf.read_orthoseg_config(config_path)
 
     # Init + cleanup result dirs
@@ -121,7 +107,7 @@ def test_3_train():
 @pytest.mark.order(after="test_2_load_images")
 def test_4_predict():
     # Load project config to init some vars.
-    config_path = footballfields_dir / "footballfields_BEFL-2019.ini"
+    config_path = footballfields_dir / "footballfields_BEFL-2019_test.ini"
     conf.read_orthoseg_config(config_path)
 
     # Cleanup result if it isn't empty yet
@@ -167,10 +153,9 @@ def test_4_predict():
     assert result_vector_path.exists()
     result_gdf = gfo.read_file(result_vector_path)
     if os.name == "nt":
-        assert len(result_gdf) == 233
+        assert len(result_gdf) == 211
     else:
-        # Since 2023-02-17, predict result on linux and Mac became different...
-        assert len(result_gdf) == 243
+        assert len(result_gdf) == 211
 
 
 @pytest.mark.skipif(
@@ -180,7 +165,7 @@ def test_4_predict():
 @pytest.mark.order(after="test_4_predict")
 def test_5_postprocess():
     # Load project config to init some vars.
-    config_path = footballfields_dir / "footballfields_BEFL-2019.ini"
+    config_path = footballfields_dir / "footballfields_BEFL-2019_test.ini"
     conf.read_orthoseg_config(config_path)
 
     # Cleanup result if it isn't empty yet
@@ -198,7 +183,6 @@ def test_5_postprocess():
     assert result_diss_path.exists()
     result_gdf = gfo.read_file(result_diss_path)
     if os.name == "nt":
-        assert len(result_gdf) == 227
+        assert len(result_gdf) == 207
     else:
-        # Since 2023-02-17, predict result on linux and Mac became different...
-        assert len(result_gdf) == 241
+        assert len(result_gdf) == 207
