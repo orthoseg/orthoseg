@@ -11,13 +11,7 @@ import sys
 
 import pytest
 
-# Add path so the local orthoseg packages are found
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from orthoseg import load_sampleprojects
-
-# ----------------------------------------------------
-# Tests
-# ----------------------------------------------------
 
 
 def get_testdata_dir() -> Path:
@@ -50,10 +44,10 @@ def test_load_sampleprojects(tmp_path):
     assert len(files) > 0
     files = list((footballfields_dir / "labels").glob("**/*.gpkg"))
     assert len(files) == 2
-    model_path = footballfields_dir / "models" / "footballfields_01_0.92512_242.hdf5"
+    model_path = footballfields_dir / "models" / "footballfields_01_0.97392_201.hdf5"
     assert model_path.exists()
-    # The model should be larger than 50 MB, otherwise not normal
-    assert model_path.stat().st_size > 50 * 1024 * 1024
+    # The model should be larger than 40 MB, otherwise not normal
+    assert model_path.stat().st_size > 40 * 1024 * 1024
 
     projecttemplate_dir = sampleprojects_dir / "project_template"
     assert projecttemplate_dir.exists()
