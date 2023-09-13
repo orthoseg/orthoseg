@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## ??? (???)
+
+### Improvements
+
+### Bugs fixed
+
+- Fix: check that traindataset has validation samples should not be per file (#131)
+
 ## 0.5.0 (2023-07-27)
 
 ### Improvements
