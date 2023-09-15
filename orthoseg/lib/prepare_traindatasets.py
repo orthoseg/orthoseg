@@ -260,8 +260,6 @@ def prepare_traindatasets(
                 ]
 
                 # Loop trough all locations labels to get an image for each of them
-                created_images_gdf = gpd.GeoDataFrame()
-                created_images_gdf["geometry"] = None
                 for i, label_tuple in enumerate(labellocations_curr_gdf.itertuples()):
                     img_bbox = label_tuple.geometry
                     image_layer = getattr(label_tuple, "image_layer")
