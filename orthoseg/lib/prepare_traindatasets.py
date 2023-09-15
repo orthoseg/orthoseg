@@ -359,7 +359,8 @@ def prepare_labeldata(
     """
     labeldata_result = []
     errors_found = []
-    labellocations_found = False
+    train_locations_found = False
+    validation_locations_found = False
     for label_info in label_infos:
         # Read label locations if needed
         if label_info.locations_gdf is not None:
@@ -377,9 +378,6 @@ def prepare_labeldata(
             else:
                 logger.warn(f"No label locations found in {label_info.locations_path}")
                 continue
-
-        if len(labellocations_gdf) > 0:
-            labellocations_found = True
 
         # Read label polygons if needed
         if label_info.polygons_gdf is not None:
@@ -487,16 +485,10 @@ def prepare_labeldata(
             )
 
         # Check that there is at least one train location and one validation location.
-        if len(labellocations_gdf.query("traindata_type == 'train'")) < 1:
-            errors_found.append(
-                "No labellocations with traindata_type == 'train' found! At least one "
-                "needed"
-            )
-        if len(labellocations_gdf.query("traindata_type == 'validation'")) < 1:
-            errors_found.append(
-                "No labellocations with traindata_type == 'validation' found! At least "
-                "one needed, but ~10% of the number of 'train' locations recommended."
-            )
+        if len(labellocations_gdf.query("traindata_type == 'train'")) > 0:
+            train_locations_found = True
+        if len(labellocations_gdf.query("traindata_type == 'validation'")) > 0:
+            validation_locations_found = True
 
         # Validate + process the polygons data
         # ------------------------------------
@@ -589,14 +581,23 @@ def prepare_labeldata(
         assert isinstance(labels_to_burn_gdf, gpd.GeoDataFrame)
         labeldata_result.append((labellocations_gdf, labels_to_burn_gdf))
 
+    # Check that there is at least one train location and one validation location.
+    if not train_locations_found:
+        errors_found.append(
+            "No labellocations with traindata_type == 'train' found in any file! At "
+            "least one needed"
+        )
+    if not validation_locations_found:
+        errors_found.append(
+            "No labellocations with traindata_type == 'validation' found in any file! "
+            "At least one needed, but ~10% of number of 'train' locations recommended."
+        )
+
     # If errors found, raise
     if len(errors_found) > 0:
         raise ValidationError(
             f"Errors found in label data: {len(errors_found)}", errors_found
         )
-    if not labellocations_found:
-        errors_found.append("No labellocations found in the training data")
-        raise ValidationError("No labellocations found", errors_found)
 
     return labeldata_result
 
