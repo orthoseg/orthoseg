@@ -8,7 +8,7 @@ doi: 10.5281/zenodo.10340584
 abstract: OrthoSeg makes it easy to train neural networks to segment orthophotos.
 url: https://github.com/orthoseg/orthoseg
 repository-code: https://github.com/orthoseg/orthoseg
-license: 
+license: GPL-3.0
 authors:
   - given-names: Pieter
     family-names: Roggemans
