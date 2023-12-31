@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Module with specific helper functions to manage the configuration of orthoseg.
 """
@@ -212,8 +211,9 @@ def _read_layer_config(layer_config_filepath: Path) -> dict:
         ].getint("nb_concurrent_calls", fallback=6)
 
         # Check if a region of interest is specified as file or bbox
-        roi_filepath = layer_config[image_layer].getpath("roi_filepath", fallback=None)
-        image_layers[image_layer]["roi_filepath"] = roi_filepath
+        image_layers[image_layer]["roi_filepath"] = layer_config[image_layer].getpath(
+            "roi_filepath", fallback=None
+        )
         bbox_tuple = None
         if layer_config.has_option(image_layer, "bbox"):
             bbox_list = layer_config[image_layer].getlist("bbox")
@@ -227,14 +227,12 @@ def _read_layer_config(layer_config_filepath: Path) -> dict:
         image_layers[image_layer]["bbox"] = bbox_tuple
 
         # Check if the grid xmin and xmax are specified
-        grid_xmin = 0
-        if layer_config.has_option(image_layer, "grid_xmin"):
-            grid_xmin = layer_config[image_layer].getfloat("grid_xmin")
-        image_layers[image_layer]["grid_xmin"] = grid_xmin
-        grid_ymin = 0
-        if layer_config.has_option(image_layer, "grid_ymin"):
-            grid_ymin = layer_config[image_layer].getfloat("grid_ymin")
-        image_layers[image_layer]["grid_ymin"] = grid_ymin
+        image_layers[image_layer]["grid_xmin"] = layer_config[image_layer].getfloat(
+            "grid_xmin", fallback=0
+        )
+        image_layers[image_layer]["grid_ymin"] = layer_config[image_layer].getfloat(
+            "grid_ymin", fallback=0
+        )
 
         # Check if a image_pixels_ignore_border is specified
         image_pixels_ignore_border = layer_config[image_layer].getint(

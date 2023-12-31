@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Module to prepare the training datasets.
 """

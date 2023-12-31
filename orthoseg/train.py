@@ -44,7 +44,6 @@ def _train_argstr(argstr):
 
 
 def _train_args(args):
-
     # Interprete arguments
     parser = argparse.ArgumentParser(add_help=False)
 
@@ -97,7 +96,6 @@ def train(config_path: Path):
     logger.debug(f"Config used: \n{conf.pformat_config()}")
 
     try:
-
         # First check if the segment_subject has a valid name
         segment_subject = conf.general["segment_subject"]
         if segment_subject == "MUST_OVERRIDE":
@@ -270,7 +268,6 @@ def train(config_path: Path):
         # Train!!!
         min_probability = conf.predict.getfloat("min_probability")
         if train_needed is True:
-
             # If a model already exists, use it to predict (possibly new) training and
             # validation dataset. This way it is possible to have a quick check on
             # errors in (new) added labels in the datasets.
@@ -493,7 +490,6 @@ def train(config_path: Path):
 def _search_label_files(
     labelpolygons_pattern: Path, labellocations_pattern: Path
 ) -> List[prep.LabelInfo]:
-
     if not labelpolygons_pattern.parent.exists():
         raise ValueError(f"Label dir {labelpolygons_pattern.parent} doesn't exist")
     if not labellocations_pattern.parent.exists():
