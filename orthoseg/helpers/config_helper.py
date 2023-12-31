@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Module with specific helper functions to manage the configuration of orthoseg.
 """
@@ -10,12 +9,10 @@ from pathlib import Path
 import pprint
 from typing import List, Optional
 
+import orthoseg.model.model_factory as mf
 from orthoseg.util import config_util
 from orthoseg.util.ows_util import FileLayerSource, WMSLayerSource
 
-# -------------------------------------------------------------
-# First define/init some general variables/constants
-# -------------------------------------------------------------
 # Get a logger...
 logger = logging.getLogger(__name__)
 # logger.setLevel(logging.DEBUG)
@@ -25,13 +22,18 @@ logger = logging.getLogger(__name__)
 # it is used in codes as well the parsing becomes a lot more difficult.
 illegal_chars_in_codes = ["_", ",", ".", "?", ":"]
 
-# -------------------------------------------------------------
-# The real work
-# -------------------------------------------------------------
+
+def pformat_config():
+    message = f"Config files used: {pprint.pformat(config_filepaths_used)} \n"
+    message += f"Layer config file used: {layer_config_filepath_used} \n"
+    message += "Config info listing:\n"
+    message += pprint.pformat(config_util.as_dict(config))
+    message += "Layer config info listing:\n"
+    message += pprint.pformat(image_layers)
+    return message
 
 
 def read_orthoseg_config(config_path: Path):
-
     # Determine list of config files that should be loaded
     config_paths = config_util.get_config_files(config_path)  # type: ignore
     # Load them
@@ -97,34 +99,10 @@ def read_orthoseg_config(config_path: Path):
     layer_config_filepath_used = layer_config_filepath
 
     global image_layers
-    image_layers = read_layer_config(layer_config_filepath=layer_config_filepath)
+    image_layers = _read_layer_config(layer_config_filepath=layer_config_filepath)
 
 
-def str2list(input: Optional[str]):
-    if input is None:
-        return None
-    if isinstance(input, List):
-        return input
-    return [part.strip() for part in input.split(",")]
-
-
-def str2intlist(input: Optional[str]):
-    if input is None:
-        return None
-    if isinstance(input, List):
-        return input
-    return [int(i.strip()) for i in input.split(",")]
-
-
-def str2bool(input: Optional[str]):
-    if input is None:
-        return None
-    if isinstance(input, bool):
-        return input
-    return input.lower() in ("yes", "true", "false", "1")
-
-
-def read_layer_config(layer_config_filepath: Path) -> dict:
+def _read_layer_config(layer_config_filepath: Path) -> dict:
     # Init
     if not layer_config_filepath.exists():
         raise Exception(f"Layer config file not found: {layer_config_filepath}")
@@ -133,8 +111,8 @@ def read_layer_config(layer_config_filepath: Path) -> dict:
     layer_config = configparser.ConfigParser(
         interpolation=configparser.ExtendedInterpolation(),
         converters={
-            "list": lambda x: str2list(x),
-            "listint": lambda x: str2intlist(x),
+            "list": lambda x: _str2list(x),
+            "listint": lambda x: _str2intlist(x),
             "dict": lambda x: None if x is None else json.loads(x),
             "path": lambda x: Path(x),
         },
@@ -194,13 +172,13 @@ def read_layer_config(layer_config_filepath: Path) -> dict:
                     layersource_object = WMSLayerSource(
                         wms_server_url=layersource.get("wms_server_url"),
                         wms_version=layersource.get("wms_version", "1.3.0"),
-                        layernames=str2list(
+                        layernames=_str2list(
                             layersource["wms_layernames"]
                         ),  # type: ignore
-                        layerstyles=str2list(layersource.get("wms_layerstyles")),
-                        bands=str2intlist(layersource.get("bands", None)),
+                        layerstyles=_str2list(layersource.get("wms_layerstyles")),
+                        bands=_str2intlist(layersource.get("bands", None)),
                         random_sleep=int(layersource.get("random_sleep", 0)),
-                        wms_ignore_capabilities_url=str2bool(
+                        wms_ignore_capabilities_url=_str2bool(
                             layersource.get("wms_ignore_capabilities_url", False)
                         ),  # type: ignore
                     )
@@ -213,7 +191,7 @@ def read_layer_config(layer_config_filepath: Path) -> dict:
                     layersource_object = FileLayerSource(
                         path=path,
                         layernames=layersource["layername"],  # type: ignore
-                        bands=str2intlist(layersource.get("bands", None)),
+                        bands=_str2intlist(layersource.get("bands", None)),
                     )
             except Exception as ex:
                 raise ValueError(
@@ -233,8 +211,9 @@ def read_layer_config(layer_config_filepath: Path) -> dict:
         ].getint("nb_concurrent_calls", fallback=6)
 
         # Check if a region of interest is specified as file or bbox
-        roi_filepath = layer_config[image_layer].getpath("roi_filepath", fallback=None)
-        image_layers[image_layer]["roi_filepath"] = roi_filepath
+        image_layers[image_layer]["roi_filepath"] = layer_config[image_layer].getpath(
+            "roi_filepath", fallback=None
+        )
         bbox_tuple = None
         if layer_config.has_option(image_layer, "bbox"):
             bbox_list = layer_config[image_layer].getlist("bbox")
@@ -248,14 +227,12 @@ def read_layer_config(layer_config_filepath: Path) -> dict:
         image_layers[image_layer]["bbox"] = bbox_tuple
 
         # Check if the grid xmin and xmax are specified
-        grid_xmin = 0
-        if layer_config.has_option(image_layer, "grid_xmin"):
-            grid_xmin = layer_config[image_layer].getfloat("grid_xmin")
-        image_layers[image_layer]["grid_xmin"] = grid_xmin
-        grid_ymin = 0
-        if layer_config.has_option(image_layer, "grid_ymin"):
-            grid_ymin = layer_config[image_layer].getfloat("grid_ymin")
-        image_layers[image_layer]["grid_ymin"] = grid_ymin
+        image_layers[image_layer]["grid_xmin"] = layer_config[image_layer].getfloat(
+            "grid_xmin", fallback=0
+        )
+        image_layers[image_layer]["grid_ymin"] = layer_config[image_layer].getfloat(
+            "grid_ymin", fallback=0
+        )
 
         # Check if a image_pixels_ignore_border is specified
         image_pixels_ignore_border = layer_config[image_layer].getint(
@@ -267,11 +244,25 @@ def read_layer_config(layer_config_filepath: Path) -> dict:
     return image_layers
 
 
-def pformat_config():
-    message = f"Config files used: {pprint.pformat(config_filepaths_used)} \n"
-    message += f"Layer config file used: {layer_config_filepath_used} \n"
-    message += "Config info listing:\n"
-    message += pprint.pformat(config_util.as_dict(config))
-    message += "Layer config info listing:\n"
-    message += pprint.pformat(image_layers)
-    return message
+def _str2list(input: Optional[str]):
+    if input is None:
+        return None
+    if isinstance(input, List):
+        return input
+    return [part.strip() for part in input.split(",")]
+
+
+def _str2intlist(input: Optional[str]):
+    if input is None:
+        return None
+    if isinstance(input, List):
+        return input
+    return [int(i.strip()) for i in input.split(",")]
+
+
+def _str2bool(input: Optional[str]):
+    if input is None:
+        return None
+    if isinstance(input, bool):
+        return input
+    return input.lower() in ("yes", "true", "false", "1")

@@ -1,13 +1,7 @@
-# -*- coding: utf-8 -*-
 """
 Tests for functionalities in orthoseg.train.
 """
 
-from pathlib import Path
-import sys
-
-# Add path so the local orthoseg packages are found
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import orthoseg
 from tests.test_helper import TestData
 

@@ -1,8 +1,6 @@
-# -*- coding: utf-8 -*-
 """
 Module with helper functions regarding (keras) models.
 """
-
 import json
 import logging
 from pathlib import Path
@@ -12,16 +10,8 @@ from typing import List, Optional
 import pandas as pd
 from keras import callbacks
 
-# -------------------------------------------------------------
-# First define/init some general variables/constants
-# -------------------------------------------------------------
 # Get a logger...
 logger = logging.getLogger(__name__)
-# logger.setLevel(logging.INFO)
-
-# -------------------------------------------------------------
-# The real work
-# -------------------------------------------------------------
 
 
 class ArchitectureParams:
@@ -682,7 +672,6 @@ def save_and_clean_models(
     new_model_path = None
     new_model_monitor_accuracy = None
     if new_model is not None:
-
         if new_model_monitor_value is None or new_model_epoch is None:
             raise Exception(
                 "If new_model is not None, new_model_monitor_... parameters cannot be "
@@ -732,7 +721,6 @@ def save_and_clean_models(
         by="monitor_metric_accuracy", ascending=False
     )
     for model_info in model_info_sorted_df.itertuples(index=False):
-
         # If only the best needs to be kept, check only on monitor_metric_accuracy...
         keep_model = True
         better_ones_df = None

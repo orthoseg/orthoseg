@@ -4,6 +4,8 @@
 
 ### Improvements
 
+- Several small improvements (#)
+
 ### Bugs fixed
 
 - Fix: check that traindataset has validation samples should not be per file (#131)

@@ -1,8 +1,6 @@
-# -*- coding: utf-8 -*-
 """
 Modile with generic Utility functions for vector manipulations.
 """
-
 import logging
 from typing import Optional, Tuple
 

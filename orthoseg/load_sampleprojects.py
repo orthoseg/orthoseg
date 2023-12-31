@@ -1,8 +1,6 @@
-# -*- coding: utf-8 -*-
 """
 Download the sample project.
 """
-
 import argparse
 import logging
 from pathlib import Path
@@ -12,20 +10,8 @@ from typing import Optional
 
 import gdown
 
-# orthoseg is higher in dir hierarchy, add root to sys.path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from orthoseg.util import git_downloader
-
-
-# -------------------------------------------------------------
-# First define/init general variables/constants
-# -------------------------------------------------------------
 # Get a logger...
 logger = logging.getLogger(__name__)
-
-# -------------------------------------------------------------
-# The real work
-# -------------------------------------------------------------
 
 
 def parse_load_sampleprojects_argstr(argstr):
@@ -34,7 +20,6 @@ def parse_load_sampleprojects_argstr(argstr):
 
 
 def parse_load_sampleprojects_args(args) -> dict:
-
     # Define supported arguments
     parser = argparse.ArgumentParser(add_help=False)
 
@@ -95,14 +80,14 @@ def load_sampleprojects(dest_dir: Path, ssl_verify: Optional[bool] = None):
         gdown.download(
             id="1umxcd4RkB81sem9PdIpLoWeiIW8ga1u7",
             output=str(model_hyperparams_path),
-            verify=verify
+            verify=verify,
         )
     model_modeljson_path = footballfields_model_dir / "footballfields_01_model.json"
     if model_modeljson_path.exists() is False:
         gdown.download(
             id="16qe8thBTrO3dFfLMU1T22gWcfHVXt8zQ",
             output=str(model_modeljson_path),
-            verify=verify
+            verify=verify,
         )
     print("Download finished")
 

@@ -1,8 +1,6 @@
-# -*- coding: utf-8 -*-
 """
 Module with functions for post-processing prediction masks towards polygons.
 """
-
 import argparse
 import logging
 from pathlib import Path
@@ -26,7 +24,6 @@ def postprocess_argstr(argstr):
 
 
 def postprocess_args(args):
-
     # Interprete arguments
     parser = argparse.ArgumentParser(add_help=False)
 
@@ -82,7 +79,6 @@ def postprocess(config_path: Path):
     email_helper.sendmail(message)
 
     try:
-
         # Create base filename of model to use
         # TODO: is force data version the most logical, or rather implement
         #       force weights file or ?
