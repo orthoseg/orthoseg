@@ -1,10 +1,7 @@
-# -*- coding: utf-8 -*-
 """
 Tests for functionalities in vector_util.
 """
 import os
-from pathlib import Path
-import sys
 
 import geopandas as gpd
 from geopandas.testing import assert_geodataframe_equal
@@ -16,9 +13,7 @@ from shapely import geometry as sh_geom
 # Make hdf5 version warning non-blocking
 os.environ["HDF5_DISABLE_VERSION_CHECK"] = "1"
 
-# Add path so the local orthoseg packages are found
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from orthoseg.util import vector_util
+from orthoseg.util import vector_util  # noqa: E402
 
 
 @pytest.mark.parametrize("onborder_column_name", ["onborder_custom", "default_value"])

@@ -1,10 +1,8 @@
-# -*- coding: utf-8 -*-
 """
 Tests for functionalities in orthoseg.lib.postprocess_predictions.
 """
 import os
 from pathlib import Path
-import sys
 
 import geofileops as gfo
 import pandas as pd
@@ -12,10 +10,8 @@ import pandas as pd
 # Make hdf5 version warning non-blocking
 os.environ["HDF5_DISABLE_VERSION_CHECK"] = "1"
 
-# Add path so the local orthoseg packages are found
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from orthoseg.lib import postprocess_predictions as post_pred
-from tests.test_helper import TestData
+from orthoseg.lib import postprocess_predictions as post_pred  # noqa: E402
+from tests.test_helper import TestData  # noqa: E402
 
 
 def test_read_prediction_file():

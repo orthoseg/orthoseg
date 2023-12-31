@@ -1,8 +1,6 @@
-# -*- coding: utf-8 -*-
 """
 Module with specific helper functions to manage the configuration of orthoseg.
 """
-
 import configparser
 import json
 import logging
@@ -10,25 +8,16 @@ from pathlib import Path
 import tempfile
 from typing import List, Optional
 
-# -------------------------------------------------------------
-# First define/init some general variables/constants
-# -------------------------------------------------------------
 # Get a logger...
 logger = logging.getLogger(__name__)
-# logger.setLevel(logging.DEBUG)
 
 # Define the chars that cannot be used in codes that are use in filenames.
 # Remark: '_' cannot be used because '_' is used as devider to parse filenames, and if
 # it is used in codes as well the parsing becomes a lot more difficult.
 illegal_chars_in_codes = ["_", ",", ".", "?", ":"]
 
-# -------------------------------------------------------------
-# The real work
-# -------------------------------------------------------------
-
 
 def get_config_files(config_path: Path) -> List[Path]:
-
     # Init
     # First check input param
     config_path = config_path.expanduser()
@@ -72,7 +61,6 @@ def get_config_files(config_path: Path) -> List[Path]:
 
 
 def read_config_ext(config_paths: List[Path]) -> configparser.ConfigParser:
-
     # Log config filepaths that don't exist...
     for config_filepath in config_paths:
         if not config_filepath.exists():

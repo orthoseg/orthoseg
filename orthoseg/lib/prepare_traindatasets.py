@@ -1,8 +1,6 @@
-# -*- coding: utf-8 -*-
 """
 Module to prepare the training datasets.
 """
-
 from __future__ import print_function
 import logging
 import shutil
@@ -27,16 +25,8 @@ from orthoseg.util.progress_util import ProgressLogger
 from orthoseg.util import ows_util
 from orthoseg.util import vector_util
 
-# -------------------------------------------------------------
-# First define/init some general variables/constants
-# -------------------------------------------------------------
 # Get a logger...
 logger = logging.getLogger(__name__)
-# logger.setLevel(logging.DEBUG)
-
-# -------------------------------------------------------------
-# The real work
-# -------------------------------------------------------------
 
 
 class LabelInfo:
@@ -264,8 +254,6 @@ def prepare_traindatasets(
                 ]
 
                 # Loop trough all locations labels to get an image for each of them
-                created_images_gdf = gpd.GeoDataFrame()
-                created_images_gdf["geometry"] = None
                 for i, label_tuple in enumerate(labellocations_curr_gdf.itertuples()):
                     img_bbox = label_tuple.geometry
                     image_layer = getattr(label_tuple, "image_layer")

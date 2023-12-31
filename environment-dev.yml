@@ -1,0 +1,35 @@
+name: orthoseg-dev
+channels:
+  - conda-forge
+dependencies:
+  - python =3.10
+  - pip
+  # required
+  - cudatoolkit >=11.2,<11.3
+  - cudnn
+  - gdown
+  - geofileops >=0.6,<0.8
+  - geopandas >=0.12
+  - numpy
+  - owslib
+  - pillow
+  - pycron
+  - pygeoops >=0.2,<0.3
+  - pyproj
+  - rasterio
+  - shapely >=2
+  # dependencies of tensorflow that need to be conda versions to evade binary compatibility issues
+  - h5py
+  # linting
+  - black
+  - pre-commit
+  - ruff
+  # testing
+  - pytest
+  - pytest-cov
+  - pytest-order
+  - pip:
+    - segmentation-models >=1.0,<1.1
+    - simplification
+    - tensorflow >=2.7,<2.11
+ 

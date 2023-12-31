@@ -1,9 +1,7 @@
-# -*- coding: utf-8 -*-
 """
 Module with generic usable utility functions to make some tasks using OWS services
 easier.
 """
-
 import concurrent.futures as futures
 import logging
 import math
@@ -16,7 +14,6 @@ import warnings
 
 import numpy as np
 import geofileops as gfo
-import geofileops.util.grid_util
 import geopandas as gpd
 import owslib
 import owslib.wms
@@ -33,9 +30,6 @@ from rasterio import windows as rio_windows
 
 from . import progress_util
 
-# -------------------------------------------------------------
-# First define/init some general variables/constants
-# -------------------------------------------------------------
 FORMAT_GEOTIFF = "image/geotiff"
 FORMAT_GEOTIFF_DRIVER = "Gtiff"
 FORMAT_GEOTIFF_EXT = ".tif"
@@ -58,11 +52,6 @@ FORMAT_PNG_EXT_WORLD = ".pgw"
 
 # Get a logger...
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-
-# -------------------------------------------------------------
-# The real work
-# -------------------------------------------------------------
 
 
 class WMSLayerSource:

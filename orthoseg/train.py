@@ -1,8 +1,6 @@
-# -*- coding: utf-8 -*-
 """
 Module to make it easy to start a training session.
 """
-
 import argparse
 import gc
 import logging
@@ -16,8 +14,6 @@ from typing import Dict, List
 
 from tensorflow import keras as kr
 
-# orthoseg is higher in dir hierarchy, add root to sys.path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from orthoseg.helpers import config_helper as conf
 from orthoseg.helpers import email_helper
 from orthoseg.lib import prepare_traindatasets as prep
@@ -27,15 +23,8 @@ from orthoseg.model import model_factory as mf
 from orthoseg.model import model_helper as mh
 from orthoseg.util import log_util
 
-# -------------------------------------------------------------
-# First define/init general variables/constants
-# -------------------------------------------------------------
 # Get a logger...
 logger = logging.getLogger(__name__)
-
-# -------------------------------------------------------------
-# The real work
-# -------------------------------------------------------------
 
 
 def _train_argstr(argstr):
@@ -44,7 +33,6 @@ def _train_argstr(argstr):
 
 
 def _train_args(args):
-
     # Interprete arguments
     parser = argparse.ArgumentParser(add_help=False)
 
@@ -97,7 +85,6 @@ def train(config_path: Path):
     logger.debug(f"Config used: \n{conf.pformat_config()}")
 
     try:
-
         # First check if the segment_subject has a valid name
         segment_subject = conf.general["segment_subject"]
         if segment_subject == "MUST_OVERRIDE":
@@ -274,7 +261,6 @@ def train(config_path: Path):
         # Train!!!
         min_probability = conf.predict.getfloat("min_probability")
         if train_needed is True:
-
             # If a model already exists, use it to predict (possibly new) training and
             # validation dataset. This way it is possible to have a quick check on
             # errors in (new) added labels in the datasets.
@@ -499,7 +485,6 @@ def _search_label_files(
     labellocations_pattern: Path,
     image_layers: Dict[str, dict],
 ) -> List[prep.LabelInfo]:
-
     if not labelpolygons_pattern.parent.exists():
         raise ValueError(f"Label dir {labelpolygons_pattern.parent} doesn't exist")
     if not labellocations_pattern.parent.exists():

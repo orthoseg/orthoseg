@@ -1,8 +1,6 @@
-# -*- coding: utf-8 -*-
 """
 Module with high-level operations to segment images.
 """
-
 import logging
 import math
 import os
@@ -21,16 +19,8 @@ from PIL import Image
 import orthoseg.model.model_factory as mf
 import orthoseg.model.model_helper as mh
 
-# -------------------------------------------------------------
-# First define/init some general variables/constants
-# -------------------------------------------------------------
 # Get a logger...
 logger = logging.getLogger(__name__)
-# logger.setLevel(logging.DEBUG)
-
-# -------------------------------------------------------------
-# The real work
-# -------------------------------------------------------------
 
 
 def train(
@@ -135,9 +125,7 @@ def train(
             logger.critical(message)
             raise Exception(message)
 
-        train_log_df = pd.read_csv(
-            csv_log_filepath, sep=";", usecols=["epoch", "lr"]
-        )
+        train_log_df = pd.read_csv(csv_log_filepath, sep=";", usecols=["epoch", "lr"])
         assert isinstance(train_log_df, pd.DataFrame)
         logger.debug(f"train_log csv contents:\n{train_log_df}")
         start_epoch = train_log_df["epoch"].max()
@@ -552,7 +540,6 @@ def create_train_generator(
                 or image_augment_dict["brightness_range"][1] != 1
             )
         ):
-
             # Random brightness shift to apply to all images in batch
             brightness_shift = np.random.uniform(
                 image_augment_dict["brightness_range"][0],
