@@ -244,7 +244,6 @@ def read_layer_config(layer_config_filepath: Path) -> dict:
                 float(bbox_list[2]),
                 float(bbox_list[3]),
             )
-            image_layers[image_layer]["bbox"] = bbox_tuple
         image_layers[image_layer]["bbox"] = bbox_tuple
 
         # Check if the grid xmin and xmax are specified
@@ -258,12 +257,18 @@ def read_layer_config(layer_config_filepath: Path) -> dict:
         image_layers[image_layer]["grid_ymin"] = grid_ymin
 
         # Check if a image_pixels_ignore_border is specified
-        image_pixels_ignore_border = layer_config[image_layer].getint(
-            "image_pixels_ignore_border", fallback=0
+        image_layers[image_layer]["image_pixels_ignore_border"] = layer_config[
+            image_layer
+        ].getint("image_pixels_ignore_border", fallback=0)
+
+        # Convert pixel_x_size and pixel_y_size to float
+        image_layers[image_layer]["pixel_x_size"] = layer_config[image_layer].getfloat(
+            "pixel_x_size"
         )
-        image_layers[image_layer][
-            "image_pixels_ignore_border"
-        ] = image_pixels_ignore_border
+        image_layers[image_layer]["pixel_y_size"] = layer_config[image_layer].getfloat(
+            "pixel_y_size"
+        )
+
     return image_layers
 
 

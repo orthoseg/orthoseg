@@ -11,10 +11,20 @@ from typing import Optional
 import geopandas as gpd
 from shapely import geometry as sh_geom
 
+sampleprojects_dir = Path(__file__).resolve().parent.parent / "sample_projects"
+
+
+class SampleProjectFootball:
+    project_dir = sampleprojects_dir / "footballfields"
+    predict_config_path = project_dir / "footballfields_BEFL-2019_test.ini"
+
+
+class SampleProjectTemplate:
+    project_dir = sampleprojects_dir / "project_template"
+
 
 class TestData:
     testdata_dir = Path(__file__).resolve().parent / "data"
-    sampleprojects_dir = Path(__file__).resolve().parent.parent / "sample_projects"
 
     classes = {
         "background": {

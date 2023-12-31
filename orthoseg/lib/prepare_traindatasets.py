@@ -45,12 +45,16 @@ class LabelInfo:
         locations_path: Path,
         polygons_path: Path,
         image_layer: str,
+        pixel_x_size: Optional[float] = None,
+        pixel_y_size: Optional[float] = None,
         locations_gdf: Optional[gpd.GeoDataFrame] = None,
         polygons_gdf: Optional[gpd.GeoDataFrame] = None,
     ):
         self.locations_path = locations_path
         self.polygons_path = polygons_path
         self.image_layer = image_layer
+        self.pixel_x_size = pixel_x_size
+        self.pixel_y_size = pixel_y_size
         self.locations_gdf = locations_gdf
         self.polygons_gdf = polygons_gdf
 
@@ -335,10 +339,10 @@ def prepare_labeldata(
     label_infos: List[LabelInfo],
     classes: dict,
     labelname_column: str,
-    image_pixel_x_size: float,
-    image_pixel_y_size: float,
     image_pixel_width: int,
     image_pixel_height: int,
+    image_pixel_x_size: Optional[float],
+    image_pixel_y_size: Optional[float],
 ) -> List[Tuple[gpd.GeoDataFrame, gpd.GeoDataFrame]]:
     """
     Prepare and validate the data in the labelinfos so it is ready to be uses to fetch
@@ -350,6 +354,10 @@ def prepare_labeldata(
             label class names + weights.
         labelname_column (str): the column name in the label polygon files where the
             label classname can be found. Defaults to "classname".
+        image_pixel_width (int):
+        image_pixel_height (int):
+        image_pixel_x_size (float):
+        image_pixel_y_size (float):
 
     Raises:
         ValidationError: if the data is somehow not valid. All issues are listed in the
@@ -410,12 +418,16 @@ def prepare_labeldata(
 
         # Check + correct the geom of the location to make sure it matches the size of
         # the training images/masks to be generated...
-        image_crs_width = math.fabs(
-            image_pixel_width * image_pixel_x_size
-        )  # tile width in units of crs => 500 m
-        image_crs_height = math.fabs(
-            image_pixel_height * image_pixel_y_size
-        )  # tile height in units of crs => 500 m
+        # Prepare pixel size: if defined on label info level, use that.
+        pixel_x_size = label_info.pixel_x_size
+        pixel_x_size = pixel_x_size if pixel_x_size is not None else image_pixel_x_size
+        pixel_y_size = label_info.pixel_y_size
+        pixel_y_size = pixel_y_size if pixel_y_size is not None else image_pixel_y_size
+
+        # Tile width/height in units of crs
+        image_crs_width = math.fabs(image_pixel_width * pixel_x_size)
+        image_crs_height = math.fabs(image_pixel_height * pixel_y_size)
+
         locations_none = []
         for location in labellocations_gdf.itertuples():
             if location.geometry is None or location.geometry.is_empty:

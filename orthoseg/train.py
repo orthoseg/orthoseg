@@ -12,7 +12,7 @@ import re
 import shlex
 import sys
 import traceback
-from typing import List
+from typing import Dict, List
 
 from tensorflow import keras as kr
 
@@ -128,6 +128,8 @@ def train(config_path: Path):
                         locations_path=Path(label_file["locations_path"]),
                         polygons_path=Path(label_file["data_path"]),
                         image_layer=label_file["image_layer"],
+                        pixel_x_size=label_file.get("pixel_x_size"),
+                        pixel_y_size=label_file.get("pixel_y_size"),
                     )
                 )
             if label_infos is None or len(label_infos) == 0:
@@ -139,7 +141,9 @@ def train(config_path: Path):
             labelpolygons_pattern = conf.train.getpath("labelpolygons_pattern")
             labellocations_pattern = conf.train.getpath("labellocations_pattern")
             label_infos = _search_label_files(
-                labelpolygons_pattern, labellocations_pattern
+                labelpolygons_pattern,
+                labellocations_pattern,
+                image_layers=conf.image_layers,
             )
             if label_infos is None or len(label_infos) == 0:
                 raise Exception(
@@ -491,7 +495,9 @@ def train(config_path: Path):
 
 
 def _search_label_files(
-    labelpolygons_pattern: Path, labellocations_pattern: Path
+    labelpolygons_pattern: Path,
+    labellocations_pattern: Path,
+    image_layers: Dict[str, dict],
 ) -> List[prep.LabelInfo]:
 
     if not labelpolygons_pattern.parent.exists():
@@ -539,15 +545,25 @@ def _search_label_files(
 
             if tokens["image_layer"] == image_layer:
                 found = True
-                label_infos.append(
-                    prep.LabelInfo(
-                        locations_path=labellocations_path,
-                        polygons_path=labelpolygons_path,
-                        image_layer=image_layer,
-                    )
-                )
+                break
+
         if found is False:
-            raise ValueError(f"No matching data file found for {labellocations_path}")
+            raise ValueError(
+                f"no matching polygon data file found for {labellocations_path}"
+            )
+        image_layer_info = image_layers.get(image_layer)
+        if image_layer_info is None:
+            raise ValueError(f"image layer not found: {image_layer}")
+        label_infos.append(
+            prep.LabelInfo(
+                locations_path=labellocations_path,
+                polygons_path=labelpolygons_path,
+                image_layer=image_layer,
+                pixel_x_size=image_layer_info.get("pixel_x_size"),
+                pixel_y_size=image_layer_info.get("pixel_y_size"),
+            )
+        )
+        
 
     return label_infos
 
