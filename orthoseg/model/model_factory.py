@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Module with helper functions to create models.
 
@@ -8,7 +7,6 @@ and contains extra metrics, callbacks,...
 Many models are supported by using this segmentation model zoo:
 https://github.com/qubvel/segmentation_models
 """
-
 import json
 import logging
 import os
@@ -19,17 +17,9 @@ import numpy as np
 import tensorflow as tf
 import keras.models
 
-# -------------------------------------------------------------
-# First define/init some general variables/constants
-# -------------------------------------------------------------
 # Get a logger...
 logger = logging.getLogger(__name__)
-# logger.setLevel(logging.INFO)
-os.environ['SM_FRAMEWORK'] = 'tf.keras'
-
-# -------------------------------------------------------------
-# The real work
-# -------------------------------------------------------------
+os.environ["SM_FRAMEWORK"] = "tf.keras"
 
 """
 preprocessing_fn = get_preprocessing('resnet34')
@@ -113,7 +103,7 @@ def get_model(
 
         # First check if input size is compatible with linknet
         if input_width is not None and input_height is not None:
-            check_image_size(decoder, input_width, input_height)
+            check_image_size(architecture, input_width, input_height)
 
         model = Linknet(
             backbone_name=encoder.lower(),
@@ -360,24 +350,30 @@ def load_model(model_to_use_filepath: Path, compile: bool = True) -> keras.model
 
 def set_trainable(model, recompile: bool = True):
     import segmentation_models
+
     segmentation_models.utils.set_trainable(
         model=model, recompile=recompile
     )  # doesn't seem to work, so save and load model
 
 
-def check_image_size(decoder: str, input_width: int, input_height: int):
+def check_image_size(architecture: str, input_width: int, input_height: int):
+    # Check architecture
+    segment_architecture_parts = architecture.split("+")
+    if len(segment_architecture_parts) < 2:
+        raise Exception(f"Unsupported architecture: {architecture}")
+    # encoder = segment_architecture_parts[0]
+    decoder = segment_architecture_parts[1]
+
     if decoder.lower() == "linknet":
-        if (input_width and (input_width % 16) != 0) or (
-            input_height and (input_height % 16) != 0
+        if (input_width and (input_width % 32) != 0) or (
+            input_height and (input_height % 32) != 0
         ):
             message = (
-                f"for decoder linknet, input_width ({input_width} and input_height "
-                f"({input_height}) should be divisable by 16!"
+                f"for decoder linknet, input image width ({input_width}) and "
+                f"input image height ({input_height}) should be divisible by 32!"
             )
             logger.error(message)
             raise ValueError(message)
-    else:
-        logger.info(f"check_image_size is not implemented for this model: {decoder}")
 
 
 # ------------------------------------------

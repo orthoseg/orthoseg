@@ -1,16 +1,12 @@
-# -*- coding: utf-8 -*-
 """
 Module with functions for post-processing prediction masks towards polygons.
 """
-
 import logging
 import math
 from pathlib import Path
 import shutil
-import time
 from typing import List, Optional
 
-# Evade having many info warnings about self intersections from shapely
 import geofileops as gfo
 import geopandas as gpd
 import numpy as np
@@ -26,19 +22,11 @@ import tensorflow as tf
 from orthoseg.util import vector_util
 from orthoseg.helpers import vectorfile_helper
 
-
+# Avoid having many info warnings about self intersections from shapely
 logging.getLogger("shapely.geos").setLevel(logging.WARNING)
 
-# -------------------------------------------------------------
-# First define/init some general variables/constants
-# -------------------------------------------------------------
 # Get a logger...
 logger = logging.getLogger(__name__)
-# logger.setLevel(logging.DEBUG)
-
-# -------------------------------------------------------------
-# The real work
-# -------------------------------------------------------------
 
 # -------------------------------------------------------------
 # Postprocess to use on all vector outputs

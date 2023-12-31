@@ -1,10 +1,8 @@
-# -*- coding: utf-8 -*-
 """
 Module with specific helper functions to manage the logging of orthoseg.
 
 TODO: maybe it is cleaner to replace most code here by a config dict?
 """
-
 import json
 import logging
 import logging.config
@@ -12,10 +10,6 @@ import datetime
 from pathlib import Path
 import tempfile
 from typing import Optional
-
-# -------------------------------------------------------------
-# Log helpers
-# -------------------------------------------------------------
 
 
 class LoggingContext:
@@ -40,11 +34,6 @@ class LoggingContext:
         if self.handler and self.close:
             self.handler.close()
         # implicit return of None => don't swallow exceptions
-
-
-# -------------------------------------------------------------
-# Init logging
-# -------------------------------------------------------------
 
 
 def init_logging_dictConfig(
@@ -114,7 +103,6 @@ def init_logging_dictConfig(
 
 
 def main_log_init(log_dir: Path, log_basefilename: str):
-
     # Check input parameters
     if not log_dir:
         raise Exception("Error: log_dir is mandatory!")

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Modile with generic Utility functions for vectorfile manipulations.
 """

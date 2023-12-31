@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Download the orthoseg sample projects.
 """
@@ -7,7 +6,6 @@ from pathlib import Path
 from orthoseg.util import git_downloader
 
 if __name__ == "__main__":
-
     # Download sampleproject and run
     orthoseg_dir = Path.home() / "orthoseg"
     projects_dir = orthoseg_dir / "sample_projects"
