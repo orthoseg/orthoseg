@@ -1,8 +1,6 @@
-# -*- coding: utf-8 -*-
 """
 High-level API to run a segmentation.
 """
-
 import argparse
 import logging
 from pathlib import Path

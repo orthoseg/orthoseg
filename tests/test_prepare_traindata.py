@@ -1,31 +1,22 @@
-# -*- coding: utf-8 -*-
 """
 Tests for functionalities in orthoseg.lib.postprocess_predictions.
 """
 import os
 from pathlib import Path
-import sys
 from typing import List, Optional, Union
 
 import pytest
 from shapely import geometry as sh_geom
+import geopandas as gpd
+import geofileops as gfo
 
 # Make hdf5 version warning non-blocking
 os.environ["HDF5_DISABLE_VERSION_CHECK"] = "1"
 
-import geopandas as gpd
-import geofileops as gfo
-
-# Add path so the local orthoseg packages are found
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from orthoseg.helpers import config_helper
-from orthoseg.lib import prepare_traindatasets as prep_traindata
-from orthoseg.lib.prepare_traindatasets import ValidationError
-from tests.test_helper import TestData
-
-# ----------------------------------------------------
-# Helper functions to prepare test data
-# ----------------------------------------------------
+from orthoseg.helpers import config_helper  # noqa: E402
+from orthoseg.lib import prepare_traindatasets as prep_traindata  # noqa: E402
+from orthoseg.lib.prepare_traindatasets import ValidationError  # noqa: E402
+from tests.test_helper import TestData  # noqa: E402
 
 
 def _prepare_locations_file(
@@ -68,10 +59,6 @@ def _prepare_labelinfos(
         image_layer="BEFL-2019",
     )
     return [label_info]
-
-
-# Actual tests
-# ------------
 
 
 @pytest.mark.parametrize(

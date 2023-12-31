@@ -1,8 +1,6 @@
-# -*- coding: utf-8 -*-
 """
 Script to load images from a WMS server.
 """
-
 import argparse
 import logging
 from pathlib import Path
@@ -18,15 +16,8 @@ import orthoseg.model.model_factory as mf
 from orthoseg.util import log_util
 from orthoseg.util import ows_util
 
-# -------------------------------------------------------------
-# First define/init general variables/constants
-# -------------------------------------------------------------
 # Get a logger...
 logger = logging.getLogger(__name__)
-
-# -------------------------------------------------------------
-# The real work
-# -------------------------------------------------------------
 
 
 def load_images_argstr(argstr):

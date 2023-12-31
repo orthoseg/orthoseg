@@ -1,7 +1,6 @@
 """
 Module to prepare the training datasets.
 """
-
 from __future__ import print_function
 import logging
 import shutil
@@ -26,16 +25,8 @@ from orthoseg.util.progress_util import ProgressLogger
 from orthoseg.util import ows_util
 from orthoseg.util import vector_util
 
-# -------------------------------------------------------------
-# First define/init some general variables/constants
-# -------------------------------------------------------------
 # Get a logger...
 logger = logging.getLogger(__name__)
-# logger.setLevel(logging.DEBUG)
-
-# -------------------------------------------------------------
-# The real work
-# -------------------------------------------------------------
 
 
 class LabelInfo:

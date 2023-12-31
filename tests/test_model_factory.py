@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Tests for functionalities in orthoseg.model.model_factory.
 """
@@ -19,16 +18,23 @@ from orthoseg.model import model_factory
     ],
 )
 def test_check_image_size(
-    architecture: str, input_width: int, input_height: int, expected_error: Optional[str]
+    architecture: str,
+    input_width: int,
+    input_height: int,
+    expected_error: Optional[str],
 ):
     if expected_error is not None:
         with pytest.raises(ValueError, match=expected_error):
             model_factory.check_image_size(
-                architecture=architecture, input_width=input_width, input_height=input_height
+                architecture=architecture,
+                input_width=input_width,
+                input_height=input_height,
             )
     else:
         model_factory.check_image_size(
-            architecture=architecture, input_width=input_width, input_height=input_height
+            architecture=architecture,
+            input_width=input_width,
+            input_height=input_height,
         )
 
 

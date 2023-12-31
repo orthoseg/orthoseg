@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Module with helper functions to create models.
 
@@ -8,7 +7,6 @@ and contains extra metrics, callbacks,...
 Many models are supported by using this segmentation model zoo:
 https://github.com/qubvel/segmentation_models
 """
-
 import json
 import logging
 import os
@@ -19,17 +17,9 @@ import numpy as np
 import tensorflow as tf
 import keras.models
 
-# -------------------------------------------------------------
-# First define/init some general variables/constants
-# -------------------------------------------------------------
 # Get a logger...
 logger = logging.getLogger(__name__)
-# logger.setLevel(logging.INFO)
 os.environ["SM_FRAMEWORK"] = "tf.keras"
-
-# -------------------------------------------------------------
-# The real work
-# -------------------------------------------------------------
 
 """
 preprocessing_fn = get_preprocessing('resnet34')

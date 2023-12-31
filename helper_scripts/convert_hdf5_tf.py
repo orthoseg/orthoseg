@@ -1,16 +1,11 @@
-# -*- coding: utf-8 -*-
 """
 Convert models in hdf5 file format to tf savedmodel.
 """
-
 from pathlib import Path
-import sys
 
 # os.environ["CUDA_VISIBLE_DEVICES"] = "-1" # Disable using GPU
 import tensorflow as tf
 
-# Add parent.parent dir to find util dir
-sys.path.insert(1, str(Path(__file__).resolve().parent.parent))
 import orthoseg.model.model_factory as mf
 
 

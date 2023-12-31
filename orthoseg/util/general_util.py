@@ -1,18 +1,12 @@
-# -*- coding: utf-8 -*-
 """
 Module containing some general utilities.
 """
-
 import datetime
 import logging
 import os
 from typing import Optional
 
 import psutil
-
-################################################################################
-# Some init
-################################################################################
 
 logger = logging.getLogger(__name__)
 

@@ -1,8 +1,6 @@
-# -*- coding: utf-8 -*-
 """
 Module with high-level operations to segment images.
 """
-
 from concurrent import futures
 import csv
 import datetime
@@ -29,16 +27,8 @@ import orthoseg.lib.postprocess_predictions as postp
 from orthoseg.util.progress_util import ProgressLogger
 from orthoseg.util import general_util
 
-# -------------------------------------------------------------
-# First define/init some general variables/constants
-# -------------------------------------------------------------
 # Get a logger...
 logger = logging.getLogger(__name__)
-# logger.setLevel(logging.DEBUG)
-
-# -------------------------------------------------------------
-# The real work
-# -------------------------------------------------------------
 
 
 def predict_dir(

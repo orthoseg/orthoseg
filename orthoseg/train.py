@@ -1,8 +1,6 @@
-# -*- coding: utf-8 -*-
 """
 Module to make it easy to start a training session.
 """
-
 import argparse
 import gc
 import logging
@@ -16,8 +14,6 @@ from typing import List
 
 from tensorflow import keras as kr
 
-# orthoseg is higher in dir hierarchy, add root to sys.path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from orthoseg.helpers import config_helper as conf
 from orthoseg.helpers import email_helper
 from orthoseg.lib import prepare_traindatasets as prep
@@ -27,15 +23,8 @@ from orthoseg.model import model_factory as mf
 from orthoseg.model import model_helper as mh
 from orthoseg.util import log_util
 
-# -------------------------------------------------------------
-# First define/init general variables/constants
-# -------------------------------------------------------------
 # Get a logger...
 logger = logging.getLogger(__name__)
-
-# -------------------------------------------------------------
-# The real work
-# -------------------------------------------------------------
 
 
 def _train_argstr(argstr):

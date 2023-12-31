@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Module with specific helper functions to manage the logging of orthoseg.
 
@@ -12,19 +11,11 @@ from typing import Optional
 
 from orthoseg.helpers import config_helper as conf
 
-# -------------------------------------------------------------
-# First define/init general variables/constants
-# -------------------------------------------------------------
 # Get a logger...
 logger = logging.getLogger(__name__)
 
-# -------------------------------------------------------------
-# The real work
-# -------------------------------------------------------------
-
 
 def sendmail(subject: str, body: Optional[str] = None, stop_on_error: bool = False):
-
     if conf is None:
         raise Exception("Config is not initialized")
 

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Convert models in hdf5 file format to tf savedmodel.
 """

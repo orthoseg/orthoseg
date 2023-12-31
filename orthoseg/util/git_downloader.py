@@ -1,14 +1,15 @@
-#!/usr/bin/python3
-# Based on https://github.com/sdushantha/gitdir/blob/master/gitdir/gitdir.py
-
-import re
+"""
+Based on https://github.com/sdushantha/gitdir/blob/master/gitdir/gitdir.py
+"""
+import json
 import os
+from pathlib import Path
+import re
 import ssl
 import time
 from typing import Union
+
 import urllib.request
-import json
-from pathlib import Path
 
 
 def create_url(url):

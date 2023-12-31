@@ -1,8 +1,6 @@
-# -*- coding: utf-8 -*-
 """
 Module with functions to manage progress logging.
 """
-
 import datetime
 import logging
 from typing import Optional
