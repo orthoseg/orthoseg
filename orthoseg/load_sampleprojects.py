@@ -1,6 +1,7 @@
 """
 Download the sample project.
 """
+
 import argparse
 import logging
 from pathlib import Path
@@ -10,16 +11,18 @@ from typing import Optional
 
 import gdown
 
+from orthoseg.util import git_downloader
+
 # Get a logger...
 logger = logging.getLogger(__name__)
 
 
-def parse_load_sampleprojects_argstr(argstr):
+def _parse_load_sampleprojects_argstr(argstr):
     args = shlex.split(argstr)
-    parse_load_sampleprojects_args(args)
+    _parse_load_sampleprojects_args(args)
 
 
-def parse_load_sampleprojects_args(args) -> dict:
+def _parse_load_sampleprojects_args(args) -> dict:
     # Define supported arguments
     parser = argparse.ArgumentParser(add_help=False)
 
@@ -50,9 +53,21 @@ def parse_load_sampleprojects_args(args) -> dict:
 
 
 def load_sampleprojects(dest_dir: Path, ssl_verify: Optional[bool] = None):
+    """
+    Load the orthoseg sample projects.
+
+    Args:
+        dest_dir (Path): directory to save them to.
+        ssl_verify (Optional[bool], optional): True or None to use the default
+            certificate bundle as installed on your system. False disables certificate
+            validation (NOT recommended!). If a path to a certificate bundle file (.pem)
+            is passed, this will be used. In corporate networks using a proxy server
+            this is often needed to evade CERTIFICATE_VERIFY_FAILED errors.
+            Defaults to None.
+    """
     dest_dir_full = dest_dir / "sample_projects"
     if dest_dir_full.exists():
-        raise Exception(f"Destination directory already exists: {dest_dir_full}")
+        raise ValueError(f"Destination directory already exists: {dest_dir_full}")
 
     # Download
     print(f"Start download of sample projects to {str(dest_dir_full)}")
@@ -93,8 +108,11 @@ def load_sampleprojects(dest_dir: Path, ssl_verify: Optional[bool] = None):
 
 
 def main():
+    """
+    Run load sampleprojects.
+    """
     try:
-        parsed_args = parse_load_sampleprojects_args(sys.argv[1:])
+        parsed_args = _parse_load_sampleprojects_args(sys.argv[1:])
         load_sampleprojects(**parsed_args)
     except Exception as ex:
         logger.exception(f"Error: {ex}")

@@ -1,6 +1,7 @@
 """
 Module with functions to manage progress logging.
 """
+
 import datetime
 import logging
 from typing import Optional
@@ -10,6 +11,10 @@ logger = logging.getLogger(__name__)
 
 
 class ProgressLogger:
+    """
+    Class to support progress logging.
+    """
+
     first_reporting_done = False
 
     def __init__(
@@ -21,6 +26,18 @@ class ProgressLogger:
         time_between_reporting_s: int = 60,
         calculate_eta_since_lastreporting: bool = True,
     ):
+        """
+        ProgressLogger contructor.
+
+        Args:
+            message (str): _description_
+            nb_steps_total (int): _description_
+            nb_steps_done (int, optional): _description_. Defaults to 0.
+            start_time (Optional[datetime], optional): _description_. Defaults to None.
+            time_between_reporting_s (int, optional): _description_. Defaults to 60.
+            calculate_eta_since_lastreporting (bool, optional): _description_.
+                Defaults to True.
+        """
         self.message = message
         if start_time is None:
             self.start_time = datetime.datetime.now()
@@ -36,15 +53,31 @@ class ProgressLogger:
     def update(
         self,
         nb_steps_done: int,
-        nb_steps_total: int = None,
+        nb_steps_total: Optional[int] = None,
         message: Optional[str] = None,
     ):
+        """
+        Update the steps.
+
+        Args:
+            nb_steps_done (int): number of steps done.
+            nb_steps_total (Optional[int], optional): total number of steps to be done.
+                Defaults to None.
+            message (Optional[str], optional): message. Defaults to None.
+        """
         if nb_steps_total is not None:
             self.nb_steps_total = nb_steps_total
         self.nb_steps_done = nb_steps_done
         self.step(message=message, nb_steps=0)
 
     def step(self, message: Optional[str] = None, nb_steps: int = 1):
+        """
+        Step the progress with the number of steps specified.
+
+        Args:
+            message (Optional[str], optional): message. Defaults to None.
+            nb_steps (int, optional): number of steps. Defaults to 1.
+        """
         # Increase done counter
         self.nb_steps_done += nb_steps
 

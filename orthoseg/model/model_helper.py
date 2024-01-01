@@ -1,6 +1,7 @@
 """
 Module with helper functions regarding (keras) models.
 """
+
 import json
 import logging
 from pathlib import Path
@@ -15,6 +16,10 @@ logger = logging.getLogger(__name__)
 
 
 class ArchitectureParams:
+    """
+    Parameters regarding the neural network architecture to use.
+    """
+
     def __init__(
         self,
         architecture: str,
@@ -47,11 +52,21 @@ class ArchitectureParams:
         self.activation_function = activation_function
         self.architecture_id = architecture_id
 
-    def toJSON(self):
+    def toJSON(self) -> str:
+        """
+        Serialize to JSON string.
+
+        Returns:
+            str: JSON string
+        """
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
 
 
 class TrainParams:
+    """
+    Hyperparameter on how to train the neural network.
+    """
+
     def __init__(
         self,
         image_augmentations: dict,
@@ -165,11 +180,21 @@ class TrainParams:
         self.log_tensorboard = log_tensorboard
         self.log_csv = log_csv
 
-    def toJSON(self):
+    def toJSON(self) -> str:
+        """
+        Serializes object to a JSON string.
+
+        Returns:
+            str: JSON string
+        """
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
 
 
 class HyperParams:
+    """
+    Groups all hyper parameters to use for creating a neural network model.
+    """
+
     def __init__(
         self,
         architecture: Optional[ArchitectureParams] = None,
@@ -186,6 +211,7 @@ class HyperParams:
                 are the same.
             train (TrainParams): these are the parameters that can be changed with each
                 training.
+            path (Optional[Path]): file path to read the hyper parameters from.
         """
         self.fileversion = 1.1
         if architecture is not None:
@@ -193,7 +219,7 @@ class HyperParams:
         if train is not None:
             self.train = train
         if path is not None:
-            with open(path, "r") as jsonfile:
+            with open(path) as jsonfile:
                 jsonstr = jsonfile.read()
                 data = json.loads(jsonstr)
 
@@ -209,7 +235,13 @@ class HyperParams:
                 self.architecture = ArchitectureParams(**data["architecture"])
                 self.train = TrainParams(**data["train"])
 
-    def toJSON(self):
+    def toJSON(self) -> str:
+        """
+        Serialize the data to a JSON string.
+
+        Returns:
+            str: the object serialized as JSON string.
+        """
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
 
 
@@ -222,7 +254,7 @@ def format_model_basefilename(
     """
     Format the parameters into a model_filename.
 
-    Args
+    Args;
         segment_subject: the segment subject
         traindata_id: the id of the data used to train the model
         architecture_id: the id of the model architecture used
@@ -249,7 +281,7 @@ def format_model_filename(
     """
     Format the parameters into a model_filename.
 
-    Args
+    Args:
         segment_subject: the segment subject
         traindata_id: the version of the data used to train the model
         architecture_id: the id of the model architecture used
@@ -280,7 +312,9 @@ def format_model_filename(
 
 def parse_model_filename(filepath: Path) -> Optional[dict]:
     """
-    Parse a model_filename to a dict containing the properties of the model:
+    Parse a model_filename to a dict with the properties of the model.
+
+    These are the properties:
         * segment_subject: the segment subject
         * traindata_id: the version of the data used to train the model
         * monitor_metric_accuracy: the monitored metric accuracy
@@ -290,10 +324,9 @@ def parse_model_filename(filepath: Path) -> Optional[dict]:
             * keras format: 'h5'
             * tensorflow savedmodel: 'tf'
 
-    Args
+    Args:
         filepath: the filepath to the model file
     """
-
     # Prepare filepath to extract info
     if filepath.is_dir():
         # If it is a dir, it should end on _tf
@@ -363,17 +396,17 @@ def get_models(
     trainparams_id: Optional[int] = None,
 ) -> List[dict]:
     """
-    Return the list of models in the model_dir passed. It is returned as a
-    dataframe with the columns as returned in parse_model_filename()
+    Return the list of models in the model_dir passed.
 
-    Args
+    It is returned as a dataframe with the columns as returned in parse_model_filename.
+
+    Args:
         model_dir (Path): dir containing the models
         segment_subject (str, optional): only models with this the segment subject
         traindata_id (int, optional): only models with this traindata version
         architecture_id (int, optional): only models with this this architecture_id
         trainparams_id (int, optional): only models with this hyperparams version
     """
-
     # List models
     model_paths = []
     model_paths.extend(model_dir.glob("*.hdf5"))
@@ -425,20 +458,21 @@ def get_best_model(
     trainparams_id: Optional[int] = None,
 ) -> Optional[dict]:
     """
-    Get the properties of the model with the highest combined accuracy for the highest
-    traindata version in the dir.
+    Get the properties of the model with the highest combined accuracy.
+
+    Only models with the highest traindata version in the dir are considered.
 
     Remark: regardless of the monitor function used when training, the accuracies
     are always better if higher!
 
-    Args
+    Args:
         model_dir: dir containing the models
         segment_subject (str, optional): only models with this the segment subject
         traindata_id (int, optional): only models with this train data id
         architecture_id (int, optional): only models with this the architecture_id
         trainparams_id (int, optional): only models with this hyperparams id
 
-    Returns
+    Returns:
         A dictionary with the info of the best model, or None if no model was found
     """
     # Get list of existing models for this train dataset
@@ -482,6 +516,13 @@ def get_best_model(
 
 
 class ModelCheckpointExt(callbacks.Callback):
+    """
+    Class to checkpoint a model while training it with extended options.
+
+    Args:
+        callbacks (_type_): _description_
+    """
+
     def __init__(
         self,
         model_save_dir: Path,
@@ -501,7 +542,7 @@ class ModelCheckpointExt(callbacks.Callback):
         only_report: bool = False,
     ):
         """
-        Constructor
+        Constructor.
 
         Args:
             model_save_dir (Path): [description]
@@ -559,6 +600,13 @@ class ModelCheckpointExt(callbacks.Callback):
         self.only_report = only_report
 
     def on_epoch_end(self, epoch, logs={}):
+        """
+        on_epoch_end method.
+
+        Args:
+            epoch (_type_): _description_
+            logs (dict, optional): _description_. Defaults to {}.
+        """
         logger.debug(f"Start in callback on_epoch_begin, logs contains: {logs}")
 
         # First determine the values of the monitor metric for train and validation
@@ -613,16 +661,18 @@ def save_and_clean_models(
     only_report: bool = False,
 ):
     """
-    Save the new model if it is good enough... and cleanup existing models
+    Save the new model.
+
+    The model is only saved if it is good enough... and existing models are cleaned up
     if they are worse than the new or other existing models.
 
-    Args
+    Args:
         model_save_dir (Path): dir containing the models
         segment_subject (str): segment subject
         traindata_id (int): train data id
         architecture_id (int): model architecture id
         trainparams_id (int): id of the train params
-        model_monitor_metric_mode (MetricMode): use 'min' if the monitored
+        monitor_metric_mode (MetricMode): use 'min' if the monitored
             metrics should be as low as possible, 'max' if a higher values
             is better.
         new_model (optional): the keras model object that will be saved

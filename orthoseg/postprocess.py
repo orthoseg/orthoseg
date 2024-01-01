@@ -1,6 +1,7 @@
 """
 Module with functions for post-processing prediction masks towards polygons.
 """
+
 import argparse
 import logging
 from pathlib import Path
@@ -18,12 +19,12 @@ from orthoseg.util import log_util
 logger = logging.getLogger(__name__)
 
 
-def postprocess_argstr(argstr):
+def _postprocess_argstr(argstr):
     args = shlex.split(argstr)
-    postprocess_args(args)
+    _postprocess_args(args)
 
 
-def postprocess_args(args):
+def _postprocess_args(args):
     # Interprete arguments
     parser = argparse.ArgumentParser(add_help=False)
 
@@ -58,7 +59,6 @@ def postprocess(config_path: Path):
     Args:
         config_path (Path): Path to the config file.
     """
-
     # Init
     # Load the config and save in a bunch of global variables zo it
     # is accessible everywhere
@@ -149,8 +149,11 @@ def postprocess(config_path: Path):
 
 
 def main():
+    """
+    Run postprocess.
+    """
     try:
-        postprocess_args(sys.argv[1:])
+        _postprocess_args(sys.argv[1:])
     except Exception as ex:
         logger.exception(f"Error: {ex}")
         raise

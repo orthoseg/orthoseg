@@ -1,6 +1,7 @@
 """
 Module to make it easy to start a training session.
 """
+
 import argparse
 import gc
 import logging
@@ -187,7 +188,7 @@ def train(config_path: Path):
         # TODO: activation_function should probably not be specified!!!!!!
         architectureparams = mh.ArchitectureParams(
             architecture=conf.model["architecture"],
-            classes=[classname for classname in classes],
+            classes=list(classes),
             nb_channels=conf.model.getint("nb_channels"),
             architecture_id=conf.model.getint("architecture_id"),
             activation_function="softmax",
@@ -326,7 +327,7 @@ def train(config_path: Path):
                     )
                     del best_model
                 except Exception as ex:
-                    logger.warn(f"Exception trying to predict with old model: {ex}")
+                    logger.warning(f"Exception trying to predict with old model: {ex}")
 
             # Now we can really start training
             logger.info("Start training")
@@ -550,6 +551,9 @@ def _unformat(string: str, pattern: str) -> dict:
 
 
 def main():
+    """
+    Run train.
+    """
     try:
         _train_args(sys.argv[1:])
     except Exception as ex:
