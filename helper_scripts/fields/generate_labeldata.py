@@ -48,7 +48,7 @@ print("Determine random points")
 random_points_gdf = gpd.GeoDataFrame(
     geometry=roi_gdf.geometry.sample_points(nb_locations, method="uniform").to_list(),
     crs=roi_gdf.crs,
-)  # type: ignore
+)
 random_points_gdf.geometry = random_points_gdf.geometry.to_crs(output_crs)
 random_points = random_points_gdf.geometry[0]
 

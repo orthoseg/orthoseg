@@ -1,6 +1,7 @@
 """
 Module with specific helper functions to manage the configuration of orthoseg.
 """
+
 import configparser
 import json
 import logging
@@ -18,11 +19,20 @@ illegal_chars_in_codes = ["_", ",", ".", "?", ":"]
 
 
 def get_config_files(config_path: Path) -> List[Path]:
+    """
+    Get the list of all relevant config files.
+
+    Args:
+        config_path (Path): base config file.
+
+    Returns:
+        List[Path]: all relevant config files.
+    """
     # Init
     # First check input param
     config_path = config_path.expanduser()
     if not config_path.exists():
-        raise Exception(f"Config file specified does not exist: {config_path}")
+        raise ValueError(f"Config file specified does not exist: {config_path}")
 
     # Collect the config files to use. The "hardcoded" defaults should always
     # be loaded.
@@ -61,6 +71,15 @@ def get_config_files(config_path: Path) -> List[Path]:
 
 
 def read_config_ext(config_paths: List[Path]) -> configparser.ConfigParser:
+    """
+    Read configuration with extended functionalities.
+
+    Args:
+        config_paths (List[Path]): the configuration files to load.
+
+    Returns:
+        configparser.ConfigParser: _description_
+    """
     # Log config filepaths that don't exist...
     for config_filepath in config_paths:
         if not config_filepath.exists():
@@ -88,7 +107,7 @@ def read_config_ext(config_paths: List[Path]) -> configparser.ConfigParser:
         allowed_chars = "0123456789+-*(). /"
         for char in string:
             if char not in allowed_chars:
-                raise Exception("Unsafe eval")
+                raise ValueError("Error: Unsafe eval")
 
         return eval(string)
 

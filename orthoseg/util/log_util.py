@@ -3,6 +3,7 @@ Module with specific helper functions to manage the logging of orthoseg.
 
 TODO: maybe it is cleaner to replace most code here by a config dict?
 """
+
 import json
 import logging
 import logging.config
@@ -13,13 +14,30 @@ from typing import Optional
 
 
 class LoggingContext:
+    """
+    Context handler to temporary log using a specific level/handler.
+    """
+
     def __init__(self, logger, level=None, handler=None, close=True):
+        """
+        Constructor of LoggingContext.
+
+        Args:
+            logger (_type_): the logger to use.
+            level (_type_, optional): level to use. Defaults to None.
+            handler (_type_, optional): handler to use. Defaults to None.
+            close (bool, optional): close the handler when context ends.
+                Defaults to True.
+        """
         self.logger = logger
         self.level = level
         self.handler = handler
         self.close = close
 
     def __enter__(self):
+        """
+        Enter.
+        """
         if self.level is not None:
             self.old_level = self.logger.level
             self.logger.setLevel(self.level)
@@ -27,6 +45,14 @@ class LoggingContext:
             self.logger.addHandler(self.handler)
 
     def __exit__(self, et, ev, tb):
+        """
+        Exit.
+
+        Args:
+            et (_type_): _description_
+            ev (_type_): _description_
+            tb (_type_): _description_
+        """
         if self.level is not None:
             self.logger.setLevel(self.old_level)
         if self.handler:
@@ -56,15 +82,17 @@ def init_logging_dictConfig(
             Defaults to None.
         logconfig_dict (dict, optional): Dict containing the dictConfig info.
             Defaults to None.
+        log_basedir (Path, optional): directory to log to.
+        loggername (str, optional): name of the logger.
     """
     # Init logging
     if logconfig_dict is None:
         if logconfig_path is not None and logconfig_path.exists():
             # Load from json file
-            with open(logconfig_path, "r") as logconfig_file:
+            with open(logconfig_path) as logconfig_file:
                 logconfig_dict = json.load(logconfig_file)
         else:
-            raise Exception(
+            raise ValueError(
                 "If the logconfig_dict is None, the logconfig_path should point to "
                 f"an existing file: {logconfig_path}"
             )
@@ -97,15 +125,25 @@ def init_logging_dictConfig(
             log_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Now load the log config
-    logging.config.dictConfig(logconfig_dict)  # type: ignore
+    logging.config.dictConfig(logconfig_dict)
 
     return logging.getLogger(loggername)
 
 
 def main_log_init(log_dir: Path, log_basefilename: str):
+    """
+    Initialize logging.
+
+    Args:
+        log_dir (Path): directory to log to.
+        log_basefilename (str): base file name to use for the logging files.
+
+    Returns:
+        logging.Logger: the logger.
+    """
     # Check input parameters
     if not log_dir:
-        raise Exception("Error: log_dir is mandatory!")
+        raise ValueError("Error: log_dir is mandatory!")
 
     # Make sure the log dir exists
     if not log_dir.exists():
@@ -128,8 +166,9 @@ def main_log_init(log_dir: Path, log_basefilename: str):
     ch = logging.StreamHandler()
     ch.setLevel(logging.INFO)
     # ch.setFormatter(logging.Formatter('%(levelname)s|%(name)s|%(message)s'))
-    # ch.setFormatter(logging.Formatter('%(asctime)s|%(levelname)s|%(name)s|%(message)s',
-    #                                  datefmt='%H:%M:%S,uuu'))
+    # ch.setFormatter(logging.Formatter(
+    #     '%(asctime)s|%(levelname)s|%(name)s|%(message)s', datefmt='%H:%M:%S,uuu')
+    # )
     ch.setFormatter(
         logging.Formatter(
             fmt="%(asctime)s.%(msecs)03d|%(levelname)s|%(name)s|%(message)s",
@@ -164,7 +203,7 @@ def clean_log_dir(log_dir: Path, nb_logfiles_tokeep: int, pattern: str = "*.*"):
         return
 
     # List log files and remove the ones that are too much
-    files = sorted(list(log_dir.glob(pattern)), reverse=True)
+    files = sorted(log_dir.glob(pattern), reverse=True)
     if len(files) > nb_logfiles_tokeep:
         for file_index in range(nb_logfiles_tokeep, len(files)):
             files[file_index].unlink()
