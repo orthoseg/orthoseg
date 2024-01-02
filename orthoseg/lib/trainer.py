@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Module with high-level operations to segment images.
 """
@@ -21,16 +20,8 @@ from PIL import Image
 import orthoseg.model.model_factory as mf
 import orthoseg.model.model_helper as mh
 
-# -------------------------------------------------------------
-# First define/init some general variables/constants
-# -------------------------------------------------------------
 # Get a logger...
 logger = logging.getLogger(__name__)
-# logger.setLevel(logging.DEBUG)
-
-# -------------------------------------------------------------
-# The real work
-# -------------------------------------------------------------
 
 
 def train(
@@ -48,8 +39,9 @@ def train(
     save_augmented_subdir: Optional[str] = None,
 ):
     """
-    Create a new or load an existing neural network and train it using
-    data from the train and validation directories specified.
+    Create/load a neural network and train it.
+
+    Data from the train and validation directories specified for the training.
 
     The best models will be saved to model_save_dir. The filenames of the
     models will be constructed like this:
@@ -60,21 +52,23 @@ def train(
     In the scripts, if the "best model" is mentioned, this is the one with the
     highest "combined_acc".
 
-    Args
+    Args:
         traindata_dir: dir where the train data is located
         validationdata_dir: dir where the validation data is located
         model_save_dir: dir where (intermediate) best models will be saved
         segment_subject (str): segment subject
         traindata_id (int): train data version
         hyperparams (mh.HyperParams): the hyper parameters to use for the model
+        model_preload_filepath: filepath to the model to continue training on,
+            or None if you want to start from scratch
         image_width: width the input images will be rescaled to for training
         image_height: height the input images will be rescaled to for training
         image_subdir: subdir where the images can be found in traindata_dir and
             validationdata_dir
         mask_subdir: subdir where the corresponding masks can be found in traindata_dir
             and validationdata_dir
-        model_preload_filepath: filepath to the model to continue training on,
-            or None if you want to start from scratch
+        save_augmented_subdir: (str, optional): the subdirectory to save the augmented
+            images to. If None, the images aren't saved. Defaults to None.
     """
     # These are the augmentations that will be applied to the input training
     # images/masks.
@@ -97,12 +91,12 @@ def train(
     )
 
     # Create validation generator
-    validation_augmentations = dict(
-        rescale=hyperparams.train.image_augmentations["rescale"]
-    )
-    validation_mask_augmentations = dict(
-        rescale=hyperparams.train.mask_augmentations["rescale"]
-    )
+    validation_augmentations = {
+        "rescale": hyperparams.train.image_augmentations["rescale"]
+    }
+    validation_mask_augmentations = {
+        "rescale": hyperparams.train.mask_augmentations["rescale"]
+    }
     validation_gen = create_train_generator(
         input_data_dir=validationdata_dir,
         image_subdir=image_subdir,
@@ -135,9 +129,7 @@ def train(
             logger.critical(message)
             raise Exception(message)
 
-        train_log_df = pd.read_csv(
-            csv_log_filepath, sep=";", usecols=["epoch", "lr"]
-        )
+        train_log_df = pd.read_csv(csv_log_filepath, sep=";", usecols=["epoch", "lr"])
         assert isinstance(train_log_df, pd.DataFrame)
         logger.debug(f"train_log csv contents:\n{train_log_df}")
         start_epoch = train_log_df["epoch"].max()
@@ -205,7 +197,7 @@ def train(
         # If multiple GPU's available, should create a multi-GPU model
         model_for_train = model
         logger.info(f"Train using all GPU's, with nb_gpu: {nb_gpu}")
-        logger.warn("MULTI GPU TRAINING NOT TESTED BUT WILL BE TRIED ANYWAY")
+        logger.warning("MULTI GPU TRAINING NOT TESTED BUT WILL BE TRIED ANYWAY")
         strategy = tf.distribute.MirroredStrategy()
         with strategy.scope():
             model_for_train = mf.compile_model(
@@ -223,7 +215,7 @@ def train(
         monitor="loss",
         factor=0.2,
         patience=20,
-        min_lr=1e-20,  # type: ignore
+        min_lr=1e-20,
         verbose=True,
     )
     train_callbacks.append(reduce_lr)
@@ -328,7 +320,7 @@ def train(
                 validation_steps=validation_steps_per_epoch,
                 callbacks=train_callbacks,
                 initial_epoch=start_epoch,
-                verbose=2,  # type: ignore
+                verbose=2,
             )
             mf.set_trainable(model=model_for_train, recompile=False)
             model_for_train = mf.compile_model(
@@ -349,7 +341,7 @@ def train(
             validation_steps=validation_steps_per_epoch,
             callbacks=train_callbacks,
             initial_epoch=start_epoch,
-            verbose=2,  # type: ignore
+            verbose=2,
         )
 
         # Write some reporting
@@ -358,7 +350,7 @@ def train(
         assert isinstance(train_log_df, pd.DataFrame)
         columns_to_keep = []
         for column in train_log_df.columns:
-            if column.endswith("accuracy") or column.endswith("f1-score"):
+            if column.endswith(("accuracy", "f1-score")):
                 columns_to_keep.append(column)
 
         train_log_vis_df = train_log_df[columns_to_keep]
@@ -389,7 +381,9 @@ def create_train_generator(
     seed: int = 1,
 ):
     """
-    Creates a generator to generate and augment train images. The augmentations
+    Creates a generator to generate and augment train images.
+
+    The augmentations
     specified in aug_dict will be applied. For the augmentations that can be
     specified in aug_dict look at the documentation of
     keras.preprocessing.image.ImageDataGenerator
@@ -409,7 +403,7 @@ def create_train_generator(
         or image_augment_dict is not None
         and mask_augment_dict is None
     ):
-        logger.warn(
+        logger.warning(
             "Only augmentations specified for either image or mask: "
             f"image_augment_dict: {image_augment_dict}, mask_augment_dict: "
             f"{mask_augment_dict}"
@@ -454,7 +448,7 @@ def create_train_generator(
                 )
             # brightness_range is applied to the image, it should be [1,1] for the mask
             if mask_brightness_range[0] != 1.0 or mask_brightness_range[1] != 1.0:
-                raise Exception(
+                raise ValueError(
                     "augmentation brightness_range is specified on the image: then the "
                     f"mask should get range [1, 1], not {mask_brightness_range}"
                 )
@@ -463,7 +457,7 @@ def create_train_generator(
     if mask_augment_dict is not None:
         # Check cval value
         if "cval" in mask_augment_dict and mask_augment_dict["cval"] != 0:
-            logger.warn(
+            logger.warning(
                 "cval typically should be 0 for the mask, even if it is different for "
                 "the image, as the cval of the mask refers to these locations being of "
                 f"class 'background'. It is: {mask_augment_dict['cval']}"
@@ -512,7 +506,7 @@ def create_train_generator(
     image_generator = image_datagen.flow_from_directory(
         directory=str(input_data_dir),
         classes=[image_subdir],
-        class_mode=None,  # type: ignore
+        class_mode=None,
         color_mode=image_color_mode,
         target_size=target_size,
         batch_size=batch_size,
@@ -525,7 +519,7 @@ def create_train_generator(
     mask_generator = mask_datagen.flow_from_directory(
         directory=str(input_data_dir),
         classes=[mask_subdir],
-        class_mode=None,  # type: ignore
+        class_mode=None,
         color_mode=mask_color_mode,
         target_size=target_size,
         batch_size=batch_size,
@@ -552,7 +546,6 @@ def create_train_generator(
                 or image_augment_dict["brightness_range"][1] != 1
             )
         ):
-
             # Random brightness shift to apply to all images in batch
             brightness_shift = np.random.uniform(
                 image_augment_dict["brightness_range"][0],

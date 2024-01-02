@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Modile with generic Utility functions for vectorfile manipulations.
 """
@@ -10,15 +9,7 @@ import geofileops as gfo
 
 from orthoseg.util import vector_util
 
-# -------------------------------------------------------------
-# First define/init some general variables/constants
-# -------------------------------------------------------------
 logger = logging.getLogger(__name__)
-# logger.setLevel(logging.DEBUG)
-
-# -------------------------------------------------------------
-# The real work
-# -------------------------------------------------------------
 
 
 def reclassify_neighbours(
@@ -30,6 +21,8 @@ def reclassify_neighbours(
     force: bool = False,
 ):
     """
+    Reclassify features to the class of neighbouring features.
+
     For features that comply to the query, if they have a neighbour (touch/overlap),
     change their classname to that of the neighbour with the longest intersection and
     dissolve to merge them.
@@ -40,9 +33,10 @@ def reclassify_neighbours(
         - perimeter (float): the perimeter of the geometry.
 
     Args:
-        gdf (gpd.GeoDataFrame): input
+        input_path (Path): input file path.
         reclassify_column (str): column to reclassify.
         query (str): th query to find the features to reclassify.
+        output_path (Path): output file path.
         class_background (str, optional): the classname to treat as background.
             Defaults to "background".
         force (bool, optional): True to force calculation even if output file exists.

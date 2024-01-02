@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Helper functions for all tests.
 """
@@ -6,7 +5,7 @@ Helper functions for all tests.
 import logging
 from pathlib import Path
 import tempfile
-from typing import Optional
+from typing import ClassVar, Optional
 
 import geopandas as gpd
 from shapely import geometry as sh_geom
@@ -16,7 +15,7 @@ class TestData:
     testdata_dir = Path(__file__).resolve().parent / "data"
     sampleprojects_dir = Path(__file__).resolve().parent.parent / "sample_projects"
 
-    classes = {
+    classes: ClassVar = {
         "background": {
             "labelnames": ["ignore_for_train", "background"],
             "weight": 1,
@@ -62,7 +61,7 @@ class TestData:
             "path": "/tmp/locations.gdf",
         },
         crs="epsg:31370",
-    )  # type: ignore
+    )
     polygons_gdf = gpd.GeoDataFrame(
         {
             "geometry": [polygon, polygon],
@@ -70,7 +69,7 @@ class TestData:
             "path": "/tmp/polygons.gdf",
         },
         crs="epsg:31370",
-    )  # type: ignore
+    )
 
 
 def create_tempdir(base_dirname: str, parent_dir: Optional[Path] = None) -> Path:

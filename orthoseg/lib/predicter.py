@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Module with high-level operations to segment images.
 """
@@ -29,16 +28,8 @@ import orthoseg.lib.postprocess_predictions as postp
 from orthoseg.util.progress_util import ProgressLogger
 from orthoseg.util import general_util
 
-# -------------------------------------------------------------
-# First define/init some general variables/constants
-# -------------------------------------------------------------
 # Get a logger...
 logger = logging.getLogger(__name__)
-# logger.setLevel(logging.DEBUG)
-
-# -------------------------------------------------------------
-# The real work
-# -------------------------------------------------------------
 
 
 def predict_dir(
@@ -60,8 +51,7 @@ def predict_dir(
     force: bool = False,
 ):
     """
-    Create a prediction for all the images in the directories specified
-    using the model specified.
+    Create a prediction for all the images in a directory.
 
     If evaluate_mode is False, the output folder(s) will contain:
         * the "raw" prediction for every image (if there are white pixels)
@@ -82,12 +72,15 @@ def predict_dir(
     prefix will be the % overlap of the mask and the prediction. If no mask is
     available, the prefix is the % white pixels in the prediction.
 
-    Args
+    Args:
+        model (Model): the model to use for the prediction
         input_image_dir (Pathlike): dir where the input images are located
-        output_base_dir (Pathlike): dir where the output will be put
+        output_image_dir (Pathlike): dir where the output will be put
         output_vector_path (Pathlike): the path to write the vector output to
         classes (list): a list of the different class names. Mandatory
             if more than background + 1 class.
+        min_probability (float): Minimum probability to consider a pixel being of a
+            certain class. Default to 0.5.
         postprocess (dict, optional): specifies which postprocessing should be applied
             to the prediction. Default is {}, so no postprocessing.
         border_pixels_to_ignore: because the segmentation at the borders of the
@@ -109,7 +102,6 @@ def predict_dir(
         force: False to skip images that already have a prediction, true to
             ignore existing predictions and overwrite them
     """
-
     # Init
     if not input_image_dir.exists():
         logger.warning(f"input_image_dir doesn't exist, so return: {input_image_dir}")
@@ -454,9 +446,7 @@ def predict_dir(
                     try:
                         # Get the result (= exception when something went wrong)
                         result = future.result()
-                        logger.debug(
-                            f"result for {postp_queue[future].name}:" f" {result}"
-                        )
+                        logger.debug(f"result for {postp_queue[future].name}: {result}")
 
                         name = f"{image_path.stem}.gpkg"
                         partial_vector_path = tmp_dir / name
@@ -623,6 +613,17 @@ def _handle_error(image_path: Path, ex: Exception, log_path: Path):
 def read_image(
     image_filepath: Path, projection_if_missing: Optional[str] = None
 ) -> dict:
+    """
+    Read image file.
+
+    Args:
+        image_filepath (Path): file path.
+        projection_if_missing (Optional[str], optional): _description_.
+            Defaults to None.
+
+    Returns:
+        dict: _description_
+    """
     # Read input file
     # Because sometimes a read seems to fail, retry up to 3 times...
     retry_count = 0
@@ -647,7 +648,7 @@ def read_image(
             if retry_count >= 3:
                 message = f"Read failed {retry_count} times for {image_filepath}: {ex}"
                 logger.error(message)
-                raise Exception(message)
+                raise RuntimeError(message)
 
     # The read was successfull, now check if there was a projection in the
     # file and/or if one was provided
@@ -659,7 +660,7 @@ def read_image(
                 f"Image has no proj and projection_if_missing is None: {image_filepath}"
             )
             logger.error(message)
-            raise Exception(message)
+            raise ValueError(message)
 
     # Now return the result
     result = {
@@ -669,8 +670,3 @@ def read_image(
         "image_filepath": image_filepath,
     }
     return result
-
-
-# If the script is ran directly...
-if __name__ == "__main__":
-    raise Exception("Not implemented")

@@ -1,10 +1,7 @@
-# -*- coding: utf-8 -*-
 """
 Tests for functionalities in vector_util.
 """
 import os
-from pathlib import Path
-import sys
 
 import geopandas as gpd
 from geopandas.testing import assert_geodataframe_equal
@@ -16,9 +13,7 @@ from shapely import geometry as sh_geom
 # Make hdf5 version warning non-blocking
 os.environ["HDF5_DISABLE_VERSION_CHECK"] = "1"
 
-# Add path so the local orthoseg packages are found
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from orthoseg.util import vector_util
+from orthoseg.util import vector_util  # noqa: E402
 
 
 @pytest.mark.parametrize("onborder_column_name", ["onborder_custom", "default_value"])
@@ -45,7 +40,7 @@ def test_is_onborder(onborder_column_name: str):
         ],
     ]
     df = pd.DataFrame(testdata, columns=columns)
-    testdata_gdf = gpd.GeoDataFrame(df, geometry="geometry")  # type: ignore
+    testdata_gdf = gpd.GeoDataFrame(df, geometry="geometry")
     # Remove a row to test if the index is properly maintained
     testdata_gdf = testdata_gdf.drop([2], axis=0)
     assert isinstance(testdata_gdf, gpd.GeoDataFrame)
@@ -133,7 +128,7 @@ def test_reclassify_neighbours():
         ],
     ]
     df = pd.DataFrame(testdata, columns=columns)
-    testdata_gdf = gpd.GeoDataFrame(df, geometry="geometry")  # type: ignore
+    testdata_gdf = gpd.GeoDataFrame(df, geometry="geometry")
     # Remove a row to test if the index is properly maintained
     testdata_gdf = testdata_gdf.drop([2], axis=0)
 

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Download the sample project.
 """
@@ -12,29 +11,18 @@ from typing import Optional
 
 import gdown
 
-# orthoseg is higher in dir hierarchy, add root to sys.path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from orthoseg.util import git_downloader
 
-
-# -------------------------------------------------------------
-# First define/init general variables/constants
-# -------------------------------------------------------------
 # Get a logger...
 logger = logging.getLogger(__name__)
 
-# -------------------------------------------------------------
-# The real work
-# -------------------------------------------------------------
 
-
-def parse_load_sampleprojects_argstr(argstr):
+def _parse_load_sampleprojects_argstr(argstr):
     args = shlex.split(argstr)
-    parse_load_sampleprojects_args(args)
+    _parse_load_sampleprojects_args(args)
 
 
-def parse_load_sampleprojects_args(args) -> dict:
-
+def _parse_load_sampleprojects_args(args) -> dict:
     # Define supported arguments
     parser = argparse.ArgumentParser(add_help=False)
 
@@ -65,9 +53,21 @@ def parse_load_sampleprojects_args(args) -> dict:
 
 
 def load_sampleprojects(dest_dir: Path, ssl_verify: Optional[bool] = None):
+    """
+    Load the orthoseg sample projects.
+
+    Args:
+        dest_dir (Path): directory to save them to.
+        ssl_verify (Optional[bool], optional): True or None to use the default
+            certificate bundle as installed on your system. False disables certificate
+            validation (NOT recommended!). If a path to a certificate bundle file (.pem)
+            is passed, this will be used. In corporate networks using a proxy server
+            this is often needed to evade CERTIFICATE_VERIFY_FAILED errors.
+            Defaults to None.
+    """
     dest_dir_full = dest_dir / "sample_projects"
     if dest_dir_full.exists():
-        raise Exception(f"Destination directory already exists: {dest_dir_full}")
+        raise ValueError(f"Destination directory already exists: {dest_dir_full}")
 
     # Download
     print(f"Start download of sample projects to {str(dest_dir_full)}")
@@ -95,21 +95,24 @@ def load_sampleprojects(dest_dir: Path, ssl_verify: Optional[bool] = None):
         gdown.download(
             id="1umxcd4RkB81sem9PdIpLoWeiIW8ga1u7",
             output=str(model_hyperparams_path),
-            verify=verify
+            verify=verify,
         )
     model_modeljson_path = footballfields_model_dir / "footballfields_01_model.json"
     if model_modeljson_path.exists() is False:
         gdown.download(
             id="16qe8thBTrO3dFfLMU1T22gWcfHVXt8zQ",
             output=str(model_modeljson_path),
-            verify=verify
+            verify=verify,
         )
     print("Download finished")
 
 
 def main():
+    """
+    Run load sampleprojects.
+    """
     try:
-        parsed_args = parse_load_sampleprojects_args(sys.argv[1:])
+        parsed_args = _parse_load_sampleprojects_args(sys.argv[1:])
         load_sampleprojects(**parsed_args)
     except Exception as ex:
         logger.exception(f"Error: {ex}")

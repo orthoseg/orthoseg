@@ -1,10 +1,6 @@
-# -*- coding: utf-8 -*-
 """
 Tests for functionalities in orthoseg.train.
 """
-
-from pathlib import Path
-
 import pyproj
 import pytest
 import rasterio as rio

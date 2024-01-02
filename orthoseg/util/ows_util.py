@@ -1,10 +1,8 @@
-# -*- coding: utf-8 -*-
 """
-Module with generic usable utility functions to make some tasks using OWS services
-easier.
+Module with generic usable utility functions for using OWS services.
 """
 
-import concurrent.futures as futures
+from concurrent import futures
 import logging
 import math
 from pathlib import Path
@@ -16,7 +14,6 @@ import warnings
 
 import numpy as np
 import geofileops as gfo
-import geofileops.util.grid_util
 import geopandas as gpd
 import owslib
 import owslib.wms
@@ -33,9 +30,6 @@ from rasterio import windows as rio_windows
 
 from . import progress_util
 
-# -------------------------------------------------------------
-# First define/init some general variables/constants
-# -------------------------------------------------------------
 FORMAT_GEOTIFF = "image/geotiff"
 FORMAT_GEOTIFF_DRIVER = "Gtiff"
 FORMAT_GEOTIFF_EXT = ".tif"
@@ -58,14 +52,13 @@ FORMAT_PNG_EXT_WORLD = ".pgw"
 
 # Get a logger...
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-
-# -------------------------------------------------------------
-# The real work
-# -------------------------------------------------------------
 
 
 class WMSLayerSource:
+    """
+    Properties of a WMS layer source.
+    """
+
     def __init__(
         self,
         wms_server_url: str,
@@ -81,6 +74,21 @@ class WMSLayerSource:
             None,
         ] = None,
     ):
+        """
+        Constructor of WMSLayerSource.
+
+        Args:
+            wms_server_url (str): _description_
+            layernames (List[str]): _description_
+            layerstyles (Optional[List[str]], optional): _description_.
+                Defaults to None.
+            bands (Optional[List[int]], optional): _description_. Defaults to None.
+            wms_version (str, optional): _description_. Defaults to "1.3.0".
+            wms_ignore_capabilities_url (bool, optional): _description_.
+                Defaults to False.
+            random_sleep (int, optional): _description_. Defaults to 0.
+            wms_service: The WMS service. Defaults to None.
+        """
         self.wms_server_url = wms_server_url
         self.wms_version = wms_version
         self.wms_ignore_capabilities_url = wms_ignore_capabilities_url
@@ -92,12 +100,24 @@ class WMSLayerSource:
 
 
 class FileLayerSource:
+    """
+    Properties of a file layer source.
+    """
+
     def __init__(
         self,
         path: Union[str, Path],
         layernames: List[str],
         bands: Optional[List[int]] = None,
     ):
+        """
+        Contructor for FileLayerSource.
+
+        Args:
+            path (Union[str, Path]): Path to the layer.
+            layernames (List[str]): list of layer names.
+            bands (Optional[List[int]], optional): list of bands. Defaults to None.
+        """
         self.path = Path(path)
         self.layernames = layernames
         self.bands = bands
@@ -169,11 +189,7 @@ def get_images_for_grid(
             In corporate networks using a proxy server this is often needed
             to evade CERTIFICATE_VERIFY_FAILED errors. Defaults to True.
         force (bool, optional): [description]. Defaults to False.
-
-    Raises:
-        Exception: [description]
     """
-
     # Init
     if image_format_save is None:
         image_format_save = image_format
@@ -391,6 +407,20 @@ def align_bbox_to_grid(
     pixel_size_y: float,
     log_level: int = logging.INFO,
 ) -> Tuple[float, float, float, float]:
+    """
+    Align a bounding box to the grid specified.
+
+    Args:
+        bbox (Tuple[float, float, float, float]): the bounding box
+        grid_xmin (float): xmin of the grid to align to.
+        grid_ymin (float): ymin of the grid to align to.
+        pixel_size_x (float): pixel size for x.
+        pixel_size_y (float): pixel size for y.
+        log_level (int, optional): the log level to use. Defaults to logging.INFO.
+
+    Returns:
+        Tuple[float, float, float, float]: the aligned bbox.
+    """
     # Make bounds compatible with the grid
     bbox_tmp = list(bbox)
     if (bbox_tmp[0] - grid_xmin) % pixel_size_x != 0:
@@ -436,7 +466,7 @@ def _interprete_ssl_verify(ssl_verify: Union[bool, str, None]):
         auth = owslib.util.Authentication(verify=ssl_verify)
         if ssl_verify is False:
             urllib3.disable_warnings()
-            logger.warn("SSL VERIFICATION IS TURNED OFF!!!")
+            logger.warning("SSL VERIFICATION IS TURNED OFF!!!")
 
     return auth
 
@@ -459,13 +489,13 @@ def getmap_to_file(
     has_switched_axes: Optional[bool] = None,
 ) -> Optional[Path]:
     """
-
+    Reads/fetches an image from a layer source and saves it to a file.
 
     Args:
         layersources (WMSLayerSource, FileLayerSource, List): Layer source(s) to get
             images from. Multiple sources can be specified to create a combined image,
             eg. use band 1 of a layersource with band 2 and 3 of another one.
-        output_image_dir (Path): Directory to save the images to.
+        output_dir (Path): Directory to save the images to.
         crs (pyproj.CRS): The crs of the source and destination images.
         bbox (Tuple[float, float, float, float]): Bbox of the image to get.
         size (Tuple[int, int]): The image width and height.
@@ -487,16 +517,9 @@ def getmap_to_file(
             in the WMS GetMap request. If None, an effort is made to determine it
             automatically based on the crs. Defaults to None.
 
-    Raises:
-        Exception: [description]
-        Exception: [description]
-        Exception: [description]
-        Exception: [description]
-
     Returns:
         Optional[Path]: [description]
     """
-
     # Init
     # If no separate save format is specified, use the standard image_format
     if image_format_save is None:
@@ -689,12 +712,12 @@ def getmap_to_file(
                     top=bbox_for_getmap[3],
                     transform=image_file.transform,
                 )
-                rio_read_kwargs = dict(
-                    window=window,
-                    out_shape=(nb_bands, size[1], size[0]),
-                    resampling=rasterio.enums.Resampling.nearest,
-                    boundless=True,
-                )
+                rio_read_kwargs = {
+                    "window": window,
+                    "out_shape": (nb_bands, size[1], size[0]),
+                    "resampling": rasterio.enums.Resampling.nearest,
+                    "boundless": True,
+                }
             else:
                 raise ValueError(f"Unsupported layer source: {layersource}")
 
@@ -830,10 +853,10 @@ def getmap_to_file(
             else:
                 image_data_output = image_file.read(
                     window=rio_windows.Window(
-                        col_off=image_pixels_ignore_border,  # type: ignore
-                        row_off=image_pixels_ignore_border,  # type: ignore
-                        width=size[0],  # type: ignore
-                        height=size[1],  # type: ignore
+                        col_off=image_pixels_ignore_border,
+                        row_off=image_pixels_ignore_border,
+                        width=size[0],
+                        height=size[1],
                     )
                 )
 
@@ -873,12 +896,12 @@ def getmap_to_file(
 
             logger.debug(
                 "Coordinates to put in geotiff:\n"
-                + f"    - x-part of pixel width, W-E: {crs_pixel_x_size}\n"
-                + "    - y-part of pixel width, W-E (0 if image is exactly N up): 0\n"
-                + f"    - top-left x: {bbox[0]}\n"
-                + "    - x-part of pixel height, N-S (0 if image is exactly N up): \n"
-                + f"    - y-part of pixel height, N-S: {crs_pixel_y_size}\n"
-                + f"    - top-left y: {bbox[3]}"
+                f"    - x-part of pixel width, W-E: {crs_pixel_x_size}\n"
+                "    - y-part of pixel width, W-E (0 if image is exactly N up): 0\n"
+                f"    - top-left x: {bbox[0]}\n"
+                "    - x-part of pixel height, N-S (0 if image is exactly N up): \n"
+                f"    - y-part of pixel height, N-S: {crs_pixel_y_size}\n"
+                f"    - top-left y: {bbox[3]}"
             )
 
             # Add transform and crs to the profile
@@ -924,10 +947,10 @@ def getmap_to_file(
                 else:
                     image_data_output = image_file.read(
                         window=rio_windows.Window(
-                            col_off=image_pixels_ignore_border,  # type: ignore
-                            row_off=image_pixels_ignore_border,  # type: ignore
-                            width=size[0],  # type: ignore
-                            height=size[1],  # type: ignore
+                            col_off=image_pixels_ignore_border,
+                            row_off=image_pixels_ignore_border,
+                            width=size[0],
+                            height=size[1],
                         )
                     )
 

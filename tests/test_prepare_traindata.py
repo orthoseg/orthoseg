@@ -1,31 +1,22 @@
-# -*- coding: utf-8 -*-
 """
 Tests for functionalities in orthoseg.lib.postprocess_predictions.
 """
 import os
 from pathlib import Path
-import sys
 from typing import List, Optional, Union
 
 import pytest
 from shapely import geometry as sh_geom
+import geopandas as gpd
+import geofileops as gfo
 
 # Make hdf5 version warning non-blocking
 os.environ["HDF5_DISABLE_VERSION_CHECK"] = "1"
 
-import geopandas as gpd
-import geofileops as gfo
-
-# Add path so the local orthoseg packages are found
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from orthoseg.helpers import config_helper
-from orthoseg.lib import prepare_traindatasets as prep_traindata
-from orthoseg.lib.prepare_traindatasets import ValidationError
-from tests.test_helper import TestData
-
-# ----------------------------------------------------
-# Helper functions to prepare test data
-# ----------------------------------------------------
+from orthoseg.helpers import config_helper  # noqa: E402
+from orthoseg.lib import prepare_traindatasets as prep_traindata  # noqa: E402
+from orthoseg.lib.prepare_traindatasets import ValidationError  # noqa: E402
+from tests.test_helper import TestData  # noqa: E402
 
 
 def _prepare_locations_file(
@@ -35,7 +26,7 @@ def _prepare_locations_file(
     if locations is None:
         locations = TestData.locations_gdf
     if isinstance(locations, dict):
-        locations = gpd.GeoDataFrame(locations, crs="EPSG:31370")  # type: ignore
+        locations = gpd.GeoDataFrame(locations, crs="EPSG:31370")
 
     gfo.to_file(locations, locations_path)
     return locations_path
@@ -48,7 +39,7 @@ def _prepare_polygons_file(
     if polygons is None:
         polygons = TestData.polygons_gdf
     if isinstance(polygons, dict):
-        polygons = gpd.GeoDataFrame(polygons, crs="EPSG:31370")  # type: ignore
+        polygons = gpd.GeoDataFrame(polygons, crs="EPSG:31370")
 
     gfo.to_file(polygons, polygons_path)
     return polygons_path
@@ -70,10 +61,6 @@ def _prepare_labelinfos(
     return [label_info]
 
 
-# Actual tests
-# ------------
-
-
 @pytest.mark.parametrize(
     "geometry, traindata_type, expected_len_locations",
     [
@@ -93,7 +80,7 @@ def test_prepare_labeldata_locations(geometry, traindata_type, expected_len_loca
             "traindata_type": ["train", traindata_type, traindata_type, "validation"],
             "path": "/tmp/locations.gdf",
         },
-        crs="EPSG:31370",  # type: ignore
+        crs="EPSG:31370",
     )
     label_info = prep_traindata.LabelInfo(
         locations_path=Path("locations"),
@@ -154,7 +141,7 @@ def test_prepare_labeldata_locations_invalid(
             "traindata_type": traindata_types,
             "path": "/tmp/locations.gdf",
         },
-        crs="EPSG:31370",  # type: ignore
+        crs="EPSG:31370",
     )
     label_info = prep_traindata.LabelInfo(
         locations_path=Path("locations"),
@@ -199,7 +186,7 @@ def test_prepare_labeldata_polygons(geometry, classname, expected_len_polygons):
             "classname": ["testlabel1", classname, classname, "testlabel2"],
             "path": "/tmp/polygons.gdf",
         },
-        crs="EPSG:31370",  # type: ignore
+        crs="EPSG:31370",
     )
     label_info = prep_traindata.LabelInfo(
         locations_path=Path("locations"),
@@ -241,7 +228,7 @@ def test_prepare_labeldata_polygons_invalid(expected_error, geometry, classname)
             "classname": ["testlabel1", classname, classname, "testlabel2"],
             "path": "/tmp/polygons.gdf",
         },
-        crs="EPSG:31370",  # type: ignore
+        crs="EPSG:31370",
     )
     label_info = prep_traindata.LabelInfo(
         locations_path=Path("locations"),
@@ -278,7 +265,7 @@ def test_prepare_labeldata_polygons_columnname_backw_compat(tmp_path):
             "label_name": ["testlabel1", "testlabel2"],
             "path": "/tmp/polygons.gdf",
         },
-        crs="EPSG:31370",  # type: ignore
+        crs="EPSG:31370",
     )
     label_info = prep_traindata.LabelInfo(
         locations_path=Path("locations"),
@@ -307,7 +294,7 @@ def test_prepare_traindata_full(tmp_path):
     # Prepare test data
     classes = TestData.classes
     image_layers_config_path = TestData.sampleprojects_dir / "imagelayers.ini"
-    image_layers = config_helper.read_layer_config(image_layers_config_path)
+    image_layers = config_helper._read_layer_config(image_layers_config_path)
     label_infos = _prepare_labelinfos(tmp_path)
 
     # Test with the default data...

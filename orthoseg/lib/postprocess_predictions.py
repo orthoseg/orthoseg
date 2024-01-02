@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Module with functions for post-processing prediction masks towards polygons.
 """
@@ -7,10 +6,8 @@ import logging
 import math
 from pathlib import Path
 import shutil
-import time
 from typing import List, Optional
 
-# Evade having many info warnings about self intersections from shapely
 import geofileops as gfo
 import geopandas as gpd
 import numpy as np
@@ -26,19 +23,11 @@ import tensorflow as tf
 from orthoseg.util import vector_util
 from orthoseg.helpers import vectorfile_helper
 
-
+# Avoid having many info warnings about self intersections from shapely
 logging.getLogger("shapely.geos").setLevel(logging.WARNING)
 
-# -------------------------------------------------------------
-# First define/init some general variables/constants
-# -------------------------------------------------------------
 # Get a logger...
 logger = logging.getLogger(__name__)
-# logger.setLevel(logging.DEBUG)
-
-# -------------------------------------------------------------
-# The real work
-# -------------------------------------------------------------
 
 # -------------------------------------------------------------
 # Postprocess to use on all vector outputs
@@ -60,12 +49,18 @@ def postprocess_predictions(
     """
     Postprocesses the input prediction as specified.
 
-    Args
+    Args:
         input_path: path to the 'raw' prediction vector file.
         output_path: the base path where the output file(s) will be written to.
         dissolve (bool): True if a dissolve needs to be applied
         dissolve_tiles_path (PathLike, optional): Path to a geofile containing
             the tiles to be used for the dissolve. Defaults to None.
+        reclassify_to_neighbour_query (str, optional): Defaults to None.
+        simplify_algorithm (str, optional): Algorithm to use for simplification. If
+            None, no simplification is applied. Defaults to None.
+        simplify_tolerance (float): Tolerance to use for the simplification.
+            Defaults to 1.
+        simplify_lookahead (int): Lookahead to use for simplification. Default to 8.
         nb_parallel (int, optional): number of cpu's to use for postprocessing.
             Use all cpu's if it is -1. Defaults to -1.
         force: False to skip results that already exist, true to
@@ -189,19 +184,40 @@ def postprocess_predictions(
 def read_prediction_file(
     filepath: Path, border_pixels_to_ignore: int = 0
 ) -> Optional[gpd.GeoDataFrame]:
+    """
+    Read the prediction file specified.
+
+    Args:
+        filepath (Path): path to the prediction file.
+        border_pixels_to_ignore (int, optional): border pixels the should be ignored.
+            Defaults to 0.
+
+    Returns:
+        Optional[gpd.GeoDataFrame]: the vectorized and cleaned prediction.
+    """
     ext_lower = filepath.suffix.lower()
     if ext_lower == ".geojson":
         return gfo.read_file(filepath)
     elif ext_lower == ".tif":
         return polygonize_pred_from_file(filepath, border_pixels_to_ignore)
     else:
-        raise Exception(f"Unsupported extension: {ext_lower}")
+        raise ValueError(f"Unsupported extension: {ext_lower}")
 
 
 def to_binary_uint8(in_arr: np.ndarray, thresshold_ok: int = 128) -> np.ndarray:
+    """
+    Convert input array to binary UINT8.
+
+    Args:
+        in_arr (np.ndarray): input array
+        thresshold_ok (int, optional): thresshold to use. Defaults to 128.
+
+    Returns:
+        np.ndarray: result
+    """
     # Check input parameters
     if in_arr.dtype != np.uint8:
-        raise Exception("Input should be dtype = uint8, not: {in_arr.dtype}")
+        raise ValueError(f"Input should be dtype = uint8, not: {in_arr.dtype}")
 
     # First copy to new numpy array, otherwise input array is changed
     out_arr = np.copy(in_arr)
@@ -228,9 +244,10 @@ def postprocess_for_evaluation(
     force: bool = False,
 ):
     """
-    This function postprocesses a prediction to make it easy to evaluate
-    visually if the result is OK by creating images of the different stages of
-    the prediction logic by creating the following output:
+    This function postprocesses a prediction for manual evaluation.
+
+    To make it easy to evaluate visually if the result is OK by creating images of the
+    different stages of the prediction logic by creating the following output:
         - the input image
         - the mask image as digitized in the train files (if available)
         - the "raw" prediction image
@@ -241,10 +258,30 @@ def postprocess_for_evaluation(
         - if a mask is available, the % overlap between the result and the mask
         - if no mask is available, the % of pixels that is white
 
-    Args
+    Args:
+        image_filepath (Path): _description_
+        image_crs (str): _description_
+        image_transform (_type_): _description_
+        image_pred_filepath (Path): _description_
+        image_pred_uint8_cleaned_bin (np.ndarray): _description_
+        class_id (int): _description_
+        class_name (str): _description_
+        nb_classes (int): _description_
+        output_dir (Path): _description_
+        output_suffix (Optional[str], optional): _description_. Defaults to None.
+        input_image_dir (Optional[Path], optional): _description_. Defaults to None.
+        input_mask_dir (Optional[Path], optional): _description_. Defaults to None.
+        border_pixels_to_ignore (int, optional): _description_. Defaults to 0.
+        force (bool, optional): _description_. Defaults to False.
 
+    Raises:
+        ValueError: _description_
+        Exception: _description_
+        Exception: _description_
+
+    Returns:
+        _type_: _description_
     """
-
     logger.debug(f"Start postprocess for {image_pred_filepath}")
     all_black = False
     try:
@@ -407,6 +444,15 @@ def postprocess_for_evaluation(
 def polygonize_pred_for_evaluation(
     image_pred_uint8_bin, image_crs: str, image_transform, output_basefilepath: Path
 ):
+    """
+    Polygonize a prediction in a way it is easy to evaluate manually/visually.
+
+    Args:
+        image_pred_uint8_bin (_type_): _description_
+        image_crs (str): _description_
+        image_transform (_type_): _description_
+        output_basefilepath (Path): _description_
+    """
     # Polygonize result
     try:
         # Returns a list of tupples with (geometry, value)
@@ -532,7 +578,7 @@ def polygonize_pred_for_evaluation(
 
     except Exception as ex:
         message = f"Exception while polygonizing to file {output_basefilepath}!"
-        raise Exception(message) from ex
+        raise RuntimeError(message) from ex
 
 
 def polygonize_pred_from_file(
@@ -540,6 +586,19 @@ def polygonize_pred_from_file(
     border_pixels_to_ignore: int = 0,
     save_to_file: bool = False,
 ) -> Optional[gpd.GeoDataFrame]:
+    """
+    Polygonize a prediction from a file.
+
+    Args:
+        image_pred_filepath (Path): path to the file to be read.
+        border_pixels_to_ignore (int, optional): number of pixels around the input image
+            to ignore. Defaults to 0.
+        save_to_file (bool, optional): If True, save te result to a file.
+            Defaults to False.
+
+    Returns:
+        Optional[gpd.GeoDataFrame]: _description_
+    """
     try:
         with rio.open(image_pred_filepath) as image_ds:
             # Read geo info
@@ -565,14 +624,14 @@ def polygonize_pred_from_file(
         )
 
         if result_gdf is None:
-            logger.warn(
+            logger.warning(
                 f"Prediction didn't result in any polygons: {image_pred_filepath}"
             )
 
         return result_gdf
 
     except Exception as ex:
-        raise Exception(
+        raise RuntimeError(
             f"Error in polygonize_pred_from_file on {image_pred_filepath}"
         ) from ex
 
@@ -588,6 +647,23 @@ def polygonize_pred_multiclass_to_file(
     border_pixels_to_ignore: int = 0,
     create_spatial_index: bool = True,
 ) -> dict:
+    """
+    Polygonize a multiclass prediction to a file.
+
+    Args:
+        image_pred_arr (np.ndarray): _description_
+        image_crs (str): _description_
+        image_transform (_type_): _description_
+        classes (list): _description_
+        output_vector_path (Path): _description_
+        min_probability (float, optional): _description_. Defaults to 0.5.
+        postprocess (dict, optional): _description_. Defaults to {}.
+        border_pixels_to_ignore (int, optional): _description_. Defaults to 0.
+        create_spatial_index (bool, optional): _description_. Defaults to True.
+
+    Returns:
+        dict: _description_
+    """
     # Polygonize the result...
     result_gdf = polygonize_pred_multiclass(
         image_pred_uint8=image_pred_arr,
@@ -623,6 +699,21 @@ def polygonize_pred_multiclass(
     postprocess: dict = {},
     border_pixels_to_ignore: int = 0,
 ) -> Optional[gpd.GeoDataFrame]:
+    """
+    Polygonize a multiclass prediction.
+
+    Args:
+        image_pred_uint8 (np.ndarray): _description_
+        image_crs (str): _description_
+        image_transform (_type_): _description_
+        classes (list): _description_
+        min_probability (float, optional): _description_. Defaults to 0.5.
+        postprocess (dict, optional): _description_. Defaults to {}.
+        border_pixels_to_ignore (int, optional): _description_. Defaults to 0.
+
+    Returns:
+        Optional[gpd.GeoDataFrame]: _description_
+    """
     # Init
     """
     for channel_id in range(0, nb_channels):
@@ -744,7 +835,7 @@ def polygonize_pred_multiclass(
             result_gdf = result_gdf[~result_gdf.geometry.isna()]
             if len(result_gdf) == 0:
                 return None
-            result_gdf = result_gdf.explode(ignore_index=True)  # type: ignore
+            result_gdf = result_gdf.explode(ignore_index=True)
 
     assert isinstance(result_gdf, gpd.GeoDataFrame)
     return result_gdf
@@ -758,6 +849,23 @@ def polygonize_pred(
     classnames: Optional[List[str]] = None,
     output_basefilepath: Optional[Path] = None,
 ) -> Optional[gpd.GeoDataFrame]:
+    """
+    Polygonize a prediction.
+
+    Args:
+        image_pred_uint8_bin (_type_): _description_
+        image_crs (str): _description_
+        image_transform (_type_): _description_
+        mask_background (bool, optional): _description_. Defaults to True.
+        classnames (Optional[List[str]], optional): _description_. Defaults to None.
+        output_basefilepath (Optional[Path], optional): _description_. Defaults to None.
+
+    Raises:
+        Exception: _description_
+
+    Returns:
+        Optional[gpd.GeoDataFrame]: _description_
+    """
     # Polygonize result
     try:
         # Returns a list of tupples with (geometry, value)
@@ -781,14 +889,13 @@ def polygonize_pred(
             (sh_geom.shape(geom), int(value)) for geom, value in polygonized_records
         ]
         result_gdf = gpd.GeoDataFrame(
-            data, columns=["geometry", "value"], crs=image_crs  # type: ignore
+            data, columns=["geometry", "value"], crs=image_crs
         )
 
         # Add the classname if provided
         if classnames is not None:
             result_gdf["classname"] = [
-                classnames[value]  # type: ignore
-                for _, value in result_gdf["value"].T.items()
+                classnames[value] for _, value in result_gdf["value"].T.items()
             ]
             result_gdf = result_gdf.drop(columns=["value"])
 
@@ -814,6 +921,29 @@ def clean_and_save_prediction(
     evaluate_mode: bool = False,
     force: bool = False,
 ) -> bool:
+    """
+    Clean the prediction and save it.
+
+    Args:
+        input_image_filepath (Path): _description_
+        image_crs (str): _description_
+        image_transform (str): _description_
+        output_dir (Path): _description_
+        image_pred_arr (np.ndarray): _description_
+        classes (list): _description_
+        input_image_dir (Optional[Path], optional): _description_. Defaults to None.
+        input_mask_dir (Optional[Path], optional): _description_. Defaults to None.
+        border_pixels_to_ignore (int, optional): _description_. Defaults to 0.
+        min_probability (float, optional): _description_. Defaults to 0.5.
+        evaluate_mode (bool, optional): _description_. Defaults to False.
+        force (bool, optional): _description_. Defaults to False.
+
+    Raises:
+        Exception: _description_
+
+    Returns:
+        bool: _description_
+    """
     # If nb. channels in prediction > 1, skip the first as it is the background
     image_pred_shape = image_pred_arr.shape
     nb_channels = image_pred_shape[2]
@@ -904,7 +1034,6 @@ def clean_prediction(
     Returns:
         np.array: The cleaned result.
     """
-
     # Input should be float32
     if image_pred_arr.dtype not in [np.float32, np.uint8]:
         raise Exception(
@@ -957,6 +1086,26 @@ def save_prediction_uint8(
     border_pixels_to_ignore: Optional[int] = None,
     force: bool = False,
 ) -> Path:
+    """
+    Save the prediction as UINT8.
+
+    Args:
+        image_filepath (Path): _description_
+        image_pred_uint8_cleaned (np.ndarray): _description_
+        image_crs (str): _description_
+        image_transform (str): _description_
+        output_dir (Path): _description_
+        output_suffix (str, optional): _description_. Defaults to "".
+        border_pixels_to_ignore (Optional[int], optional): _description_.
+            Defaults to None.
+        force (bool, optional): _description_. Defaults to False.
+
+    Raises:
+        Exception: _description_
+
+    Returns:
+        Path: _description_
+    """
     # Init
     # If no decent transform metadata, stop!
     if image_transform is None or image_transform[0] == 0:
@@ -999,9 +1148,27 @@ def save_prediction_uint8(
 # -------------------------------------------------------------
 
 
-def get_pixelsize_x(transform):
+def get_pixelsize_x(transform) -> float:
+    """
+    Get the x pixel size from the transform.
+
+    Args:
+        transform (_type_): input transform
+
+    Returns:
+        float: the x pixel size.
+    """
     return transform[0]
 
 
 def get_pixelsize_y(transform):
+    """
+    Get the y pixel size from the transform.
+
+    Args:
+        transform (_type_): input transform
+
+    Returns:
+        float: the y pixel size.
+    """
     return -transform[4]

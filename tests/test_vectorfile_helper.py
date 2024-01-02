@@ -1,10 +1,7 @@
-# -*- coding: utf-8 -*-
 """
 Tests for functionalities in orthoseg.lib.postprocess_predictions.
 """
 import os
-from pathlib import Path
-import sys
 
 import geopandas as gpd
 import geofileops as gfo
@@ -14,9 +11,7 @@ from shapely import geometry as sh_geom
 # Make hdf5 version warning non-blocking
 os.environ["HDF5_DISABLE_VERSION_CHECK"] = "1"
 
-# Add path so the local orthoseg packages are found
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from orthoseg.helpers import vectorfile_helper
+from orthoseg.helpers import vectorfile_helper  # noqa: E402
 
 
 def test_reclassify_neighbours(tmp_path):
@@ -70,10 +65,10 @@ def test_reclassify_neighbours(tmp_path):
             "is merged with poly6 and gets its class",
             sh_geom.Polygon(shell=[(4, 15), (5, 15), (5, 16), (4, 16), (4, 15)]),
             "class_6_small",
-        ]
+        ],
     ]
     df = pd.DataFrame(testdata, columns=columns)
-    testdata_gdf = gpd.GeoDataFrame(df, geometry="geometry")  # type: ignore
+    testdata_gdf = gpd.GeoDataFrame(df, geometry="geometry")
     # Remove a row to test if the index is properly maintained
     testdata_gdf = testdata_gdf.drop([2], axis=0)
     testdata_path = tmp_path / "testdata.gpkg"
@@ -83,7 +78,9 @@ def test_reclassify_neighbours(tmp_path):
     result_path = tmp_path / "result.gpkg"
     vectorfile_helper.reclassify_neighbours(
         input_path=testdata_path,
-        reclassify_column=reclassify_column, query=query, output_path=result_path
+        reclassify_column=reclassify_column,
+        query=query,
+        output_path=result_path,
     )
     result_gdf = gfo.read_file(result_path)
     assert result_gdf is not None

@@ -1,22 +1,32 @@
-#!/usr/bin/python3
-# Based on https://github.com/sdushantha/gitdir/blob/master/gitdir/gitdir.py
+"""
+Module to download files from a github repo.
 
-import re
+Based on https://github.com/sdushantha/gitdir/blob/master/gitdir/gitdir.py
+"""
+
+import json
 import os
+from pathlib import Path
+from pyparsing import Tuple
+import re
 import ssl
 import time
-from typing import Union
+from typing import List, Union
 import urllib.request
-import json
-from pathlib import Path
 
 
-def create_url(url):
+def create_url(url: str) -> Tuple[str, List[Path]]:
     """
     From the given url, produce a URL that is compatible with Github's REST API.
-    Can handle blob or tree paths.
-    """
 
+    Can handle blob or tree paths.
+
+    Args:
+        url (str): the base url.
+
+    Returns:
+        (str, List[Path]): Github REST API compatible url + directories to download.
+    """
     # extract the branch name from the given url (e.g master)
     branch = re.findall(r"/tree/(.*?)/", url)
     api_url = url.replace("https://github.com", "https://api.github.com/repos")
@@ -42,7 +52,7 @@ def download(
     """
     Downloads the files and directories in repo_url.
 
-    Args
+    Args:
         repo_url (str): url to the repository to download.
         output_dir (Path): directory to download the repository to.
         ssl_verify (bool or str, optional): True or None to use the default

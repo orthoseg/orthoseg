@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Modile with generic Utility functions for vector manipulations.
 """
@@ -24,41 +23,51 @@ def is_onborder(
     onborder_column_name: str = "onborder",
 ) -> gpd.GeoDataFrame:
     """
-    Add/update a column to the GeoDataFrame with:
+    Add/update the is_onborder column to the GeoDataFrame.
+
+    The column containes these values:
         * 0 if the polygon isn't on the border and
         * 1 if it is.
 
-    Args
-        geoms_gdf: input GeoDataFrame
+    Args:
+        gdf: input GeoDataFrame
         border_bounds: the bounds (tupple with (xmin, ymin, xmax, ymax)
                        to check against to determine onborder
         onborder_column_name: the column name of the onborder column
-
     """
     if gdf is None or len(gdf.index) == 0:
         return gdf
 
-    result_gdf = gdf.copy()  # type: ignore
+    result_gdf = gdf.copy()
     result_gdf[onborder_column_name] = 0
 
     # Check
     for i, geom_row in result_gdf.iterrows():
         if geom_row["geometry"] is not None and not geom_row["geometry"].is_empty:
             # Check if the geom is on the border of the tile
-            geom_bounds = geom_row["geometry"].bounds  # type: ignore
+            geom_bounds = geom_row["geometry"].bounds
             if (
                 geom_bounds[0] <= border_bounds[0]
                 or geom_bounds[1] <= border_bounds[1]
                 or geom_bounds[2] >= border_bounds[2]
                 or geom_bounds[3] >= border_bounds[3]
             ):
-                result_gdf.loc[i, onborder_column_name] = 1  # type: ignore
+                result_gdf.loc[i, onborder_column_name] = 1
 
     assert isinstance(result_gdf, gpd.GeoDataFrame)
     return result_gdf
 
 
 def is_valid_reason(geoseries: gpd.GeoSeries) -> pd.Series:
+    """
+    Get the reason for invalidity of all geometries in the GeoSeries.
+
+    Args:
+        geoseries (gpd.GeoSeries): the GeoSeries to check.
+
+    Returns:
+        pd.Series: _description_
+    """
     # Get result and keep geoseries indexes
     return pd.Series(
         data=shapely2_or_pygeos.is_valid_reason(geoseries.array.data),
@@ -74,6 +83,8 @@ def reclassify_neighbours(
     class_background: str = "background",
 ) -> gpd.GeoDataFrame:
     """
+    Reclassify features to the class of neighbouring features.
+
     For features that comply to the query, if they have a neighbour (touch/overlap),
     change their classname to that of the neighbour with the longest intersection and
     dissolve to merge them.
@@ -102,7 +113,7 @@ def reclassify_neighbours(
         gpd.GeoDataFrame: the reclassified result
     """
     # Init column info
-    columns_orig = [col for col in gdf.columns]
+    columns_orig = list(gdf.columns)
 
     # Init query + needed data
     query = query.replace("\n", " ")
@@ -123,7 +134,7 @@ def reclassify_neighbours(
                 raise ValueError(
                     "query contains onborder, but border_bounds parameter is None"
                 )
-            gdf_result = is_onborder(gdf_result, inner_border_bounds)  # type: ignore
+            gdf_result = is_onborder(gdf_result, inner_border_bounds)
 
         # Return result
         assert isinstance(gdf_result, gpd.GeoDataFrame)
@@ -174,9 +185,7 @@ def reclassify_neighbours(
 
             # Find neighbour with longest intersection
             neighbours_gdf = result_gdf.iloc[neighbours_ilocs]
-            inters_geoseries = neighbours_gdf.geometry.intersection(  # type: ignore
-                row.geometry
-            )
+            inters_geoseries = neighbours_gdf.geometry.intersection(row.geometry)
             max_length_index = inters_geoseries.length.idxmax()
 
             # Change the class of the smallest one to the oher's class
@@ -201,12 +210,12 @@ def reclassify_neighbours(
         assert isinstance(result_gdf, gpd.GeoDataFrame)
         if len(columns_orig) > 2:
             result_gdf = result_gdf.dissolve(
-                by=dissolve_columns, as_index=False, aggfunc=", ".join  # type: ignore
+                by=dissolve_columns, as_index=False, aggfunc=", ".join
             )
         else:
             result_gdf = result_gdf.dissolve(by=dissolve_columns, as_index=False)
 
-        result_gdf = result_gdf.explode(ignore_index=True)  # type: ignore
+        result_gdf = result_gdf.explode(ignore_index=True)
 
     # Finalize + make sure there is no background in the output
     result_gdf = result_gdf[columns_orig]
