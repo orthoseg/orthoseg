@@ -97,7 +97,7 @@ def download(
 
     url = api_url
     try:
-        with urllib.request.urlopen(url, context=context) as u:
+        with urllib.request.urlopen(f"{url}blablabla", context=context) as u:
             # Make a directory with the name which is taken from
             # the actual repo
             dir_out.mkdir(parents=True, exist_ok=True)
@@ -140,13 +140,11 @@ def download(
 
     except urllib.error.HTTPError as ex:
         if ex.code == 403:
-            ex.args = (f"Error: API Rate limit exceeded; {url}, {ex}",)
+            message = f"Error: API Rate limit exceeded for url {url}"
         else:
-            ex.args = (f"Error with url: {url}: {ex}",)
-        raise
+            message = f"Error with url: {url}: {ex}"
+        raise RuntimeError(message) from ex
     except Exception as ex:
-        print(f"Error with url: {url}: {ex}")
-        ex.args = (f"Error with url: {url}: {ex}",)
-        raise
+        raise RuntimeError(f"Error with url: {url}: {ex}") from ex
 
     return total_files
