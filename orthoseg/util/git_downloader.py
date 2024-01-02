@@ -137,6 +137,8 @@ def download(
                         path, "wb"
                     ) as f:
                         f.write(u.read())
+                else:
+                    download(file["html_url"], output_dir)
 
     except urllib.error.HTTPError as ex:
         if ex.code == 403:
