@@ -113,10 +113,21 @@ def download(
             # Download the file
             if limit_rate:
                 time.sleep(1)
-            with urllib.request.urlopen(
-                data["download_url"], context=context
-            ) as u, open(dir_out / data["name"], "wb") as f:
-                f.write(u.read())
+            file_url = data["download_url"]
+            try:
+                with urllib.request.urlopen(file_url, context=context) as u, open(
+                    dir_out / data["name"], "wb"
+                ) as f:
+                    f.write(u.read())
+            except urllib.error.HTTPError as ex:
+                if ex.code == 403:
+                    ex.args = (f"Error: API Rate limit exceeded; {file_url}, {ex}",)
+                else:
+                    ex.args = (f"Error downloading {file_url}: {ex}",)
+                raise
+            except Exception as ex:
+                ex.args = (f"Error downloading {file_url}: {ex}",)
+                raise
             return total_files
 
         # Loop over all files/dirs found
