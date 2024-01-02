@@ -96,6 +96,7 @@ def download(
     if limit_rate:
         time.sleep(1)
 
+    with urllib.request.urlopen(api_url, context=context) as u:
         # Make a directory with the name which is taken from
         # the actual repo
         dir_out.mkdir(parents=True, exist_ok=True)
