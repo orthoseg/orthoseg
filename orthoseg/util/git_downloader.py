@@ -97,7 +97,7 @@ def download(
 
     url = api_url
     try:
-        with urllib.request.urlopen(f"{url}blablabla", context=context) as u:
+        with urllib.request.urlopen(url, context=context) as u:
             # Make a directory with the name which is taken from
             # the actual repo
             dir_out.mkdir(parents=True, exist_ok=True)
@@ -137,6 +137,8 @@ def download(
                         path, "wb"
                     ) as f:
                         f.write(u.read())
+                else:
+                    download(file["html_url"], output_dir)
 
     except urllib.error.HTTPError as ex:
         if ex.code == 403:
