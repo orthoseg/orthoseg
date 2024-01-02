@@ -5,7 +5,6 @@ Based on https://github.com/sdushantha/gitdir/blob/master/gitdir/gitdir.py
 """
 
 import json
-import os
 from pathlib import Path
 from pyparsing import Tuple
 import re
@@ -124,7 +123,7 @@ def download(
         for file in data:
             file_url = file["download_url"]
             path = output_dir / file["path"]
-            os.makedirs(path.parent, exist_ok=True)
+            path.parent.mkdir(parents=True, exist_ok=True)
 
             # If it is a file, download it, if dir, start recursively
             if file_url is not None:
