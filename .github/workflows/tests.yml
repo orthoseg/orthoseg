@@ -28,7 +28,8 @@ jobs:
 
   Test:
     needs: Linting
-    name: ${{ matrix.os }}, ${{ matrix.env }}
+    name: ${{ matrix.env }} - python ${{ matrix.python }} - ${{ matrix.os }}
+    timeout-minutes: 30
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -38,32 +39,30 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         dev: [false]
-        env:
-          - ci/envs/38-latest.yaml
-          - ci/envs/39-latest.yaml
-          - ci/envs/310-latest.yaml
+        python: ["3.9", "3.10"]
+        env: ["latest"]
         include:
-          - env: ci/envs/310-latest.yaml
-            os: macos-latest
+          - os: macos-latest
             dev: false
-          - env: ci/envs/310-latest.yaml
-            os: windows-latest
+            python: "3.10"
+          - os: windows-latest
             dev: false
+            python: "3.10"
             
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
-      - name: Setup Conda
-        uses: conda-incubator/setup-miniconda@v2
+      - name: Install Conda environment with Micromamba
+        uses: mamba-org/setup-micromamba@v1
         with:
-          environment-file: ${{ matrix.env }}
-          miniforge-version: latest
-          miniforge-variant: Mambaforge
-          use-mamba: true
+          micromamba-version: '1.5.1-0'
+          environment-file: ci/envs/${{ matrix.env }}.yml
+          create-args: >-
+            python=${{ matrix.python }}
+            ${{ matrix.extra }}
 
       - name: Test
         run: |
           pytest --color=yes --cov=orthoseg --cov-append --cov-report term-missing --cov-report xml tests/
 
-      - uses: codecov/codecov-action@v2
-      
+      - uses: codecov/codecov-action@v3
