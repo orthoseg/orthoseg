@@ -95,64 +95,57 @@ def download(
     if limit_rate:
         time.sleep(1)
 
-    with urllib.request.urlopen(api_url, context=context) as u:
-        # Make a directory with the name which is taken from
-        # the actual repo
-        dir_out.mkdir(parents=True, exist_ok=True)
+    url = api_url
+    try:
+        with urllib.request.urlopen(url, context=context) as u:
+            # Make a directory with the name which is taken from
+            # the actual repo
+            dir_out.mkdir(parents=True, exist_ok=True)
 
-        # Total files count
-        total_files = 0
-        raw_data = u.read()
-        data = json.loads(raw_data)
+            # Total files count
+            total_files = 0
+            raw_data = u.read()
+            data = json.loads(raw_data)
 
-        # Get the total number of files
-        total_files += len(data)
+            # Get the total number of files
+            total_files += len(data)
 
-        # If the data is a file, download it as one.
-        if isinstance(data, dict) and data["type"] == "file":
-            # Download the file
-            if limit_rate:
-                time.sleep(1)
-            file_url = data["download_url"]
-            try:
-                with urllib.request.urlopen(file_url, context=context) as u, open(
+            # If the data is a file, download it as one.
+            if isinstance(data, dict) and data["type"] == "file":
+                # Download the file
+                if limit_rate:
+                    time.sleep(1)
+                url = data["download_url"]
+                with urllib.request.urlopen(url, context=context) as u, open(
                     dir_out / data["name"], "wb"
                 ) as f:
                     f.write(u.read())
-            except urllib.error.HTTPError as ex:
-                if ex.code == 403:
-                    ex.args = (f"Error: API Rate limit exceeded; {file_url}, {ex}",)
-                else:
-                    ex.args = (f"Error downloading {file_url}: {ex}",)
-                raise
-            except Exception as ex:
-                ex.args = (f"Error downloading {file_url}: {ex}",)
-                raise
-            return total_files
 
-        # Loop over all files/dirs found
-        for file in data:
-            file_url = file["download_url"]
-            path = output_dir / file["path"]
-            path.parent.mkdir(parents=True, exist_ok=True)
+                return total_files
 
-            # If it is a file, download it, if dir, start recursively
-            if file_url is not None:
-                if limit_rate:
-                    time.sleep(1)
-                try:
-                    with urllib.request.urlopen(file_url, context=context) as u, open(
+            # Loop over all files/dirs found
+            for file in data:
+                url = file["download_url"]
+                path = output_dir / file["path"]
+                path.parent.mkdir(parents=True, exist_ok=True)
+
+                # If it is a file, download it, if dir, start recursively
+                if url is not None:
+                    if limit_rate:
+                        time.sleep(1)
+                    with urllib.request.urlopen(url, context=context) as u, open(
                         path, "wb"
                     ) as f:
                         f.write(u.read())
-                except urllib.error.HTTPError as ex:
-                    if ex.code == 403:
-                        ex.args = (f"Error: API Rate limit exceeded; {file_url}, {ex}",)
-                    else:
-                        ex.args = (f"Error downloading {file_url}: {ex}",)
-                    raise
-                except Exception as ex:
-                    ex.args = (f"Error downloading {file_url}: {ex}",)
-                    raise
+
+    except urllib.error.HTTPError as ex:
+        if ex.code == 403:
+            ex.args = (f"Error: API Rate limit exceeded; {url}, {ex}",)
+        else:
+            ex.args = (f"Error with url: {url}: {ex}",)
+        raise
+    except Exception as ex:
+        ex.args = (f"Error with url: {url}: {ex}",)
+        raise
 
     return total_files
