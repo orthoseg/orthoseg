@@ -39,13 +39,15 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         dev: [false]
-        python: ["3.9", "3.10"]
+        python: ["3.9", "3.10", "3.11"]
         env: ["latest"]
         include:
-          - os: macos-latest
+          - env: latest
+            os: macos-latest
             dev: false
             python: "3.10"
-          - os: windows-latest
+          - env: latest
+            os: windows-latest
             dev: false
             python: "3.10"
             
