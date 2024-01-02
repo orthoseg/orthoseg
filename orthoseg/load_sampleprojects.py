@@ -72,7 +72,7 @@ def load_sampleprojects(dest_dir: Path, ssl_verify: Optional[bool] = None):
     # Download
     print(f"Start download of sample projects to {str(dest_dir_full)}")
     git_downloader.download(
-        repo_url="https://github.com/orthoseg/orthoseg/tree/master/sample_projects",
+        repo_url="https://github.com/orthoseg/orthoseg/tree/main/sample_projects",
         output_dir=dest_dir,
         ssl_verify=ssl_verify,
     )
