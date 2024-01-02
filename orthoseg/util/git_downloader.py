@@ -145,6 +145,7 @@ def download(
             ex.args = (f"Error with url: {url}: {ex}",)
         raise
     except Exception as ex:
+        print(f"Error with url: {url}: {ex}")
         ex.args = (f"Error with url: {url}: {ex}",)
         raise
 
