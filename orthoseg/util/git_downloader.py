@@ -11,7 +11,7 @@ from pyparsing import Tuple
 import re
 import ssl
 import time
-from typing import List, Union
+from typing import List, Optional, Union
 import urllib.request
 
 
@@ -48,7 +48,7 @@ def download(
     output_dir: Path,
     ssl_verify: Union[bool, str, None] = None,
     limit_rate: bool = True,
-):
+) -> Optional[int]:
     """
     Downloads the files and directories in repo_url.
 
@@ -65,6 +65,7 @@ def download(
             github to the maximum level allowed for unauthenticated users.
             Defaults to True.
     """
+    total_files = None
     context = None
     if ssl_verify is not None:
         # If it is a string, make sure it isn't actually a bool
@@ -94,7 +95,7 @@ def download(
     # If limit_rate enabled, always sleep 1 second before doing a request!
     if limit_rate:
         time.sleep(1)
-    with urllib.request.urlopen(api_url, context=context) as u:
+
         # Make a directory with the name which is taken from
         # the actual repo
         dir_out.mkdir(parents=True, exist_ok=True)
@@ -128,11 +129,19 @@ def download(
             if file_url is not None:
                 if limit_rate:
                     time.sleep(1)
-                with urllib.request.urlopen(file_url, context=context) as u, open(
-                    path, "wb"
-                ) as f:
-                    f.write(u.read())
-            else:
-                download(file["html_url"], output_dir)
+                try:
+                    with urllib.request.urlopen(file_url, context=context) as u, open(
+                        path, "wb"
+                    ) as f:
+                        f.write(u.read())
+                except urllib.error.HTTPError as ex:
+                    if ex.code == 403:
+                        ex.args = (f"Error: API Rate limit exceeded; {file_url}, {ex}",)
+                    else:
+                        ex.args = (f"Error downloading {file_url}: {ex}",)
+                    raise
+                except Exception as ex:
+                    ex.args = (f"Error downloading {file_url}: {ex}",)
+                    raise
 
     return total_files
