@@ -5,13 +5,12 @@ Based on https://github.com/sdushantha/gitdir/blob/master/gitdir/gitdir.py
 """
 
 import json
-import os
 from pathlib import Path
 from pyparsing import Tuple
 import re
 import ssl
 import time
-from typing import List, Union
+from typing import List, Optional, Union
 import urllib.request
 
 
@@ -48,7 +47,7 @@ def download(
     output_dir: Path,
     ssl_verify: Union[bool, str, None] = None,
     limit_rate: bool = True,
-):
+) -> Optional[int]:
     """
     Downloads the files and directories in repo_url.
 
@@ -65,6 +64,7 @@ def download(
             github to the maximum level allowed for unauthenticated users.
             Defaults to True.
     """
+    total_files = None
     context = None
     if ssl_verify is not None:
         # If it is a string, make sure it isn't actually a bool
@@ -94,45 +94,57 @@ def download(
     # If limit_rate enabled, always sleep 1 second before doing a request!
     if limit_rate:
         time.sleep(1)
-    with urllib.request.urlopen(api_url, context=context) as u:
-        # Make a directory with the name which is taken from
-        # the actual repo
-        dir_out.mkdir(parents=True, exist_ok=True)
 
-        # Total files count
-        total_files = 0
-        raw_data = u.read()
-        data = json.loads(raw_data)
+    url = api_url
+    try:
+        with urllib.request.urlopen(f"{url}blablabla", context=context) as u:
+            # Make a directory with the name which is taken from
+            # the actual repo
+            dir_out.mkdir(parents=True, exist_ok=True)
 
-        # Get the total number of files
-        total_files += len(data)
+            # Total files count
+            total_files = 0
+            raw_data = u.read()
+            data = json.loads(raw_data)
 
-        # If the data is a file, download it as one.
-        if isinstance(data, dict) and data["type"] == "file":
-            # Download the file
-            if limit_rate:
-                time.sleep(1)
-            with urllib.request.urlopen(
-                data["download_url"], context=context
-            ) as u, open(dir_out / data["name"], "wb") as f:
-                f.write(u.read())
-            return total_files
+            # Get the total number of files
+            total_files += len(data)
 
-        # Loop over all files/dirs found
-        for file in data:
-            file_url = file["download_url"]
-            path = output_dir / file["path"]
-            os.makedirs(path.parent, exist_ok=True)
-
-            # If it is a file, download it, if dir, start recursively
-            if file_url is not None:
+            # If the data is a file, download it as one.
+            if isinstance(data, dict) and data["type"] == "file":
+                # Download the file
                 if limit_rate:
                     time.sleep(1)
-                with urllib.request.urlopen(file_url, context=context) as u, open(
-                    path, "wb"
+                url = data["download_url"]
+                with urllib.request.urlopen(url, context=context) as u, open(
+                    dir_out / data["name"], "wb"
                 ) as f:
                     f.write(u.read())
-            else:
-                download(file["html_url"], output_dir)
+
+                return total_files
+
+            # Loop over all files/dirs found
+            for file in data:
+                url = file["download_url"]
+                path = output_dir / file["path"]
+                path.parent.mkdir(parents=True, exist_ok=True)
+
+                # If it is a file, download it, if dir, start recursively
+                if url is not None:
+                    if limit_rate:
+                        time.sleep(1)
+                    with urllib.request.urlopen(url, context=context) as u, open(
+                        path, "wb"
+                    ) as f:
+                        f.write(u.read())
+
+    except urllib.error.HTTPError as ex:
+        if ex.code == 403:
+            message = f"Error: API Rate limit exceeded for url {url}"
+        else:
+            message = f"Error with url: {url}: {ex}"
+        raise RuntimeError(message) from ex
+    except Exception as ex:
+        raise RuntimeError(f"Error with url: {url}: {ex}") from ex
 
     return total_files
