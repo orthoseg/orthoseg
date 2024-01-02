@@ -97,7 +97,7 @@ def download(
 
     url = api_url
     try:
-        with urllib.request.urlopen(f"{url}blablabla", context=context) as u:
+        with urllib.request.urlopen(url, context=context) as u:
             # Make a directory with the name which is taken from
             # the actual repo
             dir_out.mkdir(parents=True, exist_ok=True)
