@@ -549,7 +549,6 @@ def _search_label_files(
                 pixel_y_size=image_layer_info.get("pixel_y_size"),
             )
         )
-        
 
     return label_infos
 
