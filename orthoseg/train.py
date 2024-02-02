@@ -7,11 +7,9 @@ import gc
 import logging
 import os
 from pathlib import Path
-import re
 import shlex
 import sys
 import traceback
-from typing import List
 
 from tensorflow import keras as kr
 
@@ -104,39 +102,16 @@ def train(config_path: Path):
                 dir.mkdir()
 
         # If the training data doesn't exist yet, create it
-        # Get the label input info
-        label_files_dict = conf.train.getdict("label_datasources", None)
-        label_infos = []
-        if label_files_dict is not None:
-            for label_file_key in label_files_dict:
-                label_file = label_files_dict[label_file_key]
-                # Add as LabelInfo objects to list
-                label_infos.append(
-                    prep.LabelInfo(
-                        locations_path=Path(label_file["locations_path"]),
-                        polygons_path=Path(label_file["data_path"]),
-                        image_layer=label_file["image_layer"],
-                    )
-                )
-            if label_infos is None or len(label_infos) == 0:
-                raise Exception(
-                    "label_datasources is defined in config but contains invalid info!"
-                )
-        else:
-            # Search for the files based on the file name patterns...
-            labelpolygons_pattern = conf.train.getpath("labelpolygons_pattern")
-            labellocations_pattern = conf.train.getpath("labellocations_pattern")
-            label_infos = _search_label_files(
-                labelpolygons_pattern, labellocations_pattern
+        # -------------------------------------------------
+        if conf.train_label_infos is None or len(conf.train_label_infos) == 0:
+            raise ValueError(
+                "No valid label file config found in train.label_datasources or "
+                f"with patterns {conf.train.get('labelpolygons_pattern')} and "
+                f"{conf.train.get('labellocations_pattern')}"
             )
-            if label_infos is None or len(label_infos) == 0:
-                raise Exception(
-                    f"No label files found with patterns {labellocations_pattern} and "
-                    f"{labelpolygons_pattern}"
-                )
 
         # Determine the projection of (the first) train layer... it will be used for all
-        train_image_layer = label_infos[0].image_layer
+        train_image_layer = conf.train_label_infos[0].image_layer
         train_projection = conf.image_layers[train_image_layer]["projection"]
 
         # Determine classes
@@ -162,7 +137,7 @@ def train(config_path: Path):
         else:
             logger.info("Prepare train, validation and test data")
             training_dir, traindata_id = prep.prepare_traindatasets(
-                label_infos=label_infos,
+                label_infos=conf.train_label_infos,
                 classes=classes,
                 image_layers=conf.image_layers,
                 training_dir=conf.dirs.getpath("training_dir"),
@@ -475,79 +450,6 @@ def train(config_path: Path):
             message_body = f"Exception: {ex}<br/><br/>{traceback.format_exc()}"
         email_helper.sendmail(subject=message, body=message_body)
         raise Exception(message) from ex
-
-
-def _search_label_files(
-    labelpolygons_pattern: Path, labellocations_pattern: Path
-) -> List[prep.LabelInfo]:
-    if not labelpolygons_pattern.parent.exists():
-        raise ValueError(f"Label dir {labelpolygons_pattern.parent} doesn't exist")
-    if not labellocations_pattern.parent.exists():
-        raise ValueError(f"Label dir {labellocations_pattern.parent} doesn't exist")
-
-    label_infos = []
-    labelpolygons_pattern_searchpath = Path(
-        str(labelpolygons_pattern).format(image_layer="*")
-    )
-    labelpolygons_paths = list(
-        labelpolygons_pattern_searchpath.parent.glob(
-            labelpolygons_pattern_searchpath.name
-        )
-    )
-    labellocations_pattern_searchpath = Path(
-        str(labellocations_pattern).format(image_layer="*")
-    )
-    labellocations_paths = list(
-        labellocations_pattern_searchpath.parent.glob(
-            labellocations_pattern_searchpath.name
-        )
-    )
-
-    # Loop through all labellocation files
-    for labellocations_path in labellocations_paths:
-        tokens = _unformat(labellocations_path.stem, labellocations_pattern.stem)
-        if "image_layer" not in tokens:
-            raise ValueError(
-                f"image_layer token not found in {labellocations_path} using pattern "
-                f"{labellocations_pattern}"
-            )
-        image_layer = tokens["image_layer"]
-
-        # Look for the matching (= same image_layer) data file
-        found = False
-        for labelpolygons_path in labelpolygons_paths:
-            tokens = _unformat(labelpolygons_path.stem, labelpolygons_pattern.stem)
-            if "image_layer" not in tokens:
-                raise ValueError(
-                    f"image_layer token not found in {labelpolygons_path} using "
-                    f"pattern {labelpolygons_pattern}"
-                )
-
-            if tokens["image_layer"] == image_layer:
-                found = True
-                label_infos.append(
-                    prep.LabelInfo(
-                        locations_path=labellocations_path,
-                        polygons_path=labelpolygons_path,
-                        image_layer=image_layer,
-                    )
-                )
-        if found is False:
-            raise ValueError(f"No matching data file found for {labellocations_path}")
-
-    return label_infos
-
-
-def _unformat(string: str, pattern: str) -> dict:
-    regex = re.sub(r"{(.+?)}", r"(?P<_\1>.+)", pattern)
-    regex_result = re.search(regex, string)
-    if regex_result is not None:
-        values = list(regex_result.groups())
-        keys = re.findall(r"{(.+?)}", pattern)
-        _dict = dict(zip(keys, values))
-        return _dict
-    else:
-        raise Exception(f"Error: pattern {pattern} not found in {string}")
 
 
 def main():
