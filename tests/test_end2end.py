@@ -16,7 +16,6 @@ import orthoseg.model.model_helper as mh
 import pytest
 
 from tests import test_helper
-from tests.test_helper import TestData
 
 testprojects_dir = Path(tempfile.gettempdir()) / "orthoseg_test_end2end/sample_projects"
 footballfields_dir = testprojects_dir / "footballfields"
