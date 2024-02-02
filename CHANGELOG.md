@@ -4,7 +4,8 @@
 
 ### Improvements
 
-- Several small improvements (#)
+- Add support to train subject on different pixel sizes (#143)
+- Several small improvements (#128)
 
 ### Bugs fixed
 

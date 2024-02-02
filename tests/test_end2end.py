@@ -15,7 +15,7 @@ from orthoseg.helpers import config_helper as conf
 import orthoseg.model.model_helper as mh
 import pytest
 
-from tests.test_helper import TestData
+from tests import test_helper
 
 testprojects_dir = Path(tempfile.gettempdir()) / "orthoseg_test_end2end/sample_projects"
 footballfields_dir = testprojects_dir / "footballfields"
@@ -29,7 +29,7 @@ def get_testdata_dir() -> Path:
 def test_1_init_testproject():
     # Use footballfields sample project for these end to end tests
     shutil.rmtree(testprojects_dir, ignore_errors=True)
-    shutil.copytree(TestData.sampleprojects_dir, testprojects_dir)
+    shutil.copytree(test_helper.sampleprojects_dir, testprojects_dir)
 
 
 @pytest.mark.order(after="test_1_init_testproject")
