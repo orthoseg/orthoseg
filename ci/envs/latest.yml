@@ -6,13 +6,13 @@ dependencies:
   - pip
   # required
   - gdown
-  - geofileops >=0.6,<0.8
+  - geofileops >=0.6,<0.9
   - geopandas >=0.12
   - numpy
   - owslib
   - pillow
   - pycron
-  - pygeoops >=0.2,<0.3
+  - pygeoops >=0.2,<0.4
   - pyproj
   - rasterio
   - shapely >=2
