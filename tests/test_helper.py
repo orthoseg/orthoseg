@@ -23,7 +23,7 @@ class SampleProjectTemplate:
 
 
 class TestData:
-    testdata_dir = Path(__file__).resolve().parent / "data"
+    dir = Path(__file__).resolve().parent / "data"
 
     classes: ClassVar = {
         "background": {

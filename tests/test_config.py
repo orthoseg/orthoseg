@@ -15,24 +15,30 @@ def test_read_orthoseg_config_predict():
 
 
 def test_prepare_train_label_infos():
-    labelpolygons_pattern = (
-        TestData.testdata_dir / "footballfields_{image_layer}_data.gpkg"
-    )
+    labelpolygons_pattern = TestData.dir / "footballfields_{image_layer}_data.gpkg"
     labellocations_pattern = (
-        TestData.testdata_dir / "footballfields_{image_layer}_locations.gpkg"
+        TestData.dir / "footballfields_{image_layer}_locations.gpkg"
     )
-    image_layers = {"BEFL-2019": {}, "BEFL-2020": {}}
+    image_layers = {"BEFL-2019": {}, "BEFL-2020": {}, "BEFL-2021": {}, "BEFL-2022": {}}
     label_datasources = {
-        "ds1": {
-            "data_path": str(
-                TestData.testdata_dir / "footballfields_BEFL-2019_data.gpkg"
-            ),
+        "label_ds1": {
+            "data_path": str(TestData.dir / "footballfields_BEFL-2019_data.gpkg"),
             "locations_path": str(
-                TestData.testdata_dir / "footballfields_BEFL-2019_locations.gpkg"
+                TestData.dir / "footballfields_BEFL-2019_locations.gpkg"
             ),
             "pixel_x_size": 1,
             "pixel_y_size": 2,
-        }
+            "image_layer": "BEFL-2021",
+        },
+        "label_ds2": {
+            "data_path": str(TestData.dir / "footballfields_BEFL-2022_data.gpkg"),
+            "locations_path": str(
+                TestData.dir / "footballfields_BEFL-2022_locations.gpkg"
+            ),
+            "pixel_x_size": 5,
+            "pixel_y_size": 6,
+            "image_layer": "BEFL-2022",
+        },
     }
 
     label_infos_result = conf._prepare_train_label_infos(
@@ -41,22 +47,23 @@ def test_prepare_train_label_infos():
         label_datasources=label_datasources,
         image_layers=image_layers,
     )
-    assert len(label_infos_result) == 2
+    assert len(label_infos_result) == 3
     for result in label_infos_result:
-        if result.image_layer == "BEFL-2019":
+        if result.image_layer == "BEFL-2021":
             assert result.pixel_x_size == 1
             assert result.pixel_y_size == 2
+        elif result.image_layer == "BEFL-2022":
+            assert result.pixel_x_size == 5
+            assert result.pixel_y_size == 6
         else:
             assert result.pixel_x_size is None
             assert result.pixel_y_size is None
 
 
 def test_prepare_train_label_infos_invalid_layer():
-    labeldata_template = (
-        TestData.testdata_dir / "footballfields_{image_layer}_data.gpkg"
-    )
+    labeldata_template = TestData.dir / "footballfields_{image_layer}_data.gpkg"
     labellocation_template = (
-        TestData.testdata_dir / "footballfields_{image_layer}_locations.gpkg"
+        TestData.dir / "footballfields_{image_layer}_locations.gpkg"
     )
     image_layers = {"BEFL-2019": {}}
 
@@ -70,12 +77,8 @@ def test_prepare_train_label_infos_invalid_layer():
 
 
 def test_search_label_files():
-    labelpolygons_pattern = (
-        TestData.testdata_dir / "footballfields_{image_layer}_data.gpkg"
-    )
-    labellocation_pattern = (
-        TestData.testdata_dir / "footballfields_{image_layer}_locations.gpkg"
-    )
+    labelpolygons_pattern = TestData.dir / "footballfields_{image_layer}_data.gpkg"
+    labellocation_pattern = TestData.dir / "footballfields_{image_layer}_locations.gpkg"
     results = conf._search_label_files(labelpolygons_pattern, labellocation_pattern)
 
     assert len(results) == 2
