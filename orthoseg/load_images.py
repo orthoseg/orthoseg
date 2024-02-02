@@ -1,6 +1,7 @@
 """
 Script to load images from a WMS server.
 """
+
 import argparse
 import logging
 from pathlib import Path
@@ -20,12 +21,12 @@ from orthoseg.util import ows_util
 logger = logging.getLogger(__name__)
 
 
-def load_images_argstr(argstr):
+def _load_images_argstr(argstr):
     args = shlex.split(argstr)
-    load_images_args(args)
+    _load_images_args(args)
 
 
-def load_images_args(args):
+def _load_images_args(args):
     # Interprete arguments
     parser = argparse.ArgumentParser(add_help=False)
 
@@ -62,7 +63,6 @@ def load_images(config_path: Path, load_testsample_images: bool = False):
         load_testsample_images (bool, optional): True to only load testsample
             images. Defaults to False.
     """
-
     # Init
     # Load the config and save in a bunch of global variables zo it
     # is accessible everywhere
@@ -176,8 +176,11 @@ def load_images(config_path: Path, load_testsample_images: bool = False):
 
 
 def main():
+    """
+    Run load images.
+    """
     try:
-        load_images_args(sys.argv[1:])
+        _load_images_args(sys.argv[1:])
     except Exception as ex:
         logger.exception(f"Error: {ex}")
         raise

@@ -16,8 +16,17 @@ logger = logging.getLogger(__name__)
 
 
 def sendmail(subject: str, body: Optional[str] = None, stop_on_error: bool = False):
+    """
+    Send an email.
+
+    Args:
+        subject (str): subject of the email
+        body (Optional[str], optional): body of the email. Defaults to None.
+        stop_on_error (bool, optional): True to stop when an error occurs sending the
+            email. Defaults to False.
+    """
     if conf is None:
-        raise Exception("Config is not initialized")
+        raise ValueError("Config is not initialized")
 
     if not conf.email.getboolean("enabled", fallback=False):
         return
@@ -54,4 +63,4 @@ def sendmail(subject: str, body: Optional[str] = None, stop_on_error: bool = Fal
         if stop_on_error is False:
             logger.exception("Error sending email")
         else:
-            raise Exception("Error sending email") from ex
+            raise RuntimeError("Error sending email") from ex

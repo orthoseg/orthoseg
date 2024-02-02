@@ -9,13 +9,11 @@ from pathlib import Path
 import pprint
 from typing import List, Optional
 
-import orthoseg.model.model_factory as mf
 from orthoseg.util import config_util
 from orthoseg.util.ows_util import FileLayerSource, WMSLayerSource
 
 # Get a logger...
 logger = logging.getLogger(__name__)
-# logger.setLevel(logging.DEBUG)
 
 # Define the chars that cannot be used in codes that are use in filenames.
 # Remark: '_' cannot be used because '_' is used as devider to parse filenames, and if
@@ -23,7 +21,13 @@ logger = logging.getLogger(__name__)
 illegal_chars_in_codes = ["_", ",", ".", "?", ":"]
 
 
-def pformat_config():
+def pformat_config() -> str:
+    """
+    Format the config to a string.
+
+    Returns:
+        str: the configuration as string
+    """
     message = f"Config files used: {pprint.pformat(config_filepaths_used)} \n"
     message += f"Layer config file used: {layer_config_filepath_used} \n"
     message += "Config info listing:\n"
@@ -34,8 +38,14 @@ def pformat_config():
 
 
 def read_orthoseg_config(config_path: Path):
+    """
+    Read an orthoseg configuration file.
+
+    Args:
+        config_path (Path): path to the configuration file to read.
+    """
     # Determine list of config files that should be loaded
-    config_paths = config_util.get_config_files(config_path)  # type: ignore
+    config_paths = config_util.get_config_files(config_path)
     # Load them
     global config
     config = config_util.read_config_ext(config_paths)
@@ -69,7 +79,7 @@ def read_orthoseg_config(config_path: Path):
     # Some checks to make sure the config is loaded properly
     segment_subject = general.get("segment_subject")
     if segment_subject is None or segment_subject == "MUST_OVERRIDE":
-        raise Exception(
+        raise ValueError(
             "Projectconfig parameter general.segment_subject needs to be overruled to"
             "a proper name in a specific project config file, \nwith config_filepaths "
             f"{config_paths}"
@@ -78,7 +88,7 @@ def read_orthoseg_config(config_path: Path):
         illegal_character in segment_subject
         for illegal_character in illegal_chars_in_codes
     ):
-        raise Exception(
+        raise ValueError(
             f"Projectconfig parameter general.segment_subject ({segment_subject}) "
             f"should not contain any of the following chars: {illegal_chars_in_codes}"
         )
@@ -172,15 +182,13 @@ def _read_layer_config(layer_config_filepath: Path) -> dict:
                     layersource_object = WMSLayerSource(
                         wms_server_url=layersource.get("wms_server_url"),
                         wms_version=layersource.get("wms_version", "1.3.0"),
-                        layernames=_str2list(
-                            layersource["wms_layernames"]
-                        ),  # type: ignore
+                        layernames=_str2list(layersource["wms_layernames"]),
                         layerstyles=_str2list(layersource.get("wms_layerstyles")),
                         bands=_str2intlist(layersource.get("bands", None)),
                         random_sleep=int(layersource.get("random_sleep", 0)),
                         wms_ignore_capabilities_url=_str2bool(
                             layersource.get("wms_ignore_capabilities_url", False)
-                        ),  # type: ignore
+                        ),
                     )
                 elif "path" in layersource:
                     path = Path(layersource["path"])
@@ -190,7 +198,7 @@ def _read_layer_config(layer_config_filepath: Path) -> dict:
                         path = path.resolve()
                     layersource_object = FileLayerSource(
                         path=path,
-                        layernames=layersource["layername"],  # type: ignore
+                        layernames=layersource["layername"],
                         bands=_str2intlist(layersource.get("bands", None)),
                     )
             except Exception as ex:
@@ -200,7 +208,7 @@ def _read_layer_config(layer_config_filepath: Path) -> dict:
                 ) from ex
             if layersource_object is None:
                 raise ValueError(
-                    "Invalid layersource, should be WMS or file: " f"{layersource}"
+                    f"Invalid layersource, should be WMS or file: {layersource}"
                 )
             layersource_objects.append(layersource_object)
         image_layers[image_layer]["layersources"] = layersource_objects

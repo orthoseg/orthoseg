@@ -1,6 +1,6 @@
 # Orthophoto segmentation
 
-[![Actions Status](https://github.com/orthoseg/orthoseg/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/orthoseg/orthoseg/actions?query=workflow%3ATests) 
+[![Actions Status](https://github.com/orthoseg/orthoseg/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/orthoseg/orthoseg/actions?query=workflow%3ATests) 
 [![PyPI version](https://img.shields.io/pypi/v/orthoseg.svg)](https://pypi.org/project/orthoseg)
 [![DOI](https://zenodo.org/badge/147507046.svg)](https://zenodo.org/doi/10.5281/zenodo.10340584)
 

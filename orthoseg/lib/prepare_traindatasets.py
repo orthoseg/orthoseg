@@ -1,7 +1,7 @@
 """
 Module to prepare the training datasets.
 """
-from __future__ import print_function
+
 import logging
 import shutil
 import math
@@ -30,6 +30,10 @@ logger = logging.getLogger(__name__)
 
 
 class LabelInfo:
+    """
+    Information needed to find train labels.
+    """
+
     def __init__(
         self,
         locations_path: Path,
@@ -40,16 +44,19 @@ class LabelInfo:
         locations_gdf: Optional[gpd.GeoDataFrame] = None,
         polygons_gdf: Optional[gpd.GeoDataFrame] = None,
     ):
-        """_summary_
+        """
+        Conctructor of LabelInfo.
 
         Args:
-            locations_path (Path): _description_
-            polygons_path (Path): _description_
-            image_layer (str): _description_
+            locations_path (Path): file path to the locations file.
+            polygons_path (Path): file path to the polygons file.
+            image_layer (str): image layer for the label.
             pixel_x_size (Optional[float], optional): _description_. Defaults to None.
             pixel_y_size (Optional[float], optional): _description_. Defaults to None.
-            locations_gdf (Optional[gpd.GeoDataFrame], optional): _description_. Defaults to None.
-            polygons_gdf (Optional[gpd.GeoDataFrame], optional): _description_. Defaults to None.
+            locations_gdf (Optional[gpd.GeoDataFrame], optional): _description_.
+                Defaults to None.
+            polygons_gdf (Optional[gpd.GeoDataFrame], optional): _description_.
+                Defaults to None.
         """
         self.locations_path = locations_path
         self.polygons_path = polygons_path
@@ -59,7 +66,13 @@ class LabelInfo:
         self.locations_gdf = locations_gdf
         self.polygons_gdf = polygons_gdf
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """
+        Return the object information as readable string.
+
+        Returns:
+            str: readable string representation of object.
+        """
         repr = (
             f"LabelInfo with image_layer: {self.image_layer}, locations_path: "
             f"{self.locations_path}, polygons_path: {self.polygons_path}"
@@ -68,7 +81,21 @@ class LabelInfo:
 
 
 class ValidationError(ValueError):
+    """
+    A validation exception.
+
+    Args:
+        ValueError (_type_): _description_
+    """
+
     def __init__(self, message, errors):
+        """
+        Conctructor of ValidationError.
+
+        Args:
+            message (str): error message.
+            errors (List[str]): List of validation errors.
+        """
         # Call the base class constructor with the parameters it needs
         super().__init__(message)
 
@@ -76,18 +103,36 @@ class ValidationError(ValueError):
         self.errors = errors
 
     def __repr__(self):
+        """
+        Formats validation errors to string.
+
+        Returns:
+            str: returns the validation errors as string.
+        """
         repr = super().__repr__()
         if self.errors is not None and len(self.errors) > 0:
             repr += f"\n  -> Errors: {pprint.pformat(self.errors, indent=4, width=100)}"
         return repr
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """
+        Formats validation errors to string.
+
+        Returns:
+            str: returns the validation errors as string.
+        """
         repr = super().__str__()
         if self.errors is not None and len(self.errors) > 0:
             repr += f"\n  -> Errors: {pprint.pformat(self.errors, indent=4, width=100)}"
         return repr
 
-    def to_html(self):
+    def to_html(self) -> str:
+        """
+        Formats validation errors to html.
+
+        Returns:
+            str: the validation errors as html.
+        """
         repr = super().__str__()
         if self.errors is not None and len(self.errors) > 0:
             errors_df = pd.DataFrame(self.errors, columns=["error"])
@@ -119,7 +164,7 @@ def prepare_traindatasets(
         output_dir: the dir where the traindataset was created/found
         dataversion: a version number for the dataset created/found
 
-    Args
+    Args:
         label_infos (List[LabelInfo]): paths to the files with label polygons
             and locations to generate images for.
         classes (dict): dict with the classes to detect as keys. The values
@@ -127,22 +172,28 @@ def prepare_traindatasets(
                 - labelnames: list of labels to use for this class
                 - weight:
                 - burn_value:
-        image_layers (dict):
-        training_dir (Path):
+        image_layers (dict): the image layers available with their properties.
+        training_dir (Path): the directory to save the training data to.
         labelname_column (str): the column where the label names are stored in
             the polygon files. If the column name specified is not found, column
             "label_name" is used if it exists for backwards compatibility.
+        image_pixel_x_size (float): pixel size in x direction. Defaults to 0.25.
+        image_pixel_y_size (float): pixel size in y direction. Defaults to 0.25.
+        image_pixel_width (int): width of the image in pixels. Defaults to 512.
+        image_pixel_height (int): height of the image in pixels. Defaults to 512.
         ssl_verify (bool or str, optional): True to use the default
             certificate bundle as installed on your system. False disables
             certificate validation (NOT recommended!). If a path to a
             certificate bundle file (.pem) is passed, this will be used.
             In corporate networks using a proxy server this is often needed
             to evade CERTIFICATE_VERIFY_FAILED errors. Defaults to True.
+        force (bool, opitional): True to force recreation of output files.
+            Defaults to False.
     """
     # Check if the first class is named "background"
     if len(classes) == 0:
         raise Exception("No classes specified")
-    elif list(classes)[0].lower() != "background":
+    elif next(iter(classes)).lower() != "background":
         classes_str = pprint.pformat(classes, sort_dicts=False, width=50)
         raise Exception(
             f"By convention, the first class must be called background!\n{classes_str}"
@@ -276,7 +327,7 @@ def prepare_traindatasets(
                         layersources=image_layers[image_layer]["layersources"],
                         output_dir=output_imagedata_image_dir,
                         crs=labellocations_gdf.crs,
-                        bbox=img_bbox.bounds,  # type: ignore
+                        bbox=img_bbox.bounds,
                         size=(image_pixel_width, image_pixel_height),
                         ssl_verify=ssl_verify,
                         image_format=ows_util.FORMAT_PNG,
@@ -338,14 +389,15 @@ def prepare_labeldata(
     label_infos: List[LabelInfo],
     classes: dict,
     labelname_column: str,
-    image_pixel_width: int,
-    image_pixel_height: int,
     image_pixel_x_size: Optional[float],
     image_pixel_y_size: Optional[float],
+    image_pixel_width: int,
+    image_pixel_height: int,
 ) -> List[Tuple[gpd.GeoDataFrame, gpd.GeoDataFrame]]:
     """
-    Prepare and validate the data in the labelinfos so it is ready to be uses to fetch
-    train images and burn masks.
+    Prepare and validate the data in the labelinfos.
+
+    The GeoDataFrames returned can be used to fetch train images and burn masks.
 
     Args:
         label_infos (List[LabelInfo]): the label files/data.
@@ -353,10 +405,10 @@ def prepare_labeldata(
             label class names + weights.
         labelname_column (str): the column name in the label polygon files where the
             label classname can be found. Defaults to "classname".
-        image_pixel_width (int): descr
-        image_pixel_height (int): descr
-        image_pixel_x_size (float): descr
-        image_pixel_y_size (float): descr
+        image_pixel_x_size (float): pixel size in x direction.
+        image_pixel_y_size (float): pixel size in y direction.
+        image_pixel_width (int): width of the image in pixels.
+        image_pixel_height (int): height of the image in pixels.
 
     Raises:
         ValidationError: if the data is somehow not valid. All issues are listed in the
@@ -381,11 +433,11 @@ def prepare_labeldata(
                 labellocations_gdf.loc[:, "path"] = str(label_info.locations_path)
                 labellocations_gdf.loc[:, "image_layer"] = label_info.image_layer
                 # Remark: geopandas 0.7.0 drops fid column internally!
-                labellocations_gdf.loc[
-                    :, "row_nb_orig"
-                ] = labellocations_gdf.index  # type: ignore
+                labellocations_gdf.loc[:, "row_nb_orig"] = labellocations_gdf.index
             else:
-                logger.warn(f"No label locations found in {label_info.locations_path}")
+                logger.warning(
+                    f"No label locations found in {label_info.locations_path}"
+                )
                 continue
 
         # Read label polygons if needed
@@ -398,7 +450,7 @@ def prepare_labeldata(
                 labelpolygons_gdf.loc[:, "path"] = str(label_info.polygons_path)
                 labelpolygons_gdf.loc[:, "image_layer"] = label_info.image_layer
             else:
-                logger.warn(f"No label polygons found in {label_info.polygons_path}")
+                logger.warning(f"No label polygons found in {label_info.polygons_path}")
 
         assert labellocations_gdf is not None
         assert labelpolygons_gdf is not None
@@ -488,7 +540,7 @@ def prepare_labeldata(
         # Remove locations with None or point/line geoms
         labellocations_gdf = labellocations_gdf[
             ~labellocations_gdf.index.isin(locations_none)
-        ]  # type: ignore
+        ]
 
         # Check if labellocations has a proper crs
         if labellocations_gdf.crs is None:
@@ -518,7 +570,7 @@ def prepare_labeldata(
             # If there is a column labelname_column, use the burn values specified in
             # the configuration
             labels_to_burn_gdf = labelpolygons_gdf
-            labels_to_burn_gdf.loc[:, "burn_value"] = None  # type: ignore
+            labels_to_burn_gdf.loc[:, "burn_value"] = None
             for classname in classes:
                 labels_to_burn_gdf.loc[
                     (
@@ -527,16 +579,12 @@ def prepare_labeldata(
                         )
                     ),
                     "burn_value",
-                ] = classes[
-                    classname
-                ][  # type: ignore
-                    "burn_value"
-                ]  # type: ignore
+                ] = classes[classname]["burn_value"]
 
             # Check if there are invalid class names
             invalid_gdf = labels_to_burn_gdf.loc[
                 labels_to_burn_gdf["burn_value"].isnull()
-            ]  # type: ignore
+            ]
             for _, invalid_row in invalid_gdf.iterrows():
                 errors_found.append(
                     f"Invalid classname in {Path(invalid_row['path']).name}: "
@@ -546,7 +594,7 @@ def prepare_labeldata(
             # Filter away rows that are going to burn 0, as this is useless...
             labels_to_burn_gdf = labels_to_burn_gdf.loc[
                 labels_to_burn_gdf["burn_value"] != 0
-            ].copy()  # type: ignore
+            ].copy()
 
         elif len(classes) == 2:
             # There is no column with label names, but there are only 2 classes
@@ -556,7 +604,7 @@ def prepare_labeldata(
                 f"{label_info.polygons_path.name}"
             )
             labels_to_burn_gdf = labelpolygons_gdf
-            labels_to_burn_gdf.loc[:, "burn_value"] = 1  # type: ignore
+            labels_to_burn_gdf.loc[:, "burn_value"] = 1
 
         else:
             # There is no column with label names, but more than two classes, so stop.
@@ -581,9 +629,9 @@ def prepare_labeldata(
             ].copy()
 
         # Make sure all label polygons are valid
-        labels_to_burn_gdf.loc[  # type: ignore
-            :, "is_valid_reason"
-        ] = vector_util.is_valid_reason(labels_to_burn_gdf.geometry)
+        labels_to_burn_gdf.loc[:, "is_valid_reason"] = vector_util.is_valid_reason(
+            labels_to_burn_gdf.geometry
+        )
         invalid_gdf = labels_to_burn_gdf.query("is_valid_reason != 'Valid Geometry'")
         for invalid in invalid_gdf.itertuples():
             errors_found.append(
@@ -619,7 +667,9 @@ def create_tmp_dir(
     parent_dir: Path, dir_name: str, remove_existing: bool = False
 ) -> Path:
     """
-    Helper function to create a 'TMP' dir based on a directory name:
+    Helper function to create a 'TMP' dir based on a directory name.
+
+    The temp dir will be named like this:
         parent_dir / <dir_name>_TMP_<sequence>
 
     Use: if you want to write data to a directory in a "transactional way",
@@ -732,7 +782,7 @@ def _create_mask(
         labels_to_burn_gdf.intersects(
             sh_geom.box(bounds.left, bounds.bottom, bounds.right, bounds.top)
         )
-    ].copy()  # type: ignore
+    ].copy()
 
     # Burn the vectors in a mask
     burn_shapes = [
@@ -750,8 +800,8 @@ def _create_mask(
                 dtype=rio.uint8,
                 fill=0,
                 out_shape=(
-                    image_output_profile["width"],  # type: ignore
-                    image_output_profile["height"],  # type: ignore
+                    image_output_profile["width"],
+                    image_output_profile["height"],
                 ),
             )
 
@@ -760,8 +810,8 @@ def _create_mask(
     else:
         mask_arr = np.zeros(
             shape=(
-                image_output_profile["width"],  # type: ignore
-                image_output_profile["height"],  # type: ignore
+                image_output_profile["width"],
+                image_output_profile["height"],
             ),
             dtype=rio.uint8,
         )
