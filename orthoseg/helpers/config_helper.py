@@ -332,9 +332,9 @@ def _search_label_files(
     labelpolygons_pattern: Path, labellocations_pattern: Path
 ) -> List[LabelInfo]:
     if not labelpolygons_pattern.parent.exists():
-        raise ValueError(f"Label dir {labelpolygons_pattern.parent} doesn't exist")
+        raise ValueError(f"Label dir doesn't exist: {labelpolygons_pattern.parent}")
     if not labellocations_pattern.parent.exists():
-        raise ValueError(f"Label dir {labellocations_pattern.parent} doesn't exist")
+        raise ValueError(f"Label dir doesn't exist: {labellocations_pattern.parent}")
 
     label_infos = []
     labelpolygons_pattern_searchpath = Path(
@@ -358,7 +358,7 @@ def _search_label_files(
     for labellocations_path in labellocations_paths:
         tokens = _unformat(labellocations_path.stem, labellocations_pattern.stem)
         if "image_layer" not in tokens:
-            raise ValueError(
+            raise ValueError(  # pragma: no cover
                 f"image_layer token not found in {labellocations_path} using pattern "
                 f"{labellocations_pattern}"
             )
@@ -369,7 +369,7 @@ def _search_label_files(
         for labelpolygons_path in labelpolygons_paths:
             tokens = _unformat(labelpolygons_path.stem, labelpolygons_pattern.stem)
             if "image_layer" not in tokens:
-                raise ValueError(
+                raise ValueError(  # pragma: no cover
                     f"image_layer token not found in {labelpolygons_path} using "
                     f"pattern {labelpolygons_pattern}"
                 )
@@ -402,7 +402,7 @@ def _unformat(string: str, pattern: str) -> dict:
         _dict = dict(zip(keys, values))
         return _dict
     else:
-        raise Exception(f"Error: pattern {pattern} not found in {string}")
+        raise ValueError(f"pattern {pattern} not found in {string}")
 
 
 def _str2list(input: Optional[str]):

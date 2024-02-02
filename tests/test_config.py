@@ -22,19 +22,19 @@ def test_prepare_train_label_infos():
     image_layers = {"BEFL-2019": {}, "BEFL-2020": {}, "BEFL-2021": {}, "BEFL-2022": {}}
     label_datasources = {
         "label_ds1": {
-            "data_path": str(TestData.dir / "footballfields_BEFL-2019_data.gpkg"),
             "locations_path": str(
                 TestData.dir / "footballfields_BEFL-2019_locations.gpkg"
             ),
+            "polygons_path": str(TestData.dir / "footballfields_BEFL-2019_data.gpkg"),
             "pixel_x_size": 1,
             "pixel_y_size": 2,
             "image_layer": "BEFL-2021",
         },
         "label_ds2": {
-            "data_path": str(TestData.dir / "footballfields_BEFL-2022_data.gpkg"),
             "locations_path": str(
                 TestData.dir / "footballfields_BEFL-2022_locations.gpkg"
             ),
+            "data_path": str(TestData.dir / "footballfields_BEFL-2022_data.gpkg"),
             "pixel_x_size": 5,
             "pixel_y_size": 6,
             "image_layer": "BEFL-2022",
@@ -61,16 +61,14 @@ def test_prepare_train_label_infos():
 
 
 def test_prepare_train_label_infos_invalid_layer():
-    labeldata_template = TestData.dir / "footballfields_{image_layer}_data.gpkg"
-    labellocation_template = (
-        TestData.dir / "footballfields_{image_layer}_locations.gpkg"
-    )
+    labeldata_pattern = TestData.dir / "footballfields_{image_layer}_data.gpkg"
+    labellocation_pattern = TestData.dir / "footballfields_{image_layer}_locations.gpkg"
     image_layers = {"BEFL-2019": {}}
 
     with pytest.raises(ValueError, match="invalid image_layer in <LabelInfo"):
         _ = conf._prepare_train_label_infos(
-            labeldata_template,
-            labellocation_template,
+            labeldata_pattern,
+            labellocation_pattern,
             label_datasources={},
             image_layers=image_layers,
         )
@@ -84,3 +82,36 @@ def test_search_label_files():
     assert len(results) == 2
     for result in results:
         assert isinstance(result, LabelInfo)
+
+
+def test_search_label_files_invalid_dir():
+    invalid_dir = TestData.dir / "unexisting"
+    labelpolygons_pattern = TestData.dir / "footballfields_{image_layer}_data.gpkg"
+    labellocation_pattern = invalid_dir / "footballfields_{image_layer}_locations.gpkg"
+
+    with pytest.raises(ValueError, match="Label dir doesn't exist"):
+        _ = conf._search_label_files(labelpolygons_pattern, labellocation_pattern)
+
+    labelpolygons_pattern = invalid_dir / "footballfields_{image_layer}_data.gpkg"
+    labellocation_pattern = TestData.dir / "footballfields_{image_layer}_locations.gpkg"
+
+    with pytest.raises(ValueError, match="Label dir doesn't exist"):
+        _ = conf._search_label_files(labelpolygons_pattern, labellocation_pattern)
+
+
+def test_unformat():
+    result = conf._unformat(
+        "footballfields_BEFL-2018_data.gpkg",
+        pattern="footballfields_{image_layer}_data.gpkg",
+    )
+    assert result == {"image_layer": "BEFL-2018"}
+
+
+def test_unformat_error():
+    with pytest.raises(
+        ValueError, match="pattern fields_{image_layer}_data.gpkg not found"
+    ):
+        _ = conf._unformat(
+            "fields_BEFL-2018_polygons.gpkg",
+            pattern="fields_{image_layer}_data.gpkg",
+        )
