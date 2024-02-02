@@ -40,6 +40,17 @@ class LabelInfo:
         locations_gdf: Optional[gpd.GeoDataFrame] = None,
         polygons_gdf: Optional[gpd.GeoDataFrame] = None,
     ):
+        """_summary_
+
+        Args:
+            locations_path (Path): _description_
+            polygons_path (Path): _description_
+            image_layer (str): _description_
+            pixel_x_size (Optional[float], optional): _description_. Defaults to None.
+            pixel_y_size (Optional[float], optional): _description_. Defaults to None.
+            locations_gdf (Optional[gpd.GeoDataFrame], optional): _description_. Defaults to None.
+            polygons_gdf (Optional[gpd.GeoDataFrame], optional): _description_. Defaults to None.
+        """
         self.locations_path = locations_path
         self.polygons_path = polygons_path
         self.image_layer = image_layer
@@ -342,10 +353,10 @@ def prepare_labeldata(
             label class names + weights.
         labelname_column (str): the column name in the label polygon files where the
             label classname can be found. Defaults to "classname".
-        image_pixel_width (int):
-        image_pixel_height (int):
-        image_pixel_x_size (float):
-        image_pixel_y_size (float):
+        image_pixel_width (int): descr
+        image_pixel_height (int): descr
+        image_pixel_x_size (float): descr
+        image_pixel_y_size (float): descr
 
     Raises:
         ValidationError: if the data is somehow not valid. All issues are listed in the
