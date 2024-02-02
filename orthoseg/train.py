@@ -103,6 +103,13 @@ def train(config_path: Path):
 
         # If the training data doesn't exist yet, create it
         # -------------------------------------------------
+        if conf.train_label_infos is None or len(conf.train_label_infos) == 0:
+            raise ValueError(
+                "No valid label file config found in train.label_datasources or "
+                f"with patterns {conf.train.get('labelpolygons_pattern')} and "
+                f"{conf.train.get('labellocations_pattern')}"
+            )
+
         # Determine the projection of (the first) train layer... it will be used for all
         train_image_layer = conf.train_label_infos[0].image_layer
         train_projection = conf.image_layers[train_image_layer]["projection"]
