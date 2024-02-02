@@ -6,6 +6,7 @@ import pytest
 import rasterio as rio
 
 from orthoseg.util import ows_util
+from tests import test_helper
 from tests.test_helper import TestData
 
 
@@ -76,7 +77,7 @@ def test_has_switched_axes(crs_epsg: int, has_switched_axes: bool):
 def test_getmap_to_file_filelayer(tmp_path):
     # Init some stuff
     filelayer_path = (
-        TestData.sampleprojects_dir
+        test_helper.sampleprojects_dir
         / "fields/input_raster"
         / "BEFL-TEST-s2_2023-05-01_2023-07-01_B08-B04-B03_min_byte.tif"
     )

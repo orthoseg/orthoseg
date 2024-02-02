@@ -10,6 +10,8 @@ from shapely import geometry as sh_geom
 import geopandas as gpd
 import geofileops as gfo
 
+from tests import test_helper
+
 # Make hdf5 version warning non-blocking
 os.environ["HDF5_DISABLE_VERSION_CHECK"] = "1"
 
@@ -293,7 +295,7 @@ def test_prepare_labeldata_polygons_columnname_backw_compat(tmp_path):
 def test_prepare_traindata_full(tmp_path):
     # Prepare test data
     classes = TestData.classes
-    image_layers_config_path = TestData.sampleprojects_dir / "imagelayers.ini"
+    image_layers_config_path = test_helper.sampleprojects_dir / "imagelayers.ini"
     image_layers = config_helper._read_layer_config(image_layers_config_path)
     label_infos = _prepare_labelinfos(tmp_path)
 
