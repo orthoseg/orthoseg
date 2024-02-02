@@ -1,9 +1,13 @@
+"""
+Configuration setting to build the orthoseg package.
+"""
+
 import setuptools
 
-with open("README.md", "r") as fh:
+with open("README.md") as fh:
     long_description = fh.read()
 
-with open("orthoseg/version.txt", mode="r") as file:
+with open("orthoseg/version.txt") as file:
     version = file.readline()
 
 setuptools.setup(

@@ -68,7 +68,7 @@ def test_reclassify_neighbours(tmp_path):
         ],
     ]
     df = pd.DataFrame(testdata, columns=columns)
-    testdata_gdf = gpd.GeoDataFrame(df, geometry="geometry")  # type: ignore
+    testdata_gdf = gpd.GeoDataFrame(df, geometry="geometry")
     # Remove a row to test if the index is properly maintained
     testdata_gdf = testdata_gdf.drop([2], axis=0)
     testdata_path = tmp_path / "testdata.gpkg"

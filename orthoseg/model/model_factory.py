@@ -7,6 +7,7 @@ and contains extra metrics, callbacks,...
 Many models are supported by using this segmentation model zoo:
 https://github.com/qubvel/segmentation_models
 """
+
 import json
 import logging
 import os
@@ -55,12 +56,8 @@ def get_model(
             training. It is usefull to use this option for the first few
             epochs get a more robust network. Defaults to False.
 
-    Raises:
-        Exception: [description]
-        Exception: [description]
-
     Returns:
-        [type]: [description]
+        Model: the model.
     """
     # Check architecture
     segment_architecture_parts = architecture.split("+")
@@ -165,7 +162,7 @@ def compile_model(
         )
         metric_funcs.append(onehot_mean_iou)
     else:
-        raise Exception("Specifying metrics not yet implemented")
+        raise ValueError("Specifying metrics not yet implemented")
 
     # Check loss function
     if loss == "bcedice":
@@ -176,7 +173,7 @@ def compile_model(
         loss_func = segmentation_models.losses.JaccardLoss()
     elif loss == "weighted_categorical_crossentropy":
         if class_weights is None:
-            raise Exception(f"With loss == {loss}, class_weights cannot be None!")
+            raise ValueError(f"With loss == {loss}, class_weights cannot be None!")
         loss_func = weighted_categorical_crossentropy(class_weights)
     else:
         loss_func = loss
@@ -185,7 +182,7 @@ def compile_model(
     if optimizer == "adam":
         optimizer_func = tf.keras.optimizers.Adam(**optimizer_params)
     else:
-        raise Exception(
+        raise ValueError(
             f"Error creating optimizer: {optimizer}, with params {optimizer_params}"
         )
 
@@ -345,22 +342,39 @@ def load_model(model_to_use_filepath: Path, compile: bool = True) -> keras.model
             )
         raise Exception(f"Error loading model for {model_to_use_filepath}.{errors_str}")
 
-    return model  # type: ignore
+    return model
 
 
 def set_trainable(model, recompile: bool = True):
+    """
+    Set the model trainable.
+
+    Args:
+        model (_type_): model to set trainable.
+        recompile (bool, optional): True to recompile the model so it is ready to train.
+            Defaults to True.
+    """
     import segmentation_models
 
-    segmentation_models.utils.set_trainable(
-        model=model, recompile=recompile
-    )  # doesn't seem to work, so save and load model
+    # doesn't seem to work, so save and load model
+    segmentation_models.utils.set_trainable(model=model, recompile=recompile)
 
 
 def check_image_size(architecture: str, input_width: int, input_height: int):
+    """
+    Check if the image size is compatible with the architecture.
+
+    A ValueError is raised if the architecture is not compatible with the size.
+
+    Args:
+        architecture (str): architecture to check compatibility for.
+        input_width (int): image width.
+        input_height (int): image height.
+    """
     # Check architecture
     segment_architecture_parts = architecture.split("+")
     if len(segment_architecture_parts) < 2:
-        raise Exception(f"Unsupported architecture: {architecture}")
+        raise ValueError(f"Unsupported architecture: {architecture}")
     # encoder = segment_architecture_parts[0]
     decoder = segment_architecture_parts[1]
 
@@ -382,14 +396,15 @@ def check_image_size(architecture: str, input_width: int, input_height: int):
 
 
 def weighted_categorical_crossentropy(weights):
-    """weighted_categorical_crossentropy
+    """
+    Loss function using weighted categorical crossentropy.
 
     Args:
-        * weights<ktensor|nparray|list>: crossentropy weights
+        weights (ktensor|nparray|list): crossentropy weights
     Returns:
-        * weighted categorical crossentropy function
+        weighted categorical crossentropy function
     """
-    if isinstance(weights, list) or isinstance(weights, np.ndarray):
+    if isinstance(weights, (list, np.ndarray)):
         weights = tf.keras.backend.variable(weights)
 
     def loss(target, output, from_logits=False):
@@ -398,11 +413,9 @@ def weighted_categorical_crossentropy(weights):
             _epsilon = tf.convert_to_tensor(
                 tf.keras.backend.epsilon(), dtype=output.dtype.base_dtype
             )
-            output = tf.clip_by_value(output, _epsilon, 1.0 - _epsilon)  # type: ignore
+            output = tf.clip_by_value(output, _epsilon, 1.0 - _epsilon)
             weighted_losses = target * tf.math.log(output) * weights
-            retval = -tf.reduce_sum(
-                weighted_losses, len(output.get_shape()) - 1  # type: ignore
-            )
+            retval = -tf.reduce_sum(weighted_losses, len(output.get_shape()) - 1)
             return retval
         else:
             raise ValueError("WeightedCategoricalCrossentropy: not valid with logits")
@@ -411,20 +424,40 @@ def weighted_categorical_crossentropy(weights):
 
 
 def dice_coef_loss(y_true, y_pred):
+    """
+    Loss function based of dice coefficient.
+
+    Args:
+        y_true (_type_): _description_
+        y_pred (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    """
     return 1 - dice_coef(y_true, y_pred)
 
 
 def bootstrapped_crossentropy(y_true, y_pred, bootstrap_type="hard", alpha=0.95):
+    """
+    Loss function based on cross entropy with a bootstrap.
+
+    Args:
+        y_true (_type_): _description_
+        y_pred (_type_): _description_
+        bootstrap_type (str, optional): _description_. Defaults to "hard".
+        alpha (float, optional): _description_. Defaults to 0.95.
+
+    Returns:
+        _type_: _description_
+    """
     target_tensor = y_true
     prediction_tensor = y_pred
     _epsilon = tf.convert_to_tensor(
         tf.keras.backend.epsilon(), prediction_tensor.dtype.base_dtype
     )
-    prediction_tensor = tf.clip_by_value(
-        prediction_tensor, _epsilon, 1 - _epsilon  # type: ignore
-    )
+    prediction_tensor = tf.clip_by_value(prediction_tensor, _epsilon, 1 - _epsilon)
     prediction_tensor = tf.keras.backend.log(
-        prediction_tensor / (1 - prediction_tensor)  # type: ignore
+        prediction_tensor / (1 - prediction_tensor)
     )
 
     if bootstrap_type == "soft":
@@ -434,7 +467,7 @@ def bootstrapped_crossentropy(y_true, y_pred, bootstrap_type="hard", alpha=0.95)
     else:
         bootstrap_target_tensor = alpha * target_tensor + (1.0 - alpha) * tf.cast(
             tf.sigmoid(prediction_tensor) > 0.5, tf.float32
-        )  # type: ignore
+        )
     return tf.keras.backend.mean(
         tf.nn.sigmoid_cross_entropy_with_logits(
             labels=bootstrap_target_tensor, logits=prediction_tensor
@@ -443,6 +476,16 @@ def bootstrapped_crossentropy(y_true, y_pred, bootstrap_type="hard", alpha=0.95)
 
 
 def dice_coef_loss_bce(y_true, y_pred):
+    """
+    Loss function based on dice coefficient with bootstrapping.
+
+    Args:
+        y_true (_type_): _description_
+        y_pred (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    """
     dice = 0.5
     bce = 0.5
     bootstrapping = "hard"
@@ -461,6 +504,16 @@ SMOOTH_LOSS = 1e-12
 
 
 def jaccard_coef(y_true, y_pred):
+    """
+    Metric jaccard coefficient aka intersection over union.
+
+    Args:
+        y_true (_type_): _description_
+        y_pred (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    """
     intersection = tf.keras.backend.sum(y_true * y_pred, axis=[0, -1, -2])
     sum_ = tf.keras.backend.sum(y_true + y_pred, axis=[0, -1, -2])
 
@@ -470,6 +523,16 @@ def jaccard_coef(y_true, y_pred):
 
 
 def jaccard_coef_round(y_true, y_pred):
+    """
+    Metric jaccard coefficient aka intersection over union with rounding.
+
+    Args:
+        y_true (_type_): _description_
+        y_pred (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    """
     y_pred_pos = tf.keras.backend.round(tf.keras.backend.clip(y_pred, 0, 1))
 
     intersection = tf.keras.backend.sum(y_true * y_pred_pos, axis=[0, -1, -2])
@@ -479,6 +542,16 @@ def jaccard_coef_round(y_true, y_pred):
 
 
 def jaccard_coef_flat(y_true, y_pred):
+    """
+    Metric jaccard coefficient aka intersection over union with flattening.
+
+    Args:
+        y_true (_type_): _description_
+        y_pred (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    """
     y_true_f = tf.keras.backend.flatten(y_true)
     y_pred_f = tf.keras.backend.flatten(y_pred)
     intersection = tf.keras.backend.sum(y_true_f * y_pred_f)
@@ -491,6 +564,17 @@ def jaccard_coef_flat(y_true, y_pred):
 
 
 def dice_coef(y_true, y_pred, smooth=1.0):
+    """
+    Metric dice coefficient.
+
+    Args:
+        y_true (_type_): _description_
+        y_pred (_type_): _description_
+        smooth (float, optional): _description_. Defaults to 1.0.
+
+    Returns:
+        _type_: _description_
+    """
     y_true_f = tf.keras.backend.flatten(y_true)
     y_pred_f = tf.keras.backend.flatten(y_pred)
     intersection = tf.keras.backend.sum(y_true_f * y_pred_f)
@@ -500,6 +584,16 @@ def dice_coef(y_true, y_pred, smooth=1.0):
 
 
 def pct_wrong(y_true, y_pred):
+    """
+    Metric percentage wrong.
+
+    Args:
+        y_true (_type_): _description_
+        y_pred (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    """
     y_pred_pos = tf.keras.backend.round(tf.keras.backend.clip(y_pred, 0, 1))
 
     intersection = tf.keras.backend.sum(y_true * y_pred_pos, axis=[0, -1, -2])

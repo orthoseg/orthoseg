@@ -1,6 +1,7 @@
 """
 Run the scripts in a directory.
 """
+
 import argparse
 import configparser
 from pathlib import Path
@@ -14,6 +15,9 @@ runner_config = None
 
 
 def main():
+    """
+    Main.
+    """
     # Interprete arguments
     parser = argparse.ArgumentParser(add_help=False)
 
@@ -154,6 +158,16 @@ def main():
 def load_scriptrunner_config(
     config_path: str, script_dir: Path
 ) -> configparser.ConfigParser:
+    """
+    Load the configuration of scriptrunner.
+
+    Args:
+        config_path (str): config file to load.
+        script_dir (Path): _description_
+
+    Returns:
+        configparser.ConfigParser: _description_
+    """
     # Load defaults first
     scriptrunner_py_dir = Path(__file__).resolve().parent
     config_paths = [scriptrunner_py_dir / "scriptrunner_defaults.ini"]

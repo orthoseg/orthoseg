@@ -1,6 +1,7 @@
 """
 High-level API to run a segmentation.
 """
+
 import argparse
 import logging
 from pathlib import Path
@@ -24,12 +25,12 @@ from orthoseg.util import log_util
 logger = logging.getLogger(__name__)
 
 
-def predict_argstr(argstr):
+def _predict_argstr(argstr):
     args = shlex.split(argstr)
-    predict_args(args)
+    _predict_args(args)
 
 
-def predict_args(args):
+def _predict_args(args):
     # Interprete arguments
     parser = argparse.ArgumentParser(add_help=False)
 
@@ -221,7 +222,9 @@ def predict(config_path: Path):
             # If multiple GPU's available, create multi_gpu_model
             try:
                 model_for_predict = model
-                logger.warn("Predict using multiple GPUs NOT IMPLEMENTED AT THE MOMENT")
+                logger.warning(
+                    "Predict using multiple GPUs NOT IMPLEMENTED AT THE MOMENT"
+                )
 
                 # logger.info(
                 #     f"Predict using multiple GPUs: {nb_gpu}, batch size becomes: "
@@ -270,7 +273,7 @@ def predict(config_path: Path):
         # Predict for entire dataset
         nb_parallel = conf.general.getint("nb_parallel")
         predicter.predict_dir(
-            model=model_for_predict,  # type: ignore
+            model=model_for_predict,
             input_image_dir=input_image_dir,
             output_image_dir=predict_output_dir,
             output_vector_path=output_vector_path,
@@ -301,8 +304,11 @@ def predict(config_path: Path):
 
 
 def main():
+    """
+    Run predict.
+    """
     try:
-        predict_args(sys.argv[1:])
+        _predict_args(sys.argv[1:])
     except Exception as ex:
         logger.exception(f"Error: {ex}")
         raise

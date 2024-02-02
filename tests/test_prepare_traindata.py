@@ -26,7 +26,7 @@ def _prepare_locations_file(
     if locations is None:
         locations = TestData.locations_gdf
     if isinstance(locations, dict):
-        locations = gpd.GeoDataFrame(locations, crs="EPSG:31370")  # type: ignore
+        locations = gpd.GeoDataFrame(locations, crs="EPSG:31370")
 
     gfo.to_file(locations, locations_path)
     return locations_path
@@ -39,7 +39,7 @@ def _prepare_polygons_file(
     if polygons is None:
         polygons = TestData.polygons_gdf
     if isinstance(polygons, dict):
-        polygons = gpd.GeoDataFrame(polygons, crs="EPSG:31370")  # type: ignore
+        polygons = gpd.GeoDataFrame(polygons, crs="EPSG:31370")
 
     gfo.to_file(polygons, polygons_path)
     return polygons_path
@@ -80,7 +80,7 @@ def test_prepare_labeldata_locations(geometry, traindata_type, expected_len_loca
             "traindata_type": ["train", traindata_type, traindata_type, "validation"],
             "path": "/tmp/locations.gdf",
         },
-        crs="EPSG:31370",  # type: ignore
+        crs="EPSG:31370",
     )
     label_info = prep_traindata.LabelInfo(
         locations_path=Path("locations"),
@@ -141,7 +141,7 @@ def test_prepare_labeldata_locations_invalid(
             "traindata_type": traindata_types,
             "path": "/tmp/locations.gdf",
         },
-        crs="EPSG:31370",  # type: ignore
+        crs="EPSG:31370",
     )
     label_info = prep_traindata.LabelInfo(
         locations_path=Path("locations"),
@@ -186,7 +186,7 @@ def test_prepare_labeldata_polygons(geometry, classname, expected_len_polygons):
             "classname": ["testlabel1", classname, classname, "testlabel2"],
             "path": "/tmp/polygons.gdf",
         },
-        crs="EPSG:31370",  # type: ignore
+        crs="EPSG:31370",
     )
     label_info = prep_traindata.LabelInfo(
         locations_path=Path("locations"),
@@ -228,7 +228,7 @@ def test_prepare_labeldata_polygons_invalid(expected_error, geometry, classname)
             "classname": ["testlabel1", classname, classname, "testlabel2"],
             "path": "/tmp/polygons.gdf",
         },
-        crs="EPSG:31370",  # type: ignore
+        crs="EPSG:31370",
     )
     label_info = prep_traindata.LabelInfo(
         locations_path=Path("locations"),
@@ -265,7 +265,7 @@ def test_prepare_labeldata_polygons_columnname_backw_compat(tmp_path):
             "label_name": ["testlabel1", "testlabel2"],
             "path": "/tmp/polygons.gdf",
         },
-        crs="EPSG:31370",  # type: ignore
+        crs="EPSG:31370",
     )
     label_info = prep_traindata.LabelInfo(
         locations_path=Path("locations"),
