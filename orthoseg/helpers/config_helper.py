@@ -113,9 +113,15 @@ def read_orthoseg_config(config_path: Path):
     global image_layers
     image_layers = _read_layer_config(layer_config_filepath=layer_config_filepath)
 
-    # Add further prepared train.label_info information
-    global train_label_infos
-    train_label_infos = _prepare_train_label_infos(
+
+def get_train_label_infos() -> List[LabelInfo]:
+    """
+    Searches and returns LabelInfos that can be used to create a training dataset.
+
+    Returns:
+        List[LabelInfo]: List of LabelInfos found.
+    """
+    return _prepare_train_label_infos(
         labelpolygons_pattern=train.getpath("labelpolygons_pattern"),
         labellocations_pattern=train.getpath("labellocations_pattern"),
         label_datasources=train.getdict("label_datasources", None),
