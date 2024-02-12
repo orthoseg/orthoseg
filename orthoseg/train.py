@@ -103,7 +103,8 @@ def train(config_path: Path):
 
         # If the training data doesn't exist yet, create it
         # -------------------------------------------------
-        if conf.train_label_infos is None or len(conf.train_label_infos) == 0:
+        train_label_infos = conf.get_train_label_infos()
+        if train_label_infos is None or len(train_label_infos) == 0:
             raise ValueError(
                 "No valid label file config found in train.label_datasources or "
                 f"with patterns {conf.train.get('labelpolygons_pattern')} and "
@@ -111,7 +112,7 @@ def train(config_path: Path):
             )
 
         # Determine the projection of (the first) train layer... it will be used for all
-        train_image_layer = conf.train_label_infos[0].image_layer
+        train_image_layer = train_label_infos[0].image_layer
         train_projection = conf.image_layers[train_image_layer]["projection"]
 
         # Determine classes
@@ -137,7 +138,7 @@ def train(config_path: Path):
         else:
             logger.info("Prepare train, validation and test data")
             training_dir, traindata_id = prep.prepare_traindatasets(
-                label_infos=conf.train_label_infos,
+                label_infos=train_label_infos,
                 classes=classes,
                 image_layers=conf.image_layers,
                 training_dir=conf.dirs.getpath("training_dir"),
