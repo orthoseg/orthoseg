@@ -179,6 +179,8 @@ def _read_layer_config(layer_config_filepath: Path) -> dict:
                 "wms_layernames",
                 "wms_layerstyles",
                 "bands",
+                "wms_username",
+                "wms_password",
                 "random_sleep",
                 "wms_ignore_capabilities_url",
                 "path",
@@ -202,6 +204,8 @@ def _read_layer_config(layer_config_filepath: Path) -> dict:
                         layernames=_str2list(layersource["wms_layernames"]),
                         layerstyles=_str2list(layersource.get("wms_layerstyles")),
                         bands=_str2intlist(layersource.get("bands", None)),
+                        username=layersource.get("wms_username", None),
+                        password=layersource.get("wms_password", None),
                         random_sleep=int(layersource.get("random_sleep", 0)),
                         wms_ignore_capabilities_url=_str2bool(
                             layersource.get("wms_ignore_capabilities_url", False)
