@@ -24,7 +24,7 @@ setuptools.setup(
     install_requires=[
         "gdown",
         "geofileops>=0.6,<0.9",
-        "geopandas>=0.12",
+        "geopandas>=0.12,<1",
         "owslib",
         "pillow",
         "pycron",
