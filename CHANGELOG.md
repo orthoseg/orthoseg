@@ -14,7 +14,7 @@
 
 ### Deprecations and compatibility notes
 
-- Change default nb_concurrent_calls when downloading layer to 1 instead of 6 (#)
+- Change default nb_concurrent_calls when downloading layer to 1 instead of 6 (##149)
 
 ## 0.5.0 (2023-07-27)
 
