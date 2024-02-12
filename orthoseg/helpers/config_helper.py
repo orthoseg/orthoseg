@@ -237,7 +237,7 @@ def _read_layer_config(layer_config_filepath: Path) -> dict:
         # Read nb_concurrent calls param
         image_layers[image_layer]["nb_concurrent_calls"] = layer_config[
             image_layer
-        ].getint("nb_concurrent_calls", fallback=6)
+        ].getint("nb_concurrent_calls", fallback=1)
 
         # Check if a region of interest is specified as file or bbox
         image_layers[image_layer]["roi_filepath"] = layer_config[image_layer].getpath(
