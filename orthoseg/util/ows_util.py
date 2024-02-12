@@ -65,6 +65,8 @@ class WMSLayerSource:
         layernames: List[str],
         layerstyles: Optional[List[str]] = None,
         bands: Optional[List[int]] = None,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
         wms_version: str = "1.3.0",
         wms_ignore_capabilities_url: bool = False,
         random_sleep: int = 0,
@@ -83,6 +85,8 @@ class WMSLayerSource:
             layerstyles (Optional[List[str]], optional): _description_.
                 Defaults to None.
             bands (Optional[List[int]], optional): _description_. Defaults to None.
+            username (str, optional): username to logon with. Defaults to None.
+            password (str, optional): password to logon with. Defaults to None.
             wms_version (str, optional): _description_. Defaults to "1.3.0".
             wms_ignore_capabilities_url (bool, optional): _description_.
                 Defaults to False.
@@ -95,6 +99,8 @@ class WMSLayerSource:
         self.layernames = layernames
         self.layerstyles = layerstyles
         self.bands = bands
+        self.username = username
+        self.password = password
         self.random_sleep = random_sleep
         self.wms_service = wms_service
 
@@ -613,6 +619,8 @@ def getmap_to_file(
                     wms_service = owslib.wms.WebMapService(
                         url=layersource.wms_server_url,
                         version=layersource.wms_version,
+                        username=layersource.username,
+                        password=layersource.password,
                         auth=auth,
                     )
                     if layersource.wms_ignore_capabilities_url:
