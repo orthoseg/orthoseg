@@ -20,7 +20,7 @@ illegal_chars_in_codes = ["_", ",", ".", "?", ":"]
 
 def get_config_files(config_path: Path) -> List[Path]:
     """
-    Get the list of all relevant config files.
+    Get the list of all relevant config files, with the last ones overruling prior ones.
 
     Args:
         config_path (Path): base config file.

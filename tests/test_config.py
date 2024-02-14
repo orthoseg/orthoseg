@@ -6,12 +6,66 @@ from tests.test_helper import SampleProjectFootball
 from tests.test_helper import TestData
 
 
-def test_read_orthoseg_config_predict():
+def test_read_orthoseg_config_image_layers():
     # Load project config to init some vars.
     conf.read_orthoseg_config(SampleProjectFootball.predict_config_path)
 
     layer = conf.image_layers.get("BEFL-2019")
     assert layer is not None
+
+
+@pytest.mark.parametrize(
+    "overrules, expected_image_layer",
+    [
+        (None, "BEFL-2019"),
+        ([], "BEFL-2019"),
+        (["predict.image_layer=BEFL-2020"], "BEFL-2020"),
+    ],
+)
+def test_read_orthoseg_config_predict_overrules(overrules, expected_image_layer):
+    # Load project config to test overrules.
+    kwargs = {}
+    if overrules is not None:
+        kwargs["overrules"] = overrules
+    conf.read_orthoseg_config(SampleProjectFootball.predict_config_path, **kwargs)
+
+    image_layer = conf.predict.get("image_layer")
+    assert image_layer == expected_image_layer
+
+
+@pytest.mark.parametrize(
+    "overrules",
+    [["predictimage_layer=BEFL-2020"], ["predict.image_layerBEFL-2020"]],
+)
+def test_read_orthoseg_config_predict_overrules_invalid(overrules):
+    """Test with invalid overrules: one without '=' and one without '.'."""
+    # Load project config to test overrules.
+    with pytest.raises(ValueError, match="invalid config overrule found"):
+        conf.read_orthoseg_config(
+            SampleProjectFootball.predict_config_path, overrules=overrules
+        )
+
+
+@pytest.mark.parametrize(
+    "overrules, expected_image_layer",
+    [
+        (None, None),
+        ([], None),
+        (["train.image_layer=BEFL-2020"], "BEFL-2020"),
+    ],
+)
+def test_read_orthoseg_config_train_overrules(overrules, expected_image_layer):
+    # Load project config to test overrules.
+    kwargs = {}
+    if overrules is not None:
+        kwargs["overrules"] = overrules
+    conf.read_orthoseg_config(SampleProjectFootball.train_config_path, **kwargs)
+
+    image_layer = conf.train.get("image_layer")
+    if expected_image_layer is None:
+        assert image_layer is None
+    else:
+        assert image_layer == expected_image_layer
 
 
 def test_prepare_train_label_infos():
