@@ -162,8 +162,8 @@ def get_tmp_dir() -> Path:
 
     if tmp_dir is None:
         tmp_dir = Path(tempfile.gettempdir()) / "orthoseg"
-        tmp_dir = Path(tempfile.mkdtemp(prefix="run_", dir=tmp_dir))
         tmp_dir.mkdir(parents=True, exist_ok=True)
+        tmp_dir = Path(tempfile.mkdtemp(prefix="run_", dir=tmp_dir))
 
     return tmp_dir
 
