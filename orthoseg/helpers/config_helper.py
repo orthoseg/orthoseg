@@ -8,6 +8,7 @@ import logging
 from pathlib import Path
 import pprint
 import re
+import tempfile
 from typing import Dict, List, Optional
 
 from orthoseg.util import config_util
@@ -21,6 +22,8 @@ logger = logging.getLogger(__name__)
 # Remark: '_' cannot be used because '_' is used as devider to parse filenames, and if
 # it is used in codes as well the parsing becomes a lot more difficult.
 illegal_chars_in_codes = ["_", ",", ".", "?", ":"]
+
+tmp_dir = None
 
 
 def pformat_config() -> str:
@@ -39,16 +42,48 @@ def pformat_config() -> str:
     return message
 
 
-def read_orthoseg_config(config_path: Path):
+def read_orthoseg_config(config_path: Path, overrules: List[str] = []):
     """
     Read an orthoseg configuration file.
 
     Args:
         config_path (Path): path to the configuration file to read.
+        overrules (List[str], optional): list of config options that will overrule other
+            ways to supply configuration. They should be specified as a list of
+            "<section>.<parameter>=<value>" strings. Defaults to [].
     """
     # Determine list of config files that should be loaded
     config_paths = config_util.get_config_files(config_path)
-    # Load them
+
+    # If there are overrules, write them to a temporary configuration file.
+    global config_overrules
+    config_overrules = overrules
+    global config_overrules_path
+    config_overrules_path = None
+    if len(config_overrules) > 0:
+        config_overrules_path = get_tmp_dir() / "config_overrules.ini"
+
+        # Create config parser, add all overrules
+        overrules_parser = configparser.ConfigParser()
+        for overrule in config_overrules:
+            parts = overrule.split("=")
+            if len(parts) != 2:
+                raise ValueError(f"invalid config overrule found: {overrule}")
+            key, value = parts
+            parts2 = key.split(".")
+            if len(parts2) != 2:
+                raise ValueError(f"invalid config overrule found: {overrule}")
+            section, parameter = parts2
+            if section not in overrules_parser:
+                overrules_parser[section] = {}
+            overrules_parser[section][parameter] = value
+
+        # Write to temp file and add file to config_paths
+        with open(config_overrules_path, "w") as overrules_file:
+            overrules_parser.write(overrules_file)
+        config_paths.append(config_overrules_path)
+
+    # Load configs
     global config
     config = config_util.read_config_ext(config_paths)
 
@@ -99,7 +134,7 @@ def read_orthoseg_config(config_path: Path):
     # of the project config file.
     projects_dir = dirs.getpath("projects_dir")
     if not projects_dir.is_absolute():
-        projects_dir_absolute = (config_paths[-1].parent / projects_dir).resolve()
+        projects_dir_absolute = (config_path.parent / projects_dir).resolve()
         logger.info(
             f"dirs.projects_dir was relative: is resolved to {projects_dir_absolute}"
         )
@@ -112,6 +147,25 @@ def read_orthoseg_config(config_path: Path):
 
     global image_layers
     image_layers = _read_layer_config(layer_config_filepath=layer_config_filepath)
+
+
+def get_tmp_dir() -> Path:
+    """
+    Get a temporary directory for this run.
+
+    If no temporary directory exists yet, it is created.
+
+    Returns:
+        Path: the path to the temporary directory.
+    """
+    global tmp_dir
+
+    if tmp_dir is None:
+        tmp_dir = Path(tempfile.gettempdir()) / "orthoseg"
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+        tmp_dir = Path(tempfile.mkdtemp(prefix="run_", dir=tmp_dir))
+
+    return tmp_dir
 
 
 def get_train_label_infos() -> List[LabelInfo]:

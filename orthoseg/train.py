@@ -8,8 +8,10 @@ import logging
 import os
 from pathlib import Path
 import shlex
+import shutil
 import sys
 import traceback
+from typing import List
 
 from tensorflow import keras as kr
 
@@ -51,25 +53,36 @@ def _train_args(args):
         default=argparse.SUPPRESS,
         help="Show this help message and exit",
     )
+    optional.add_argument(
+        "config_overrules",
+        nargs="*",
+        help=(
+            "Supply any number of config overrules like this: "
+            "<section>.<parameter>=<value>"
+        ),
+    )
 
     # Interprete arguments
     args = parser.parse_args(args)
 
     # Run!
-    train(config_path=Path(args.config))
+    train(config_path=Path(args.config), config_overrules=args.config_overrules)
 
 
-def train(config_path: Path):
+def train(config_path: Path, config_overrules: List[str] = []):
     """
     Run a training session for the config specified.
 
     Args:
         config_path (Path): Path to the config file to use.
+        config_overrules (List[str], optional): list of config options that will
+            overrule other ways to supply configuration. They should be specified in the
+            form of "<section>.<parameter>=<value>". Defaults to [].
     """
     # Init
     # Load the config and save in a bunch of global variables zo it
     # is accessible everywhere
-    conf.read_orthoseg_config(config_path)
+    conf.read_orthoseg_config(config_path, overrules=config_overrules)
 
     # Init logging
     log_util.clean_log_dir(
@@ -451,6 +464,8 @@ def train(config_path: Path):
             message_body = f"Exception: {ex}<br/><br/>{traceback.format_exc()}"
         email_helper.sendmail(subject=message, body=message_body)
         raise Exception(message) from ex
+    finally:
+        shutil.rmtree(conf.tmp_dir, ignore_errors=True)
 
 
 def main():
