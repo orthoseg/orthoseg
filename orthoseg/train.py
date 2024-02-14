@@ -465,7 +465,8 @@ def train(config_path: Path, config_overrules: List[str] = []):
         email_helper.sendmail(subject=message, body=message_body)
         raise Exception(message) from ex
     finally:
-        shutil.rmtree(conf.tmp_dir, ignore_errors=True)
+        if conf.tmp_dir is not None:
+            shutil.rmtree(conf.tmp_dir, ignore_errors=True)
 
 
 def main():
