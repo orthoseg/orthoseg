@@ -7,8 +7,10 @@ import logging
 from pathlib import Path
 import pprint
 import shlex
+import shutil
 import sys
 import traceback
+from typing import List
 
 # import os
 # os.environ["CUDA_VISIBLE_DEVICES"] = "-1" # Disable using GPU
@@ -50,25 +52,36 @@ def _predict_args(args):
         default=argparse.SUPPRESS,
         help="Show this help message and exit",
     )
+    optional.add_argument(
+        "config_overrules",
+        nargs="*",
+        help=(
+            "Supply any number of config overrules like this: "
+            "<section>.<parameter>=<value>"
+        ),
+    )
 
     # Interprete arguments
     args = parser.parse_args(args)
 
     # Run!
-    predict(config_path=Path(args.config))
+    predict(config_path=Path(args.config), config_overrules=args.config_overrules)
 
 
-def predict(config_path: Path):
+def predict(config_path: Path, config_overrules: List[str] = []):
     """
     Run a prediction for the config specified.
 
     Args:
         config_path (Path): Path to the config file to use.
+        config_overrules (List[str], optional): list of config options that will
+            overrule other ways to supply configuration. They should be specified in the
+            form of "<section>.<parameter>=<value>". Defaults to [].
     """
     # Init
     # Load the config and save in a bunch of global variables zo it
     # is accessible everywhere
-    conf.read_orthoseg_config(config_path)
+    conf.read_orthoseg_config(config_path, overrules=config_overrules)
 
     # Init logging
     log_util.clean_log_dir(
@@ -301,6 +314,8 @@ def predict(config_path: Path):
             subject=message, body=f"Exception: {ex}\n\n {traceback.format_exc()}"
         )
         raise Exception(message) from ex
+    finally:
+        shutil.rmtree(conf.tmp_dir, ignore_errors=True)
 
 
 def main():

@@ -6,8 +6,10 @@ import argparse
 import logging
 from pathlib import Path
 import shlex
+import shutil
 import sys
 import traceback
+from typing import List
 
 import pyproj
 
@@ -46,15 +48,27 @@ def _load_images_args(args):
         default=argparse.SUPPRESS,
         help="Show this help message and exit",
     )
+    optional.add_argument(
+        "config_overrules",
+        nargs="*",
+        help=(
+            "Supply any number of config overrules like this: "
+            "<section>.<parameter>=<value>"
+        ),
+    )
 
     # Interprete arguments
     args = parser.parse_args(args)
 
     # Run!
-    load_images(config_path=Path(args.config))
+    load_images(config_path=Path(args.config), config_overrules=args.config_overrules)
 
 
-def load_images(config_path: Path, load_testsample_images: bool = False):
+def load_images(
+    config_path: Path,
+    load_testsample_images: bool = False,
+    config_overrules: List[str] = [],
+):
     """
     Load and cache images for a segmentation project.
 
@@ -62,11 +76,14 @@ def load_images(config_path: Path, load_testsample_images: bool = False):
         config_path (Path): Path to the projects config file.
         load_testsample_images (bool, optional): True to only load testsample
             images. Defaults to False.
+        config_overrules (List[str], optional): list of config options that will
+            overrule other ways to supply configuration. They should be specified in the
+            form of "<section>.<parameter>=<value>". Defaults to [].
     """
     # Init
     # Load the config and save in a bunch of global variables zo it
     # is accessible everywhere
-    conf.read_orthoseg_config(config_path)
+    conf.read_orthoseg_config(config_path, overrules=config_overrules)
 
     # Init logging
     log_util.clean_log_dir(
@@ -173,6 +190,8 @@ def load_images(config_path: Path, load_testsample_images: bool = False):
             subject=message, body=f"Exception: {ex}\n\n {traceback.format_exc()}"
         )
         raise Exception(message) from ex
+    finally:
+        shutil.rmtree(conf.tmp_dir, ignore_errors=True)
 
 
 def main():

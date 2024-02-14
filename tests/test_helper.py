@@ -16,6 +16,7 @@ sampleprojects_dir = Path(__file__).resolve().parent.parent / "sample_projects"
 class SampleProjectFootball:
     project_dir = sampleprojects_dir / "footballfields"
     predict_config_path = project_dir / "footballfields_BEFL-2019_test.ini"
+    train_config_path = project_dir / "footballfields_train_test.ini"
 
 
 class SampleProjectTemplate:
