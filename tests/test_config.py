@@ -34,6 +34,19 @@ def test_read_orthoseg_config_predict_overrules(overrules, expected_image_layer)
 
 
 @pytest.mark.parametrize(
+    "overrules",
+    [["predictimage_layer=BEFL-2020"], ["predict.image_layerBEFL-2020"]],
+)
+def test_read_orthoseg_config_predict_overrules_invalid(overrules):
+    """Test with invalid overrules: one without '=' and one without '.'."""
+    # Load project config to test overrules.
+    with pytest.raises(ValueError, match="invalid config overrule found"):
+        conf.read_orthoseg_config(
+            SampleProjectFootball.predict_config_path, overrules=overrules
+        )
+
+
+@pytest.mark.parametrize(
     "overrules, expected_image_layer",
     [
         (None, None),
