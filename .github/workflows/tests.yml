@@ -67,4 +67,4 @@ jobs:
         run: |
           pytest --color=yes --cov=orthoseg --cov-append --cov-report term-missing --cov-report xml tests/
 
-      - uses: codecov/codecov-action@v3
+      - uses: codecov/codecov-action@v4
