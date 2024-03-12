@@ -102,7 +102,8 @@ def predict_dir(
             tolerated before stopping prediction. If -1, no limit. Defaults to 100.
         force: False to skip images that already have a prediction, true to
             ignore existing predictions and overwrite them
-        no_images_ok (bool, optional): False to throw `ValueError` when no images available in the `input_image_dir`,
+        no_images_ok (bool, optional): False to throw `ValueError`
+            when no images available in the `input_image_dir`,
             True to return without error. Defaults to False.
     """
     # Init
