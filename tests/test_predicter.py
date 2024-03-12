@@ -16,7 +16,7 @@ from orthoseg.model import model_helper as mh
         ("X:/Monitoring/OrthoSeg/horsepastures/horsepastures.ini", 4, True, False),
     ],
 )
-def test_predict_dir_test_dataset(
+def test_predict_dir_input_image_dir_empty(
     ini_file: str,
     force_model_traindata_id: int,
     no_images_ok: bool,
