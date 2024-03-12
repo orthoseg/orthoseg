@@ -21,7 +21,6 @@ dependencies:
   # dependencies of tensorflow that need to be conda versions to evade binary compatibility issues
   - h5py
   # linting
-  - black
   - pre-commit
   - ruff
   # testing
