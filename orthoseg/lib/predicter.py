@@ -201,9 +201,7 @@ def predict_dir(
         nb_parallel_read
     ) as read_pool, futures.ProcessPoolExecutor(
         nb_parallel_postprocess, initializer=init_postprocess_worker()
-    ) as postprocess_pool, futures.ProcessPoolExecutor(
-        max_workers=1
-    ) as write_pool:
+    ) as postprocess_pool, futures.ProcessPoolExecutor(max_workers=1) as write_pool:
         # Start looping.
         # If ready to stop, the code below will break
         perf_time_start = datetime.datetime.now()
