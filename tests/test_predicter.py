@@ -10,7 +10,7 @@ from orthoseg.model import model_helper as mh
 
 
 @pytest.mark.parametrize(
-    "ini_file, force_model_traindata_id, no_images_ok, exp_value_warning",
+    "ini_file, force_model_traindata_id, no_images_ok, exp_error",
     [
         ("X:/Monitoring/OrthoSeg/horsepastures/horsepastures.ini", 4, False, True),
         ("X:/Monitoring/OrthoSeg/horsepastures/horsepastures.ini", 4, True, False),
