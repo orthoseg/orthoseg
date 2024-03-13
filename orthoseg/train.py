@@ -423,6 +423,7 @@ def train(config_path: Path, config_overrules: List[str] = []):
                 min_probability=min_probability,
                 cancel_filepath=conf.files.getpath("cancel_filepath"),
                 max_prediction_errors=conf.predict.getint("max_prediction_errors"),
+                no_images_ok=True,
             )
 
         # Predict extra test dataset with random images in the roi, to add to

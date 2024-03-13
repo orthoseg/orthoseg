@@ -12,6 +12,7 @@
 
 - Fix check that traindataset has validation samples should not be per file (#131)
 - Fix support for WMS username/password (#146)
+- Fix train gives an error after training if there are no "test" locations defined (#165)
 
 ### Deprecations and compatibility notes
 
