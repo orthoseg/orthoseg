@@ -151,9 +151,7 @@ def predict_dir(
     if nb_images == 0:
         if no_images_ok:
             return
-        raise ValueError(
-            f"Found no {input_ext} images to predict in {input_image_dir}"
-        )
+        raise ValueError(f"Found no {input_ext} images to predict in {input_image_dir}")
     logger.info(f"Found {nb_images} {input_ext} images to predict in {input_image_dir}")
 
     # If force is false, get list of all existing predictions

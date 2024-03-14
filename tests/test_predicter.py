@@ -1,54 +1,37 @@
 from contextlib import nullcontext
-from pathlib import Path
 import pytest
 
-
-from orthoseg.helpers import config_helper as conf
 from orthoseg.lib import predicter
-from orthoseg.model import model_factory as mf
-from orthoseg.model import model_helper as mh
 
 
 @pytest.mark.parametrize(
-    "ini_file, force_model_traindata_id, no_images_ok, exp_value_warning",
+    "no_images_ok, exp_error",
     [
-        ("X:/Monitoring/OrthoSeg/horsepastures/horsepastures.ini", 4, False, True),
-        ("X:/Monitoring/OrthoSeg/horsepastures/horsepastures.ini", 4, True, False),
+        (False, True),
+        (True, False),
     ],
 )
-def test_predict_dir_test_dataset(
-    ini_file: str,
-    force_model_traindata_id: int,
+def test_predict_dir_input_image_dir_empty(
+    tmp_path,
     no_images_ok: bool,
-    exp_value_warning: bool,
+    exp_error: bool,
 ):
-    # Init
-    config_path = Path(ini_file)
-    conf.read_orthoseg_config(config_path)
+    input_image_dir = tmp_path / "input"
+    input_image_dir.mkdir()
+    output_image_dir = tmp_path / "output"
+    output_image_dir.mkdir()
 
-    classes = conf.train.getdict("classes")
-    training_dir = conf.dirs.getpath("training_dir") / f"{force_model_traindata_id:02d}"
-    testdata_dir = training_dir / "test"
-    model_dir = conf.dirs.getpath("model_dir")
-    best_model_curr_train_version = mh.get_best_model(
-        model_dir=model_dir,
-    )
-
-    # Assert to evade typing warnings
-    assert best_model_curr_train_version is not None
-    model = mf.load_model(best_model_curr_train_version["filepath"], compile=False)
-
-    if exp_value_warning:
+    if exp_error:
         handler = pytest.raises(ValueError)
     else:
         handler = nullcontext()
 
     with handler:
         predicter.predict_dir(
-            model=model,
-            input_image_dir=testdata_dir / "image",
-            output_image_dir=testdata_dir / "output",
+            model=None,  # type: ignore  # noqa: PGH003
+            input_image_dir=input_image_dir,
+            output_image_dir=output_image_dir,
             output_vector_path=None,
-            classes=classes,
+            classes=[],
             no_images_ok=no_images_ok,
         )
