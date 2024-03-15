@@ -88,6 +88,7 @@ def test_3_validate():
     # Check if the training (image) data was created
     assert training_id_dir.exists()
 
+    # TODO: how to check if test succeeded?
     # Check if the new model was created
     best_model = mh.get_best_model(
         model_dir=conf.dirs.getpath("model_dir"),
