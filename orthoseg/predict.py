@@ -16,6 +16,7 @@ from typing import List
 # os.environ["CUDA_VISIBLE_DEVICES"] = "-1" # Disable using GPU
 import tensorflow as tf
 
+from orthoseg import cleanup
 from orthoseg.helpers import config_helper as conf
 from orthoseg.helpers import email_helper
 from orthoseg.lib import predicter
@@ -107,8 +108,6 @@ def predict(config_path: Path, config_overrules: List[str] = []):
         input_image_dir = conf.dirs.getpath("predict_image_input_dir")
         if not input_image_dir.exists():
             raise Exception(f"input image dir doesn't exist: {input_image_dir}")
-
-        # TODO: add something to delete old data, predictions???
 
         # Create base filename of model to use
         # TODO: is force data version the most logical, or rather implement
@@ -307,6 +306,11 @@ def predict(config_path: Path, config_overrules: List[str] = []):
         message = f"Completed predict for config {config_path.stem}"
         logger.info(message)
         email_helper.sendmail(message)
+
+        # Cleanup old data
+        cleanup.clean_old_data(
+            config_path=config_path, config_overrules=config_overrules
+        )
     except Exception as ex:
         message = f"ERROR while running predict for task {config_path.stem}"
         logger.exception(message)

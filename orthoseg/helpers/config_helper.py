@@ -112,6 +112,8 @@ def read_orthoseg_config(config_path: Path, overrules: List[str] = []):
     logging = config["logging"]
     global email
     email = config["email"]
+    global cleanup
+    cleanup = config["cleanup"]
 
     # Some checks to make sure the config is loaded properly
     segment_subject = general.get("segment_subject")
