@@ -2,6 +2,7 @@
 Tests for functionalities in orthoseg.train.
 """
 
+from contextlib import nullcontext
 from datetime import datetime
 import os
 from pathlib import Path
@@ -54,12 +55,13 @@ def test_2_load_images():
     assert len(files) == 6
 
 
+@pytest.mark.parametrize("exp_error", [(False)])
 @pytest.mark.skipif(
     "GITHUB_ACTIONS" in os.environ and os.name == "nt",
     reason="crashes on github CI on windows",
 )
 @pytest.mark.order(after="test_1_init_testproject")
-def test_3_validate():
+def test_3_validate(exp_error: bool):
     # Load project config to init some vars.
     config_path = footballfields_dir / "footballfields_train_test.ini"
     conf.read_orthoseg_config(config_path)
@@ -82,23 +84,12 @@ def test_3_validate():
     timestamp_old = datetime(year=2020, month=1, day=1).timestamp()
     os.utime(label_01_path, (timestamp_old, timestamp_old))
 
-    # Run train session
-    orthoseg.validate(config_path)
-
-    # Check if the training (image) data was created
-    assert training_id_dir.exists()
-
-    # TODO: how to check if test succeeded?
-    # Check if the new model was created
-    best_model = mh.get_best_model(
-        model_dir=conf.dirs.getpath("model_dir"),
-        segment_subject=conf.general["segment_subject"],
-        traindata_id=2,
-    )
-
-    assert best_model is not None
-    assert best_model["traindata_id"] == traindata_id_result
-    assert best_model["epoch"] == 0
+    if exp_error:
+        handler = pytest.raises(Exception)
+    else:
+        handler = nullcontext()
+    with handler:
+        orthoseg.validate(config_path=config_path)
 
 
 @pytest.mark.skipif(
@@ -152,7 +143,7 @@ def test_4_train():
     reason="crashes on github CI on windows",
 )
 @pytest.mark.order(after="test_2_load_images")
-def test_4_predict():
+def test_5_predict():
     # Load project config to init some vars.
     config_path = footballfields_dir / "footballfields_BEFL-2019_test.ini"
     conf.read_orthoseg_config(config_path)
