@@ -146,11 +146,11 @@ def clean_training_data_directories(
     ]
     for dir in traindata_dirs_to_cleanup:
         if simulate:
-            logger.info(f"REMOVE|{dir}")
+            logger.info(f"REMOVE|{path}/{dir}")
         else:
             try:
                 shutil.rmtree(f"{path}/{dir}")
-                logger.info(f"REMOVE|{dir}")
+                logger.info(f"REMOVE|{path}/{dir}")
             except Exception as ex:
                 message = f"ERROR while deleting directory {dir}"
                 logger.exception(message)

@@ -1,0 +1,64 @@
+{
+    "architecture": {
+        "activation_function": "softmax",
+        "architecture": "mobilenetv2+linknet",
+        "architecture_id": 0,
+        "classes": [
+            "background",
+            "footballfield"
+        ],
+        "nb_channels": 3
+    },
+    "fileversion": 1.1,
+    "train": {
+        "batch_size": 1,
+        "class_weights": [
+            1,
+            1
+        ],
+        "earlystop_monitor_metric": "one_hot_mean_iou",
+        "earlystop_monitor_metric_mode": "max",
+        "earlystop_patience": 100,
+        "image_augmentations": {
+            "brightness_range": [
+                0.95,
+                1.05
+            ],
+            "cval": 0,
+            "fill_mode": "constant",
+            "height_shift_range": 0.05,
+            "rescale": 0.00392156862745098,
+            "rotation_range": 359.0,
+            "width_shift_range": 0.05,
+            "zoom_range": 0.1
+        },
+        "log_csv": true,
+        "log_tensorboard": false,
+        "loss_function": "weighted_categorical_crossentropy",
+        "mask_augmentations": {
+            "brightness_range": [
+                1.0,
+                1.0
+            ],
+            "cval": 0,
+            "fill_mode": "constant",
+            "height_shift_range": 0.05,
+            "rescale": 1,
+            "rotation_range": 359.0,
+            "width_shift_range": 0.05,
+            "zoom_range": 0.1
+        },
+        "monitor_metric": "({one_hot_mean_iou}+{val_one_hot_mean_iou})/2",
+        "monitor_metric_mode": "max",
+        "nb_epoch": 1,
+        "nb_epoch_with_freeze": 0,
+        "optimizer": "adam",
+        "optimizer_params": {
+            "learning_rate": 0.0001
+        },
+        "save_best_only": false,
+        "save_format": "h5",
+        "save_min_accuracy": 0.0,
+        "trainparams_id": 0
+    }
+}
