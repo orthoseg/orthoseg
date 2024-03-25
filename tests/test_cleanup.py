@@ -63,27 +63,26 @@ def test_cleanup(
         f"cleanup.{type}_versions_to_retain={versions_to_retain}",
     ]
 
-    match type:
-        case "model":
-            cleanup.clean_models(
-                config_path=config_path / config_path,
-                config_overrules=config_overrules,
-            )
-            models = os.listdir(cleanup_dir / "models")
-            assert len(models) == expected_files_in_dir
-        case "training":
-            cleanup.clean_training_data_directories(
-                config_path=config_path / config_path,
-                config_overrules=config_overrules,
-            )
-            training_dirs = os.listdir(cleanup_dir / "training")
-            assert len(training_dirs) == expected_files_in_dir
-        case "prediction":
-            cleanup.clean_predictions(
-                config_path=config_path / config_path,
-                config_overrules=config_overrules,
-            )
-            prediction_dirs = os.listdir(cleanup_dir / "output_vector")
-            for prediction_dir in prediction_dirs:
-                predictions = os.listdir(cleanup_dir / "output_vector" / prediction_dir)
-                assert len(predictions) == expected_files_in_dir
+    if type == "model":
+        cleanup.clean_models(
+            config_path=config_path / config_path,
+            config_overrules=config_overrules,
+        )
+        models = os.listdir(cleanup_dir / "models")
+        assert len(models) == expected_files_in_dir
+    elif type == "training":
+        cleanup.clean_training_data_directories(
+            config_path=config_path / config_path,
+            config_overrules=config_overrules,
+        )
+        training_dirs = os.listdir(cleanup_dir / "training")
+        assert len(training_dirs) == expected_files_in_dir
+    elif type == "prediction":
+        cleanup.clean_predictions(
+            config_path=config_path / config_path,
+            config_overrules=config_overrules,
+        )
+        prediction_dirs = os.listdir(cleanup_dir / "output_vector")
+        for prediction_dir in prediction_dirs:
+            predictions = os.listdir(cleanup_dir / "output_vector" / prediction_dir)
+            assert len(predictions) == expected_files_in_dir
