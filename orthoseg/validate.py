@@ -5,7 +5,6 @@ Module to make it easy to start a validating session.
 import argparse
 import logging
 from pathlib import Path
-import shlex
 import shutil
 import sys
 import traceback
@@ -21,12 +20,7 @@ from orthoseg.util import log_util
 logger = logging.getLogger(__name__)
 
 
-def _validate_argstr(argstr):
-    args = shlex.split(argstr)
-    _validate_args(args)
-
-
-def _validate_args(args):
+def _validate_args(args) -> argparse.Namespace:
     # Interprete arguments
     parser = argparse.ArgumentParser(add_help=False)
 
@@ -55,11 +49,7 @@ def _validate_args(args):
         ),
     )
 
-    # Interprete arguments
-    args = parser.parse_args(args)
-
-    # Run!
-    validate(config_path=Path(args.config), config_overrules=args.config_overrules)
+    return parser.parse_args(args)
 
 
 def validate(config_path: Path, config_overrules: List[str] = []):
@@ -176,7 +166,11 @@ def main():
     Run validate.
     """
     try:
-        _validate_args(sys.argv[1:])
+        # Interprete arguments
+        args = _validate_args(sys.argv[1:])
+
+        # Run!
+        validate(config_path=Path(args.config), config_overrules=args.config_overrules)
     except Exception as ex:
         logger.exception(f"Error: {ex}")
         raise
