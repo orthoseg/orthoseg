@@ -2,7 +2,7 @@ import logging
 import os
 from pathlib import Path
 
-from orthoseg import cleanup
+from orthoseg import cleanup_old
 
 logger = logging.getLogger(__name__)
 
@@ -41,17 +41,17 @@ def cleanup_old_data(projects_dir: Path, versions_to_retain: dict[str, int]):
             for subdir in subdirs:
                 match subdir:
                     case 'models':
-                        cleanup.clean_models(
+                        cleanup_old.clean_models(
                             config_path=config_path,
                             config_overrules=config_overrules
                         )
                     case 'output_vector':
-                        cleanup.clean_training_data_directories(
+                        cleanup_old.clean_training_data_directories(
                             config_path=config_path,
                             config_overrules=config_overrules
                         )
                     case 'training':
-                        cleanup.clean_predictions(
+                        cleanup_old.clean_predictions(
                             config_path=config_path,
                             config_overrules=config_overrules
                         )

@@ -16,7 +16,7 @@ from typing import List
 # os.environ["CUDA_VISIBLE_DEVICES"] = "-1" # Disable using GPU
 import tensorflow as tf
 
-from orthoseg import cleanup
+from orthoseg import cleanup_old
 from orthoseg.helpers import config_helper as conf
 from orthoseg.helpers import email_helper
 from orthoseg.lib import predicter
@@ -308,7 +308,7 @@ def predict(config_path: Path, config_overrules: List[str] = []):
         email_helper.sendmail(message)
 
         # Cleanup old data
-        cleanup.clean_old_data(
+        cleanup_old.clean_old_data(
             config_path=config_path, config_overrules=config_overrules
         )
     except Exception as ex:
