@@ -7,7 +7,7 @@
 - Add support to train subject on different pixel sizes (#143)
 - Add support to overrule configuration parameters via command line arguments (#152)
 - Several small improvements (#128)
-- Add command to (only) validate a training dataset #168
+- Add command to (only) validate a training dataset (#133)
 
 ### Bugs fixed
 
