@@ -16,10 +16,9 @@ from typing import List
 # os.environ["CUDA_VISIBLE_DEVICES"] = "-1" # Disable using GPU
 import tensorflow as tf
 
-from orthoseg import cleanup_old
 from orthoseg.helpers import config_helper as conf
 from orthoseg.helpers import email_helper
-from orthoseg.lib import predicter
+from orthoseg.lib import cleanup, predicter
 import orthoseg.model.model_factory as mf
 import orthoseg.model.model_helper as mh
 from orthoseg.util import log_util
@@ -308,8 +307,23 @@ def predict(config_path: Path, config_overrules: List[str] = []):
         email_helper.sendmail(message)
 
         # Cleanup old data
-        cleanup_old.clean_old_data(
-            config_path=config_path, config_overrules=config_overrules
+        cleanup.clean_models(
+            config_path=config_path,
+            path=conf.dirs.getpath("model_dir"),
+            versions_to_retain=conf.cleanup.getint("model_versions_to_retain"),
+            simulate=conf.cleanup.getboolean("simulate"),
+        )
+        cleanup.clean_training_data_directories(
+            config_path=config_path,
+            path=conf.dirs.getpath("training_dir"),
+            versions_to_retain=conf.cleanup.getint("training_versions_to_retain"),
+            simulate=conf.cleanup.getboolean("simulate"),
+        )
+        cleanup.clean_predictions(
+            config_path=config_path,
+            path=conf.dirs.getpath("output_vector_dir"),
+            versions_to_retain=conf.cleanup.getint("prediction_versions_to_retain"),
+            simulate=conf.cleanup.getboolean("simulate"),
         )
     except Exception as ex:
         message = f"ERROR while running predict for task {config_path.stem}"

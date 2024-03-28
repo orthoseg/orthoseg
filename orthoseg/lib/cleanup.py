@@ -7,6 +7,7 @@ import os
 import shutil
 from pathlib import Path
 
+
 from orthoseg.model import model_helper
 from orthoseg.util import log_util
 from orthoseg.util.data import aidetection_info
@@ -16,7 +17,7 @@ def clean_models(
     config_path: Path,
     path: Path,
     versions_to_retain: int,
-    simulate: bool,
+    simulate: bool = False,
 ):
     """
     Cleanup models.
