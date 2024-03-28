@@ -6,41 +6,66 @@ import tempfile
 import pytest
 
 from orthoseg.lib import cleanup
-from tests import test_helper
 from orthoseg.helpers import config_helper as conf
+from tests import test_helper
 
-testprojects_dir = Path(tempfile.gettempdir()) / "orthoseg_test_cleanup/sample_projects"
-cleanup_dir = testprojects_dir / "cleanup"
+testprojects_dir = Path(tempfile.gettempdir()) / "orthoseg_test_cleanup"
+sampleprojects_dir = testprojects_dir / "sample_projects"
+footballfields_dir = sampleprojects_dir / "footballfields"
 
 
 def test_1_init_testproject():
-    # Use footballfields sample project for these cleanup tests
-    shutil.rmtree(testprojects_dir, ignore_errors=True)
-    shutil.copytree(test_helper.sampleprojects_dir, testprojects_dir)
+    shutil.rmtree(path=testprojects_dir, ignore_errors=True)
 
-    # models, trainingdata and predictions are x time duplicated
-    models_dir = cleanup_dir / "models"
-    models = os.listdir(models_dir)
-    predictions_dir = cleanup_dir / "output_vector"
-    prediction_dir = os.listdir(predictions_dir)[0]
-    predictions = os.listdir(predictions_dir / prediction_dir)
-    training_dir = cleanup_dir / "training"
-    training = os.listdir(training_dir)[0]
-    for i in range(2, 6):
+    models_dir = footballfields_dir / "models"
+    models_dir.mkdir(parents=True, exist_ok=True)
+    training_dir = footballfields_dir / "training"
+    training_dir.mkdir(parents=True, exist_ok=True)
+    predictions_dir = footballfields_dir / "output_vector"
+    predictions_dir.mkdir(parents=True, exist_ok=True)
+    models = [
+        "0.44293_0.hdf5",
+        "hyperparams.json",
+        "log.csv",
+        "model.json",
+        "report.pdf",
+    ]
+    for x in range(1, 6):
+        # models
         for model in models:
-            new_model = model.replace("_01_", f"_0{i}_")
-            shutil.copy(models_dir / model, models_dir / new_model)
-        for prediction in predictions:
-            new_prediction = prediction.replace("_01_", f"_0{i}_")
-            shutil.copy(
-                predictions_dir / prediction_dir / prediction,
-                predictions_dir / prediction_dir / new_prediction,
-            )
-        new_training = training.replace("01", f"0{i}")
-        shutil.copytree(training_dir / training, training_dir / new_training)
-    new_prediction_dir = prediction_dir + "_2"
-    shutil.copytree(
-        predictions_dir / prediction_dir, predictions_dir / new_prediction_dir
+            with open(models_dir / f"footballfields_0{x}_{model}", "w"):
+                pass
+        # training
+        dir = training_dir / f"0{x}"
+        dir.mkdir(parents=True, exist_ok=True)
+        with open(training_dir / dir / "footballfields_BEFL-2019_locations.gpkg", "w"):
+            pass
+        with open(training_dir / dir / "footballfields_BEFL-2019_polygons.gpkg", "w"):
+            pass
+        # predictions
+        dir = predictions_dir / f"BEFL_20{18 + x}"
+        dir.mkdir(parents=True, exist_ok=True)
+        for p in range(1, 6):
+            with open(
+                predictions_dir / dir / f"footballfields_0{p}_201_BEFL-20{18 + x}.gpkg",
+                "w",
+            ):
+                pass
+            with open(
+                predictions_dir
+                / dir
+                / f"footballfields_0{p}_201_BEFL-20{18 + x}_dissolve.gpkg",
+                "w",
+            ):
+                pass
+
+    shutil.copyfile(
+        src=test_helper.sampleprojects_dir / "project_template/projectfile.ini",
+        dst=footballfields_dir / "footballfields.ini",
+    )
+    shutil.copyfile(
+        src=test_helper.sampleprojects_dir / "imagelayers.ini",
+        dst=sampleprojects_dir / "imagelayers.ini",
     )
 
 
@@ -56,12 +81,18 @@ def test_1_init_testproject():
     ],
 )
 @pytest.mark.order(after="test_1_init_testproject")
-def test_cleanup(
+def test_2_cleanup(
     type: str, simulate: bool, versions_to_retain: int, expected_files_in_dir: int
 ):
     # Load project config to init some vars.
-    config_path = cleanup_dir / "cleanup_BEFL-2019.ini"
-    conf.read_orthoseg_config(config_path)
+    config_path = footballfields_dir / "footballfields.ini"
+    conf.read_orthoseg_config(
+        config_path=config_path,
+        overrules=[
+            "general.segment_subject=footballfields",
+            "predict.image_layer=BEFL_2019",
+        ],
+    )
 
     if type == "model":
         cleanup.clean_models(
@@ -70,7 +101,7 @@ def test_cleanup(
             versions_to_retain=versions_to_retain,
             simulate=simulate,
         )
-        models = os.listdir(cleanup_dir / "models")
+        models = os.listdir(footballfields_dir / "models")
         assert len(models) == expected_files_in_dir
     elif type == "training":
         cleanup.clean_training_data_directories(
@@ -79,7 +110,7 @@ def test_cleanup(
             versions_to_retain=versions_to_retain,
             simulate=simulate,
         )
-        training_dirs = os.listdir(cleanup_dir / "training")
+        training_dirs = os.listdir(footballfields_dir / "training")
         assert len(training_dirs) == expected_files_in_dir
     elif type == "prediction":
         cleanup.clean_predictions(
@@ -88,7 +119,9 @@ def test_cleanup(
             versions_to_retain=versions_to_retain,
             simulate=simulate,
         )
-        prediction_dirs = os.listdir(cleanup_dir / "output_vector")
+        prediction_dirs = os.listdir(footballfields_dir / "output_vector")
         for prediction_dir in prediction_dirs:
-            predictions = os.listdir(cleanup_dir / "output_vector" / prediction_dir)
+            predictions = os.listdir(
+                footballfields_dir / "output_vector" / prediction_dir
+            )
             assert len(predictions) == expected_files_in_dir

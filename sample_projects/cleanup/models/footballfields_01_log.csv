@@ -1,2 +1,0 @@
-epoch;categorical_accuracy;loss;lr;one_hot_mean_iou;val_categorical_accuracy;val_loss;val_one_hot_mean_iou
-0;0.7884219884872437;0.47741028666496277;1e-04;0.41392824053764343;0.7207428216934204;0.552868664264679;0.38554367423057556
