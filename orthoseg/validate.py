@@ -80,67 +80,8 @@ def validate(config_path: Path, config_overrules: List[str] = []):
     logger.debug(f"Config used: \n{conf.pformat_config()}")
 
     try:
-        # First check if the segment_subject has a valid name
-        segment_subject = conf.general["segment_subject"]
-        if segment_subject == "MUST_OVERRIDE":
-            raise Exception(
-                "segment_subject must be overridden in the subject specific config file"
-            )
-        elif "_" in segment_subject:
-            raise Exception(f"segment_subject cannot contain '_': {segment_subject}")
-
-        # Create the output dir's if they don't exist yet...
-        for dir in [
-            conf.dirs.getpath("project_dir"),
-            conf.dirs.getpath("training_dir"),
-        ]:
-            if dir and not dir.exists():
-                dir.mkdir()
-
-        # If the training data doesn't exist yet, create it
-        # -------------------------------------------------
-        train_label_infos = conf.get_train_label_infos()
-        if train_label_infos is None or len(train_label_infos) == 0:
-            raise ValueError(
-                "No valid label file config found in train.label_datasources or "
-                f"with patterns {conf.train.get('labelpolygons_pattern')} and "
-                f"{conf.train.get('labellocations_pattern')}"
-            )
-
-        # Determine classes
-        try:
-            classes = conf.train.getdict("classes")
-
-            # If the burn_value property isn't supplied for the classes, add them
-            for class_id, (classname) in enumerate(classes):
-                if "burn_value" not in classes[classname]:
-                    classes[classname]["burn_value"] = class_id
-        except Exception as ex:
-            raise Exception(
-                f"Error reading classes: {conf.train.get('classes')}"
-            ) from ex
-
         # Now create the train datasets (train, validation, test)
-        force_model_traindata_id = conf.train.getint("force_model_traindata_id")
-        if force_model_traindata_id > -1:
-            training_dir = (
-                conf.dirs.getpath("training_dir") / f"{force_model_traindata_id:02d}"
-            )
-            traindata_id = force_model_traindata_id
-        else:
-            logger.info("Prepare train, validation and test data")
-            training_dir, traindata_id = prep.prepare_traindatasets(
-                label_infos=train_label_infos,
-                classes=classes,
-                image_layers=conf.image_layers,
-                training_dir=conf.dirs.getpath("training_dir"),
-                labelname_column=conf.train.get("labelname_column"),
-                image_pixel_x_size=conf.train.getfloat("image_pixel_x_size"),
-                image_pixel_y_size=conf.train.getfloat("image_pixel_y_size"),
-                image_pixel_width=conf.train.getint("image_pixel_width"),
-                image_pixel_height=conf.train.getint("image_pixel_height"),
-                ssl_verify=conf.general["ssl_verify"],
-            )
+        training_dir, traindata_id = conf.prepare_traindatasets()
 
         # Send mail that we are starting train
         email_helper.sendmail(f"Start validate for config {config_path.stem}")

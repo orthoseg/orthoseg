@@ -9,11 +9,13 @@ from pathlib import Path
 import pprint
 import re
 import tempfile
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from orthoseg.util import config_util
 from orthoseg.util.ows_util import FileLayerSource, WMSLayerSource
 from orthoseg.lib.prepare_traindatasets import LabelInfo
+from orthoseg.lib import prepare_traindatasets as prep
+
 
 # Get a logger...
 logger = logging.getLogger(__name__)
@@ -181,6 +183,78 @@ def get_train_label_infos() -> List[LabelInfo]:
         label_datasources=train.getdict("label_datasources", None),
         image_layers=image_layers,
     )
+
+
+def prepare_traindatasets() -> Tuple[Path, int]:
+    """
+    Create the train datasets (train, validation, test).
+
+    Returns:
+        Tuple[Path, int]: training directory and traindata id
+    """
+    # Create the output dir's if they don't exist yet...
+    for dir in [
+        dirs.getpath("project_dir"),
+        dirs.getpath("training_dir"),
+    ]:
+        if dir and not dir.exists():
+            dir.mkdir()
+
+    # Create the train datasets (train, validation, test)
+    force_model_traindata_id = train.getint("force_model_traindata_id")
+    if force_model_traindata_id > -1:
+        training_dir = dirs.getpath("training_dir") / f"{force_model_traindata_id:02d}"
+        traindata_id = force_model_traindata_id
+    else:
+        logger.info("Prepare train, validation and test data")
+        training_dir, traindata_id = prep.prepare_traindatasets(
+            label_infos=_get_train_label_infos(),
+            classes=_determine_classes(),
+            image_layers=image_layers,
+            training_dir=dirs.getpath("training_dir"),
+            labelname_column=train.get("labelname_column"),
+            image_pixel_x_size=train.getfloat("image_pixel_x_size"),
+            image_pixel_y_size=train.getfloat("image_pixel_y_size"),
+            image_pixel_width=train.getint("image_pixel_width"),
+            image_pixel_height=train.getint("image_pixel_height"),
+            ssl_verify=general["ssl_verify"],
+        )
+    return (training_dir, traindata_id)
+
+
+def _get_train_label_infos() -> List[LabelInfo]:
+    """
+    Searches and returns LabelInfos that can be used to create a training dataset.
+
+    Returns:
+        List[LabelInfo]: List of LabelInfos found.
+    """
+    train_label_infos = _prepare_train_label_infos(
+        labelpolygons_pattern=train.getpath("labelpolygons_pattern"),
+        labellocations_pattern=train.getpath("labellocations_pattern"),
+        label_datasources=train.getdict("label_datasources", None),
+        image_layers=image_layers,
+    )
+    if train_label_infos is None or len(train_label_infos) == 0:
+        raise ValueError(
+            "No valid label file config found in train.label_datasources or "
+            f"with patterns {train.get('labelpolygons_pattern')} and "
+            f"{train.get('labellocations_pattern')}"
+        )
+    return train_label_infos
+
+
+def _determine_classes():
+    try:
+        classes = train.getdict("classes")
+
+        # If the burn_value property isn't supplied for the classes, add them
+        for class_id, (classname) in enumerate(classes):
+            if "burn_value" not in classes[classname]:
+                classes[classname]["burn_value"] = class_id
+        return classes
+    except Exception as ex:
+        raise Exception(f"Error reading classes: {train.get('classes')}") from ex
 
 
 def _read_layer_config(layer_config_filepath: Path) -> dict:
