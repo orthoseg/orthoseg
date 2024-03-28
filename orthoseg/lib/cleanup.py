@@ -3,11 +3,8 @@ Automatic cleanup of 'old' models, predictions and training data directories.
 """
 
 from glob import glob
-import logging
 import os
 import shutil
-from typing import List
-from orthoseg.helpers import config_helper as conf
 from pathlib import Path
 
 from orthoseg.model import model_helper
@@ -15,51 +12,8 @@ from orthoseg.util import log_util
 from orthoseg.util.data import aidetection_info
 
 
-def Init_logging(
-    config_path: Path,
-    config_overrules: List[str] = [],
-):
-    """
-    Init.
-
-    Args:
-        config_path (Path): Path to the models directory
-        config_overrules (List[str], optional): _description_. Defaults to [].
-    """
-    # Init logging
-    conf.read_orthoseg_config(config_path, overrules=config_overrules)
-
-    log_util.clean_log_dir(
-        log_dir=conf.dirs.getpath("log_dir"),
-        nb_logfiles_tokeep=conf.logging.getint("nb_logfiles_tokeep"),
-    )
-    global logger
-    logger = log_util.main_log_init(conf.dirs.getpath("log_dir"), __name__)
-
-
-def clean_old_data(
-    path: Path,
-    versions_to_retain: int,
-    simulate: bool,
-):
-    """
-    Cleanup models, training data directories and predictions.
-
-    Args:
-        path (Path): Path to the directories
-        versions_to_retain (int): Versions to retain
-        simulate (bool): Simulate cleanup, files are logged, no files are deleted
-    """
-    clean_models(path=path, versions_to_retain=versions_to_retain, simulate=simulate)
-    clean_training_data_directories(
-        path=path, versions_to_retain=versions_to_retain, simulate=simulate
-    )
-    clean_predictions(
-        path=path, versions_to_retain=versions_to_retain, simulate=simulate
-    )
-
-
 def clean_models(
+    config_path: Path,
     path: Path,
     versions_to_retain: int,
     simulate: bool,
@@ -68,25 +22,18 @@ def clean_models(
     Cleanup models.
 
     Args:
+        config_path (Path): config path
         path (Path): Path to the directories
         versions_to_retain (int): Versions to retain
         simulate (bool): Simulate cleanup, files are logged, no files are deleted
     """
-    # Get a logger...
-    logger = logging.getLogger(__name__)
-
-    # Log start
-    # TODO: nakijken of dit klopt? path.stem
-    logger.info(f"Start cleanup models for config {path.stem}")
-
-    # path = conf.dirs.getpath("model_dir")
-    # versions_to_retain = conf.cleanup.getint("model_versions_to_retain")
-    # simulate = conf.cleanup.getboolean("simulate")
-    logger.info(f"PATH|{path}")
+    logger = log_util.main_log_init(path.parent / "log", __name__)
+    logger.info(f"CLEANUP|Start cleanup models for config {config_path.stem}")
     logger.info(f"VERSIONS_TO_RETAIN|{versions_to_retain}")
     logger.info(f"SIMULATE|{simulate}")
+    logger.info(f"PATH|{path}")
 
-    models = model_helper.get_models(path)
+    models = model_helper.get_models(model_dir=path)
     traindata_id = [model["traindata_id"] for model in models]
     traindata_id.sort()
     traindata_id_to_cleanup = traindata_id[
@@ -105,22 +52,21 @@ def clean_models(
         file_list = glob(pathname=file_path)
         for file in file_list:
             if simulate:
-                logger.info(f"REMOVE|{file}")
+                logger.info(f"REMOVE|{Path(file).name}")
             else:
                 try:
                     os.remove(file)
-                    logger.info(f"REMOVE|{file}")
+                    logger.info(f"REMOVE|{Path(file).name}")
                 except OSError as ex:
                     message = f"ERROR while deleting file {file}"
                     logger.exception(message)
                     raise Exception(message) from ex
 
-    # Log stop
-    # TODO: nakijken of dit klopt? path.stem
-    logger.info(f"Cleanup models done for config {path.stem}")
+    logger.info(f"CLEANUP|Cleanup models done for config {config_path.stem}")
 
 
 def clean_training_data_directories(
+    config_path: Path,
     path: Path,
     versions_to_retain: int,
     simulate: bool,
@@ -129,22 +75,16 @@ def clean_training_data_directories(
     Cleanup training data directories.
 
     Args:
+        config_path (Path): config path
         path (Path): Path to the directories
         versions_to_retain (int): Versions to retain
         simulate (bool): Simulate cleanup, files are logged, no files are deleted
     """
-    # Get a logger...
-    logger = logging.getLogger(__name__)
-
-    # Log start
-    logger.info(f"Start cleanup training data for config {path.stem}")
-
-    # path = conf.dirs.getpath("training_dir")
-    # versions_to_retain = conf.cleanup.getint("training_versions_to_retain")
-    # simulate = conf.cleanup.getboolean("simulate")
-    logger.info(f"PATH|{path}")
+    logger = log_util.main_log_init(path.parent / "log", __name__)
+    logger.info(f"CLEANUP|Start cleanup training data for config {config_path.stem}")
     logger.info(f"VERSIONS_TO_RETAIN|{versions_to_retain}")
     logger.info(f"SIMULATE|{simulate}")
+    logger.info(f"PATH|{path}")
 
     training_dirs = [dir for dir in os.listdir(path) if dir.isnumeric()]
     training_dirs.sort()
@@ -155,21 +95,21 @@ def clean_training_data_directories(
     ]
     for dir in traindata_dirs_to_cleanup:
         if simulate:
-            logger.info(f"REMOVE|{path}/{dir}")
+            logger.info(f"REMOVE|{dir}")
         else:
             try:
                 shutil.rmtree(f"{path}/{dir}")
-                logger.info(f"REMOVE|{path}/{dir}")
+                logger.info(f"REMOVE|{dir}")
             except Exception as ex:
-                message = f"ERROR while deleting directory {dir}"
+                message = f"ERROR while deleting directory {path}/{dir}"
                 logger.exception(message)
                 raise Exception(message) from ex
 
-    # Log stop
-    logger.info(f"Cleanup training data done for config {path.stem}")
+    logger.info(f"CLEANUP|Cleanup training data done for config {config_path.stem}")
 
 
 def clean_predictions(
+    config_path: Path,
     path: Path,
     versions_to_retain: int,
     simulate: bool,
@@ -178,20 +118,13 @@ def clean_predictions(
     Cleanup predictions.
 
     Args:
+        config_path (Path): config path
         path (Path): Path to the directories
         versions_to_retain (int): Versions to retain
         simulate (bool): Simulate cleanup, files are logged, no files are deleted
     """
-    # Get a logger...
-    logger = logging.getLogger(__name__)
-
-    # Log start
-    logger.info(f"Start cleanup predictions for config {path.stem}")
-
-    # path = conf.dirs.getpath("output_vector_dir")
-    # versions_to_retain = conf.cleanup.getint("prediction_versions_to_retain")
-    # simulate = conf.cleanup.getboolean("simulate")
-    logger.info(f"PATH|{path.parent}")
+    logger = log_util.main_log_init(path.parent.parent / "log", __name__)
+    logger.info(f"CLEANUP|Start cleanup predictions for config {config_path.stem}")
     logger.info(f"VERSIONS_TO_RETAIN|{versions_to_retain}")
     logger.info(f"SIMULATE|{simulate}")
 
@@ -203,6 +136,7 @@ def clean_predictions(
         ai_detection_infos = [aidetection_info(path=Path(file)) for file in file_list]
         postprocessing = [x.postprocessing for x in ai_detection_infos]
         postprocessing = list(dict.fromkeys(postprocessing))
+        logger.info(f"PATH|{path.parent}/{prediction_dir}")
         for p in postprocessing:
             traindata_versions = [
                 ai_detection_info.traindata_version
@@ -223,15 +157,14 @@ def clean_predictions(
             ]
             for prediction in predictions_to_cleanup:
                 if simulate:
-                    logger.info(f"REMOVE|{prediction.path}")
+                    logger.info(f"REMOVE|{prediction.path.name}")
                 else:
                     try:
                         os.remove(prediction.path)
-                        logger.info(f"REMOVE|{prediction.path}")
+                        logger.info(f"REMOVE|{prediction.path.name}")
                     except Exception as ex:
                         message = f"ERROR while deleting file {prediction.path}"
                         logger.exception(message)
                         raise Exception(message) from ex
 
-    # Log stop
-    logger.info(f"Cleanup predictions done for config {path.stem}")
+    logger.info(f"CLEANUP|Cleanup predictions done for config {config_path.stem}")

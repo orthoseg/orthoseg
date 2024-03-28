@@ -7,6 +7,7 @@ import pytest
 
 from orthoseg.lib import cleanup
 from tests import test_helper
+from orthoseg.helpers import config_helper as conf
 
 testprojects_dir = Path(tempfile.gettempdir()) / "orthoseg_test_cleanup/sample_projects"
 cleanup_dir = testprojects_dir / "cleanup"
@@ -58,23 +59,34 @@ def test_1_init_testproject():
 def test_cleanup(
     type: str, simulate: bool, versions_to_retain: int, expected_files_in_dir: int
 ):
-    path = cleanup_dir / "cleanup_BEFL-2019.ini"
+    # Load project config to init some vars.
+    config_path = cleanup_dir / "cleanup_BEFL-2019.ini"
+    conf.read_orthoseg_config(config_path)
 
     if type == "model":
         cleanup.clean_models(
-            path=path, versions_to_retain=versions_to_retain, simulate=simulate
+            config_path=config_path,
+            path=conf.dirs.getpath("model_dir"),
+            versions_to_retain=versions_to_retain,
+            simulate=simulate,
         )
         models = os.listdir(cleanup_dir / "models")
         assert len(models) == expected_files_in_dir
     elif type == "training":
         cleanup.clean_training_data_directories(
-            path=path, versions_to_retain=versions_to_retain, simulate=simulate
+            config_path=config_path,
+            path=conf.dirs.getpath("training_dir"),
+            versions_to_retain=versions_to_retain,
+            simulate=simulate,
         )
         training_dirs = os.listdir(cleanup_dir / "training")
         assert len(training_dirs) == expected_files_in_dir
     elif type == "prediction":
         cleanup.clean_predictions(
-            path=path, versions_to_retain=versions_to_retain, simulate=simulate
+            config_path=config_path,
+            path=conf.dirs.getpath("output_vector_dir"),
+            versions_to_retain=versions_to_retain,
+            simulate=simulate,
         )
         prediction_dirs = os.listdir(cleanup_dir / "output_vector")
         for prediction_dir in prediction_dirs:
