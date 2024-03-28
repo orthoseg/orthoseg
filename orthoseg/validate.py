@@ -63,7 +63,7 @@ def validate(config_path: Path, config_overrules: List[str] = []):
             form of "<section>.<parameter>=<value>". Defaults to [].
     """
     # Init
-    # Load the config and save in a bunch of global variables zo it
+    # Load the config and save in a bunch of global variables so it
     # is accessible everywhere
     conf.read_orthoseg_config(config_path, overrules=config_overrules)
 
