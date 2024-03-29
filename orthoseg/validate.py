@@ -89,7 +89,7 @@ def validate(config_path: Path, config_overrules: List[str] = []):
                 dir.mkdir()
 
         train_label_infos = conf.get_train_label_infos()
-        classes = conf.train.getdict("classes")
+        classes = conf.determine_classes()
 
         # Now create the train datasets (train, validation, test)
         logger.info("Prepare train, validation and test data")
