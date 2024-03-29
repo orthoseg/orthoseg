@@ -1,5 +1,8 @@
+from contextlib import nullcontext
+from pathlib import Path
 import pytest
 
+from orthoseg import validate
 from orthoseg.validate import _validate_args
 
 
@@ -20,3 +23,13 @@ def test_validate_args(args):
     assert valid_args is not None
     assert valid_args.config is not None
     assert valid_args.config_overrules is not None
+
+
+@pytest.mark.parametrize("config_path, exp_error", [("INVALID", True)])
+def test_validate(config_path, exp_error):
+    if exp_error:
+        handler = pytest.raises(ValueError)
+    else:
+        handler = nullcontext()
+    with handler:
+        validate(config_path=Path("INVALID"))

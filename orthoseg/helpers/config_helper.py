@@ -170,21 +170,6 @@ def get_tmp_dir() -> Path:
     return tmp_dir
 
 
-def get_train_label_infos() -> List[LabelInfo]:
-    """
-    Searches and returns LabelInfos that can be used to create a training dataset.
-
-    Returns:
-        List[LabelInfo]: List of LabelInfos found.
-    """
-    return _prepare_train_label_infos(
-        labelpolygons_pattern=train.getpath("labelpolygons_pattern"),
-        labellocations_pattern=train.getpath("labellocations_pattern"),
-        label_datasources=train.getdict("label_datasources", None),
-        image_layers=image_layers,
-    )
-
-
 def prepare_traindatasets() -> Tuple[Path, int]:
     """
     Create the train datasets (train, validation, test).
@@ -208,7 +193,7 @@ def prepare_traindatasets() -> Tuple[Path, int]:
     else:
         logger.info("Prepare train, validation and test data")
         training_dir, traindata_id = prep.prepare_traindatasets(
-            label_infos=_get_train_label_infos(),
+            label_infos=get_train_label_infos(),
             classes=_determine_classes(),
             image_layers=image_layers,
             training_dir=dirs.getpath("training_dir"),
@@ -222,7 +207,7 @@ def prepare_traindatasets() -> Tuple[Path, int]:
     return (training_dir, traindata_id)
 
 
-def _get_train_label_infos() -> List[LabelInfo]:
+def get_train_label_infos() -> List[LabelInfo]:
     """
     Searches and returns LabelInfos that can be used to create a training dataset.
 
