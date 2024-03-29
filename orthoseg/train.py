@@ -7,7 +7,6 @@ import gc
 import logging
 import os
 from pathlib import Path
-import shlex
 import shutil
 import sys
 import traceback
@@ -28,12 +27,7 @@ from orthoseg.util import log_util
 logger = logging.getLogger(__name__)
 
 
-def _train_argstr(argstr):
-    args = shlex.split(argstr)
-    _train_args(args)
-
-
-def _train_args(args):
+def _train_args(args) -> argparse.Namespace:
     # Interprete arguments
     parser = argparse.ArgumentParser(add_help=False)
 
@@ -62,11 +56,7 @@ def _train_args(args):
         ),
     )
 
-    # Interprete arguments
-    args = parser.parse_args(args)
-
-    # Run!
-    train(config_path=Path(args.config), config_overrules=args.config_overrules)
+    return parser.parse_args(args)
 
 
 def train(config_path: Path, config_overrules: List[str] = []):
@@ -475,7 +465,11 @@ def main():
     Run train.
     """
     try:
-        _train_args(sys.argv[1:])
+        # Interprete arguments
+        args = _train_args(sys.argv[1:])
+
+        # Run!
+        train(config_path=Path(args.config), config_overrules=args.config_overrules)
     except Exception as ex:
         logger.exception(f"Error: {ex}")
         raise
