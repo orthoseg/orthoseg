@@ -80,8 +80,31 @@ def validate(config_path: Path, config_overrules: List[str] = []):
     logger.debug(f"Config used: \n{conf.pformat_config()}")
 
     try:
+        # Create the output dir's if they don't exist yet...
+        for dir in [
+            conf.dirs.getpath("project_dir"),
+            conf.dirs.getpath("training_dir"),
+        ]:
+            if dir and not dir.exists():
+                dir.mkdir()
+
+        train_label_infos = conf.get_train_label_infos()
+        classes = conf.train.getdict("classes")
+
         # Now create the train datasets (train, validation, test)
-        training_dir, traindata_id = conf.prepare_traindatasets()
+        logger.info("Prepare train, validation and test data")
+        training_dir, traindata_id = prep.prepare_traindatasets(
+            label_infos=train_label_infos,
+            classes=classes,
+            image_layers=conf.image_layers,
+            training_dir=conf.dirs.getpath("training_dir"),
+            labelname_column=conf.train.get("labelname_column"),
+            image_pixel_x_size=conf.train.getfloat("image_pixel_x_size"),
+            image_pixel_y_size=conf.train.getfloat("image_pixel_y_size"),
+            image_pixel_width=conf.train.getint("image_pixel_width"),
+            image_pixel_height=conf.train.getint("image_pixel_height"),
+            ssl_verify=conf.general["ssl_verify"],
+        )
 
         # Send mail that we are starting train
         email_helper.sendmail(f"Start validate for config {config_path.stem}")

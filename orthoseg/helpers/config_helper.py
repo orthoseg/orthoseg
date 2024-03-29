@@ -9,12 +9,11 @@ from pathlib import Path
 import pprint
 import re
 import tempfile
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 from orthoseg.util import config_util
 from orthoseg.util.ows_util import FileLayerSource, WMSLayerSource
 from orthoseg.lib.prepare_traindatasets import LabelInfo
-from orthoseg.lib import prepare_traindatasets as prep
 
 
 # Get a logger...
@@ -168,43 +167,6 @@ def get_tmp_dir() -> Path:
         tmp_dir = Path(tempfile.mkdtemp(prefix="run_", dir=tmp_dir))
 
     return tmp_dir
-
-
-def prepare_traindatasets() -> Tuple[Path, int]:
-    """
-    Create the train datasets (train, validation, test).
-
-    Returns:
-        Tuple[Path, int]: training directory and traindata id
-    """
-    # Create the output dir's if they don't exist yet...
-    for dir in [
-        dirs.getpath("project_dir"),
-        dirs.getpath("training_dir"),
-    ]:
-        if dir and not dir.exists():
-            dir.mkdir()
-
-    # Create the train datasets (train, validation, test)
-    force_model_traindata_id = train.getint("force_model_traindata_id")
-    if force_model_traindata_id > -1:
-        training_dir = dirs.getpath("training_dir") / f"{force_model_traindata_id:02d}"
-        traindata_id = force_model_traindata_id
-    else:
-        logger.info("Prepare train, validation and test data")
-        training_dir, traindata_id = prep.prepare_traindatasets(
-            label_infos=get_train_label_infos(),
-            classes=determine_classes(),
-            image_layers=image_layers,
-            training_dir=dirs.getpath("training_dir"),
-            labelname_column=train.get("labelname_column"),
-            image_pixel_x_size=train.getfloat("image_pixel_x_size"),
-            image_pixel_y_size=train.getfloat("image_pixel_y_size"),
-            image_pixel_width=train.getint("image_pixel_width"),
-            image_pixel_height=train.getint("image_pixel_height"),
-            ssl_verify=general["ssl_verify"],
-        )
-    return (training_dir, traindata_id)
 
 
 def get_train_label_infos() -> List[LabelInfo]:
