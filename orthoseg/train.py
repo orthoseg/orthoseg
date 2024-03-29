@@ -87,15 +87,6 @@ def train(config_path: Path, config_overrules: List[str] = []):
     logger.debug(f"Config used: \n{conf.pformat_config()}")
 
     try:
-        # First check if the segment_subject has a valid name
-        segment_subject = conf.general["segment_subject"]
-        if segment_subject == "MUST_OVERRIDE":
-            raise Exception(
-                "segment_subject must be overridden in the subject specific config file"
-            )
-        elif "_" in segment_subject:
-            raise Exception(f"segment_subject cannot contain '_': {segment_subject}")
-
         # Create the output dir's if they don't exist yet...
         for dir in [
             conf.dirs.getpath("project_dir"),
@@ -104,32 +95,13 @@ def train(config_path: Path, config_overrules: List[str] = []):
             if dir and not dir.exists():
                 dir.mkdir()
 
-        # If the training data doesn't exist yet, create it
-        # -------------------------------------------------
         train_label_infos = conf.get_train_label_infos()
-        if train_label_infos is None or len(train_label_infos) == 0:
-            raise ValueError(
-                "No valid label file config found in train.label_datasources or "
-                f"with patterns {conf.train.get('labelpolygons_pattern')} and "
-                f"{conf.train.get('labellocations_pattern')}"
-            )
 
         # Determine the projection of (the first) train layer... it will be used for all
         train_image_layer = train_label_infos[0].image_layer
         train_projection = conf.image_layers[train_image_layer]["projection"]
 
-        # Determine classes
-        try:
-            classes = conf.train.getdict("classes")
-
-            # If the burn_value property isn't supplied for the classes, add them
-            for class_id, (classname) in enumerate(classes):
-                if "burn_value" not in classes[classname]:
-                    classes[classname]["burn_value"] = class_id
-        except Exception as ex:
-            raise Exception(
-                f"Error reading classes: {conf.train.get('classes')}"
-            ) from ex
+        classes = conf.determine_classes()
 
         # Now create the train datasets (train, validation, test)
         force_model_traindata_id = conf.train.getint("force_model_traindata_id")
