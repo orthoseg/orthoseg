@@ -194,7 +194,7 @@ def prepare_traindatasets() -> Tuple[Path, int]:
         logger.info("Prepare train, validation and test data")
         training_dir, traindata_id = prep.prepare_traindatasets(
             label_infos=get_train_label_infos(),
-            classes=_determine_classes(),
+            classes=determine_classes(),
             image_layers=image_layers,
             training_dir=dirs.getpath("training_dir"),
             labelname_column=train.get("labelname_column"),
@@ -229,7 +229,16 @@ def get_train_label_infos() -> List[LabelInfo]:
     return train_label_infos
 
 
-def _determine_classes():
+def determine_classes():
+    """
+    Determine classes.
+
+    Raises:
+        Exception: Error reading classes
+
+    Returns:
+        any: classes
+    """
     try:
         classes = train.getdict("classes")
 
