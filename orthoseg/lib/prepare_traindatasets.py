@@ -419,7 +419,8 @@ def prepare_labeldata(
             geodataframes with labellocations and labelpolygons to burn.
     """
     labeldata_result = []
-    errors_found = []
+    validation_errors = []
+    validation_warnings = []
     train_locations_found = False
     validation_locations_found = False
     for label_info in label_infos:
@@ -456,13 +457,13 @@ def prepare_labeldata(
         assert labelpolygons_gdf is not None
 
         if labellocations_gdf is None or len(labellocations_gdf) == 0:
-            errors_found.append("No label locations found in labellocations_gdf")
+            validation_errors.append("No label locations found in labellocations_gdf")
             continue
 
         # Validate + process the location data
         # ------------------------------------
         if "traindata_type" not in labellocations_gdf.columns:
-            errors_found.append(
+            validation_errors.append(
                 "Mandatory column traindata_type not found in "
                 f"{label_info.locations_path}"
             )
@@ -491,7 +492,7 @@ def prepare_labeldata(
 
             # Check if the traindata_type is valid
             if location.traindata_type not in ["train", "validation", "test", "todo"]:
-                errors_found.append(
+                validation_errors.append(
                     f"Invalid traindata_type in {Path(location.path).name}: "
                     f"{location.geometry.wkt}"
                 )
@@ -501,7 +502,7 @@ def prepare_labeldata(
                 labellocations_gdf.geometry[location.Index]
             )
             if is_valid_reason != "Valid Geometry":
-                errors_found.append(
+                validation_errors.append(
                     f"Invalid geometry in {Path(location.path).name}: "
                     f"{is_valid_reason}"
                 )
@@ -524,13 +525,13 @@ def prepare_labeldata(
             )
             if intersection.area < (location_geom_aligned.area - area_1row_1col):
                 # Original geom was digitized too small
-                errors_found.append(
+                validation_errors.append(
                     f"Location geometry skewed or too small ({intersection.area}, "
                     f"based on train config expected {location_geom_aligned.area}) in "
                     f"{Path(location.path).name}: {location.geometry.wkt}"
                 )
             elif sh_geom.box(*geom_bounds).area > location_geom_aligned.area * 1.1:
-                errors_found.append(
+                validation_warnings.append(
                     f"Location geometry too large ({sh_geom.box(*geom_bounds).area}, "
                     f"based on train config expected {location_geom_aligned.area}) "
                     f"in file {Path(location.path).name}: {location.geometry.wkt}"
@@ -544,7 +545,7 @@ def prepare_labeldata(
 
         # Check if labellocations has a proper crs
         if labellocations_gdf.crs is None:
-            errors_found.append(
+            validation_errors.append(
                 "No crs in labellocations, labellocation_gdf.crs: "
                 f"{labellocations_gdf.crs}"
             )
@@ -558,7 +559,7 @@ def prepare_labeldata(
         # Validate + process the polygons data
         # ------------------------------------
         if labelpolygons_gdf is None:
-            errors_found.append("No labelpolygons in the training data!")
+            validation_errors.append("No labelpolygons in the training data!")
             continue
 
         # Create list with only the input polygons that need to be burned in the mask
@@ -586,7 +587,7 @@ def prepare_labeldata(
                 labels_to_burn_gdf["burn_value"].isnull()
             ]
             for _, invalid_row in invalid_gdf.iterrows():
-                errors_found.append(
+                validation_errors.append(
                     f"Invalid classname in {Path(invalid_row['path']).name}: "
                     f"{invalid_row[labelname_column]}"
                 )
@@ -608,14 +609,14 @@ def prepare_labeldata(
 
         else:
             # There is no column with label names, but more than two classes, so stop.
-            errors_found.append(
+            validation_errors.append(
                 f"Column {labelname_column} is mandatory in labeldata if multiple "
                 f"classes specified: {classes}"
             )
 
         # Check if we ended up with label data to burn.
         if labels_to_burn_gdf is None:
-            errors_found.append(
+            validation_errors.append(
                 "Not any labelpolygon retained to burn in the training data!"
             )
             continue
@@ -634,7 +635,7 @@ def prepare_labeldata(
         )
         invalid_gdf = labels_to_burn_gdf.query("is_valid_reason != 'Valid Geometry'")
         for invalid in invalid_gdf.itertuples():
-            errors_found.append(
+            validation_errors.append(
                 f"Invalid geometry in {Path(invalid.path).name}: "
                 f"{invalid.is_valid_reason}"
             )
@@ -644,20 +645,20 @@ def prepare_labeldata(
 
     # Check that there is at least one train location and one validation location.
     if not train_locations_found:
-        errors_found.append(
+        validation_errors.append(
             "No labellocations with traindata_type == 'train' found in any file! At "
             "least one needed"
         )
     if not validation_locations_found:
-        errors_found.append(
+        validation_errors.append(
             "No labellocations with traindata_type == 'validation' found in any file! "
             "At least one needed, but ~10% of number of 'train' locations recommended."
         )
 
     # If errors found, raise
-    if len(errors_found) > 0:
+    if len(validation_errors) > 0:
         raise ValidationError(
-            f"Errors found in label data: {len(errors_found)}", errors_found
+            f"Errors found in label data: {len(validation_errors)}", validation_errors
         )
 
     return labeldata_result
