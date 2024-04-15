@@ -101,7 +101,7 @@ def test_cleanup_training(
     load_project_config()
 
     cleanup.clean_training_data_directories(
-        model_dir=conf.dirs.getpath("training_dir"),
+        training_dir=conf.dirs.getpath("training_dir"),
         versions_to_retain=versions_to_retain,
         simulate=simulate,
     )
@@ -144,7 +144,7 @@ def test_cleanup_predictions(
     load_project_config()
 
     cleanup.clean_predictions(
-        model_dir=conf.dirs.getpath("output_vector_dir"),
+        output_vector_dir=conf.dirs.getpath("output_vector_dir"),
         versions_to_retain=versions_to_retain,
         simulate=simulate,
     )

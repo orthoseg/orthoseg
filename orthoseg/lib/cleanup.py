@@ -67,7 +67,7 @@ def clean_models(
 
 
 def clean_training_data_directories(
-    model_dir: Path,
+    training_dir: Path,
     versions_to_retain: int,
     simulate: bool,
 ):
@@ -75,18 +75,18 @@ def clean_training_data_directories(
     Cleanup training data directories.
 
     Args:
-        model_dir (Path): Path to the directory with the training data to be cleaned
+        training_dir (Path): Path to the directory with the training data to be cleaned
         versions_to_retain (int): Versions to retain
         simulate (bool): Simulate cleanup, files are logged, no files are deleted
     """
     logger.info(
-        f"CLEANUP|Start cleanup training data for config {model_dir.parent.name}"
+        f"CLEANUP|Start cleanup training data for config {training_dir.parent.name}"
     )
     logger.info(f"VERSIONS_TO_RETAIN|{versions_to_retain}")
     logger.info(f"SIMULATE|{simulate}")
-    logger.info(f"PATH|{model_dir}")
+    logger.info(f"PATH|{training_dir}")
 
-    training_dirs = [dir for dir in os.listdir(model_dir) if dir.isnumeric()]
+    training_dirs = [dir for dir in os.listdir(training_dir) if dir.isnumeric()]
     training_dirs.sort()
     traindata_dirs_to_cleanup = training_dirs[
         : len(training_dirs) - versions_to_retain
@@ -98,20 +98,20 @@ def clean_training_data_directories(
             logger.info(f"REMOVE|{dir}")
         else:
             try:
-                shutil.rmtree(f"{model_dir}/{dir}")
+                shutil.rmtree(f"{training_dir}/{dir}")
                 logger.info(f"REMOVE|{dir}")
             except Exception as ex:
-                message = f"ERROR while deleting directory {model_dir}/{dir}"
+                message = f"ERROR while deleting directory {training_dir}/{dir}"
                 logger.exception(message)
                 raise Exception(message) from ex
 
     logger.info(
-        f"CLEANUP|Cleanup training data done for config {model_dir.parent.name}"
+        f"CLEANUP|Cleanup training data done for config {training_dir.parent.name}"
     )
 
 
 def clean_predictions(
-    model_dir: Path,
+    output_vector_dir: Path,
     versions_to_retain: int,
     simulate: bool,
 ):
@@ -119,15 +119,18 @@ def clean_predictions(
     Cleanup predictions.
 
     Args:
-        model_dir (Path): Path to the directory with the predictions to be cleaned
+        output_vector_dir (Path): Path to the directory
+                                  with the predictions to be cleaned
         versions_to_retain (int): Versions to retain
         simulate (bool): Simulate cleanup, files are logged, no files are deleted
     """
-    logger.info(f"CLEANUP|Start cleanup predictions for config {model_dir.parent.name}")
+    logger.info(
+        f"CLEANUP|Start cleanup predictions for config {output_vector_dir.parent.name}"
+    )
     logger.info(f"VERSIONS_TO_RETAIN|{versions_to_retain}")
     logger.info(f"SIMULATE|{simulate}")
 
-    output_vector_path = model_dir.parent
+    output_vector_path = output_vector_dir.parent
     prediction_dirs = os.listdir(output_vector_path)
     for prediction_dir in prediction_dirs:
         file_path = f"{output_vector_path / prediction_dir}/*.*"
@@ -135,7 +138,7 @@ def clean_predictions(
         ai_detection_infos = [aidetection_info(path=Path(file)) for file in file_list]
         postprocessing = [x.postprocessing for x in ai_detection_infos]
         postprocessing = list(dict.fromkeys(postprocessing))
-        logger.info(f"PATH|{model_dir.parent}/{prediction_dir}")
+        logger.info(f"PATH|{output_vector_dir.parent}/{prediction_dir}")
         for p in postprocessing:
             traindata_versions = [
                 ai_detection_info.traindata_version
@@ -166,4 +169,45 @@ def clean_predictions(
                         logger.exception(message)
                         raise Exception(message) from ex
 
-    logger.info(f"CLEANUP|Cleanup predictions done for config {model_dir.parent.name}")
+    logger.info(
+        f"CLEANUP|Cleanup predictions done for config {output_vector_dir.parent.name}"
+    )
+
+
+def clean_project_dir(
+    model_dir: Path,
+    model_versions_to_retain: int,
+    training_dir: Path,
+    training_versions_to_retain: int,
+    output_vector_dir: Path,
+    prediction_versions_to_retain: int,
+    simulate: bool,
+):
+    """
+    Cleanup project directory.
+
+    Args:
+        model_dir (Path): Path to the directory with the models to be cleaned
+        model_versions_to_retain (int): Model versions to retain
+        training_dir (Path): Path to the directory with the training data to be cleaned
+        training_versions_to_retain (int): Training data versions to retain
+        output_vector_dir (Path): Path to the directory
+                                  with the predictions to be cleaned
+        prediction_versions_to_retain (int): Prediction versions to retain
+        simulate (bool): Simulate cleanup, files are logged, no files are deleted
+    """
+    clean_models(
+        model_dir=model_dir,
+        versions_to_retain=model_versions_to_retain,
+        simulate=simulate,
+    )
+    clean_training_data_directories(
+        training_dir=training_dir,
+        versions_to_retain=training_versions_to_retain,
+        simulate=simulate,
+    )
+    clean_predictions(
+        output_vector_dir=output_vector_dir,
+        versions_to_retain=prediction_versions_to_retain,
+        simulate=simulate,
+    )
