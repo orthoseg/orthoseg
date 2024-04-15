@@ -3,19 +3,21 @@ Automatic cleanup of 'old' models, predictions and training data directories.
 """
 
 from glob import glob
+import logging
 import os
 import shutil
 from pathlib import Path
 
 
 from orthoseg.model import model_helper
-from orthoseg.util import log_util
 from orthoseg.util.data import aidetection_info
+
+# Get a logger...
+logger = logging.getLogger(__name__)
 
 
 def clean_models(
-    config_path: Path,
-    path: Path,
+    model_dir: Path,
     versions_to_retain: int,
     simulate: bool = False,
 ):
@@ -23,18 +25,16 @@ def clean_models(
     Cleanup models.
 
     Args:
-        config_path (Path): config path
-        path (Path): Path to the directories
+        model_dir (Path): Path to the directory with the models to be cleaned
         versions_to_retain (int): Versions to retain
         simulate (bool): Simulate cleanup, files are logged, no files are deleted
     """
-    logger = log_util.main_log_init(path.parent / "log", __name__)
-    logger.info(f"CLEANUP|Start cleanup models for config {config_path.stem}")
+    logger.info(f"CLEANUP|Start cleanup models for config {model_dir.parent.name}")
     logger.info(f"VERSIONS_TO_RETAIN|{versions_to_retain}")
     logger.info(f"SIMULATE|{simulate}")
-    logger.info(f"PATH|{path}")
+    logger.info(f"PATH|{model_dir}")
 
-    models = model_helper.get_models(model_dir=path)
+    models = model_helper.get_models(model_dir=model_dir)
     traindata_id = [model["traindata_id"] for model in models]
     traindata_id.sort()
     traindata_id_to_cleanup = traindata_id[
@@ -49,7 +49,7 @@ def clean_models(
     ]
 
     for model in models_to_cleanup:
-        file_path = f"{path}/{model}*.*"
+        file_path = f"{model_dir}/{model}*.*"
         file_list = glob(pathname=file_path)
         for file in file_list:
             if simulate:
@@ -63,12 +63,11 @@ def clean_models(
                     logger.exception(message)
                     raise Exception(message) from ex
 
-    logger.info(f"CLEANUP|Cleanup models done for config {config_path.stem}")
+    logger.info(f"CLEANUP|Cleanup models done for config {model_dir.parent.name}")
 
 
 def clean_training_data_directories(
-    config_path: Path,
-    path: Path,
+    model_dir: Path,
     versions_to_retain: int,
     simulate: bool,
 ):
@@ -76,18 +75,18 @@ def clean_training_data_directories(
     Cleanup training data directories.
 
     Args:
-        config_path (Path): config path
-        path (Path): Path to the directories
+        model_dir (Path): Path to the directory with the training data to be cleaned
         versions_to_retain (int): Versions to retain
         simulate (bool): Simulate cleanup, files are logged, no files are deleted
     """
-    logger = log_util.main_log_init(path.parent / "log", __name__)
-    logger.info(f"CLEANUP|Start cleanup training data for config {config_path.stem}")
+    logger.info(
+        f"CLEANUP|Start cleanup training data for config {model_dir.parent.name}"
+    )
     logger.info(f"VERSIONS_TO_RETAIN|{versions_to_retain}")
     logger.info(f"SIMULATE|{simulate}")
-    logger.info(f"PATH|{path}")
+    logger.info(f"PATH|{model_dir}")
 
-    training_dirs = [dir for dir in os.listdir(path) if dir.isnumeric()]
+    training_dirs = [dir for dir in os.listdir(model_dir) if dir.isnumeric()]
     training_dirs.sort()
     traindata_dirs_to_cleanup = training_dirs[
         : len(training_dirs) - versions_to_retain
@@ -99,19 +98,20 @@ def clean_training_data_directories(
             logger.info(f"REMOVE|{dir}")
         else:
             try:
-                shutil.rmtree(f"{path}/{dir}")
+                shutil.rmtree(f"{model_dir}/{dir}")
                 logger.info(f"REMOVE|{dir}")
             except Exception as ex:
-                message = f"ERROR while deleting directory {path}/{dir}"
+                message = f"ERROR while deleting directory {model_dir}/{dir}"
                 logger.exception(message)
                 raise Exception(message) from ex
 
-    logger.info(f"CLEANUP|Cleanup training data done for config {config_path.stem}")
+    logger.info(
+        f"CLEANUP|Cleanup training data done for config {model_dir.parent.name}"
+    )
 
 
 def clean_predictions(
-    config_path: Path,
-    path: Path,
+    model_dir: Path,
     versions_to_retain: int,
     simulate: bool,
 ):
@@ -119,17 +119,15 @@ def clean_predictions(
     Cleanup predictions.
 
     Args:
-        config_path (Path): config path
-        path (Path): Path to the directories
+        model_dir (Path): Path to the directory with the predictions to be cleaned
         versions_to_retain (int): Versions to retain
         simulate (bool): Simulate cleanup, files are logged, no files are deleted
     """
-    logger = log_util.main_log_init(path.parent.parent / "log", __name__)
-    logger.info(f"CLEANUP|Start cleanup predictions for config {config_path.stem}")
+    logger.info(f"CLEANUP|Start cleanup predictions for config {model_dir.parent.name}")
     logger.info(f"VERSIONS_TO_RETAIN|{versions_to_retain}")
     logger.info(f"SIMULATE|{simulate}")
 
-    output_vector_path = path.parent
+    output_vector_path = model_dir.parent
     prediction_dirs = os.listdir(output_vector_path)
     for prediction_dir in prediction_dirs:
         file_path = f"{output_vector_path / prediction_dir}/*.*"
@@ -137,7 +135,7 @@ def clean_predictions(
         ai_detection_infos = [aidetection_info(path=Path(file)) for file in file_list]
         postprocessing = [x.postprocessing for x in ai_detection_infos]
         postprocessing = list(dict.fromkeys(postprocessing))
-        logger.info(f"PATH|{path.parent}/{prediction_dir}")
+        logger.info(f"PATH|{model_dir.parent}/{prediction_dir}")
         for p in postprocessing:
             traindata_versions = [
                 ai_detection_info.traindata_version
@@ -168,4 +166,4 @@ def clean_predictions(
                         logger.exception(message)
                         raise Exception(message) from ex
 
-    logger.info(f"CLEANUP|Cleanup predictions done for config {config_path.stem}")
+    logger.info(f"CLEANUP|Cleanup predictions done for config {model_dir.parent.name}")

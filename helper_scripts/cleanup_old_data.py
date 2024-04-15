@@ -38,22 +38,19 @@ def cleanup_old_data(projects_dir: Path, versions_to_retain: dict[str, int], sim
                 match subdir:
                     case 'models':
                         cleanup.clean_models(
-                            config_path=config_path,
-                            path=conf.dirs.getpath("model_dir"),
+                            model_dir=conf.dirs.getpath("model_dir"),
                             versions_to_retain=versions_to_retain['models'],
                             simulate=simulate,
                         )
                     case 'output_vector':
                         cleanup.clean_training_data_directories(
-                            config_path=config_path,
-                            path=conf.dirs.getpath("training_dir"),
+                            model_dir=conf.dirs.getpath("training_dir"),
                             versions_to_retain=versions_to_retain['training_dirs'],
                             simulate=simulate,
                         )
                     case 'training':
                         cleanup.clean_predictions(
-                            config_path=config_path,
-                            path=conf.dirs.getpath("output_vector_dir"),
+                            model_dir=conf.dirs.getpath("output_vector_dir"),
                             versions_to_retain=versions_to_retain['predictions'],
                             simulate=simulate,
                         )
