@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 def clean_models(
     model_dir: Path,
     versions_to_retain: int,
-    simulate: bool = False,
+    simulate: bool,
 ):
     """
     Cleanup models.
