@@ -155,24 +155,20 @@ def test_cleanup_predictions(
         assert len(predictions) == expected_files_in_dir
 
 
-def test_cleanup_models_not_existing_dir(caplog):
+def test_cleanup_non_existing_dir(caplog):
     caplog.set_level(logging.INFO)
+    caplog.clear()
     path = Path("not_existing")
     cleanup.clean_models(model_dir=path, versions_to_retain=3, simulate=True)
     assert f"ERROR|Directory {path.name} doesn't exist" in caplog.text
 
-
-def test_cleanup_training_not_existing_dir(caplog):
-    caplog.set_level(logging.INFO)
-    path = Path("not_existing")
+    caplog.clear()
     cleanup.clean_training_data_directories(
         training_dir=path, versions_to_retain=3, simulate=True
     )
     assert f"ERROR|Directory {path.name} doesn't exist" in caplog.text
 
-
-def test_cleanup_predictions_not_existing_dir(caplog):
-    caplog.set_level(logging.INFO)
+    caplog.clear()
     path = Path("not_existing/not_existing")
     cleanup.clean_predictions(
         output_vector_dir=path, versions_to_retain=3, simulate=True
