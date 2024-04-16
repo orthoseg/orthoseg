@@ -66,7 +66,7 @@ def clean_models(
 
         logger.info(f"CLEANUP|Cleanup models done for {model_dir.parent.name}")
     else:
-        logger.info(f"ERROR|Directory {model_dir} doesn't exist")
+        logger.info(f"ERROR|Directory {model_dir.name} doesn't exist")
 
 
 def clean_training_data_directories(
@@ -110,7 +110,7 @@ def clean_training_data_directories(
             f"CLEANUP|Cleanup training data done for {training_dir.parent.name}"
         )
     else:
-        logger.info(f"ERROR|Directory {training_dir} doesn't exist")
+        logger.info(f"ERROR|Directory {training_dir.name} doesn't exist")
 
 
 def clean_predictions(
@@ -183,7 +183,7 @@ def clean_predictions(
             f"CLEANUP|Cleanup predictions done for {output_vector_dir.parent.name}"
         )
     else:
-        logger.info(f"ERROR|Directory {output_vector_dir.parent} doesn't exist")
+        logger.info(f"ERROR|Directory {output_vector_dir.name} doesn't exist")
 
 
 def clean_project_dir(
