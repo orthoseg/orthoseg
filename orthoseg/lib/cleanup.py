@@ -29,10 +29,7 @@ def clean_models(
         versions_to_retain (int): Versions to retain
         simulate (bool): Simulate cleanup, files are logged, no files are deleted
     """
-    logger.info(f"CLEANUP|Start cleanup models for {model_dir.parent.name}")
-    logger.info(f"VERSIONS_TO_RETAIN|{versions_to_retain}")
-    logger.info(f"SIMULATE|{simulate}")
-    logger.info(f"PATH|{model_dir}")
+    logger.info(f"{model_dir=}|{versions_to_retain=}|{simulate=}")
 
     if model_dir.exists():
         models = model_helper.get_models(model_dir=model_dir)
@@ -53,18 +50,17 @@ def clean_models(
             file_path = f"{model_dir}/{model}*.*"
             file_list = glob(pathname=file_path)
             for file in file_list:
+                removed_file = Path(file).name
                 if simulate:
-                    logger.info(f"REMOVE|{Path(file).name}")
+                    logger.info(f"{removed_file=}")
                 else:
                     try:
                         os.remove(file)
-                        logger.info(f"REMOVE|{Path(file).name}")
+                        logger.info(f"{removed_file=}")
                     except OSError as ex:
                         message = f"ERROR while deleting file {file}"
                         logger.exception(message)
                         raise Exception(message) from ex
-
-        logger.info(f"CLEANUP|Cleanup models done for {model_dir.parent.name}")
     else:
         logger.info(f"ERROR|Directory {model_dir.name} doesn't exist")
 
@@ -82,10 +78,8 @@ def clean_training_data_directories(
         versions_to_retain (int): Versions to retain
         simulate (bool): Simulate cleanup, files are logged, no files are deleted
     """
-    logger.info(f"CLEANUP|Start cleanup training data for {training_dir.parent.name}")
-    logger.info(f"VERSIONS_TO_RETAIN|{versions_to_retain}")
-    logger.info(f"SIMULATE|{simulate}")
-    logger.info(f"PATH|{training_dir}")
+    logger.info(f"{training_dir=}|{versions_to_retain=}|{simulate=}")
+
     if training_dir.exists():
         training_dirs = [dir for dir in os.listdir(training_dir) if dir.isnumeric()]
         training_dirs.sort()
@@ -95,20 +89,17 @@ def clean_training_data_directories(
             else 0
         ]
         for dir in traindata_dirs_to_cleanup:
+            removed_dir = dir
             if simulate:
-                logger.info(f"REMOVE|{dir}")
+                logger.info(f"{removed_dir=}")
             else:
                 try:
                     shutil.rmtree(f"{training_dir}/{dir}")
-                    logger.info(f"REMOVE|{dir}")
+                    logger.info(f"{removed_dir=}")
                 except Exception as ex:
                     message = f"ERROR while deleting directory {training_dir}/{dir}"
                     logger.exception(message)
                     raise Exception(message) from ex
-
-        logger.info(
-            f"CLEANUP|Cleanup training data done for {training_dir.parent.name}"
-        )
     else:
         logger.info(f"ERROR|Directory {training_dir.name} doesn't exist")
 
@@ -127,12 +118,6 @@ def clean_predictions(
         versions_to_retain (int): Versions to retain
         simulate (bool): Simulate cleanup, files are logged, no files are deleted
     """
-    logger.info(
-        f"CLEANUP|Start cleanup predictions for {output_vector_dir.parent.name}"
-    )
-    logger.info(f"VERSIONS_TO_RETAIN|{versions_to_retain}")
-    logger.info(f"SIMULATE|{simulate}")
-
     if output_vector_dir.parent.exists():
         output_vector_path = output_vector_dir.parent
         prediction_dirs = os.listdir(output_vector_path)
@@ -145,7 +130,9 @@ def clean_predictions(
                 ]
                 postprocessing = [x.postprocessing for x in ai_detection_infos]
                 postprocessing = list(dict.fromkeys(postprocessing))
-                logger.info(f"PATH|{output_vector_dir.parent}/{prediction_dir}")
+                # logger.info(f"PATH|{output_vector_dir.parent}/{prediction_dir}")
+                predict_dir = output_vector_dir.parent / prediction_dir
+                logger.info(f"{predict_dir=}|{versions_to_retain=}|{simulate=}")
                 for p in postprocessing:
                     traindata_versions = [
                         ai_detection_info.traindata_version
@@ -166,22 +153,19 @@ def clean_predictions(
                         and ai_detection_info.postprocessing == p
                     ]
                     for prediction in predictions_to_cleanup:
+                        removed_prediction = prediction.path.name
                         if simulate:
-                            logger.info(f"REMOVE|{prediction.path.name}")
+                            logger.info(f"{removed_prediction=}")
                         else:
                             try:
                                 os.remove(prediction.path)
-                                logger.info(f"REMOVE|{prediction.path.name}")
+                                logger.info(f"{removed_prediction=}")
                             except Exception as ex:
                                 message = f"ERROR while deleting file {prediction.path}"
                                 logger.exception(message)
                                 raise Exception(message) from ex
             except Exception as ex:
                 logger.info(f"ERROR|{ex}")
-
-        logger.info(
-            f"CLEANUP|Cleanup predictions done for {output_vector_dir.parent.name}"
-        )
     else:
         logger.info(f"ERROR|Directory {output_vector_dir.name} doesn't exist")
 
