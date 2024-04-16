@@ -61,8 +61,7 @@ def test_cleanup_models(
     ]
     for x in range(1, 6):
         for model in models:
-            with open(models_dir / f"footballfields_0{x}_{model}", "w"):
-                pass
+            (models_dir / f"footballfields_0{x}_{model}").touch
 
     # Load project config to init some vars.
     load_project_config()
@@ -93,10 +92,8 @@ def test_cleanup_training(
     for x in range(1, 6):
         dir = training_dir / f"0{x}"
         dir.mkdir(parents=True, exist_ok=True)
-        with open(training_dir / dir / "footballfields_BEFL-2019_locations.gpkg", "w"):
-            pass
-        with open(training_dir / dir / "footballfields_BEFL-2019_polygons.gpkg", "w"):
-            pass
+        (training_dir / dir / "footballfields_BEFL-2019_locations.gpkg").touch
+        (training_dir / dir / "footballfields_BEFL-2019_polygons.gpkg").touch
 
     # Load project config to init some vars.
     load_project_config()
@@ -128,18 +125,14 @@ def test_cleanup_predictions(
         dir = predictions_dir / f"BEFL_20{18 + x}"
         dir.mkdir(parents=True, exist_ok=True)
         for p in range(1, 6):
-            with open(
-                predictions_dir / dir / f"footballfields_0{p}_201_BEFL-20{18 + x}.gpkg",
-                "w",
-            ):
-                pass
-            with open(
+            (
+                predictions_dir / dir / f"footballfields_0{p}_201_BEFL-20{18 + x}.gpkg"
+            ).touch
+            (
                 predictions_dir
                 / dir
-                / f"footballfields_0{p}_201_BEFL-20{18 + x}_dissolve.gpkg",
-                "w",
-            ):
-                pass
+                / f"footballfields_0{p}_201_BEFL-20{18 + x}_dissolve.gpkg"
+            ).touch
 
     # Load project config to init some vars.
     load_project_config()
