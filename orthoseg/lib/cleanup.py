@@ -29,7 +29,7 @@ def clean_models(
         versions_to_retain (int): Versions to retain
         simulate (bool): Simulate cleanup, files are logged, no files are deleted
     """
-    logger.info(f"{model_dir=}|{versions_to_retain=}|{simulate=}")
+    logger.info(f"{model_dir=}, {versions_to_retain=}, {simulate=}")
 
     if model_dir.exists():
         models = model_helper.get_models(model_dir=model_dir)
@@ -62,7 +62,7 @@ def clean_models(
                         logger.exception(message)
                         raise Exception(message) from ex
     else:
-        logger.info(f"ERROR|Directory {model_dir.name} doesn't exist")
+        logger.info(f"Directory {model_dir.name} doesn't exist")
 
 
 def clean_training_data_directories(
@@ -78,7 +78,7 @@ def clean_training_data_directories(
         versions_to_retain (int): Versions to retain
         simulate (bool): Simulate cleanup, files are logged, no files are deleted
     """
-    logger.info(f"{training_dir=}|{versions_to_retain=}|{simulate=}")
+    logger.info(f"{training_dir=}, {versions_to_retain=}, {simulate=}")
 
     if training_dir.exists():
         training_dirs = [dir for dir in os.listdir(training_dir) if dir.isnumeric()]
@@ -101,7 +101,7 @@ def clean_training_data_directories(
                     logger.exception(message)
                     raise Exception(message) from ex
     else:
-        logger.info(f"ERROR|Directory {training_dir.name} doesn't exist")
+        logger.info(f"Directory {training_dir.name} doesn't exist")
 
 
 def clean_predictions(
@@ -130,9 +130,8 @@ def clean_predictions(
                 ]
                 postprocessing = [x.postprocessing for x in ai_detection_infos]
                 postprocessing = list(dict.fromkeys(postprocessing))
-                # logger.info(f"PATH|{output_vector_dir.parent}/{prediction_dir}")
                 predict_dir = output_vector_dir.parent / prediction_dir
-                logger.info(f"{predict_dir=}|{versions_to_retain=}|{simulate=}")
+                logger.info(f"{predict_dir=}, {versions_to_retain=}, {simulate=}")
                 for p in postprocessing:
                     traindata_versions = [
                         ai_detection_info.traindata_version
@@ -167,7 +166,7 @@ def clean_predictions(
             except Exception as ex:
                 logger.info(f"ERROR|{ex}")
     else:
-        logger.info(f"ERROR|Directory {output_vector_dir.name} doesn't exist")
+        logger.info(f"Directory {output_vector_dir.name} doesn't exist")
 
 
 def clean_project_dir(
