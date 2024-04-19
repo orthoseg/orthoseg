@@ -307,17 +307,19 @@ def predict(config_path: Path, config_overrules: List[str] = []):
         email_helper.sendmail(message)
 
         # Cleanup old data
-        cleanup.clean_project_dir(
+        cleanup.clean_models(
             model_dir=conf.dirs.getpath("model_dir"),
-            model_versions_to_retain=conf.cleanup.getint("model_versions_to_retain"),
+            versions_to_retain=conf.cleanup.getint("model_versions_to_retain"),
+            simulate=conf.cleanup.getboolean("simulate"),
+        )
+        cleanup.clean_training_data_directories(
             training_dir=conf.dirs.getpath("training_dir"),
-            training_versions_to_retain=conf.cleanup.getint(
-                "training_versions_to_retain"
-            ),
+            versions_to_retain=conf.cleanup.getint("training_versions_to_retain"),
+            simulate=conf.cleanup.getboolean("simulate"),
+        )
+        cleanup.clean_predictions(
             output_vector_dir=conf.dirs.getpath("output_vector_dir"),
-            prediction_versions_to_retain=conf.cleanup.getint(
-                "prediction_versions_to_retain"
-            ),
+            versions_to_retain=conf.cleanup.getint("prediction_versions_to_retain"),
             simulate=conf.cleanup.getboolean("simulate"),
         )
     except Exception as ex:

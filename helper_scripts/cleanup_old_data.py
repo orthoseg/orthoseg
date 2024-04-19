@@ -9,8 +9,6 @@ from orthoseg.util import log_util
 
 logger = logging.getLogger(__name__)
 
-# TODO: deze geeft een probleem bij get_aidetectioninfo
-# X:\Monitoring\OrthoSeg\sealedsurfaces\output_vector\DK-2019\prc_DK2019.gpkg
 
 def cleanup_old_data(projects_dir: Path, simulate:bool = False):
     # Exclude directories where name starts with '_'
