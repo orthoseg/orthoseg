@@ -2,7 +2,6 @@
 Tests for functionalities in orthoseg.train.
 """
 
-from contextlib import nullcontext
 from datetime import datetime
 import os
 from pathlib import Path
@@ -55,13 +54,12 @@ def test_2_load_images():
     assert len(files) == 6
 
 
-@pytest.mark.parametrize("exp_error", [(False)])
 @pytest.mark.skipif(
     "GITHUB_ACTIONS" in os.environ and os.name == "nt",
     reason="crashes on github CI on windows",
 )
 @pytest.mark.order(after="test_1_init_testproject")
-def test_3_validate(exp_error: bool):
+def test_3_validate():
     # Load project config to init some vars.
     config_path = footballfields_dir / "footballfields_train_test.ini"
     conf.read_orthoseg_config(config_path)
@@ -84,12 +82,11 @@ def test_3_validate(exp_error: bool):
     timestamp_old = datetime(year=2020, month=1, day=1).timestamp()
     os.utime(label_01_path, (timestamp_old, timestamp_old))
 
-    if exp_error:
-        handler = pytest.raises(Exception)
-    else:
-        handler = nullcontext()
-    with handler:
-        orthoseg.validate(config_path=config_path)
+    # Run validate
+    orthoseg.validate(config_path=config_path)
+
+    # Check if the training (image) data was created
+    assert training_id_dir.exists()
 
 
 @pytest.mark.skipif(
@@ -200,8 +197,8 @@ def test_5_predict():
     "GITHUB_ACTIONS" in os.environ and os.name == "nt",
     reason="crashes on github CI on windows",
 )
-@pytest.mark.order(after="test_4_predict")
-def test_5_postprocess():
+@pytest.mark.order(after="test_5_predict")
+def test_6_postprocess():
     # Load project config to init some vars.
     config_path = footballfields_dir / "footballfields_BEFL-2019_test.ini"
     conf.read_orthoseg_config(config_path)
