@@ -122,6 +122,8 @@ def postprocess(config_path: Path, config_overrules: List[str] = []):
         # Prepare some parameters for the postprocessing
         nb_parallel = conf.general.getint("nb_parallel")
 
+        keep_original_file = conf.postprocess.getboolean("keep_original_file")
+        keep_intermediary_files = conf.postprocess.getboolean("keep_intermediary_files")
         dissolve = conf.postprocess.getboolean("dissolve")
         dissolve_tiles_path = conf.postprocess.getpath("dissolve_tiles_path")
         reclassify_query = conf.postprocess.get("reclassify_to_neighbour_query")
@@ -138,6 +140,8 @@ def postprocess(config_path: Path, config_overrules: List[str] = []):
         postp.postprocess_predictions(
             input_path=output_vector_path,
             output_path=output_vector_path,
+            keep_original_file=keep_original_file,
+            keep_intermediary_files=keep_intermediary_files,
             dissolve=dissolve,
             dissolve_tiles_path=dissolve_tiles_path,
             reclassify_to_neighbour_query=reclassify_query,

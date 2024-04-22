@@ -4,6 +4,7 @@ Module with functions for post-processing prediction masks towards polygons.
 
 import logging
 import math
+import os
 from pathlib import Path
 import shutil
 from typing import List, Optional
@@ -37,6 +38,8 @@ logger = logging.getLogger(__name__)
 def postprocess_predictions(
     input_path: Path,
     output_path: Path,
+    keep_original_file: bool,
+    keep_intermediary_files: bool,
     dissolve: bool,
     dissolve_tiles_path: Optional[Path] = None,
     reclassify_to_neighbour_query: Optional[str] = None,
@@ -52,6 +55,9 @@ def postprocess_predictions(
     Args:
         input_path: path to the 'raw' prediction vector file.
         output_path: the base path where the output file(s) will be written to.
+        keep_original_file: If True, the output file of the prediction step
+            will be retained ofter postprocessing, otherwise it is removed.
+        keep_intermediary_files: If True, intermediary postprocessing files are removed.
         dissolve (bool): True if a dissolve needs to be applied
         dissolve_tiles_path (PathLike, optional): Path to a geofile containing
             the tiles to be used for the dissolve. Defaults to None.
@@ -147,13 +153,17 @@ def postprocess_predictions(
             / f"{curr_output_path.stem}_simpl{curr_output_path.suffix}"
         )
 
+        if simplify_algorithm == "RAMER_DOUGLAS_PEUCKER":
+            algorithm = gfo.SimplifyAlgorithm.RAMER_DOUGLAS_PEUCKER
+
         # If the simplified file doesn't exist yet, go for it...
         if not curr_output_path.exists():
             # Simplify!
             gfo.simplify(
                 input_path=curr_input_path,
                 output_path=curr_output_path,
-                algorithm=gfo.SimplifyAlgorithm(simplify_algorithm),
+                # algorithm=gfo.SimplifyAlgorithm(simplify_algorithm),
+                algorithm=algorithm,
                 tolerance=simplify_tolerance,
                 lookahead=simplify_lookahead,
                 nb_parallel=nb_parallel,
@@ -177,6 +187,22 @@ def postprocess_predictions(
 
         curr_input_path = curr_output_path
         output_paths.append(curr_output_path)
+
+    # If postprocessing steps are defined, the output of the prediction step
+    # (input_path) is renamed to ..._orig.gpkg
+    if dissolve or reclassify_to_neighbour_query or simplify_algorithm:
+        original_file = input_path.parent / f"{input_path.stem}_orig.gpkg"
+        os.rename(src=input_path, dst=original_file)
+        shutil.copy(src=curr_output_path, dst=input_path)
+
+    # Cleanup original file
+    if not keep_original_file:
+        os.remove(path=original_file)
+
+    # Cleanup intermediary files
+    if not keep_intermediary_files:
+        for file in output_paths:
+            os.remove(file)
 
     return output_paths
 
