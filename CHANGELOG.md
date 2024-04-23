@@ -7,6 +7,7 @@
 - Add support to train subject on different pixel sizes (#143, #174)
 - Add support to overrule configuration parameters via command line arguments (#152)
 - Several small improvements (#128)
+- Add options to improve control of output of postprocess (#167)
 
 ### Bugs fixed
 
