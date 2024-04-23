@@ -38,14 +38,14 @@ logger = logging.getLogger(__name__)
 def postprocess_predictions(
     input_path: Path,
     output_path: Path,
-    keep_original_file: bool,
-    keep_intermediary_files: bool,
     dissolve: bool,
     dissolve_tiles_path: Optional[Path] = None,
     reclassify_to_neighbour_query: Optional[str] = None,
     simplify_algorithm: Optional[str] = None,
     simplify_tolerance: float = 1,
     simplify_lookahead: int = 8,
+    keep_original_file: bool = True,
+    keep_intermediary_files: bool = True,
     nb_parallel: int = -1,
     force: bool = False,
 ) -> List[Path]:
@@ -153,17 +153,13 @@ def postprocess_predictions(
             / f"{curr_output_path.stem}_simpl{curr_output_path.suffix}"
         )
 
-        if simplify_algorithm == "RAMER_DOUGLAS_PEUCKER":
-            algorithm = gfo.SimplifyAlgorithm.RAMER_DOUGLAS_PEUCKER
-
         # If the simplified file doesn't exist yet, go for it...
         if not curr_output_path.exists():
             # Simplify!
             gfo.simplify(
                 input_path=curr_input_path,
                 output_path=curr_output_path,
-                # algorithm=gfo.SimplifyAlgorithm(simplify_algorithm),
-                algorithm=algorithm,
+                algorithm=gfo.SimplifyAlgorithm(simplify_algorithm),
                 tolerance=simplify_tolerance,
                 lookahead=simplify_lookahead,
                 nb_parallel=nb_parallel,
