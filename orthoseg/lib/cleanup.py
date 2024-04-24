@@ -214,13 +214,13 @@ def clean_project_dir(
         prediction_versions_to_retain (int): Prediction versions to retain
         simulate (bool): Simulate cleanup, files are logged, no files are deleted
     """
-    cleanup = {}
-    cleanup["models"] = clean_models(
+    removed = {}
+    removed["models"] = clean_models(
         model_dir=model_dir,
         versions_to_retain=model_versions_to_retain,
         simulate=simulate,
     )
-    cleanup["training_dirs"] = clean_training_data_directories(
+    removed["training_dirs"] = clean_training_data_directories(
         training_dir=training_dir,
         versions_to_retain=training_versions_to_retain,
         simulate=simulate,
@@ -228,9 +228,9 @@ def clean_project_dir(
     output_vector_parent_dir = output_vector_dir.parent
     if output_vector_parent_dir.exists():
         prediction_dirs = os.listdir(output_vector_parent_dir)
-        cleanup["predictions"] = []
+        removed["predictions"] = []
         for prediction_dir in prediction_dirs:
-            cleanup["predictions"].extend(
+            removed["predictions"].extend(
                 clean_predictions(
                     output_vector_dir=output_vector_parent_dir / prediction_dir,
                     versions_to_retain=prediction_versions_to_retain,
@@ -239,4 +239,4 @@ def clean_project_dir(
             )
     else:
         logger.info(f"Directory {output_vector_parent_dir.name} doesn't exist")
-    return cleanup
+    return removed

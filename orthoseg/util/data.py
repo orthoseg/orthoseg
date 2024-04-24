@@ -98,7 +98,7 @@ def aidetection_info(path: Path) -> AiDetectionInfo:
         image_layer_values = image_layer.split("-")
         try:
             image_layer_year = int(image_layer_values[1])
-        except Exception:
+        except ValueError:
             image_layer_year = None
         if len(param_values) > 4:
             postprocessing = "_".join(param_values[4:])
@@ -106,7 +106,7 @@ def aidetection_info(path: Path) -> AiDetectionInfo:
             postprocessing = ""
 
     except Exception as ex:
-        raise Exception(f"Error in get_aidetection_info on {path}") from ex
+        raise ValueError(f"Error in get_aidetection_info on {path}") from ex
 
     return AiDetectionInfo(
         path, subject, traindata_version, image_layer, image_layer_year, postprocessing

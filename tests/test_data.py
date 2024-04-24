@@ -20,7 +20,8 @@ def test_aidetection_info(tmp_path, file: str, exp_error: bool):
     path.touch()
 
     if exp_error:
-        handler = pytest.raises(Exception)
+        matchstr = r"Error in get_aidetection_info on .*"
+        handler = pytest.raises(ValueError, match=matchstr)
     else:
         handler = nullcontext()
     with handler:
