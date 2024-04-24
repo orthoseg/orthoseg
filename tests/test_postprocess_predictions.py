@@ -120,7 +120,6 @@ def create_prediction_file(output_vector_dir: Path) -> Path:
         ],
     }
     footballfields_gdf = gpd.GeoDataFrame(footballfields, geometry="geometry")
-    # footballfields_df = footballfields_gdf.set_geometry("geometry")
     gfo.to_file(gdf=footballfields_gdf, path=output_vector_path)
     return output_vector_path
 
