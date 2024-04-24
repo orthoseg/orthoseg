@@ -1,6 +1,7 @@
 """
 Tests for functionalities in orthoseg.lib.postprocess_predictions.
 """
+
 import os
 from pathlib import Path
 from typing import List, Optional, Union
@@ -292,7 +293,11 @@ def test_prepare_labeldata_polygons_columnname_backw_compat(tmp_path):
     assert len(polygons_to_burn_gdf) == 2
 
 
-def test_prepare_traindata_full(tmp_path):
+@pytest.mark.parametrize(
+    "reuse_images",
+    [False, True],
+)
+def test_prepare_traindata_full(tmp_path, reuse_images: bool):
     # Prepare test data
     classes = TestData.classes
     image_layers_config_path = test_helper.sampleprojects_dir / "imagelayers.ini"
@@ -300,7 +305,24 @@ def test_prepare_traindata_full(tmp_path):
     label_infos = _prepare_labelinfos(tmp_path)
 
     # Test with the default data...
-    training_dir = tmp_path / "training_dir"
+    training_dir = tmp_path / "training"
+    if reuse_images:
+        previous_training_dir = training_dir / "01"
+        traindata_types = ["train", "validation", "test"]
+        for traindata_type in traindata_types:
+            dir = previous_training_dir / traindata_type
+            (dir / "image").mkdir(parents=True, exist_ok=True)
+            (dir / "mask").mkdir(parents=True, exist_ok=True)
+            (
+                dir / "image" / "000000_111111_222222_333333_512_512_OMWRGB21VL.png"
+            ).touch()
+            (
+                dir / "image" / "000000_111111_222222_333333_512_512_OMWRGB21VL.pgw"
+            ).touch()
+            (
+                dir / "mask" / "000000_111111_222222_333333_512_512_OMWRGB21VL.png"
+            ).touch()
+
     training_dir, _ = prep_traindata.prepare_traindatasets(
         label_infos=label_infos,
         classes=classes,
