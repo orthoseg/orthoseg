@@ -10,7 +10,6 @@ import pandas as pd
 import shutil
 import pytest
 from tests import test_helper
-from orthoseg.helpers import config_helper as conf
 from orthoseg.lib import postprocess_predictions as postp
 
 import geopandas as gpd
@@ -120,32 +119,18 @@ def create_prediction_file(output_vector_dir: Path) -> Path:
             ),
         ],
     }
-    footballfields_gdf = gpd.GeoDataFrame(footballfields)
-    footballfields_df = footballfields_gdf.set_geometry("geometry")
-    gfo.to_file(gdf=footballfields_df, path=output_vector_path)
+    footballfields_gdf = gpd.GeoDataFrame(footballfields, geometry="geometry")
+    # footballfields_df = footballfields_gdf.set_geometry("geometry")
+    gfo.to_file(gdf=footballfields_gdf, path=output_vector_path)
     return output_vector_path
-
-
-def load_project_config(path: Path, overrules: list[str]):
-    overrules.extend(
-        [
-            "general.segment_subject=footballfields",
-            "predict.image_layer=BEFL-2019",
-            "postprocess.dissolve=True",
-            "postprocess.reclassify_to_neighbour_query=(area < 5)",
-        ]
-    )
-    conf.read_orthoseg_config(
-        config_path=path / "footballfields.ini", overrules=overrules
-    )
 
 
 @pytest.mark.parametrize("keep_original_file", [False, True])
 @pytest.mark.parametrize("keep_intermediary_files", [False, True])
 def test_postprocess_predictions(
     tmp_path: Path,
-    keep_original_file: str,
-    keep_intermediary_files: str,
+    keep_original_file: bool,
+    keep_intermediary_files: bool,
 ):
     # Create test project
     project_dir = create_projects_dir(tmp_path=tmp_path)
@@ -163,44 +148,14 @@ def test_postprocess_predictions(
         output_vector_path.parent / f"{output_vector_path.stem}_reclass.gpkg"
     )
 
-    overrules = []
-    overrules.append(f"postprocess.keep_original_file={keep_original_file}")
-    overrules.append(f"postprocess.keep_intermediary_files={keep_intermediary_files}")
-
-    # Load project config to init some vars.
-    load_project_config(path=project_dir, overrules=overrules)
-
-    # Run task to postprocess_predictions
-    # Prepare some parameters for the postprocessing
-    nb_parallel = conf.general.getint("nb_parallel")
-
-    keep_original_file = conf.postprocess.getboolean("keep_original_file")
-    keep_intermediary_files = conf.postprocess.getboolean("keep_intermediary_files")
-    dissolve = conf.postprocess.getboolean("dissolve")
-    dissolve_tiles_path = conf.postprocess.getpath("dissolve_tiles_path")
-    reclassify_query = conf.postprocess.get("reclassify_to_neighbour_query")
-    if reclassify_query is not None:
-        reclassify_query = reclassify_query.replace("\n", " ")
-
-    simplify_algorithm = conf.postprocess.get("simplify_algorithm")
-    simplify_tolerance = conf.postprocess.geteval("simplify_tolerance")
-    simplify_lookahead = conf.postprocess.get("simplify_lookahead")
-    if simplify_lookahead is not None:
-        simplify_lookahead = int(simplify_lookahead)
-
     # Go!
     postp.postprocess_predictions(
         input_path=output_vector_path,
         output_path=output_vector_path,
         keep_original_file=keep_original_file,
         keep_intermediary_files=keep_intermediary_files,
-        dissolve=dissolve,
-        dissolve_tiles_path=dissolve_tiles_path,
-        reclassify_to_neighbour_query=reclassify_query,
-        simplify_algorithm=simplify_algorithm,
-        simplify_tolerance=simplify_tolerance,
-        simplify_lookahead=simplify_lookahead,
-        nb_parallel=nb_parallel,
+        dissolve=True,
+        reclassify_to_neighbour_query="(area < 5)",
         force=False,
     )
 
