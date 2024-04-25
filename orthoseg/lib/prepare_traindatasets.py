@@ -288,33 +288,42 @@ def prepare_traindatasets(
     # types.
     # If the images exists allready in a previous version,
     # reuse them instead of fetching again from the WMS.
-    if "dataversion_mostrecent" in locals():
-        training_previous_dataversion_dir = (
+    # if "dataversion_mostrecent" in locals():
+    #     training_previous_dataversion_dir = (
+    #         training_dir / f"{dataversion_mostrecent:02d}"
+    #     )
+    #     for traindata_type in [
+    #         dir
+    #         for dir in os.listdir(training_previous_dataversion_dir)
+    #         if os.path.isdir(training_previous_dataversion_dir / dir)
+    #     ]:
+    #         shutil.copytree(
+    #             src=training_previous_dataversion_dir / traindata_type,
+    #             dst=output_tmp_dir / traindata_type,
+    #         )
+    # else:
+    traindata_types = ["train", "validation", "test"]
+    nb_todo = 0
+    for labellocations_gdf, _ in labeldata:
+        labellocations_curr_gdf = labellocations_gdf[
+            labellocations_gdf["traindata_type"].isin(traindata_types)
+        ]
+        nb_todo += len(labellocations_curr_gdf)
+    progress = ProgressLogger(message="prepare training images", nb_steps_total=nb_todo)
+    logger.info(f"Get images for {nb_todo} labels")
+
+    for traindata_type in traindata_types:
+        if "dataversion_mostrecent" in locals() and traindata_type in os.listdir(
             training_dir / f"{dataversion_mostrecent:02d}"
-        )
-        for traindata_type in [
-            dir
-            for dir in os.listdir(training_previous_dataversion_dir)
-            if os.path.isdir(training_previous_dataversion_dir / dir)
-        ]:
+        ):
+            training_previous_dataversion_dir = (
+                training_dir / f"{dataversion_mostrecent:02d}"
+            )
             shutil.copytree(
                 src=training_previous_dataversion_dir / traindata_type,
                 dst=output_tmp_dir / traindata_type,
             )
-    else:
-        traindata_types = ["train", "validation", "test"]
-        nb_todo = 0
-        for labellocations_gdf, _ in labeldata:
-            labellocations_curr_gdf = labellocations_gdf[
-                labellocations_gdf["traindata_type"].isin(traindata_types)
-            ]
-            nb_todo += len(labellocations_curr_gdf)
-        progress = ProgressLogger(
-            message="prepare training images", nb_steps_total=nb_todo
-        )
-        logger.info(f"Get images for {nb_todo} labels")
-
-        for traindata_type in traindata_types:
+        else:
             # Create output dirs...
             output_imagedatatype_dir = output_tmp_dir / traindata_type
             output_imagedata_image_dir = output_imagedatatype_dir / "image"
