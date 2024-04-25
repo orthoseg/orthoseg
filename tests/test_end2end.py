@@ -87,8 +87,11 @@ def test_3_validate(exp_error: bool):
     # Run validate
     if exp_error:
         training_dir = training_dir.parent / "invalid"
-        config_overrules = [f"dirs.project_dir={training_dir}"]
-        handler = pytest.raises(Exception)
+        config_overrules = ["train.classes=[]"]
+        handler = pytest.raises(
+            Exception,
+            match="ERROR while running validate for task footballfields_train_test",
+        )
     else:
         config_overrules = []
         handler = nullcontext()
