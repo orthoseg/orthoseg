@@ -86,7 +86,6 @@ def test_3_validate(exp_error: bool):
 
     # Run validate
     if exp_error:
-        training_dir = training_dir.parent / "invalid"
         config_overrules = ["train.classes=[]"]
         handler = pytest.raises(
             Exception,
