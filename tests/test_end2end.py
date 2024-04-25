@@ -90,6 +90,7 @@ def test_3_validate(exp_error: bool):
         config_overrules = [f"dirs.project_dir={training_dir}"]
         handler = pytest.raises(Exception)
     else:
+        config_overrules = []
         handler = nullcontext()
     with handler:
         orthoseg.validate(config_path=config_path, config_overrules=config_overrules)
