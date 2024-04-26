@@ -65,7 +65,7 @@ def test_2_load_images():
     [
         ([], False, does_not_raise(), None),
         (
-            ["train.classes=[]"],
+            ["train.classes={}"],
             True,
             pytest.raises(Exception),
             "ERROR while running validate for task footballfields_train_test",
