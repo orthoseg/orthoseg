@@ -61,18 +61,17 @@ def test_2_load_images():
 )
 @pytest.mark.order(after="test_1_init_testproject")
 @pytest.mark.parametrize(
-    "overrules, exp_error, message",
+    "exp_error, message",
     [
-        ([], False, None),
+        (False, None),
         (
-            ["train.classes={}"],
             True,
             "ERROR while running validate for task footballfields_train_test",
         ),
     ],
     ids=["Valid input", "Error"],
 )
-def test_3_validate(overrules: list[str], exp_error: bool, message: str):
+def test_3_validate(exp_error: bool, message: str):
     # Load project config to init some vars.
     config_path = footballfields_dir / "footballfields_train_test.ini"
     conf.read_orthoseg_config(config_path)
@@ -97,11 +96,13 @@ def test_3_validate(overrules: list[str], exp_error: bool, message: str):
 
     # Run validate
     if exp_error:
+        # drop label_dir
+        shutil.rmtree(footballfields_dir / "labels")
         handler = pytest.raises(Exception, match=message)
     else:
         handler = nullcontext()
     with handler:
-        orthoseg.validate(config_path=config_path, config_overrules=overrules)
+        orthoseg.validate(config_path=config_path)
 
     if not exp_error:
         # Check if the training (image) data was created
