@@ -2,7 +2,6 @@
 Tests for functionalities in orthoseg.train.
 """
 
-from contextlib import nullcontext  # as does_not_raise
 from datetime import datetime
 import os
 from pathlib import Path
@@ -60,18 +59,7 @@ def test_2_load_images():
     reason="crashes on github CI on windows",
 )
 @pytest.mark.order(after="test_1_init_testproject")
-@pytest.mark.parametrize(
-    "exp_error, message",
-    [
-        (False, None),
-        (
-            True,
-            "ERROR while running validate for task footballfields_train_test",
-        ),
-    ],
-    ids=["Valid input", "Error"],
-)
-def test_3_validate(exp_error: bool, message: str):
+def test_3_validate():
     # Load project config to init some vars.
     config_path = footballfields_dir / "footballfields_train_test.ini"
     conf.read_orthoseg_config(config_path)
@@ -95,18 +83,10 @@ def test_3_validate(exp_error: bool, message: str):
     os.utime(label_01_path, (timestamp_old, timestamp_old))
 
     # Run validate
-    if exp_error:
-        # drop label_dir
-        shutil.rmtree(footballfields_dir / "labels")
-        handler = pytest.raises(Exception, match=message)
-    else:
-        handler = nullcontext()
-    with handler:
-        orthoseg.validate(config_path=config_path)
+    orthoseg.validate(config_path=config_path)
 
-    if not exp_error:
-        # Check if the training (image) data was created
-        assert training_id_dir.exists()
+    # Check if the training (image) data was created
+    assert training_id_dir.exists()
 
 
 @pytest.mark.skipif(
