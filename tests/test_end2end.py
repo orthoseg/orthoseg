@@ -2,7 +2,7 @@
 Tests for functionalities in orthoseg.train.
 """
 
-from contextlib import nullcontext as does_not_raise
+from contextlib import nullcontext  # as does_not_raise
 from datetime import datetime
 import os
 from pathlib import Path
@@ -61,19 +61,18 @@ def test_2_load_images():
 )
 @pytest.mark.order(after="test_1_init_testproject")
 @pytest.mark.parametrize(
-    "overrules, exp_error, exception, message",
+    "overrules, exp_error, message",
     [
-        ([], False, does_not_raise(), None),
+        ([], False, None),
         (
             ["train.classes={}"],
             True,
-            pytest.raises(Exception),
             "ERROR while running validate for task footballfields_train_test",
         ),
     ],
     ids=["Valid input", "Error"],
 )
-def test_3_validate(overrules, exp_error, exception, message):
+def test_3_validate(overrules: list[str], exp_error: bool, message: str):
     # Load project config to init some vars.
     config_path = footballfields_dir / "footballfields_train_test.ini"
     conf.read_orthoseg_config(config_path)
@@ -97,30 +96,28 @@ def test_3_validate(overrules, exp_error, exception, message):
     os.utime(label_01_path, (timestamp_old, timestamp_old))
 
     # Run validate
-    with exception as e:
-        orthoseg.validate(config_path=config_path, config_overrules=overrules)
-    assert message is None or message in str(e)
-    if not exp_error:
-        assert training_id_dir.exists()
-    # if exp_error:
-    #     config_overrules = ["train.classes=[]"]
-    #     handler = pytest.raises(
-    #         Exception,
-    #         # match="ERROR while running validate for task footballfields_train_test",
-    #     )
-    # else:
-    #     config_overrules = []
-    #     handler = nullcontext()
-    # with handler:
-    #     try:
-    #         orthoseg.validate(
-    #             config_path=config_path, config_overrules=config_overrules
-    #         )
-    #     except Exception as ex:
-    #         print(ex)
-
-    #     # Check if the training (image) data was created
+    # with exception as e:
+    #     orthoseg.validate(config_path=config_path, config_overrules=overrules)
+    # assert message is None or message in str(e)
+    # if not exp_error:
     #     assert training_id_dir.exists()
+    if exp_error:
+        # config_overrules = ["train.classes=[]"]
+        handler = pytest.raises(
+            Exception,
+            match=message,
+        )
+    else:
+        # config_overrules = []
+        handler = nullcontext()
+    with handler:
+        try:
+            orthoseg.validate(config_path=config_path, config_overrules=overrules)
+        except Exception as ex:
+            print(ex)
+
+        # Check if the training (image) data was created
+        assert training_id_dir.exists()
 
 
 @pytest.mark.skipif(
