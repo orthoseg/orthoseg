@@ -45,10 +45,19 @@ def test_validate_error(tmp_path):
     (sub_dir / "footballfields_BEFL-2019_locations.gpkg").touch()
     (sub_dir / "footballfields_BEFL-2019_polygons.gpkg").touch()
 
-    with pytest.raises(
-        Exception,
-        match="ERROR while running validate for task footballfields",
-    ):
+    # with pytest.raises(
+    #     Exception,
+    #     match="ERROR while running validate for task footballfields_BEFL-2019_test",
+    # ):
+    #     orthoseg.validate(
+    #         config_path=test_helper.SampleProjectFootball.predict_config_path,
+    #     )
+
+    with pytest.raises(Exception) as excinfo:
         orthoseg.validate(
             config_path=test_helper.SampleProjectFootball.predict_config_path,
         )
+
+    assert "ERROR while running validate for task footballfields_BEFL-2019_test" in str(
+        excinfo.value
+    )
