@@ -96,26 +96,14 @@ def test_3_validate(overrules: list[str], exp_error: bool, message: str):
     os.utime(label_01_path, (timestamp_old, timestamp_old))
 
     # Run validate
-    # with exception as e:
-    #     orthoseg.validate(config_path=config_path, config_overrules=overrules)
-    # assert message is None or message in str(e)
-    # if not exp_error:
-    #     assert training_id_dir.exists()
     if exp_error:
-        # config_overrules = ["train.classes=[]"]
-        handler = pytest.raises(
-            Exception,
-            match=message,
-        )
+        handler = pytest.raises(Exception, match=message)
     else:
-        # config_overrules = []
         handler = nullcontext()
     with handler:
-        try:
-            orthoseg.validate(config_path=config_path, config_overrules=overrules)
-        except Exception as ex:
-            print(ex)
+        orthoseg.validate(config_path=config_path, config_overrules=overrules)
 
+    if not exp_error:
         # Check if the training (image) data was created
         assert training_id_dir.exists()
 
