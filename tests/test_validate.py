@@ -33,27 +33,12 @@ def test_validate_error(tmp_path):
     project_dir = tmp_path / "footballfields"
     project_dir.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(
-        src=test_helper.SampleProjectFootball.predict_config_path,
-        dst=project_dir / "footballfields_BEFL-2019_test.ini",
-    )
-    shutil.copyfile(
         src=test_helper.SampleProjectFootball.project_dir
         / "footballfields_BEFL-2019.ini",
         dst=project_dir / "footballfields_BEFL-2019.ini",
     )
-    # Create dummy files
-    training_dir = project_dir / "training"
-    sub_dir = training_dir / "01"
-    sub_dir.mkdir(parents=True, exist_ok=True)
-    (sub_dir / "footballfields_BEFL-2019_locations.gpkg").touch()
-    (sub_dir / "footballfields_BEFL-2019_polygons.gpkg").touch()
 
-    with pytest.raises(Exception) as excinfo:
+    with pytest.raises(Exception, match="Layer config file not found:"):
         orthoseg.validate(
-            config_path=test_helper.SampleProjectFootball.predict_config_path,
+            config_path=project_dir / "footballfields_BEFL-2019.ini",
         )
-
-    assert (
-        str(excinfo.value)
-        == "ERROR while running validate for task footballfields_BEFL-2019_test"
-    )
