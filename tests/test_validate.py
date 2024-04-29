@@ -10,12 +10,11 @@ from tests import test_helper
     "args",
     [
         (
-            []
-            # [
-            #     "--config",
-            #     "X:/Monitoring/OrthoSeg/test/test.ini",
-            #     "predict.image_layer=LT-2023",
-            # ]
+            [
+                "--config",
+                "X:/Monitoring/OrthoSeg/test/test.ini",
+                "predict.image_layer=LT-2023",
+            ]
         )
     ],
 )
@@ -48,14 +47,6 @@ def test_validate_error(tmp_path):
     sub_dir.mkdir(parents=True, exist_ok=True)
     (sub_dir / "footballfields_BEFL-2019_locations.gpkg").touch()
     (sub_dir / "footballfields_BEFL-2019_polygons.gpkg").touch()
-
-    # with pytest.raises(
-    #     Exception,
-    #     match="ERROR while running validate for task footballfields_BEFL-2019_tes",
-    # ):
-    #     orthoseg.validate(
-    #         config_path=test_helper.SampleProjectFootball.predict_config_path,
-    #     )
 
     with pytest.raises(Exception) as excinfo:
         orthoseg.validate(
