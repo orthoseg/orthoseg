@@ -19,10 +19,8 @@ from tests import test_helper
     ],
 )
 def test_validate_args(args):
-    try:
-        valid_args = _validate_args(args=args)
-    except Exception as ex:
-        print(ex)
+    valid_args = _validate_args(args=args)
+
     assert valid_args is not None
     assert valid_args.config is not None
     assert valid_args.config_overrules is not None
@@ -37,8 +35,15 @@ def test_validate_error(tmp_path):
         / "footballfields_BEFL-2019.ini",
         dst=project_dir / "footballfields_BEFL-2019.ini",
     )
+    shutil.copyfile(
+        src=test_helper.sampleprojects_dir / "imagelayers.ini",
+        dst=tmp_path / "imagelayers.ini",
+    )
 
-    with pytest.raises(Exception, match="Layer config file not found:"):
+    with pytest.raises(
+        Exception,
+        match="ERROR while running validate for task footballfields_BEFL-2019",
+    ):
         orthoseg.validate(
             config_path=project_dir / "footballfields_BEFL-2019.ini",
         )
