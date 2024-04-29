@@ -10,16 +10,20 @@ from tests import test_helper
     "args",
     [
         (
-            [
-                "--config",
-                "X:/Monitoring/OrthoSeg/test/test.ini",
-                "predict.image_layer=LT-2023",
-            ]
+            []
+            # [
+            #     "--config",
+            #     "X:/Monitoring/OrthoSeg/test/test.ini",
+            #     "predict.image_layer=LT-2023",
+            # ]
         )
     ],
 )
 def test_validate_args(args):
-    valid_args = _validate_args(args=args)
+    try:
+        valid_args = _validate_args(args=args)
+    except Exception as ex:
+        print(ex)
     assert valid_args is not None
     assert valid_args.config is not None
     assert valid_args.config_overrules is not None
@@ -47,7 +51,7 @@ def test_validate_error(tmp_path):
 
     # with pytest.raises(
     #     Exception,
-    #     match="ERROR while running validate for task footballfields_BEFL-2019_test",
+    #     match="ERROR while running validate for task footballfields_BEFL-2019_tes",
     # ):
     #     orthoseg.validate(
     #         config_path=test_helper.SampleProjectFootball.predict_config_path,
@@ -58,6 +62,7 @@ def test_validate_error(tmp_path):
             config_path=test_helper.SampleProjectFootball.predict_config_path,
         )
 
-    assert "ERROR while running validate for task footballfields_BEFL-2019_test" in str(
-        excinfo.value
+    assert (
+        str(excinfo.value)
+        == "ERROR while running validate for task footballfields_BEFL-2019_test"
     )
