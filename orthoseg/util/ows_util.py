@@ -320,7 +320,7 @@ def get_images_for_grid(
                 output_dir = output_image_dir / f"{tile_xmin:06.0f}"
             else:
                 output_dir = output_image_dir / f"{tile_xmin:09.4f}"
-            output_filename = _create_filename(
+            output_filename = create_filename(
                 crs=crs,
                 bbox=(tile_xmin, tile_ymin, tile_xmax, tile_ymax),
                 size=(tile_pixel_width, tile_pixel_height),
@@ -547,7 +547,7 @@ def getmap_to_file(
                 else:
                     layername += f"_{'_'.join(layersource.layernames)}"
 
-        output_filename = _create_filename(
+        output_filename = create_filename(
             crs=crs,
             bbox=bbox,
             size=size,
@@ -996,9 +996,21 @@ def getmap_to_file(
     return output_filepath
 
 
-def _create_filename(
+def create_filename(
     crs: pyproj.CRS, bbox, size, image_format: str, layername: Optional[str] = None
-):
+) -> str:
+    """Create filename.
+
+    Args:
+        crs (pyproj.CRS): crs
+        bbox (_type_): bbox
+        size (_type_): size
+        image_format (str): format
+        layername (Optional[str], optional): layername. Defaults to None.
+
+    Returns:
+        str: filename
+    """
     # Get image extension based on format
     image_ext = _get_ext_for_image_format(image_format)
 
