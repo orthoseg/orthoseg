@@ -3,7 +3,6 @@ Module to prepare the training datasets.
 """
 
 import logging
-import os
 import shutil
 import math
 from pathlib import Path
@@ -344,8 +343,9 @@ def prepare_traindatasets(
                     # reuse them instead of fetching again from the WMS.
                     if (
                         "dataversion_mostrecent" in locals()
-                        and output_filename
-                        in os.listdir(output_previous_imagedata_image_dir)
+                        and (
+                            output_previous_imagedata_image_dir / output_filename
+                        ).exists()
                     ):
                         image_filepath = shutil.copy(
                             src=output_previous_imagedata_image_dir / output_filename,
