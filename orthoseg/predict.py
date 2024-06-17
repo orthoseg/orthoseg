@@ -18,7 +18,7 @@ import tensorflow as tf
 
 from orthoseg.helpers import config_helper as conf
 from orthoseg.helpers import email_helper
-from orthoseg.lib import predicter
+from orthoseg.lib import cleanup, predicter
 import orthoseg.model.model_factory as mf
 import orthoseg.model.model_helper as mh
 from orthoseg.util import log_util
@@ -107,8 +107,6 @@ def predict(config_path: Path, config_overrules: List[str] = []):
         input_image_dir = conf.dirs.getpath("predict_image_input_dir")
         if not input_image_dir.exists():
             raise Exception(f"input image dir doesn't exist: {input_image_dir}")
-
-        # TODO: add something to delete old data, predictions???
 
         # Create base filename of model to use
         # TODO: is force data version the most logical, or rather implement
@@ -307,6 +305,23 @@ def predict(config_path: Path, config_overrules: List[str] = []):
         message = f"Completed predict for config {config_path.stem}"
         logger.info(message)
         email_helper.sendmail(message)
+
+        # Cleanup old data
+        cleanup.clean_models(
+            model_dir=conf.dirs.getpath("model_dir"),
+            versions_to_retain=conf.cleanup.getint("model_versions_to_retain"),
+            simulate=conf.cleanup.getboolean("simulate"),
+        )
+        cleanup.clean_training_data_directories(
+            training_dir=conf.dirs.getpath("training_dir"),
+            versions_to_retain=conf.cleanup.getint("training_versions_to_retain"),
+            simulate=conf.cleanup.getboolean("simulate"),
+        )
+        cleanup.clean_predictions(
+            output_vector_dir=conf.dirs.getpath("output_vector_dir"),
+            versions_to_retain=conf.cleanup.getint("prediction_versions_to_retain"),
+            simulate=conf.cleanup.getboolean("simulate"),
+        )
     except Exception as ex:
         message = f"ERROR while running predict for task {config_path.stem}"
         logger.exception(message)
