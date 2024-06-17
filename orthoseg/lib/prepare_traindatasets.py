@@ -296,6 +296,13 @@ def prepare_traindatasets(
     logger.info(f"Get images for {nb_todo} labels")
 
     for traindata_type in traindata_types:
+        if "dataversion_mostrecent" in locals():
+            training_previous_dataversion_dir = (
+                training_dir / f"{dataversion_mostrecent:02d}"
+            )
+            output_previous_imagedata_image_dir = (
+                training_previous_dataversion_dir / traindata_type / "image"
+            )
         # Create output dirs...
         output_imagedatatype_dir = output_tmp_dir / traindata_type
         output_imagedata_image_dir = output_imagedatatype_dir / "image"
@@ -323,24 +330,56 @@ def prepare_traindatasets(
                     # Now really get the image
                     logger.debug(f"Get image for coordinates {img_bbox.bounds}")
                     assert labellocations_gdf.crs is not None
-                    image_filepath = ows_util.getmap_to_file(
-                        layersources=image_layers[image_layer]["layersources"],
-                        output_dir=output_imagedata_image_dir,
+                    output_filename = ows_util.create_filename(
                         crs=labellocations_gdf.crs,
                         bbox=img_bbox.bounds,
                         size=(image_pixel_width, image_pixel_height),
-                        ssl_verify=ssl_verify,
                         image_format=ows_util.FORMAT_PNG,
-                        # image_format_save=ows_util.FORMAT_TIFF,
-                        image_pixels_ignore_border=image_layers[image_layer][
-                            "image_pixels_ignore_border"
-                        ],
-                        transparent=False,
-                        layername_in_filename=True,
+                        layername="_".join(
+                            image_layers[image_layer]["layersources"][0].layernames
+                        ),
                     )
+                    # If the images exists allready in a previous version,
+                    # reuse them instead of fetching again from the WMS.
+                    if (
+                        "dataversion_mostrecent" in locals()
+                        and (
+                            output_previous_imagedata_image_dir / output_filename
+                        ).exists()
+                    ):
+                        image_filepath = shutil.copy(
+                            src=output_previous_imagedata_image_dir / output_filename,
+                            dst=output_imagedata_image_dir / output_filename,
+                        )
+                        pgw_filename = output_filename.replace(".png", ".pgw")
+                        if (
+                            output_previous_imagedata_image_dir / pgw_filename
+                        ).exists():
+                            shutil.copy(
+                                src=output_previous_imagedata_image_dir / pgw_filename,
+                                dst=output_imagedata_image_dir / pgw_filename,
+                            )
+                    else:
+                        image_filepath = ows_util.getmap_to_file(
+                            layersources=image_layers[image_layer]["layersources"],
+                            output_dir=output_imagedata_image_dir,
+                            crs=labellocations_gdf.crs,
+                            bbox=img_bbox.bounds,
+                            size=(image_pixel_width, image_pixel_height),
+                            ssl_verify=ssl_verify,
+                            image_format=ows_util.FORMAT_PNG,
+                            # image_format_save=ows_util.FORMAT_TIFF,
+                            image_pixels_ignore_border=image_layers[image_layer][
+                                "image_pixels_ignore_border"
+                            ],
+                            transparent=False,
+                            layername_in_filename=True,
+                            output_filename=output_filename,
+                        )
 
                     # Create a mask corresponding with the image file
-                    # image_filepath can be None if file exists, so check if not None...
+                    # image_filepath can be None if file exists,
+                    # so check if not None...
                     if image_filepath is not None:
                         # Mask should not be in a lossy format!
                         mask_filepath = Path(
