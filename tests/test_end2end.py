@@ -58,7 +58,7 @@ def test_2_load_images():
     "GITHUB_ACTIONS" in os.environ and os.name == "nt",
     reason="crashes on github CI on windows",
 )
-@pytest.mark.order(after="test_2_load_images")
+@pytest.mark.order(after="test_1_init_testproject")
 def test_3_train():
     # Load project config to init some vars.
     config_path = footballfields_dir / "footballfields_train_test.ini"
@@ -104,7 +104,7 @@ def test_3_train():
     "GITHUB_ACTIONS" in os.environ and os.name == "nt",
     reason="crashes on github CI on windows",
 )
-@pytest.mark.order(after="test_3_train")
+@pytest.mark.order(after="test_2_load_images")
 def test_4_predict():
     # Load project config to init some vars.
     config_path = footballfields_dir / "footballfields_BEFL-2019_test.ini"
