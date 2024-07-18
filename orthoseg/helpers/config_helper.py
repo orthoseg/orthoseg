@@ -378,7 +378,7 @@ def _prepare_train_label_infos(
             )
         }
 
-    # If there are label datasources configures in the project, process them as well.
+    # If there are label datasources configured in the project, process them as well.
     if label_datasources is not None:
         for label_ds_key in label_datasources:
             label_ds = label_datasources[label_ds_key]
@@ -387,7 +387,7 @@ def _prepare_train_label_infos(
             polygons_path = None
             if "polygons_path" in label_ds:
                 polygons_path = label_ds["polygons_path"]
-            if "data_path" in label_ds:
+            elif "data_path" in label_ds:
                 polygons_path = label_ds["data_path"]
 
             # If the label datasource was already found using pattern search, overrule
@@ -403,6 +403,9 @@ def _prepare_train_label_infos(
                 if label_ds.get("pixel_y_size") is not None:
                     label_infos[locations_path].pixel_y_size = label_ds["pixel_y_size"]
             else:
+                if polygons_path is None:
+                    raise ValueError(f"polygons_path not specified for {label_ds}")
+
                 # Add as new LabelInfo
                 label_infos[locations_path] = LabelInfo(
                     locations_path=Path(label_ds["locations_path"]),
