@@ -151,6 +151,7 @@ def prepare_traindatasets(
     image_pixel_width: int = 512,
     image_pixel_height: int = 512,
     ssl_verify: Union[bool, str] = True,
+    only_validate: bool = False,
     force: bool = False,
 ) -> Tuple[Path, int]:
     """
@@ -187,6 +188,7 @@ def prepare_traindatasets(
             certificate bundle file (.pem) is passed, this will be used.
             In corporate networks using a proxy server this is often needed
             to evade CERTIFICATE_VERIFY_FAILED errors. Defaults to True.
+        only_validate (bool, optional): True to only validate the input label data.
         force (bool, opitional): True to force recreation of output files.
             Defaults to False.
     """
@@ -267,8 +269,12 @@ def prepare_traindatasets(
         image_pixel_height=image_pixel_height,
     )
 
-    # Reading label data was succesfull, so prepare temp dir to put training dataset in.
-    # A temp dir, so it can be removed/ignored if an error occurs later on.
+    # Reading label data was succesfull.
+    if only_validate:
+        return (training_dataversion_dir, dataversion_new)
+
+    # Prepare temp dir to put training dataset in.
+    # Use a temp dir, so it can be removed/ignored if an error occurs later on.
     output_tmp_dir = create_tmp_dir(
         training_dir, f"{dataversion_new:02d}", remove_existing=True
     )

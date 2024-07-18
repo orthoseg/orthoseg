@@ -6,6 +6,31 @@ from tests.test_helper import SampleProjectFootball
 from tests.test_helper import TestData
 
 
+@pytest.mark.parametrize(
+    "overrules, exp_error, message",
+    [
+        (
+            ["general.segment_subject=MUST_OVERRIDE"],
+            ValueError,
+            "Projectconfig parameter general.segment_subject needs to be overruled",
+        ),
+        (
+            ["general.segment_subject=Football_field"],
+            ValueError,
+            "should not contain any of the following chars",
+        ),
+    ],
+)
+def test_read_orthoseg_config_error_segment_subject(overrules, exp_error, message):
+    with pytest.raises(
+        exp_error,
+        match=message,
+    ):
+        conf.read_orthoseg_config(
+            SampleProjectFootball.predict_config_path, overrules=overrules
+        )
+
+
 def test_read_orthoseg_config_image_layers():
     # Load project config to init some vars.
     conf.read_orthoseg_config(SampleProjectFootball.predict_config_path)
