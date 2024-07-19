@@ -1,5 +1,5 @@
 """
-Automatic cleanup of 'old' models, predictions and training data directories.
+Module with functions to clean up old models, predictions and training data directories.
 """
 
 import logging
@@ -17,9 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 def clean_models(
-    model_dir: Path,
-    versions_to_retain: int,
-    simulate: bool,
+    model_dir: Path, versions_to_retain: int, simulate: bool
 ) -> List[Path]:
     """
     Cleanup models.
@@ -63,7 +61,7 @@ def clean_models(
         files_to_remove.extend(files)
 
         for file_to_remove in files:
-            logger.info(f"remove file {file_to_remove}")
+            logger.info(f"remove prediction file ({simulate=}): {file_to_remove}")
             if simulate:
                 continue
 
@@ -78,9 +76,7 @@ def clean_models(
 
 
 def clean_training_data_directories(
-    training_dir: Path,
-    versions_to_retain: int,
-    simulate: bool,
+    training_dir: Path, versions_to_retain: int, simulate: bool
 ) -> List[Path]:
     """
     Cleanup training data directories.
@@ -100,7 +96,10 @@ def clean_training_data_directories(
         logger.info(f"Directory {training_dir.name} doesn't exist")
         return []
 
-    logger.info(f"{training_dir=}, {versions_to_retain=}, {simulate=}")
+    logger.info(
+        f"clean_training_data_directories with {training_dir=}, {versions_to_retain=}, "
+        f"{simulate=}"
+    )
     dirnames = [dir for dir in os.listdir(training_dir) if dir.isnumeric()]
     dirnames.sort()
     dirnames_to_clean = []
@@ -114,7 +113,7 @@ def clean_training_data_directories(
     for dirname in dirnames_to_clean:
         dir = training_dir / dirname
         dirs_to_remove.append(dir)
-        logger.info(f"remove dir {dir}")
+        logger.info(f"remove training dir ({simulate=}): {dir}")
 
         if simulate:
             continue
@@ -130,9 +129,7 @@ def clean_training_data_directories(
 
 
 def clean_predictions(
-    output_vector_dir: Path,
-    versions_to_retain: int,
-    simulate: bool,
+    output_vector_dir: Path, versions_to_retain: int, simulate: bool
 ) -> List[Path]:
     """
     Cleanup predictions.
@@ -153,6 +150,10 @@ def clean_predictions(
         logger.info(f"Directory {output_vector_dir.name} doesn't exist")
         return []
 
+    logger.info(
+        f"clean_predictions with {output_vector_dir=}, {versions_to_retain=}, "
+        f"{simulate=}"
+    )
     predictions_to_cleanup: List[aidetection_info] = []
     prediction_files_to_remove = []
     files = output_vector_dir.glob(pattern="*.*")
@@ -185,7 +186,7 @@ def clean_predictions(
         for prediction in predictions_to_cleanup:
             prediction_path = prediction.path
             prediction_files_to_remove.append(prediction_path)
-            logger.info(f"remove prediction {prediction_path.name}")
+            logger.info(f"remove prediction file ({simulate=}): {prediction_path.name}")
             if simulate:
                 continue
 
@@ -225,7 +226,7 @@ def clean_project_dir(
         simulate (bool): Simulate cleanup, files are logged, no files are deleted
 
     Returns:
-        Dict: Dictionary with removed models, training directories and predictions
+        dict: Dictionary with removed models, training directories and predictions
     """
     removed = {}
 
@@ -234,15 +235,17 @@ def clean_project_dir(
         versions_to_retain=model_versions_to_retain,
         simulate=simulate,
     )
+
     removed["training_dirs"] = clean_training_data_directories(
         training_dir=training_dir,
         versions_to_retain=training_versions_to_retain,
         simulate=simulate,
     )
+
     output_vector_parent_dir = output_vector_dir.parent
+    removed["predictions"] = []
     if output_vector_parent_dir.exists():
         prediction_dirs = os.listdir(output_vector_parent_dir)
-        removed["predictions"] = []
         for prediction_dir in prediction_dirs:
             removed["predictions"].extend(
                 clean_predictions(

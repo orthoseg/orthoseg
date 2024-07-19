@@ -10,7 +10,7 @@ from orthoseg.util import log_util
 logger = logging.getLogger(__name__)
 
 
-def cleanup_old_data(projects_dir: Path, simulate:bool = False):
+def cleanup_old_data(projects_dir: Path, simulate: bool = False):
     # Exclude directories where name starts with '_'
     projects = [
         subdir for subdir in os.listdir(projects_dir)
