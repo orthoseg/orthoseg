@@ -15,6 +15,7 @@ from orthoseg.util import config_util
 from orthoseg.util.ows_util import FileLayerSource, WMSLayerSource
 from orthoseg.lib.prepare_traindatasets import LabelInfo
 
+
 # Get a logger...
 logger = logging.getLogger(__name__)
 
@@ -177,12 +178,41 @@ def get_train_label_infos() -> List[LabelInfo]:
     Returns:
         List[LabelInfo]: List of LabelInfos found.
     """
-    return _prepare_train_label_infos(
+    train_label_infos = _prepare_train_label_infos(
         labelpolygons_pattern=train.getpath("labelpolygons_pattern"),
         labellocations_pattern=train.getpath("labellocations_pattern"),
         label_datasources=train.getdict("label_datasources", None),
         image_layers=image_layers,
     )
+    if train_label_infos is None or len(train_label_infos) == 0:
+        raise ValueError(
+            "No valid label file config found in train.label_datasources or "
+            f"with patterns {train.get('labelpolygons_pattern')} and "
+            f"{train.get('labellocations_pattern')}"
+        )
+    return train_label_infos
+
+
+def determine_classes():
+    """
+    Determine classes.
+
+    Raises:
+        Exception: Error reading classes
+
+    Returns:
+        any: classes
+    """
+    try:
+        classes = train.getdict("classes")
+
+        # If the burn_value property isn't supplied for the classes, add them
+        for class_id, (classname) in enumerate(classes):
+            if "burn_value" not in classes[classname]:
+                classes[classname]["burn_value"] = class_id
+        return classes
+    except Exception as ex:
+        raise Exception(f"Error reading classes: {train.get('classes')}") from ex
 
 
 def _read_layer_config(layer_config_filepath: Path) -> dict:
@@ -350,7 +380,7 @@ def _prepare_train_label_infos(
             )
         }
 
-    # If there are label datasources configures in the project, process them as well.
+    # If there are label datasources configured in the project, process them as well.
     if label_datasources is not None:
         for label_ds_key in label_datasources:
             label_ds = label_datasources[label_ds_key]
@@ -359,7 +389,7 @@ def _prepare_train_label_infos(
             polygons_path = None
             if "polygons_path" in label_ds:
                 polygons_path = label_ds["polygons_path"]
-            if "data_path" in label_ds:
+            elif "data_path" in label_ds:
                 polygons_path = label_ds["data_path"]
 
             # If the label datasource was already found using pattern search, overrule
@@ -375,6 +405,9 @@ def _prepare_train_label_infos(
                 if label_ds.get("pixel_y_size") is not None:
                     label_infos[locations_path].pixel_y_size = label_ds["pixel_y_size"]
             else:
+                if polygons_path is None:
+                    raise ValueError(f"polygons_path not specified for {label_ds}")
+
                 # Add as new LabelInfo
                 label_infos[locations_path] = LabelInfo(
                     locations_path=Path(label_ds["locations_path"]),

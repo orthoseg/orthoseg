@@ -151,6 +151,7 @@ def prepare_traindatasets(
     image_pixel_width: int = 512,
     image_pixel_height: int = 512,
     ssl_verify: Union[bool, str] = True,
+    only_validate: bool = False,
     force: bool = False,
 ) -> Tuple[Path, int]:
     """
@@ -187,6 +188,7 @@ def prepare_traindatasets(
             certificate bundle file (.pem) is passed, this will be used.
             In corporate networks using a proxy server this is often needed
             to evade CERTIFICATE_VERIFY_FAILED errors. Defaults to True.
+        only_validate (bool, optional): True to only validate the input label data.
         force (bool, opitional): True to force recreation of output files.
             Defaults to False.
     """
@@ -208,6 +210,7 @@ def prepare_traindatasets(
     ]
 
     reuse_traindata = False
+    dataversion_mostrecent = None
     if len(output_dirs) == 0:
         dataversion_new = 1
     else:
@@ -267,8 +270,12 @@ def prepare_traindatasets(
         image_pixel_height=image_pixel_height,
     )
 
-    # Reading label data was succesfull, so prepare temp dir to put training dataset in.
-    # A temp dir, so it can be removed/ignored if an error occurs later on.
+    # Reading label data was succesfull.
+    if only_validate:
+        return (training_dataversion_dir, dataversion_new)
+
+    # Prepare temp dir to put training dataset in.
+    # Use a temp dir, so it can be removed/ignored if an error occurs later on.
     output_tmp_dir = create_tmp_dir(
         training_dir, f"{dataversion_new:02d}", remove_existing=True
     )
@@ -296,6 +303,11 @@ def prepare_traindatasets(
     logger.info(f"Get images for {nb_todo} labels")
 
     for traindata_type in traindata_types:
+        if dataversion_mostrecent is not None:
+            previous_dataversion_dir = training_dir / f"{dataversion_mostrecent:02d}"
+            previous_imagedata_image_dir = (
+                previous_dataversion_dir / traindata_type / "image"
+            )
         # Create output dirs...
         output_imagedatatype_dir = output_tmp_dir / traindata_type
         output_imagedata_image_dir = output_imagedatatype_dir / "image"
@@ -320,58 +332,79 @@ def prepare_traindatasets(
                     img_bbox = label_tuple.geometry
                     image_layer = getattr(label_tuple, "image_layer")
 
-                    # Now really get the image
-                    logger.debug(f"Get image for coordinates {img_bbox.bounds}")
+                    # Prepare file name for the image
                     assert labellocations_gdf.crs is not None
-                    image_filepath = ows_util.getmap_to_file(
-                        layersources=image_layers[image_layer]["layersources"],
-                        output_dir=output_imagedata_image_dir,
+                    output_filename = ows_util.create_filename(
                         crs=labellocations_gdf.crs,
                         bbox=img_bbox.bounds,
                         size=(image_pixel_width, image_pixel_height),
-                        ssl_verify=ssl_verify,
                         image_format=ows_util.FORMAT_PNG,
-                        # image_format_save=ows_util.FORMAT_TIFF,
-                        image_pixels_ignore_border=image_layers[image_layer][
-                            "image_pixels_ignore_border"
-                        ],
-                        transparent=False,
-                        layername_in_filename=True,
+                        layername="_".join(
+                            image_layers[image_layer]["layersources"][0].layernames
+                        ),
                     )
 
-                    # Create a mask corresponding with the image file
-                    # image_filepath can be None if file exists, so check if not None...
-                    if image_filepath is not None:
-                        # Mask should not be in a lossy format!
-                        mask_filepath = Path(
-                            str(image_filepath)
-                            .replace(
-                                str(output_imagedata_image_dir),
-                                str(output_imagedata_mask_dir),
-                            )
-                            .replace(".jpg", ".png")
+                    # If the image exists already in the previous version, reuse it.
+                    if (
+                        dataversion_mostrecent is not None
+                        and (previous_imagedata_image_dir / output_filename).exists()
+                    ):
+                        image_filepath = shutil.copy(
+                            src=previous_imagedata_image_dir / output_filename,
+                            dst=output_imagedata_image_dir / output_filename,
                         )
-                        nb_classes = len(classes)
+                        pgw_filename = output_filename.replace(".png", ".pgw")
+                        if (previous_imagedata_image_dir / pgw_filename).exists():
+                            shutil.copy(
+                                src=previous_imagedata_image_dir / pgw_filename,
+                                dst=output_imagedata_image_dir / pgw_filename,
+                            )
+                    else:
+                        # Get the image from the WMS service.
+                        image_filepath = ows_util.getmap_to_file(
+                            layersources=image_layers[image_layer]["layersources"],
+                            output_dir=output_imagedata_image_dir,
+                            crs=labellocations_gdf.crs,
+                            bbox=img_bbox.bounds,
+                            size=(image_pixel_width, image_pixel_height),
+                            ssl_verify=ssl_verify,
+                            image_format=ows_util.FORMAT_PNG,
+                            # image_format_save=ows_util.FORMAT_TIFF,
+                            image_pixels_ignore_border=image_layers[image_layer][
+                                "image_pixels_ignore_border"
+                            ],
+                            transparent=False,
+                            layername_in_filename=True,
+                            output_filename=output_filename,
+                        )
 
-                        # Only keep the labels that are meant for this image layer
-                        labels_for_layer_gdf = (
-                            labels_to_burn_gdf.loc[
-                                labels_to_burn_gdf["image_layer"] == image_layer
-                            ]
-                        ).copy()
-                        # assert to evade pyLance warning
-                        if len(labels_for_layer_gdf) == 0:
-                            logger.info(
-                                f"No polygons to burn for image_layer {image_layer}!"
-                            )
-                        assert isinstance(labels_for_layer_gdf, gpd.GeoDataFrame)
-                        _create_mask(
-                            input_image_filepath=image_filepath,
-                            output_mask_filepath=mask_filepath,
-                            labels_to_burn_gdf=labels_for_layer_gdf,
-                            nb_classes=nb_classes,
-                            force=force,
+                    # Create a mask corresponding with the image file
+                    # Mask should not be in a lossy format -> png!
+                    mask_filepath = Path(
+                        str(image_filepath)
+                        .replace(
+                            str(output_imagedata_image_dir),
+                            str(output_imagedata_mask_dir),
                         )
+                        .replace(".jpg", ".png")
+                    )
+                    nb_classes = len(classes)
+
+                    # Only keep the labels that are meant for this image layer
+                    labels_for_layer_gdf = (
+                        labels_to_burn_gdf.loc[
+                            labels_to_burn_gdf["image_layer"] == image_layer
+                        ]
+                    ).copy()
+                    if len(labels_for_layer_gdf) == 0:
+                        logger.info(f"No polygons to burn for {image_layer=}!")
+                    _create_mask(
+                        input_image_filepath=image_filepath,
+                        output_mask_filepath=mask_filepath,
+                        labels_to_burn_gdf=labels_for_layer_gdf,
+                        nb_classes=nb_classes,
+                        force=force,
+                    )
 
                     # Log the progress and prediction speed
                     progress.step()
@@ -419,7 +452,8 @@ def prepare_labeldata(
             geodataframes with labellocations and labelpolygons to burn.
     """
     labeldata_result = []
-    errors_found = []
+    validation_errors = []
+    validation_warnings = []
     train_locations_found = False
     validation_locations_found = False
     for label_info in label_infos:
@@ -456,13 +490,13 @@ def prepare_labeldata(
         assert labelpolygons_gdf is not None
 
         if labellocations_gdf is None or len(labellocations_gdf) == 0:
-            errors_found.append("No label locations found in labellocations_gdf")
+            validation_errors.append("No label locations found in labellocations_gdf")
             continue
 
         # Validate + process the location data
         # ------------------------------------
         if "traindata_type" not in labellocations_gdf.columns:
-            errors_found.append(
+            validation_errors.append(
                 "Mandatory column traindata_type not found in "
                 f"{label_info.locations_path}"
             )
@@ -491,7 +525,7 @@ def prepare_labeldata(
 
             # Check if the traindata_type is valid
             if location.traindata_type not in ["train", "validation", "test", "todo"]:
-                errors_found.append(
+                validation_errors.append(
                     f"Invalid traindata_type in {Path(location.path).name}: "
                     f"{location.geometry.wkt}"
                 )
@@ -501,7 +535,7 @@ def prepare_labeldata(
                 labellocations_gdf.geometry[location.Index]
             )
             if is_valid_reason != "Valid Geometry":
-                errors_found.append(
+                validation_errors.append(
                     f"Invalid geometry in {Path(location.path).name}: "
                     f"{is_valid_reason}"
                 )
@@ -524,13 +558,13 @@ def prepare_labeldata(
             )
             if intersection.area < (location_geom_aligned.area - area_1row_1col):
                 # Original geom was digitized too small
-                errors_found.append(
+                validation_errors.append(
                     f"Location geometry skewed or too small ({intersection.area}, "
                     f"based on train config expected {location_geom_aligned.area}) in "
                     f"{Path(location.path).name}: {location.geometry.wkt}"
                 )
             elif sh_geom.box(*geom_bounds).area > location_geom_aligned.area * 1.1:
-                errors_found.append(
+                validation_warnings.append(
                     f"Location geometry too large ({sh_geom.box(*geom_bounds).area}, "
                     f"based on train config expected {location_geom_aligned.area}) "
                     f"in file {Path(location.path).name}: {location.geometry.wkt}"
@@ -544,7 +578,7 @@ def prepare_labeldata(
 
         # Check if labellocations has a proper crs
         if labellocations_gdf.crs is None:
-            errors_found.append(
+            validation_errors.append(
                 "No crs in labellocations, labellocation_gdf.crs: "
                 f"{labellocations_gdf.crs}"
             )
@@ -558,7 +592,7 @@ def prepare_labeldata(
         # Validate + process the polygons data
         # ------------------------------------
         if labelpolygons_gdf is None:
-            errors_found.append("No labelpolygons in the training data!")
+            validation_errors.append("No labelpolygons in the training data!")
             continue
 
         # Create list with only the input polygons that need to be burned in the mask
@@ -586,7 +620,7 @@ def prepare_labeldata(
                 labels_to_burn_gdf["burn_value"].isnull()
             ]
             for _, invalid_row in invalid_gdf.iterrows():
-                errors_found.append(
+                validation_errors.append(
                     f"Invalid classname in {Path(invalid_row['path']).name}: "
                     f"{invalid_row[labelname_column]}"
                 )
@@ -608,14 +642,14 @@ def prepare_labeldata(
 
         else:
             # There is no column with label names, but more than two classes, so stop.
-            errors_found.append(
+            validation_errors.append(
                 f"Column {labelname_column} is mandatory in labeldata if multiple "
                 f"classes specified: {classes}"
             )
 
         # Check if we ended up with label data to burn.
         if labels_to_burn_gdf is None:
-            errors_found.append(
+            validation_errors.append(
                 "Not any labelpolygon retained to burn in the training data!"
             )
             continue
@@ -634,7 +668,7 @@ def prepare_labeldata(
         )
         invalid_gdf = labels_to_burn_gdf.query("is_valid_reason != 'Valid Geometry'")
         for invalid in invalid_gdf.itertuples():
-            errors_found.append(
+            validation_errors.append(
                 f"Invalid geometry in {Path(invalid.path).name}: "
                 f"{invalid.is_valid_reason}"
             )
@@ -644,20 +678,20 @@ def prepare_labeldata(
 
     # Check that there is at least one train location and one validation location.
     if not train_locations_found:
-        errors_found.append(
+        validation_errors.append(
             "No labellocations with traindata_type == 'train' found in any file! At "
             "least one needed"
         )
     if not validation_locations_found:
-        errors_found.append(
+        validation_errors.append(
             "No labellocations with traindata_type == 'validation' found in any file! "
             "At least one needed, but ~10% of number of 'train' locations recommended."
         )
 
     # If errors found, raise
-    if len(errors_found) > 0:
+    if len(validation_errors) > 0:
         raise ValidationError(
-            f"Errors found in label data: {len(errors_found)}", errors_found
+            f"Errors found in label data: {len(validation_errors)}", validation_errors
         )
 
     return labeldata_result
