@@ -20,7 +20,7 @@ def clean_models(
     model_dir: Path,
     versions_to_retain: int,
     simulate: bool,
-) -> List[str]:
+) -> List[Path]:
     """
     Cleanup models.
 
@@ -33,14 +33,15 @@ def clean_models(
         Exception: ERROR while deleting file
 
     Returns:
-        List[str]: List of models to be cleaned
+        List[Path]: List of removed model files
     """
     if not model_dir.exists():
         logger.info(f"Directory {model_dir.name} doesn't exist")
         return []
 
-    logger.info(f"{model_dir=}, {versions_to_retain=}, {simulate=}")
+    logger.info(f"clean_models with {model_dir=}, {versions_to_retain=}, {simulate=}")
     models_to_cleanup = []
+    files_to_remove = []
     models = model_helper.get_models(model_dir=model_dir)
     traindata_id = [model["traindata_id"] for model in models]
     traindata_id.sort()
@@ -55,11 +56,14 @@ def clean_models(
         if model["traindata_id"] in traindata_id_to_cleanup
     ]
 
+    # Find all files to remove and remove them
     for model in models_to_cleanup:
         file_pattern = f"{model}*.*"
-        files = model_dir.glob(pattern=file_pattern)
+        files = list(model_dir.glob(pattern=file_pattern))
+        files_to_remove.extend(files)
+
         for file_to_remove in files:
-            logger.info(f"remove file {file_to_remove.name}")
+            logger.info(f"remove file {file_to_remove}")
             if simulate:
                 continue
 
@@ -70,66 +74,72 @@ def clean_models(
                 logger.exception(message)
                 raise RuntimeError(message) from ex
 
-    return models_to_cleanup
+    return files_to_remove
 
 
 def clean_training_data_directories(
     training_dir: Path,
     versions_to_retain: int,
     simulate: bool,
-) -> List[str]:
+) -> List[Path]:
     """
     Cleanup training data directories.
 
     Args:
         training_dir (Path): Path to the directory with the training data
         versions_to_retain (int): Versions to retain
-        simulate (bool): Simulate cleanup, files are logged, no files are deleted
+        simulate (bool): Simulate cleanup, directories are logged, no files are deleted
 
     Raises:
-        Exception: ERROR while deleting file
+        Exception: ERROR while deleting directory
 
     Returns:
-        List[str]: List of training directories to be cleaned
+        List[Path]: List of training directories to be removed
     """
     if not training_dir.exists():
         logger.info(f"Directory {training_dir.name} doesn't exist")
         return []
 
     logger.info(f"{training_dir=}, {versions_to_retain=}, {simulate=}")
-    dirs_to_cleanup = []
-    dirs = [dir for dir in os.listdir(training_dir) if dir.isnumeric()]
-    dirs.sort()
-    dirs_to_cleanup = dirs[
-        : len(dirs) - versions_to_retain if len(dirs) >= versions_to_retain else 0
+    dirnames = [dir for dir in os.listdir(training_dir) if dir.isnumeric()]
+    dirnames.sort()
+    dirnames_to_clean = []
+    dirnames_to_clean = dirnames[
+        : len(dirnames) - versions_to_retain
+        if len(dirnames) >= versions_to_retain
+        else 0
     ]
 
-    for dir_to_remove in dirs_to_cleanup:
-        logger.info(f"remove dir {dir_to_remove}")
+    dirs_to_remove = []
+    for dirname in dirnames_to_clean:
+        dir = training_dir / dirname
+        dirs_to_remove.append(dir)
+        logger.info(f"remove dir {dir}")
+
         if simulate:
             continue
 
         try:
-            shutil.rmtree(training_dir / dir_to_remove)
+            shutil.rmtree(dir)
         except Exception as ex:
-            message = f"ERROR deleting directory {training_dir / dir_to_remove}"
+            message = f"ERROR deleting directory {dir}"
             logger.exception(message)
             raise RuntimeError(message) from ex
 
-    return dirs_to_cleanup
+    return dirs_to_remove
 
 
 def clean_predictions(
     output_vector_dir: Path,
     versions_to_retain: int,
     simulate: bool,
-) -> List[str]:
+) -> List[Path]:
     """
     Cleanup predictions.
 
     Args:
-        output_vector_dir (Path): Path to the directory containing
-                                  the vector predictions
+        output_vector_dir (Path): Path to the directory containing the vector
+            predictions
         versions_to_retain (int): Versions to retain
         simulate (bool): Simulate cleanup, files are logged, no files are deleted
 
@@ -137,13 +147,14 @@ def clean_predictions(
         Exception: ERROR while deleting file
 
     Returns:
-        List[str]: List of training directories to be cleaned
+        List[Path]: List of prediction files to be removed
     """
     if not output_vector_dir.exists():
         logger.info(f"Directory {output_vector_dir.name} doesn't exist")
         return []
 
-    predictions_to_cleanup: List[str] = []
+    predictions_to_cleanup: List[aidetection_info] = []
+    prediction_files_to_remove = []
     files = output_vector_dir.glob(pattern="*.*")
     try:
         ai_detection_infos = [aidetection_info(path=file) for file in files]
@@ -172,21 +183,23 @@ def clean_predictions(
                 ]
             )
         for prediction in predictions_to_cleanup:
-            logger.info(f"remove prediction {prediction.path.name}")
+            prediction_path = prediction.path
+            prediction_files_to_remove.append(prediction_path)
+            logger.info(f"remove prediction {prediction_path.name}")
             if simulate:
                 continue
 
             try:
-                prediction.path.unlink()
+                prediction_path.unlink()
             except Exception as ex:
-                message = f"ERROR while deleting file {prediction.path}"
+                message = f"ERROR while deleting file {prediction_path}"
                 logger.exception(message)
                 raise RuntimeError(message) from ex
 
     except Exception as ex:
         logger.info(f"{ex}")
 
-    return predictions_to_cleanup
+    return prediction_files_to_remove
 
 
 def clean_project_dir(

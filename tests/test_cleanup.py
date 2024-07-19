@@ -26,28 +26,43 @@ def create_projects_dir(tmp_path: Path) -> Path:
     return project_dir
 
 
-def create_model_files(path: Path):
+def create_model_files(path: Path) -> dict[Path, int]:
+    """
+    Creates test model files and returns a dict with info about them.
+
+    Args:
+        path (Path): _description_
+
+    Returns:
+        dict[Path, int]: dict with Path as key and the min_versions_to_retain_to_keep as
+            value
+    """
     path.mkdir(parents=True, exist_ok=True)
-    files = [
+    models = [
         {"path": "footballfields_01", "min_versions_to_retain_to_keep": 4},
         {"path": "footballfields_02", "min_versions_to_retain_to_keep": 3},
         {"path": "footballfields_03", "min_versions_to_retain_to_keep": 2},
         {"path": "footballfields_04", "min_versions_to_retain_to_keep": 1},
     ]
-    filetypes = [
+    model_files = [
         "0.44293_0.hdf5",
         "hyperparams.json",
         "log.csv",
         "model.json",
         "report.pdf",
     ]
-    for file in files:
-        for file_type in filetypes:
-            (path / f"{file['path']}_{file_type}").touch()
-    return files, filetypes
+
+    files_dict = {}
+    for model in models:
+        for file_type in model_files:
+            filepath = path / f"{model['path']}_{file_type}"
+            filepath.touch()
+            files_dict[filepath] = model["min_versions_to_retain_to_keep"]
+
+    return files_dict
 
 
-def create_training_files(path: Path):
+def create_training_dirs(path: Path) -> dict[Path, int]:
     path.mkdir(parents=True, exist_ok=True)
     dirs = [
         {"path": "01", "min_versions_to_retain_to_keep": 4},
@@ -55,10 +70,14 @@ def create_training_files(path: Path):
         {"path": "03", "min_versions_to_retain_to_keep": 2},
         {"path": "04", "min_versions_to_retain_to_keep": 1},
     ]
+
+    dirs_dict = {}
     for dir in dirs:
         sub_dir = path / dir["path"]
         sub_dir.mkdir(parents=True, exist_ok=True)
-    return dirs
+        dirs_dict[sub_dir] = dir["min_versions_to_retain_to_keep"]
+
+    return dirs_dict
 
 
 def create_prediction_files(path: Path, imagelayer: str):
@@ -97,9 +116,14 @@ def create_prediction_files(path: Path, imagelayer: str):
             "min_versions_to_retain_to_keep": 1,
         },
     ]
+
+    files_dict = {}
     for file in files:
-        (path / file["path"]).touch()
-    return files
+        file_path = path / file["path"]
+        file_path.touch()
+        files_dict[file_path] = file["min_versions_to_retain_to_keep"]
+
+    return files_dict
 
 
 def load_project_config(path: Path):
@@ -151,32 +175,31 @@ def test_cleanup_models(
 
     # Creating dummy files
     models_dir = project_dir / "models"
-    files, filetypes = create_model_files(path=models_dir)
+    model_files = create_model_files(path=models_dir)
 
     # Load project config to init some vars.
     load_project_config(path=project_dir)
 
     # Cleanup
-    cleanedup_models = cleanup.clean_models(
+    files_removed = cleanup.clean_models(
         model_dir=conf.dirs.getpath("model_dir"),
         versions_to_retain=versions_to_retain,
         simulate=simulate,
     )
 
     # Asserts
-    for file in files:
-        if file["min_versions_to_retain_to_keep"] <= versions_to_retain:
-            if simulate:
-                assert file["path"] not in cleanedup_models
-            else:
-                for file_type in filetypes:
-                    assert (models_dir / f"{file['path']}_{file_type}").exists()
+    for filepath in model_files:
+        if model_files[filepath] <= versions_to_retain:
+            # The file should be retained
+            assert filepath not in files_removed
+            assert filepath.exists()
         else:
+            # The file should be cleaned up
+            assert filepath in files_removed
             if simulate:
-                assert file["path"] in cleanedup_models
+                assert filepath.exists()
             else:
-                for file_type in filetypes:
-                    assert not (models_dir / f"{file['path']}_{file_type}").exists()
+                assert not filepath.exists()
 
 
 @pytest.mark.parametrize("simulate", [False, True])
@@ -191,7 +214,7 @@ def test_cleanup_training(
 
     # Creating dummy files
     training_dir = project_dir / "training"
-    dirs = create_training_files(path=training_dir)
+    dirs = create_training_dirs(path=training_dir)
 
     # Load project config to init some vars.
     load_project_config(path=project_dir)
@@ -205,16 +228,17 @@ def test_cleanup_training(
 
     # Asserts
     for dir in dirs:
-        if dir["min_versions_to_retain_to_keep"] <= versions_to_retain:
-            if simulate:
-                assert dir["path"] not in cleanedup_trainingdata_dirs
-            else:
-                assert (training_dir / dir["path"]).exists()
+        if dirs[dir] <= versions_to_retain:
+            # Directory should be kept
+            assert dir not in cleanedup_trainingdata_dirs
+            assert dir.exists()
         else:
+            # Directory should be removed
+            assert dir in cleanedup_trainingdata_dirs
             if simulate:
-                assert dir["path"] in cleanedup_trainingdata_dirs
+                assert dir.exists()
             else:
-                assert not (training_dir / dir["path"]).exists()
+                assert not dir.exists()
 
 
 @pytest.mark.parametrize("simulate", [False, True])
@@ -244,30 +268,33 @@ def test_cleanup_predictions(
 
     # Asserts
     for file in files:
-        if file["min_versions_to_retain_to_keep"] <= versions_to_retain:
-            if simulate:
-                assert file["path"] not in [x.path.name for x in cleanedup_predictions]
-            else:
-                assert (output_vector_dir / file["path"]).exists()
+        if files[file] <= versions_to_retain:
+            # File should be kept
+            assert file not in cleanedup_predictions
+            if not simulate:
+                assert file.exists()
         else:
+            # File should be removed
+            assert file in cleanedup_predictions
             if simulate:
-                assert file["path"] in [x.path.name for x in cleanedup_predictions]
+                assert file.exists()
             else:
-                assert not (output_vector_dir / file["path"]).exists()
+                assert not file.exists()
 
 
 @pytest.mark.parametrize("simulate", [False])
 @pytest.mark.parametrize(
-    "versions_to_retain, removed_models, removed_training_dirs, removed_predictions",
-    [(4, 0, 0, 0), (2, 2, 2, 8), (1, 3, 3, 12), (0, 4, 4, 16)],
+    "versions_to_retain, removed_model_files, removed_training_dirs, "
+    "removed_prediction_files",
+    [(4, 0, 0, 0), (2, 2 * 5, 2, 8), (1, 3 * 5, 3, 12), (0, 4 * 5, 4, 16)],
 )
 def test_cleanup_project_dir(
     tmp_path: Path,
     simulate: bool,
     versions_to_retain: int,
-    removed_models: int,
+    removed_model_files: int,
     removed_training_dirs: int,
-    removed_predictions: int,
+    removed_prediction_files: int,
 ):
     # Create test project
     project_dir = create_projects_dir(tmp_path=tmp_path)
@@ -276,7 +303,7 @@ def test_cleanup_project_dir(
     model_dir = project_dir / "models"
     create_model_files(path=model_dir)
     training_dir = project_dir / "training"
-    create_training_files(path=training_dir)
+    create_training_dirs(path=training_dir)
     imagelayer = "BEFL-2019"
     output_vector_dir = project_dir / "output_vector" / imagelayer
     create_prediction_files(path=output_vector_dir, imagelayer=imagelayer)
@@ -298,6 +325,6 @@ def test_cleanup_project_dir(
     )
 
     # Asserts
-    assert len(removed["models"]) == removed_models
+    assert len(removed["models"]) == removed_model_files
     assert len(removed["training_dirs"]) == removed_training_dirs
-    assert len(removed["predictions"]) == removed_predictions
+    assert len(removed["predictions"]) == removed_prediction_files
