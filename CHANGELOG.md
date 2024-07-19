@@ -7,6 +7,7 @@
 - Add support to train subject on different pixel sizes (#143, #174)
 - Add support to overrule configuration parameters via command line arguments (#152)
 - Several small improvements (#128)
+- In prepare_trainingdata, reuse images already available in previous version (#170)
 - Add command to (only) validate a training dataset (#133)
 
 ### Bugs fixed
