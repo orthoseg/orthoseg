@@ -362,6 +362,7 @@ def get_images_for_grid(
                 image_pixels_ignore_border=image_pixels_ignore_border,
                 has_switched_axes=has_switched_axes,
                 force=force,
+                on_outside_layer_bounds="return",
             )
             download_queue[future] = output_filename
 
@@ -493,6 +494,7 @@ def getmap_to_file(
     force: bool = False,
     layername_in_filename: bool = False,
     has_switched_axes: Optional[bool] = None,
+    on_outside_layer_bounds: Optional[str] = "raise",
 ) -> Optional[Path]:
     """
     Reads/fetches an image from a layer source and saves it to a file.
@@ -522,11 +524,19 @@ def getmap_to_file(
         has_switched_axes (bool, optional): True if x and y axes should be switched to
             in the WMS GetMap request. If None, an effort is made to determine it
             automatically based on the crs. Defaults to None.
+        on_outside_layer_bounds (str, optional): What to do if the bbox asked is outside
+            the layer bounds. Defaults to "raise". Options:
+            - "raise": raise an error.
+            - "return": don't save a file and return None.
 
     Returns:
-        Optional[Path]: [description]
+        Optional[Path]: The path the file is created at if created succesfully. None if
+            the file is not created.
     """
     # Init
+    if on_outside_layer_bounds not in ["raise", "return"]:
+        raise ValueError(f"Invalid value for {on_outside_layer_bounds=}")
+
     # If no separate save format is specified, use the standard image_format
     if image_format_save is None:
         image_format_save = image_format
@@ -660,11 +670,12 @@ def getmap_to_file(
                     except Exception as ex:
                         if isinstance(ex, owslib.util.ServiceException):
                             if "Error rendering coverage on the fast path" in str(ex):
-                                logger.error(
-                                    f"Request for bbox {bbox_for_getmap} gave an "
-                                    f"exception, SKIP and proceed: {ex}"
-                                )
-                                return
+                                message = f"WMS error for bbox {bbox_for_getmap}: {ex}"
+                                if on_outside_layer_bounds == "return":
+                                    logger.error(message)
+                                    return None
+                                else:
+                                    raise RuntimeError(message) from ex
                             elif "java.lang.OutOfMemoryError: Java heap" in str(ex):
                                 logger.debug(
                                     f"Request for bbox {bbox_for_getmap} gave an "
@@ -672,7 +683,7 @@ def getmap_to_file(
                                 )
                             else:
                                 message = f"WMS error for bbox {bbox_for_getmap}: {ex}"
-                                raise Exception(message) from ex
+                                raise RuntimeError(message) from ex
 
                         # If the exception isn't handled yet, retry 10 times...
                         if nb_retries < 10:
@@ -690,12 +701,11 @@ def getmap_to_file(
                                 f"styles: {layersource.layerstyles}, "
                                 f"for bbox: {bbox_for_getmap}"
                             )
-                            logger.exception(message)
-                            raise Exception(message) from ex
+                            raise RuntimeError(message) from ex
 
                 # If the response is None, error
                 if response is None:
-                    raise Exception("No valid response retrieved...")
+                    raise RuntimeError("No valid response retrieved...")
 
                 # Open the response as a file
                 memfile = rio.MemoryFile(response.read())
