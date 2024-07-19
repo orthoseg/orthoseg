@@ -38,6 +38,7 @@ setuptools.setup(
     entry_points="""
             [console_scripts]
             orthoseg_load_images=orthoseg.load_images:main
+            orthoseg_validate=orthoseg.validate:main
             orthoseg_train=orthoseg.train:main
             orthoseg_predict=orthoseg.predict:main
             orthoseg_postprocess=orthoseg.postprocess:main
