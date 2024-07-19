@@ -38,7 +38,7 @@ def create_model_files(dir: Path) -> list[tuple[Path, int]]:
             tuple with:
               - the Path to the file
               - the minimum value of versions_to_retain that should lead to this file
-                being kept when cleaning up the models.
+                being retained when cleaning up the models.
     """
     models = {
         "footballfields_01": 4,
@@ -77,7 +77,7 @@ def create_training_dirs(dir: Path) -> list[tuple[Path, int]]:
             is a tuple with:
               - the Path to the directory
               - the minimum value of versions_to_retain that should lead to this file
-                being kept when cleaning up the training directories.
+                being retained when cleaning up the training directories.
     """
     # Directory paths with the minimum number of versions to retain to keep them
     dirs = [(dir / "01", 4), (dir / "02", 3), (dir / "03", 2), (dir / "04", 1)]
@@ -102,7 +102,7 @@ def create_prediction_files(dir: Path, imagelayer: str) -> list[tuple[Path, int]
             is a tuple with:
               - the Path to the file
               - the minimum value of versions_to_retain that should lead to this file
-                being kept when cleaning up the prediction files.
+                being retained when cleaning up the prediction files.
     """
     # File paths with the minimum number of versions to retain to keep them
     files = [
