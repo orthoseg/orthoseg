@@ -24,7 +24,8 @@ def clean_models(
 
     Args:
         model_dir (Path): Path to the directory with the models to be cleaned
-        versions_to_retain (int): Versions to retain
+        versions_to_retain (int): Number of versions to retain. If <0, all versions are
+            retained.
         simulate (bool): Simulate cleanup, files are logged, no files are deleted
 
     Raises:
@@ -33,6 +34,9 @@ def clean_models(
     Returns:
         List[Path]: List of removed model files
     """
+    # Check input
+    if versions_to_retain < 0:
+        return []
     if not model_dir.exists():
         logger.info(f"Directory {model_dir.name} doesn't exist")
         return []
@@ -83,7 +87,8 @@ def clean_training_data_directories(
 
     Args:
         training_dir (Path): Path to the directory with the training data
-        versions_to_retain (int): Versions to retain
+        versions_to_retain (int): Number of versions to retain. If <0, all versions are
+            retained.
         simulate (bool): Simulate cleanup, directories are logged, no files are deleted
 
     Raises:
@@ -92,6 +97,9 @@ def clean_training_data_directories(
     Returns:
         List[Path]: List of training directories to be removed
     """
+    # Check input
+    if versions_to_retain < 0:
+        return []
     if not training_dir.exists():
         logger.info(f"Directory {training_dir.name} doesn't exist")
         return []
@@ -137,7 +145,8 @@ def clean_predictions(
     Args:
         output_vector_dir (Path): Path to the directory containing the vector
             predictions
-        versions_to_retain (int): Versions to retain
+        versions_to_retain (int): Number of versions to retain. If <0, all versions are
+            retained.
         simulate (bool): Simulate cleanup, files are logged, no files are deleted
 
     Raises:
@@ -146,6 +155,9 @@ def clean_predictions(
     Returns:
         List[Path]: List of prediction files to be removed
     """
+    # Check input
+    if versions_to_retain < 0:
+        return []
     if not output_vector_dir.exists():
         logger.info(f"Directory {output_vector_dir.name} doesn't exist")
         return []
@@ -217,12 +229,15 @@ def clean_project_dir(
 
     Args:
         model_dir (Path): Path to the directory with the models to be cleaned
-        model_versions_to_retain (int): Model versions to retain
+        model_versions_to_retain (int): Model versions to retain. If <0, all models are
+            retained.
         training_dir (Path): Path to the directory with the training data to be cleaned
-        training_versions_to_retain (int): Training data versions to retain
+        training_versions_to_retain (int): Training data versions to retain. If <0, all
+            versions are retainded.
         output_vector_dir (Path): Path to the directory with the predictions to be
             cleaned
-        prediction_versions_to_retain (int): Prediction versions to retain
+        prediction_versions_to_retain (int): Prediction versions to retain. If <0, all
+            versions are retained.
         simulate (bool): Simulate cleanup, files are logged, no files are deleted
 
     Returns:

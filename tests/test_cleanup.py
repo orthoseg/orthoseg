@@ -162,7 +162,7 @@ def test_cleanup_non_existing_dir(caplog: pytest.LogCaptureFixture):
 
 
 @pytest.mark.parametrize("simulate", [False, True])
-@pytest.mark.parametrize("versions_to_retain", [4, 2, 1, 0])
+@pytest.mark.parametrize("versions_to_retain", [4, 2, 1, 0, -1])
 def test_cleanup_models(
     tmp_path: Path,
     simulate: bool,
@@ -187,7 +187,7 @@ def test_cleanup_models(
 
     # Asserts
     for path, min_version_to_retain in model_files:
-        if min_version_to_retain <= versions_to_retain:
+        if versions_to_retain < 0 or min_version_to_retain <= versions_to_retain:
             # The file should be retained
             assert path not in files_removed
             assert path.exists()
@@ -201,7 +201,7 @@ def test_cleanup_models(
 
 
 @pytest.mark.parametrize("simulate", [False, True])
-@pytest.mark.parametrize("versions_to_retain", [4, 2, 1, 0])
+@pytest.mark.parametrize("versions_to_retain", [4, 2, 1, 0 - 1])
 def test_cleanup_training(
     tmp_path: Path,
     simulate: bool,
@@ -226,7 +226,7 @@ def test_cleanup_training(
 
     # Asserts
     for dir, min_version_to_retain in dirs:
-        if min_version_to_retain <= versions_to_retain:
+        if versions_to_retain < 0 or min_version_to_retain <= versions_to_retain:
             # Directory should be kept
             assert dir not in cleanedup_trainingdata_dirs
             assert dir.exists()
@@ -240,7 +240,7 @@ def test_cleanup_training(
 
 
 @pytest.mark.parametrize("simulate", [False, True])
-@pytest.mark.parametrize("versions_to_retain", [4, 2, 1, 0])
+@pytest.mark.parametrize("versions_to_retain", [4, 2, 1, 0 - 1])
 def test_cleanup_predictions(
     tmp_path: Path,
     simulate: bool,
@@ -266,7 +266,7 @@ def test_cleanup_predictions(
 
     # Asserts
     for path, min_version_to_retain in files:
-        if min_version_to_retain <= versions_to_retain:
+        if versions_to_retain < 0 or min_version_to_retain <= versions_to_retain:
             # File should be kept
             assert path not in cleanedup_predictions
             if not simulate:
@@ -284,7 +284,13 @@ def test_cleanup_predictions(
 @pytest.mark.parametrize(
     "versions_to_retain, removed_model_files, removed_training_dirs, "
     "removed_prediction_files",
-    [(4, 0, 0, 0), (2, 2 * 5, 2, 8), (1, 3 * 5, 3, 12), (0, 4 * 5, 4, 16)],
+    [
+        (4, 0, 0, 0),
+        (2, 2 * 5, 2, 8),
+        (1, 3 * 5, 3, 12),
+        (0, 4 * 5, 4, 16),
+        (-1, 0, 0, 0),
+    ],
 )
 def test_cleanup_project_dir(
     tmp_path: Path,
