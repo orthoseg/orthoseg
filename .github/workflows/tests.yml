@@ -43,7 +43,7 @@ jobs:
         env: ["latest"]
         include:
           - env: latest
-            os: macos-latest
+            os: macos-13
             dev: false
             python: "3.10"
           - env: latest

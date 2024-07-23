@@ -104,10 +104,11 @@ def validate(config_path: Path, config_overrules: List[str] = []):
             image_pixel_width=conf.train.getint("image_pixel_width"),
             image_pixel_height=conf.train.getint("image_pixel_height"),
             ssl_verify=conf.general["ssl_verify"],
+            only_validate=True,
         )
 
-        # Send mail that we are starting train
-        email_helper.sendmail(f"Start validate for config {config_path.stem}")
+        # Send mail that validate was successful
+        email_helper.sendmail(f"Validate for config {config_path.stem} was successful")
         logger.info(
             f"Traindata dir to use is {training_dir}, with traindata_id: {traindata_id}"
         )
