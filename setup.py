@@ -25,6 +25,7 @@ setuptools.setup(
         "gdown",
         "geofileops>=0.6,<0.10",
         "geopandas>=0.12",
+        "matplotlib",
         "owslib",
         "pillow",
         "pycron",
