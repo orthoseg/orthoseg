@@ -262,7 +262,7 @@ def test_prepare_labeldata_polygons_invalid(expected_error, geometry, classname)
     assert ex.value.errors[1].startswith(expected_error)
 
 
-def test_prepare_labeldata_polygons_columnname_backw_compat(tmp_path):
+def test_prepare_labeldata_polygons_columnname_backw_compat():
     # Test bacwards compatibility for old label column name
     # Prepare test data
     polygons_gdf = gpd.GeoDataFrame(
@@ -427,11 +427,7 @@ def create_locations_dataframe(copy_images: str) -> gpd.GeoDataFrame:
     elif copy_images == "remove_one":
         locations_gdf = gpd.GeoDataFrame(
             {
-                "geometry": [
-                    location_1,
-                    location_1,
-                    location_1,
-                ],
+                "geometry": [location_1, location_1, location_1],
                 "traindata_type": ["train", "validation", "test"],
                 "path": "/tmp/locations.gdf",
             },
