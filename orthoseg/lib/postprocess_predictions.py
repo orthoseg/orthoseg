@@ -43,6 +43,8 @@ def postprocess_predictions(
     simplify_algorithm: Optional[str] = None,
     simplify_tolerance: float = 1,
     simplify_lookahead: int = 8,
+    keep_original_file: bool = True,
+    keep_intermediary_files: bool = True,
     nb_parallel: int = -1,
     force: bool = False,
 ) -> List[Path]:
@@ -52,6 +54,9 @@ def postprocess_predictions(
     Args:
         input_path: path to the 'raw' prediction vector file.
         output_path: the base path where the output file(s) will be written to.
+        keep_original_file: If True, the output file of the prediction step
+            will be retained ofter postprocessing, otherwise it is removed.
+        keep_intermediary_files: If True, intermediary postprocessing files are removed.
         dissolve (bool): True if a dissolve needs to be applied
         dissolve_tiles_path (PathLike, optional): Path to a geofile containing
             the tiles to be used for the dissolve. Defaults to None.
@@ -177,6 +182,22 @@ def postprocess_predictions(
 
         curr_input_path = curr_output_path
         output_paths.append(curr_output_path)
+
+    # If postprocessing steps are defined, the output of the prediction step
+    # (input_path) is renamed to ..._orig.gpkg
+    if dissolve or reclassify_to_neighbour_query or simplify_algorithm:
+        original_file = input_path.parent / f"{input_path.stem}_orig.gpkg"
+        input_path.rename(original_file)
+        shutil.copy(src=curr_output_path, dst=input_path)
+
+    # Cleanup original file
+    if not keep_original_file:
+        original_file.unlink()
+
+    # Cleanup intermediary files
+    if not keep_intermediary_files:
+        for file in output_paths:
+            file.unlink()
 
     return output_paths
 
