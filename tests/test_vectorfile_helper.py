@@ -1,6 +1,7 @@
 """
 Tests for functionalities in orthoseg.lib.postprocess_predictions.
 """
+
 import os
 
 import geopandas as gpd
@@ -11,7 +12,7 @@ from shapely import geometry as sh_geom
 # Make hdf5 version warning non-blocking
 os.environ["HDF5_DISABLE_VERSION_CHECK"] = "1"
 
-from orthoseg.helpers import vectorfile_helper  # noqa: E402
+from orthoseg.helpers import vectorfile_helper
 
 
 def test_reclassify_neighbours(tmp_path):

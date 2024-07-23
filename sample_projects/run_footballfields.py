@@ -1,6 +1,7 @@
 """
 Tests for functionalities in orthoseg.train.
 """
+
 from pathlib import Path
 
 import orthoseg

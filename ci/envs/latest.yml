@@ -1,4 +1,4 @@
-name: test
+name: orthoseg-test
 channels:
   - conda-forge
 dependencies:
@@ -6,16 +6,17 @@ dependencies:
   - pip
   # required
   - gdown
-  - geofileops >=0.6,<0.9
-  - geopandas >=0.12
+  - geofileops >=0.6,<0.10
+  - geopandas-core >=0.12
   - numpy
   - owslib
   - pillow
   - pycron
-  - pygeoops >=0.2,<0.4
+  - pygeoops >=0.2,<0.5
   - pyproj
   - rasterio
   - shapely >=2
+  - simplification
   # dependencies of tensorflow that need to be conda versions to evade binary compatibility issues
   - h5py
   # testing
@@ -24,5 +25,4 @@ dependencies:
   - pytest-order
   - pip:
     - segmentation-models >=1.0,<1.1
-    - simplification
     - tensorflow >=2.7,<2.11

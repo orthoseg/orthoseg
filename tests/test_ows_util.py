@@ -1,6 +1,7 @@
 """
 Tests for functionalities in orthoseg.train.
 """
+
 import pyproj
 import pytest
 import rasterio as rio

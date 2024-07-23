@@ -19,10 +19,10 @@ from PIL import Image
 # Make hdf5 version warning non-blocking
 os.environ["HDF5_DISABLE_VERSION_CHECK"] = "1"
 
-from orthoseg.helpers import config_helper  # noqa: E402
-from orthoseg.lib import prepare_traindatasets as prep_traindata  # noqa: E402
-from orthoseg.lib.prepare_traindatasets import ValidationError  # noqa: E402
-from tests.test_helper import TestData  # noqa: E402
+from orthoseg.helpers import config_helper
+from orthoseg.lib import prepare_traindatasets as prep_traindata
+from orthoseg.lib.prepare_traindatasets import ValidationError
+from tests.test_helper import TestData
 
 
 def _prepare_locations_file(
