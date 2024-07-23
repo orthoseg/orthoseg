@@ -4,7 +4,6 @@ Module with functions for post-processing prediction masks towards polygons.
 
 import logging
 import math
-import os
 from pathlib import Path
 import shutil
 from typing import List, Optional
@@ -188,17 +187,17 @@ def postprocess_predictions(
     # (input_path) is renamed to ..._orig.gpkg
     if dissolve or reclassify_to_neighbour_query or simplify_algorithm:
         original_file = input_path.parent / f"{input_path.stem}_orig.gpkg"
-        os.rename(src=input_path, dst=original_file)
+        input_path.rename(original_file)
         shutil.copy(src=curr_output_path, dst=input_path)
 
     # Cleanup original file
     if not keep_original_file:
-        os.remove(path=original_file)
+        original_file.unlink()
 
     # Cleanup intermediary files
     if not keep_intermediary_files:
         for file in output_paths:
-            os.remove(file)
+            file.unlink()
 
     return output_paths
 
