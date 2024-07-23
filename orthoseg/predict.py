@@ -6,7 +6,6 @@ import argparse
 import logging
 from pathlib import Path
 import pprint
-import shlex
 import shutil
 import sys
 import traceback
@@ -18,7 +17,7 @@ import tensorflow as tf
 
 from orthoseg.helpers import config_helper as conf
 from orthoseg.helpers import email_helper
-from orthoseg.lib import predicter
+from orthoseg.lib import cleanup, predicter
 import orthoseg.model.model_factory as mf
 import orthoseg.model.model_helper as mh
 from orthoseg.util import log_util
@@ -27,12 +26,7 @@ from orthoseg.util import log_util
 logger = logging.getLogger(__name__)
 
 
-def _predict_argstr(argstr):
-    args = shlex.split(argstr)
-    _predict_args(args)
-
-
-def _predict_args(args):
+def _predict_args(args) -> argparse.Namespace:
     # Interprete arguments
     parser = argparse.ArgumentParser(add_help=False)
 
@@ -61,11 +55,7 @@ def _predict_args(args):
         ),
     )
 
-    # Interprete arguments
-    args = parser.parse_args(args)
-
-    # Run!
-    predict(config_path=Path(args.config), config_overrules=args.config_overrules)
+    return parser.parse_args(args)
 
 
 def predict(config_path: Path, config_overrules: List[str] = []):
@@ -107,8 +97,6 @@ def predict(config_path: Path, config_overrules: List[str] = []):
         input_image_dir = conf.dirs.getpath("predict_image_input_dir")
         if not input_image_dir.exists():
             raise Exception(f"input image dir doesn't exist: {input_image_dir}")
-
-        # TODO: add something to delete old data, predictions???
 
         # Create base filename of model to use
         # TODO: is force data version the most logical, or rather implement
@@ -307,6 +295,23 @@ def predict(config_path: Path, config_overrules: List[str] = []):
         message = f"Completed predict for config {config_path.stem}"
         logger.info(message)
         email_helper.sendmail(message)
+
+        # Cleanup old data
+        cleanup.clean_models(
+            model_dir=conf.dirs.getpath("model_dir"),
+            versions_to_retain=conf.cleanup.getint("model_versions_to_retain"),
+            simulate=conf.cleanup.getboolean("simulate"),
+        )
+        cleanup.clean_training_data_directories(
+            training_dir=conf.dirs.getpath("training_dir"),
+            versions_to_retain=conf.cleanup.getint("training_versions_to_retain"),
+            simulate=conf.cleanup.getboolean("simulate"),
+        )
+        cleanup.clean_predictions(
+            output_vector_dir=conf.dirs.getpath("output_vector_dir"),
+            versions_to_retain=conf.cleanup.getint("prediction_versions_to_retain"),
+            simulate=conf.cleanup.getboolean("simulate"),
+        )
     except Exception as ex:
         message = f"ERROR while running predict for task {config_path.stem}"
         logger.exception(message)
@@ -324,7 +329,11 @@ def main():
     Run predict.
     """
     try:
-        _predict_args(sys.argv[1:])
+        # Interprete arguments
+        args = _predict_args(sys.argv[1:])
+
+        # Run!
+        predict(config_path=Path(args.config), config_overrules=args.config_overrules)
     except Exception as ex:
         logger.exception(f"Error: {ex}")
         raise

@@ -15,6 +15,7 @@ from orthoseg.util import config_util
 from orthoseg.util.ows_util import FileLayerSource, WMSLayerSource
 from orthoseg.lib.prepare_traindatasets import LabelInfo
 
+
 # Get a logger...
 logger = logging.getLogger(__name__)
 
@@ -112,6 +113,8 @@ def read_orthoseg_config(config_path: Path, overrules: List[str] = []):
     logging = config["logging"]
     global email
     email = config["email"]
+    global cleanup
+    cleanup = config["cleanup"]
 
     # Some checks to make sure the config is loaded properly
     segment_subject = general.get("segment_subject")
@@ -175,12 +178,41 @@ def get_train_label_infos() -> List[LabelInfo]:
     Returns:
         List[LabelInfo]: List of LabelInfos found.
     """
-    return _prepare_train_label_infos(
+    train_label_infos = _prepare_train_label_infos(
         labelpolygons_pattern=train.getpath("labelpolygons_pattern"),
         labellocations_pattern=train.getpath("labellocations_pattern"),
         label_datasources=train.getdict("label_datasources", None),
         image_layers=image_layers,
     )
+    if train_label_infos is None or len(train_label_infos) == 0:
+        raise ValueError(
+            "No valid label file config found in train.label_datasources or "
+            f"with patterns {train.get('labelpolygons_pattern')} and "
+            f"{train.get('labellocations_pattern')}"
+        )
+    return train_label_infos
+
+
+def determine_classes():
+    """
+    Determine classes.
+
+    Raises:
+        Exception: Error reading classes
+
+    Returns:
+        any: classes
+    """
+    try:
+        classes = train.getdict("classes")
+
+        # If the burn_value property isn't supplied for the classes, add them
+        for class_id, (classname) in enumerate(classes):
+            if "burn_value" not in classes[classname]:
+                classes[classname]["burn_value"] = class_id
+        return classes
+    except Exception as ex:
+        raise Exception(f"Error reading classes: {train.get('classes')}") from ex
 
 
 def _read_layer_config(layer_config_filepath: Path) -> dict:
