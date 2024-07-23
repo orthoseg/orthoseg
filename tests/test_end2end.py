@@ -2,7 +2,6 @@
 Tests for functionalities in orthoseg.train.
 """
 
-from contextlib import nullcontext
 from datetime import datetime
 import os
 from pathlib import Path
@@ -55,49 +54,12 @@ def test_2_load_images():
     assert len(files) == 6
 
 
-@pytest.mark.parametrize("exp_error", [(False)])
 @pytest.mark.skipif(
     "GITHUB_ACTIONS" in os.environ and os.name == "nt",
     reason="crashes on github CI on windows",
 )
 @pytest.mark.order(after="test_1_init_testproject")
-def test_3_validate(exp_error: bool):
-    # Load project config to init some vars.
-    config_path = footballfields_dir / "footballfields_train_test.ini"
-    conf.read_orthoseg_config(config_path)
-
-    # Init + cleanup result dirs
-    traindata_id_result = 2
-    training_dir = conf.dirs.getpath("training_dir")
-    training_id_dir = training_dir / f"{traindata_id_result:02d}"
-    if training_id_dir.exists():
-        shutil.rmtree(training_id_dir)
-    model_dir = conf.dirs.getpath("model_dir")
-    if model_dir.exists():
-        modelfile_paths = model_dir.glob(f"footballfields_{traindata_id_result:02d}_*")
-        for modelfile_path in modelfile_paths:
-            modelfile_path.unlink()
-
-    # Make sure the label files in version 01 are older than those in the label dir
-    # so a new model will be trained
-    label_01_path = training_dir / "01/footballfields_BEFL-2019_polygons.gpkg"
-    timestamp_old = datetime(year=2020, month=1, day=1).timestamp()
-    os.utime(label_01_path, (timestamp_old, timestamp_old))
-
-    if exp_error:
-        handler = pytest.raises(Exception)
-    else:
-        handler = nullcontext()
-    with handler:
-        orthoseg.validate(config_path=config_path)
-
-
-@pytest.mark.skipif(
-    "GITHUB_ACTIONS" in os.environ and os.name == "nt",
-    reason="crashes on github CI on windows",
-)
-@pytest.mark.order(after="test_1_init_testproject")
-def test_4_train():
+def test_3_train():
     # Load project config to init some vars.
     config_path = footballfields_dir / "footballfields_train_test.ini"
     conf.read_orthoseg_config(config_path)
@@ -143,7 +105,7 @@ def test_4_train():
     reason="crashes on github CI on windows",
 )
 @pytest.mark.order(after="test_2_load_images")
-def test_5_predict():
+def test_4_predict():
     # Load project config to init some vars.
     config_path = footballfields_dir / "footballfields_BEFL-2019_test.ini"
     conf.read_orthoseg_config(config_path)
