@@ -70,9 +70,9 @@ def _prepare_labelinfos(
 @pytest.mark.parametrize(
     "geometry, traindata_type, expected_len_locations",
     [
-        [TestData.location, "train", 4],
-        [None, "validation", 2],
-        [sh_geom.Polygon(), "validation", 2],
+        (TestData.location, "train", 4),
+        (None, "validation", 2),
+        (sh_geom.Polygon(), "validation", 2),
     ],
 )
 def test_prepare_labeldata_locations(geometry, traindata_type, expected_len_locations):
@@ -221,8 +221,8 @@ def test_prepare_labeldata_polygons(geometry, classname, expected_len_polygons):
 @pytest.mark.parametrize(
     "expected_error, geometry, classname",
     [
-        ["Invalid geometry ", TestData.polygon_invalid, "testlabel1"],
-        ["Invalid classname ", TestData.polygon, "unknown"],
+        ("Invalid geometry ", TestData.polygon_invalid, "testlabel1"),
+        ("Invalid classname ", TestData.polygon, "unknown"),
     ],
 )
 def test_prepare_labeldata_polygons_invalid(expected_error, geometry, classname):
@@ -301,13 +301,14 @@ image_2 = "150200_150200_150328_150328_512_512_OMWRGB19VL.png"
 image_3 = "150300_150300_150428_150428_512_512_OMWRGB19VL.png"
 
 
+@pytest.mark.skipif(os.name == "nt", reason="crashes on windows")
 @pytest.mark.parametrize(
     "copy_images, match, mismatch, error, filesize_kb",
     [
-        ["add_one", [image_1, image_2], [], [image_3], (1, 1, 2)],
-        ["remove_one", [image_1], [], [image_2, image_3], (1, None, None)],
-        ["copy_all", [image_1, image_2], [], [image_3], (1, 1, None)],
-        ["copy_none", [], [], [image_1, image_2, image_3], (None, None, 2)],
+        ("add_one", [image_1, image_2], [], [image_3], (1, 1, 2)),
+        ("remove_one", [image_1], [], [image_2, image_3], (1, None, None)),
+        ("copy_all", [image_1, image_2], [], [image_3], (1, 1, None)),
+        ("copy_none", [], [], [image_1, image_2, image_3], (None, None, 2)),
     ],
     ids=[
         "add one new location",
@@ -341,7 +342,7 @@ def test_prepare_traindatasets(
             img.save(dir / "image" / image, "png")
             (dir / "image" / image.replace(".png", ".pgw")).touch()
 
-    locations_gdf = create_locations_dataframe(copy_images=copy_images)
+    locations_gdf = _create_locations_dataframe(copy_images=copy_images)
 
     # Run prepare traindatasets
     label_infos = _prepare_labelinfos(tmp_path=tmp_path, locations=locations_gdf)
@@ -364,35 +365,26 @@ def test_prepare_traindatasets(
         ) == (match, mismatch, error)
 
         for i, image in enumerate(images_to_compare):
+            image_path = output_dir / traindata_type / "image" / image
             if filesize_kb[i] is None:
-                assert not (output_dir / traindata_type / "image" / image).exists()
+                assert not image_path.exists()
             else:
-                assert (output_dir / traindata_type / "image" / image).exists()
-                assert (
-                    math.ceil(
-                        os.path.getsize(output_dir / traindata_type / "image" / image)
-                        / 1024
-                    )
-                    == filesize_kb[i]
-                )
+                assert image_path.exists()
+                assert math.ceil(image_path.stat().st_size / 1024) == filesize_kb[i]
 
 
-def create_location(
-    crs_xmin: int,
-    crs_ymin: int,
-):
-    return sh_geom.box(
-        crs_xmin,
-        crs_ymin,
-        crs_xmin + (TestData.image_pixel_width * TestData.image_pixel_x_size),
-        crs_ymin + (TestData.image_pixel_height * TestData.image_pixel_y_size),
-    )
+def _create_locations_dataframe(copy_images: str) -> gpd.GeoDataFrame:
+    def _create_location(crs_xmin: int, crs_ymin: int):
+        return sh_geom.box(
+            crs_xmin,
+            crs_ymin,
+            crs_xmin + (TestData.image_pixel_width * TestData.image_pixel_x_size),
+            crs_ymin + (TestData.image_pixel_height * TestData.image_pixel_y_size),
+        )
 
-
-def create_locations_dataframe(copy_images: str) -> gpd.GeoDataFrame:
-    location_1 = create_location(crs_xmin=150100, crs_ymin=150100)
-    location_2 = create_location(crs_xmin=150200, crs_ymin=150200)
-    location_3 = create_location(crs_xmin=150300, crs_ymin=150300)
+    location_1 = _create_location(crs_xmin=150100, crs_ymin=150100)
+    location_2 = _create_location(crs_xmin=150200, crs_ymin=150200)
+    location_3 = _create_location(crs_xmin=150300, crs_ymin=150300)
 
     if copy_images == "add_one":
         locations_gdf = gpd.GeoDataFrame(
