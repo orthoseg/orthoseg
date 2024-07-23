@@ -109,7 +109,9 @@ def postprocess(config_path: Path, config_overrules: List[str] = []):
             trainparams_id=trainparams_id,
         )
         if best_model is None:
-            raise Exception(f"No best model found in {conf.dirs.getpath('model_dir')}")
+            raise RuntimeError(
+                f"No best model found in {conf.dirs.getpath('model_dir')}"
+            )
 
         # Input file  the "most recent" prediction result dir for this subject
         output_vector_dir = conf.dirs.getpath("output_vector_dir")
@@ -120,9 +122,13 @@ def postprocess(config_path: Path, config_overrules: List[str] = []):
         output_vector_path = output_vector_dir / f"{output_vector_name}.gpkg"
 
         # Prepare some parameters for the postprocessing
-        nb_parallel = conf.general.getint("nb_parallel")
+        nb_parallel = conf.general.getint("nb_parallel", -1)
 
-        dissolve = conf.postprocess.getboolean("dissolve")
+        keep_original_file = conf.postprocess.getboolean("keep_original_file", True)
+        keep_intermediary_files = conf.postprocess.getboolean(
+            "keep_intermediary_files", True
+        )
+        dissolve = conf.postprocess.getboolean("dissolve", True)
         dissolve_tiles_path = conf.postprocess.getpath("dissolve_tiles_path")
         reclassify_query = conf.postprocess.get("reclassify_to_neighbour_query")
         if reclassify_query is not None:
@@ -138,6 +144,8 @@ def postprocess(config_path: Path, config_overrules: List[str] = []):
         postp.postprocess_predictions(
             input_path=output_vector_path,
             output_path=output_vector_path,
+            keep_original_file=keep_original_file,
+            keep_intermediary_files=keep_intermediary_files,
             dissolve=dissolve,
             dissolve_tiles_path=dissolve_tiles_path,
             reclassify_to_neighbour_query=reclassify_query,
@@ -158,7 +166,7 @@ def postprocess(config_path: Path, config_overrules: List[str] = []):
         email_helper.sendmail(
             subject=message, body=f"Exception: {ex}\n\n {traceback.format_exc()}"
         )
-        raise Exception(message) from ex
+        raise RuntimeError(message) from ex
     finally:
         if conf.tmp_dir is not None:
             shutil.rmtree(conf.tmp_dir, ignore_errors=True)

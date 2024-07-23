@@ -11,6 +11,7 @@
   directories (#52)
 - In prepare_trainingdata, reuse images already available in previous version (#170)
 - Add command to (only) validate a training dataset (#133)
+- Add options to improve control of output of postprocess (#167)
 
 ### Bugs fixed
 
