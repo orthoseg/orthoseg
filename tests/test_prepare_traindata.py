@@ -301,7 +301,7 @@ image_2 = "150200_150200_150328_150328_512_512_OMWRGB19VL.png"
 image_3 = "150300_150300_150428_150428_512_512_OMWRGB19VL.png"
 
 
-@pytest.mark.skipif(os.name == "nt", reason="crashes on windows")
+# @pytest.mark.skipif(os.name == "nt", reason="crashes on windows")
 @pytest.mark.parametrize(
     "copy_images, match, mismatch, error, filesize_kb",
     [
