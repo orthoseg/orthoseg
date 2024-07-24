@@ -8,4 +8,4 @@ repos:
     hooks:
       - id: ruff-format
       - id: ruff
-        args: [ --fix, --unsafe-fixes ]
+        # args: [ --fix, --unsafe-fixes ]
