@@ -19,7 +19,7 @@ dependencies:
   - shapely >=2
   - simplification
   # dependencies of tensorflow that need to be conda versions to evade binary compatibility issues
-  - h5py <3.10
+  - h5py <3.11
   # testing
   - pytest
   - pytest-cov
