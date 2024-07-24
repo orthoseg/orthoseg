@@ -8,7 +8,6 @@ from pathlib import Path
 import shutil
 import sys
 import traceback
-from typing import List
 
 
 from orthoseg.helpers import config_helper as conf
@@ -52,13 +51,13 @@ def _validate_args(args) -> argparse.Namespace:
     return parser.parse_args(args)
 
 
-def validate(config_path: Path, config_overrules: List[str] = []):
+def validate(config_path: Path, config_overrules: list[str] = []):
     """
     Run a validating session for the config specified.
 
     Args:
         config_path (Path): Path to the config file to use.
-        config_overrules (List[str], optional): list of config options that will
+        config_overrules (list[str], optional): list of config options that will
             overrule other ways to supply configuration. They should be specified in the
             form of "<section>.<parameter>=<value>". Defaults to [].
     """

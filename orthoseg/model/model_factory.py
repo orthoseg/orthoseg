@@ -12,7 +12,7 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 import numpy as np
 import tensorflow as tf
@@ -121,7 +121,7 @@ def compile_model(
     optimizer: str,
     optimizer_params: dict,
     loss: str,
-    metrics: Optional[List[str]] = None,
+    metrics: Optional[list[str]] = None,
     sample_weight_mode: Optional[str] = None,
     class_weights: Optional[list] = None,
 ) -> keras.models.Model:
@@ -136,7 +136,7 @@ def compile_model(
             * categorical_crossentropy
             * weighted_categorical_crossentropy: class_weights should be specified!
 
-        metrics (List[Metric], optional): metrics to use. Defaults to None. One of:
+        metrics (list[Metric], optional): metrics to use. Defaults to None. One of:
             *
         sample_weight_mode (str, optional): sample weight mode to use. Defaults to None.
         class_weights (list, optional): class weigths to use. Defaults to None.
@@ -147,7 +147,7 @@ def compile_model(
     nb_classes = model.output[-1].shape[-1]
 
     # If no metrics specified, use default ones
-    metric_funcs: List[Any] = []
+    metric_funcs: list[Any] = []
     if metrics is None:
         if loss in ["categorical_crossentropy", "weighted_categorical_crossentropy"]:
             metric_funcs.append("categorical_accuracy")

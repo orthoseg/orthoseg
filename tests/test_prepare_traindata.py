@@ -6,7 +6,7 @@ import filecmp
 import math
 import os
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Optional, Union
 
 import pytest
 from shapely import geometry as sh_geom
@@ -55,7 +55,7 @@ def _prepare_labelinfos(
     tmp_path,
     locations: Optional[Union[dict, gpd.GeoDataFrame]] = None,
     polygons: Optional[Union[dict, gpd.GeoDataFrame]] = None,
-) -> List[prep_traindata.LabelInfo]:
+) -> list[prep_traindata.LabelInfo]:
     locations_path = _prepare_locations_file(tmp_path, locations)
     polygons_path = _prepare_polygons_file(tmp_path, polygons)
 

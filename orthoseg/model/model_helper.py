@@ -6,7 +6,7 @@ import json
 import logging
 from pathlib import Path
 import shutil
-from typing import List, Optional
+from typing import Optional
 
 import pandas as pd
 from keras import callbacks
@@ -394,7 +394,7 @@ def get_models(
     traindata_id: Optional[int] = None,
     architecture_id: Optional[int] = None,
     trainparams_id: Optional[int] = None,
-) -> List[dict]:
+) -> list[dict]:
     """
     Return the list of models in the model_dir passed.
 

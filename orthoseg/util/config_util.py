@@ -7,7 +7,7 @@ import json
 import logging
 from pathlib import Path
 import tempfile
-from typing import List, Optional
+from typing import Optional
 
 # Get a logger...
 logger = logging.getLogger(__name__)
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 illegal_chars_in_codes = ["_", ",", ".", "?", ":"]
 
 
-def get_config_files(config_path: Path) -> List[Path]:
+def get_config_files(config_path: Path) -> list[Path]:
     """
     Get the list of all relevant config files, with the last ones overruling prior ones.
 
@@ -26,7 +26,7 @@ def get_config_files(config_path: Path) -> List[Path]:
         config_path (Path): base config file.
 
     Returns:
-        List[Path]: all relevant config files.
+        list[Path]: all relevant config files.
     """
     # Init
     # First check input param
@@ -70,12 +70,12 @@ def get_config_files(config_path: Path) -> List[Path]:
     return config_filepaths
 
 
-def read_config_ext(config_paths: List[Path]) -> configparser.ConfigParser:
+def read_config_ext(config_paths: list[Path]) -> configparser.ConfigParser:
     """
     Read configuration with extended functionalities.
 
     Args:
-        config_paths (List[Path]): the configuration files to load.
+        config_paths (list[Path]): the configuration files to load.
 
     Returns:
         configparser.ConfigParser: _description_

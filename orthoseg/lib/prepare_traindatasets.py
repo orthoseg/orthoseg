@@ -7,7 +7,7 @@ import shutil
 import math
 from pathlib import Path
 import pprint
-from typing import List, Optional, Tuple, Union
+from typing import Optional, Union
 import warnings
 
 import geofileops as gfo
@@ -94,7 +94,7 @@ class ValidationError(ValueError):
 
         Args:
             message (str): error message.
-            errors (List[str]): List of validation errors.
+            errors (list[str]): List of validation errors.
         """
         # Call the base class constructor with the parameters it needs
         super().__init__(message)
@@ -141,7 +141,7 @@ class ValidationError(ValueError):
 
 
 def prepare_traindatasets(
-    label_infos: List[LabelInfo],
+    label_infos: list[LabelInfo],
     classes: dict,
     image_layers: dict,
     training_dir: Path,
@@ -153,7 +153,7 @@ def prepare_traindatasets(
     ssl_verify: Union[bool, str] = True,
     only_validate: bool = False,
     force: bool = False,
-) -> Tuple[Path, int]:
+) -> tuple[Path, int]:
     """
     This function prepares training data for the vector labels provided.
 
@@ -166,7 +166,7 @@ def prepare_traindatasets(
         dataversion: a version number for the dataset created/found
 
     Args:
-        label_infos (List[LabelInfo]): paths to the files with label polygons
+        label_infos (list[LabelInfo]): paths to the files with label polygons
             and locations to generate images for.
         classes (dict): dict with the classes to detect as keys. The values
             are the following:
@@ -419,21 +419,21 @@ def prepare_traindatasets(
 
 
 def prepare_labeldata(
-    label_infos: List[LabelInfo],
+    label_infos: list[LabelInfo],
     classes: dict,
     labelname_column: str,
     image_pixel_x_size: Optional[float],
     image_pixel_y_size: Optional[float],
     image_pixel_width: int,
     image_pixel_height: int,
-) -> List[Tuple[gpd.GeoDataFrame, gpd.GeoDataFrame]]:
+) -> list[tuple[gpd.GeoDataFrame, gpd.GeoDataFrame]]:
     """
     Prepare and validate the data in the labelinfos.
 
     The GeoDataFrames returned can be used to fetch train images and burn masks.
 
     Args:
-        label_infos (List[LabelInfo]): the label files/data.
+        label_infos (list[LabelInfo]): the label files/data.
         classes (dict): dict with classes and their corresponding
             label class names + weights.
         labelname_column (str): the column name in the label polygon files where the
@@ -448,7 +448,7 @@ def prepare_labeldata(
             errors property.
 
     Returns:
-        List[Tuple[gpd.GeoDataFrame, gpd.GeoDataFrame]]: returns a list of tuples with
+        list[tuple[gpd.GeoDataFrame, gpd.GeoDataFrame]]: returns a list of tuples with
             geodataframes with labellocations and labelpolygons to burn.
     """
     labeldata_result = []

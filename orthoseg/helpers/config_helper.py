@@ -9,7 +9,7 @@ from pathlib import Path
 import pprint
 import re
 import tempfile
-from typing import Dict, List, Optional
+from typing import Optional
 
 from orthoseg.util import config_util
 from orthoseg.util.ows_util import FileLayerSource, WMSLayerSource
@@ -43,13 +43,13 @@ def pformat_config() -> str:
     return message
 
 
-def read_orthoseg_config(config_path: Path, overrules: List[str] = []):
+def read_orthoseg_config(config_path: Path, overrules: list[str] = []):
     """
     Read an orthoseg configuration file.
 
     Args:
         config_path (Path): path to the configuration file to read.
-        overrules (List[str], optional): list of config options that will overrule other
+        overrules (list[str], optional): list of config options that will overrule other
             ways to supply configuration. They should be specified as a list of
             "<section>.<parameter>=<value>" strings. Defaults to [].
     """
@@ -171,12 +171,12 @@ def get_tmp_dir() -> Path:
     return tmp_dir
 
 
-def get_train_label_infos() -> List[LabelInfo]:
+def get_train_label_infos() -> list[LabelInfo]:
     """
     Searches and returns LabelInfos that can be used to create a training dataset.
 
     Returns:
-        List[LabelInfo]: List of LabelInfos found.
+        list[LabelInfo]: List of LabelInfos found.
     """
     train_label_infos = _prepare_train_label_infos(
         labelpolygons_pattern=train.getpath("labelpolygons_pattern"),
@@ -368,10 +368,10 @@ def _prepare_train_label_infos(
     labelpolygons_pattern: Path,
     labellocations_pattern: Path,
     label_datasources: dict,
-    image_layers: Dict[str, dict],
-) -> List[LabelInfo]:
+    image_layers: dict[str, dict],
+) -> list[LabelInfo]:
     # Search for the files based on the file name patterns...
-    label_infos: Dict[str, LabelInfo] = {}
+    label_infos: dict[str, LabelInfo] = {}
     if labelpolygons_pattern is not None or labellocations_pattern is not None:
         label_infos = {
             info.locations_path.resolve().as_posix(): info
@@ -429,7 +429,7 @@ def _prepare_train_label_infos(
 
 def _search_label_files(
     labelpolygons_pattern: Path, labellocations_pattern: Path
-) -> List[LabelInfo]:
+) -> list[LabelInfo]:
     if not labelpolygons_pattern.parent.exists():
         raise ValueError(f"Label dir doesn't exist: {labelpolygons_pattern.parent}")
     if not labellocations_pattern.parent.exists():
@@ -507,7 +507,7 @@ def _unformat(string: str, pattern: str) -> dict:
 def _str2list(input: Optional[str]):
     if input is None:
         return None
-    if isinstance(input, List):
+    if isinstance(input, list):
         return input
     return [part.strip() for part in input.split(",")]
 
@@ -515,7 +515,7 @@ def _str2list(input: Optional[str]):
 def _str2intlist(input: Optional[str]):
     if input is None:
         return None
-    if isinstance(input, List):
+    if isinstance(input, list):
         return input
     return [int(i.strip()) for i in input.split(",")]
 

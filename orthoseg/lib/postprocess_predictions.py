@@ -6,7 +6,7 @@ import logging
 import math
 from pathlib import Path
 import shutil
-from typing import List, Optional
+from typing import Optional
 
 import geofileops as gfo
 import geopandas as gpd
@@ -47,7 +47,7 @@ def postprocess_predictions(
     keep_intermediary_files: bool = True,
     nb_parallel: int = -1,
     force: bool = False,
-) -> List[Path]:
+) -> list[Path]:
     """
     Postprocesses the input prediction as specified.
 
@@ -437,7 +437,7 @@ def postprocess_for_evaluation(
         # Rename the prediction file so it also contains the prefix,...
         if image_pred_filepath is not None:
             image_dest_filepath = Path(
-                f"{str(output_basefilepath)}_pred{image_pred_filepath.suffix}"
+                f"{output_basefilepath!s}_pred{image_pred_filepath.suffix}"
             )
             if not image_dest_filepath.exists():
                 shutil.move(str(image_pred_filepath), image_dest_filepath)
@@ -504,7 +504,7 @@ def polygonize_pred_for_evaluation(
         # For easier evaluation, write the cleaned version as raster
         # Write the standard cleaned output to file
         logger.debug("Save binary prediction")
-        image_pred_cleaned_filepath = Path(f"{str(output_basefilepath)}_pred_bin.tif")
+        image_pred_cleaned_filepath = Path(f"{output_basefilepath!s}_pred_bin.tif")
         with rio.open(
             image_pred_cleaned_filepath,
             "w",
@@ -537,7 +537,7 @@ def polygonize_pred_for_evaluation(
                 # TODO: doesn't support multiple classes
                 logger.debug("Before writing simpl rasterized file")
                 image_pred_simpl_filepath = (
-                    f"{str(output_basefilepath)}_pred_cleaned_simpl.tif"
+                    f"{output_basefilepath!s}_pred_cleaned_simpl.tif"
                 )
                 with rio.open(
                     image_pred_simpl_filepath,
@@ -571,7 +571,7 @@ def polygonize_pred_for_evaluation(
                     "Before writing simpl with visvangali algo rasterized file"
                 )
                 image_pred_simpl_filepath = (
-                    f"{str(output_basefilepath)}_pred_cleaned_simpl_vis.tif"
+                    f"{output_basefilepath!s}_pred_cleaned_simpl_vis.tif"
                 )
                 with rio.open(
                     image_pred_simpl_filepath,
@@ -867,7 +867,7 @@ def polygonize_pred(
     image_crs: str,
     image_transform,
     mask_background: bool = True,
-    classnames: Optional[List[str]] = None,
+    classnames: Optional[list[str]] = None,
     output_basefilepath: Optional[Path] = None,
 ) -> Optional[gpd.GeoDataFrame]:
     """
@@ -878,7 +878,7 @@ def polygonize_pred(
         image_crs (str): _description_
         image_transform (_type_): _description_
         mask_background (bool, optional): _description_. Defaults to True.
-        classnames (Optional[List[str]], optional): _description_. Defaults to None.
+        classnames (Optional[list[str]], optional): _description_. Defaults to None.
         output_basefilepath (Optional[Path], optional): _description_. Defaults to None.
 
     Raises:
