@@ -3,7 +3,7 @@ Tests for functionalities in orthoseg.lib.postprocess_predictions.
 """
 
 # Disable isort, another import order gives a segmentation fault on Windows.
-import filecmp  # noqa: I001
+import filecmp
 import math
 import os
 from pathlib import Path
