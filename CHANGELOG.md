@@ -12,8 +12,7 @@
 - Add command to (only) validate a training dataset (#133)
 - Add options to improve control of output of postprocess (#167)
 - Several small improvements (#128)
-- Apply pydocstyle to clean up docstrings (#182)
-- Update python to >=3.9 + apply pyupgrade (#181)
+- Apply pyupgrade (python >= 3.9), pydocstyle and isort (#181, #182, #184)
 - Update dependencies: geopandas, ruff,... + drop support for pygeos (#179)
 
 ### Bugs fixed
