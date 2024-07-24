@@ -2,8 +2,8 @@
 
 import logging
 import math
-from pathlib import Path
 import shutil
+from pathlib import Path
 from typing import Optional
 
 import geofileops as gfo
@@ -13,13 +13,13 @@ import pygeoops
 import rasterio as rio
 import rasterio.features as rio_features
 import rasterio.transform as rio_transform
-import skimage.filters.rank
-from skimage.morphology import rectangle
 import shapely.geometry as sh_geom
+import skimage.filters.rank
 import tensorflow as tf
+from skimage.morphology import rectangle
 
-from orthoseg.util import vector_util
 from orthoseg.helpers import vectorfile_helper
+from orthoseg.util import vector_util
 
 # Avoid having many info warnings about self intersections from shapely
 logging.getLogger("shapely.geos").setLevel(logging.WARNING)

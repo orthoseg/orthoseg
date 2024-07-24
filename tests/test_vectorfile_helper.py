@@ -4,8 +4,8 @@ Tests for functionalities in orthoseg.lib.postprocess_predictions.
 
 import os
 
-import geopandas as gpd
 import geofileops as gfo
+import geopandas as gpd
 import pandas as pd
 from shapely import geometry as sh_geom
 

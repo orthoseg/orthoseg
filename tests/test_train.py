@@ -1,5 +1,6 @@
 from contextlib import nullcontext
 from pathlib import Path
+
 import pytest
 
 from orthoseg import train

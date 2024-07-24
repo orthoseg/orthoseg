@@ -2,19 +2,17 @@
 
 import argparse
 import logging
-from pathlib import Path
 import shlex
 import shutil
 import sys
 import traceback
+from pathlib import Path
 
 import pyproj
 
-from orthoseg.helpers import config_helper as conf
-from orthoseg.helpers import email_helper
 import orthoseg.model.model_factory as mf
-from orthoseg.util import log_util
-from orthoseg.util import ows_util
+from orthoseg.helpers import config_helper as conf, email_helper
+from orthoseg.util import log_util, ows_util
 
 # Get a logger...
 logger = logging.getLogger(__name__)
