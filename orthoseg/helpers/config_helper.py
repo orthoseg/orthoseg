@@ -1,6 +1,4 @@
-"""
-Module with specific helper functions to manage the configuration of orthoseg.
-"""
+"""Module with specific helper functions to manage the configuration of orthoseg."""
 
 import configparser
 import json
@@ -28,8 +26,7 @@ tmp_dir = None
 
 
 def pformat_config() -> str:
-    """
-    Format the config to a string.
+    """Format the config to a string.
 
     Returns:
         str: the configuration as string
@@ -44,8 +41,7 @@ def pformat_config() -> str:
 
 
 def read_orthoseg_config(config_path: Path, overrules: list[str] = []):
-    """
-    Read an orthoseg configuration file.
+    """Read an orthoseg configuration file.
 
     Args:
         config_path (Path): path to the configuration file to read.
@@ -153,8 +149,7 @@ def read_orthoseg_config(config_path: Path, overrules: list[str] = []):
 
 
 def get_tmp_dir() -> Path:
-    """
-    Get a temporary directory for this run.
+    """Get a temporary directory for this run.
 
     If no temporary directory exists yet, it is created.
 
@@ -172,8 +167,7 @@ def get_tmp_dir() -> Path:
 
 
 def get_train_label_infos() -> list[LabelInfo]:
-    """
-    Searches and returns LabelInfos that can be used to create a training dataset.
+    """Searches and returns LabelInfos that can be used to create a training dataset.
 
     Returns:
         list[LabelInfo]: List of LabelInfos found.
@@ -194,8 +188,7 @@ def get_train_label_infos() -> list[LabelInfo]:
 
 
 def determine_classes():
-    """
-    Determine classes.
+    """Determine classes.
 
     Raises:
         Exception: Error reading classes

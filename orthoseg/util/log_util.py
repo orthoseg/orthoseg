@@ -1,5 +1,4 @@
-"""
-Module with specific helper functions to manage the logging of orthoseg.
+"""Module with specific helper functions to manage the logging of orthoseg.
 
 TODO: maybe it is cleaner to replace most code here by a config dict?
 """
@@ -14,13 +13,10 @@ from typing import Optional
 
 
 class LoggingContext:
-    """
-    Context handler to temporary log using a specific level/handler.
-    """
+    """Context handler to temporary log using a specific level/handler."""
 
     def __init__(self, logger, level=None, handler=None, close=True):
-        """
-        Constructor of LoggingContext.
+        """Constructor of LoggingContext.
 
         Args:
             logger (_type_): the logger to use.
@@ -35,9 +31,7 @@ class LoggingContext:
         self.close = close
 
     def __enter__(self):
-        """
-        Enter.
-        """
+        """Enter."""
         if self.level is not None:
             self.old_level = self.logger.level
             self.logger.setLevel(self.level)
@@ -45,8 +39,7 @@ class LoggingContext:
             self.logger.addHandler(self.handler)
 
     def __exit__(self, et, ev, tb):
-        """
-        Exit.
+        """Exit.
 
         Args:
             et (_type_): _description_
@@ -68,8 +61,7 @@ def init_logging_dictConfig(
     log_basedir: Optional[Path] = None,
     loggername: Optional[str] = None,
 ) -> logging.Logger:
-    """
-    Initializes the logging based on input in dictConfig format.
+    """Initializes the logging based on input in dictConfig format.
 
     The input can be a dict or a json file.
 
@@ -131,8 +123,7 @@ def init_logging_dictConfig(
 
 
 def main_log_init(log_dir: Path, log_basefilename: str):
-    """
-    Initialize logging.
+    """Initialize logging.
 
     Args:
         log_dir (Path): directory to log to.
@@ -189,8 +180,7 @@ def main_log_init(log_dir: Path, log_basefilename: str):
 
 
 def clean_log_dir(log_dir: Path, nb_logfiles_tokeep: int, pattern: str = "*.*"):
-    """
-    Clean a log dir.
+    """Clean a log dir.
 
     Args:
         log_dir (Path): dir with log files to clean.

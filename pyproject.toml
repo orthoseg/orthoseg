@@ -40,7 +40,7 @@ select = [
     # isort
     #"I",
     # pydocstyle
-    #"D",
+    "D",
 ]
 
 ignore = [

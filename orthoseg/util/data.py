@@ -1,6 +1,4 @@
-"""
-Module with specific helper functions to get info for gisdata files.
-"""
+"""Module with specific helper functions to get info for gisdata files."""
 
 import logging
 from pathlib import Path
@@ -15,8 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 def aidetection_dir() -> Path:
-    """
-    AI detection path.
+    """AI detection path.
 
     Returns:
         Path: AI detection path
@@ -30,9 +27,7 @@ def aidetection_dir() -> Path:
 
 
 class AiDetectionInfo:
-    """
-    Information about an ai detection result.
-    """
+    """Information about an ai detection result."""
 
     def __init__(
         self,
@@ -43,8 +38,7 @@ class AiDetectionInfo:
         image_layer_year: int,
         postprocessing: str,
     ):
-        """
-        Init.
+        """Init.
 
         Args:
             path (Path): the path to the file
@@ -63,8 +57,7 @@ class AiDetectionInfo:
 
 
 def aidetection_info(path: Path) -> AiDetectionInfo:
-    """
-    Get the properties from an ai detection filepath.
+    """Get the properties from an ai detection filepath.
 
     Args:
         path (Path): the filepath to the ai detection file

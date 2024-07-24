@@ -1,6 +1,4 @@
-"""
-OrthoSeg makes it easy to train neural networks to segment orthophotos.
-"""
+"""OrthoSeg makes it easy to train neural networks to segment orthophotos."""
 
 from pathlib import Path
 

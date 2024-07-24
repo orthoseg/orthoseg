@@ -1,6 +1,4 @@
-"""
-Module to make it easy to start a validating session.
-"""
+"""Module to make it easy to start a validating session."""
 
 import argparse
 import logging
@@ -52,8 +50,7 @@ def _validate_args(args) -> argparse.Namespace:
 
 
 def validate(config_path: Path, config_overrules: list[str] = []):
-    """
-    Run a validating session for the config specified.
+    """Run a validating session for the config specified.
 
     Args:
         config_path (Path): Path to the config file to use.
@@ -126,9 +123,7 @@ def validate(config_path: Path, config_overrules: list[str] = []):
 
 
 def main():
-    """
-    Run validate.
-    """
+    """Run validate."""
     try:
         # Interprete arguments
         args = _validate_args(sys.argv[1:])

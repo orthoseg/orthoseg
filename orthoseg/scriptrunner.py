@@ -1,6 +1,4 @@
-"""
-Run the scripts in a directory.
-"""
+"""Run the scripts in a directory."""
 
 import argparse
 import configparser
@@ -15,9 +13,7 @@ runner_config = None
 
 
 def main():
-    """
-    Main.
-    """
+    """Main."""
     # Interprete arguments
     parser = argparse.ArgumentParser(add_help=False)
 
@@ -158,8 +154,7 @@ def main():
 def load_scriptrunner_config(
     config_path: str, script_dir: Path
 ) -> configparser.ConfigParser:
-    """
-    Load the configuration of scriptrunner.
+    """Load the configuration of scriptrunner.
 
     Args:
         config_path (str): config file to load.

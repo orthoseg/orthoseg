@@ -1,6 +1,4 @@
-"""
-Script to load images from a WMS server.
-"""
+"""Script to load images from a WMS server."""
 
 import argparse
 import logging
@@ -68,8 +66,7 @@ def load_images(
     load_testsample_images: bool = False,
     config_overrules: list[str] = [],
 ):
-    """
-    Load and cache images for a segmentation project.
+    """Load and cache images for a segmentation project.
 
     Args:
         config_path (Path): Path to the projects config file.
@@ -195,9 +192,7 @@ def load_images(
 
 
 def main():
-    """
-    Run load images.
-    """
+    """Run load images."""
     try:
         _load_images_args(sys.argv[1:])
     except Exception as ex:

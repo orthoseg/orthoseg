@@ -1,6 +1,4 @@
-"""
-Download the sample project.
-"""
+"""Download the sample project."""
 
 import argparse
 import logging
@@ -53,8 +51,7 @@ def _parse_load_sampleprojects_args(args) -> dict:
 
 
 def load_sampleprojects(dest_dir: Path, ssl_verify: Optional[bool] = None):
-    """
-    Load the orthoseg sample projects.
+    """Load the orthoseg sample projects.
 
     Args:
         dest_dir (Path): directory to save them to.
@@ -108,9 +105,7 @@ def load_sampleprojects(dest_dir: Path, ssl_verify: Optional[bool] = None):
 
 
 def main():
-    """
-    Run load sampleprojects.
-    """
+    """Run load sampleprojects."""
     try:
         parsed_args = _parse_load_sampleprojects_args(sys.argv[1:])
         load_sampleprojects(**parsed_args)

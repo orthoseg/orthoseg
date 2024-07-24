@@ -1,6 +1,4 @@
-"""
-Module with functions for post-processing prediction masks towards polygons.
-"""
+"""Module with functions for post-processing prediction masks towards polygons."""
 
 import logging
 import math
@@ -48,8 +46,7 @@ def postprocess_predictions(
     nb_parallel: int = -1,
     force: bool = False,
 ) -> list[Path]:
-    """
-    Postprocesses the input prediction as specified.
+    """Postprocesses the input prediction as specified.
 
     Args:
         input_path: path to the 'raw' prediction vector file.
@@ -205,8 +202,7 @@ def postprocess_predictions(
 def read_prediction_file(
     filepath: Path, border_pixels_to_ignore: int = 0
 ) -> Optional[gpd.GeoDataFrame]:
-    """
-    Read the prediction file specified.
+    """Read the prediction file specified.
 
     Args:
         filepath (Path): path to the prediction file.
@@ -226,8 +222,7 @@ def read_prediction_file(
 
 
 def to_binary_uint8(in_arr: np.ndarray, thresshold_ok: int = 128) -> np.ndarray:
-    """
-    Convert input array to binary UINT8.
+    """Convert input array to binary UINT8.
 
     Args:
         in_arr (np.ndarray): input array
@@ -264,8 +259,7 @@ def postprocess_for_evaluation(
     border_pixels_to_ignore: int = 0,
     force: bool = False,
 ):
-    """
-    This function postprocesses a prediction for manual evaluation.
+    """This function postprocesses a prediction for manual evaluation.
 
     To make it easy to evaluate visually if the result is OK by creating images of the
     different stages of the prediction logic by creating the following output:
@@ -465,8 +459,7 @@ def postprocess_for_evaluation(
 def polygonize_pred_for_evaluation(
     image_pred_uint8_bin, image_crs: str, image_transform, output_basefilepath: Path
 ):
-    """
-    Polygonize a prediction in a way it is easy to evaluate manually/visually.
+    """Polygonize a prediction in a way it is easy to evaluate manually/visually.
 
     Args:
         image_pred_uint8_bin (_type_): _description_
@@ -607,8 +600,7 @@ def polygonize_pred_from_file(
     border_pixels_to_ignore: int = 0,
     save_to_file: bool = False,
 ) -> Optional[gpd.GeoDataFrame]:
-    """
-    Polygonize a prediction from a file.
+    """Polygonize a prediction from a file.
 
     Args:
         image_pred_filepath (Path): path to the file to be read.
@@ -668,8 +660,7 @@ def polygonize_pred_multiclass_to_file(
     border_pixels_to_ignore: int = 0,
     create_spatial_index: bool = True,
 ) -> dict:
-    """
-    Polygonize a multiclass prediction to a file.
+    """Polygonize a multiclass prediction to a file.
 
     Args:
         image_pred_arr (np.ndarray): _description_
@@ -720,8 +711,7 @@ def polygonize_pred_multiclass(
     postprocess: dict = {},
     border_pixels_to_ignore: int = 0,
 ) -> Optional[gpd.GeoDataFrame]:
-    """
-    Polygonize a multiclass prediction.
+    """Polygonize a multiclass prediction.
 
     Args:
         image_pred_uint8 (np.ndarray): _description_
@@ -870,8 +860,7 @@ def polygonize_pred(
     classnames: Optional[list[str]] = None,
     output_basefilepath: Optional[Path] = None,
 ) -> Optional[gpd.GeoDataFrame]:
-    """
-    Polygonize a prediction.
+    """Polygonize a prediction.
 
     Args:
         image_pred_uint8_bin (_type_): _description_
@@ -942,8 +931,7 @@ def clean_and_save_prediction(
     evaluate_mode: bool = False,
     force: bool = False,
 ) -> bool:
-    """
-    Clean the prediction and save it.
+    """Clean the prediction and save it.
 
     Args:
         input_image_filepath (Path): _description_
@@ -1042,8 +1030,7 @@ def clean_prediction(
     border_pixels_to_ignore: int = 0,
     output_color_depth: str = "binary",
 ) -> np.ndarray:
-    """
-    Cleans a prediction result and returns a cleaned, uint8 array.
+    """Cleans a prediction result and returns a cleaned, uint8 array.
 
     Args:
         image_pred_arr (np.array): The prediction as returned by keras.
@@ -1107,8 +1094,7 @@ def save_prediction_uint8(
     border_pixels_to_ignore: Optional[int] = None,
     force: bool = False,
 ) -> Path:
-    """
-    Save the prediction as UINT8.
+    """Save the prediction as UINT8.
 
     Args:
         image_filepath (Path): _description_
@@ -1170,8 +1156,7 @@ def save_prediction_uint8(
 
 
 def get_pixelsize_x(transform) -> float:
-    """
-    Get the x pixel size from the transform.
+    """Get the x pixel size from the transform.
 
     Args:
         transform (_type_): input transform
@@ -1183,8 +1168,7 @@ def get_pixelsize_x(transform) -> float:
 
 
 def get_pixelsize_y(transform):
-    """
-    Get the y pixel size from the transform.
+    """Get the y pixel size from the transform.
 
     Args:
         transform (_type_): input transform

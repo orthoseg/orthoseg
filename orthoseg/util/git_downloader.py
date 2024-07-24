@@ -1,5 +1,4 @@
-"""
-Module to download files from a github repo.
+"""Module to download files from a github repo.
 
 Based on https://github.com/sdushantha/gitdir/blob/master/gitdir/gitdir.py
 """
@@ -14,8 +13,7 @@ import urllib.request
 
 
 def create_url(url: str) -> tuple[str, list[Path]]:
-    """
-    From the given url, produce a URL that is compatible with Github's REST API.
+    """From the given url, produce a URL that is compatible with Github's REST API.
 
     Can handle blob or tree paths.
 
@@ -47,8 +45,7 @@ def download(
     ssl_verify: Union[bool, str, None] = None,
     limit_rate: bool = True,
 ) -> Optional[int]:
-    """
-    Downloads the files and directories in repo_url.
+    """Downloads the files and directories in repo_url.
 
     Args:
         repo_url (str): url to the repository to download.

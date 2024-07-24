@@ -1,6 +1,4 @@
-"""
-Modile with generic Utility functions for vectorfile manipulations.
-"""
+"""Modile with generic Utility functions for vectorfile manipulations."""
 
 import logging
 from pathlib import Path
@@ -20,8 +18,7 @@ def reclassify_neighbours(
     class_background: str = "background",
     force: bool = False,
 ):
-    """
-    Reclassify features to the class of neighbouring features.
+    """Reclassify features to the class of neighbouring features.
 
     For features that comply to the query, if they have a neighbour (touch/overlap),
     change their classname to that of the neighbour with the longest intersection and

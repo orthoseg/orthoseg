@@ -1,5 +1,4 @@
-"""
-Module with helper functions to create models.
+"""Module with helper functions to create models.
 
 Offers a common interface, regardless of the underlying model implementation
 and contains extra metrics, callbacks,...
@@ -38,8 +37,7 @@ def get_model(
     init_weights_with: str = "imagenet",
     freeze: bool = False,
 ) -> keras.models.Model:
-    """
-    Get a model.
+    """Get a model.
 
     Args:
         architecture (str): Architecture of the network to create
@@ -125,8 +123,7 @@ def compile_model(
     sample_weight_mode: Optional[str] = None,
     class_weights: Optional[list] = None,
 ) -> keras.models.Model:
-    """
-    Compile the model for training.
+    """Compile the model for training.
 
     Args:
         model (keras.models.Model): the keras model to compile.
@@ -201,8 +198,7 @@ def compile_model(
 
 
 def load_model(model_to_use_filepath: Path, compile: bool = True) -> keras.models.Model:
-    """
-    Load an existing model from a file.
+    """Load an existing model from a file.
 
     If loading the architecture + model from the file doesn't work, tries
     different things to load a model anyway:
@@ -346,8 +342,7 @@ def load_model(model_to_use_filepath: Path, compile: bool = True) -> keras.model
 
 
 def set_trainable(model, recompile: bool = True):
-    """
-    Set the model trainable.
+    """Set the model trainable.
 
     Args:
         model (_type_): model to set trainable.
@@ -361,8 +356,7 @@ def set_trainable(model, recompile: bool = True):
 
 
 def check_image_size(architecture: str, input_width: int, input_height: int):
-    """
-    Check if the image size is compatible with the architecture.
+    """Check if the image size is compatible with the architecture.
 
     A ValueError is raised if the architecture is not compatible with the size.
 
@@ -396,8 +390,7 @@ def check_image_size(architecture: str, input_width: int, input_height: int):
 
 
 def weighted_categorical_crossentropy(weights):
-    """
-    Loss function using weighted categorical crossentropy.
+    """Loss function using weighted categorical crossentropy.
 
     Args:
         weights (ktensor|nparray|list): crossentropy weights
@@ -424,8 +417,7 @@ def weighted_categorical_crossentropy(weights):
 
 
 def dice_coef_loss(y_true, y_pred):
-    """
-    Loss function based of dice coefficient.
+    """Loss function based of dice coefficient.
 
     Args:
         y_true (_type_): _description_
@@ -438,8 +430,7 @@ def dice_coef_loss(y_true, y_pred):
 
 
 def bootstrapped_crossentropy(y_true, y_pred, bootstrap_type="hard", alpha=0.95):
-    """
-    Loss function based on cross entropy with a bootstrap.
+    """Loss function based on cross entropy with a bootstrap.
 
     Args:
         y_true (_type_): _description_
@@ -476,8 +467,7 @@ def bootstrapped_crossentropy(y_true, y_pred, bootstrap_type="hard", alpha=0.95)
 
 
 def dice_coef_loss_bce(y_true, y_pred):
-    """
-    Loss function based on dice coefficient with bootstrapping.
+    """Loss function based on dice coefficient with bootstrapping.
 
     Args:
         y_true (_type_): _description_
@@ -504,8 +494,7 @@ SMOOTH_LOSS = 1e-12
 
 
 def jaccard_coef(y_true, y_pred):
-    """
-    Metric jaccard coefficient aka intersection over union.
+    """Metric jaccard coefficient aka intersection over union.
 
     Args:
         y_true (_type_): _description_
@@ -523,8 +512,7 @@ def jaccard_coef(y_true, y_pred):
 
 
 def jaccard_coef_round(y_true, y_pred):
-    """
-    Metric jaccard coefficient aka intersection over union with rounding.
+    """Metric jaccard coefficient aka intersection over union with rounding.
 
     Args:
         y_true (_type_): _description_
@@ -542,8 +530,7 @@ def jaccard_coef_round(y_true, y_pred):
 
 
 def jaccard_coef_flat(y_true, y_pred):
-    """
-    Metric jaccard coefficient aka intersection over union with flattening.
+    """Metric jaccard coefficient aka intersection over union with flattening.
 
     Args:
         y_true (_type_): _description_
@@ -564,8 +551,7 @@ def jaccard_coef_flat(y_true, y_pred):
 
 
 def dice_coef(y_true, y_pred, smooth=1.0):
-    """
-    Metric dice coefficient.
+    """Metric dice coefficient.
 
     Args:
         y_true (_type_): _description_
@@ -584,8 +570,7 @@ def dice_coef(y_true, y_pred, smooth=1.0):
 
 
 def pct_wrong(y_true, y_pred):
-    """
-    Metric percentage wrong.
+    """Metric percentage wrong.
 
     Args:
         y_true (_type_): _description_

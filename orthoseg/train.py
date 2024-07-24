@@ -1,6 +1,4 @@
-"""
-Module to make it easy to start a training session.
-"""
+"""Module to make it easy to start a training session."""
 
 import argparse
 import gc
@@ -59,8 +57,7 @@ def _train_args(args) -> argparse.Namespace:
 
 
 def train(config_path: Path, config_overrules: list[str] = []):
-    """
-    Run a training session for the config specified.
+    """Run a training session for the config specified.
 
     Args:
         config_path (Path): Path to the config file to use.
@@ -432,9 +429,7 @@ def train(config_path: Path, config_overrules: list[str] = []):
 
 
 def main():
-    """
-    Run train.
-    """
+    """Run train."""
     try:
         # Interprete arguments
         args = _train_args(sys.argv[1:])

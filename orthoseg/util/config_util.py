@@ -1,6 +1,4 @@
-"""
-Module with specific helper functions to manage the configuration of orthoseg.
-"""
+"""Module with specific helper functions to manage the configuration of orthoseg."""
 
 import configparser
 import json
@@ -19,8 +17,9 @@ illegal_chars_in_codes = ["_", ",", ".", "?", ":"]
 
 
 def get_config_files(config_path: Path) -> list[Path]:
-    """
-    Get the list of all relevant config files, with the last ones overruling prior ones.
+    """Get the list of all relevant config files.
+
+    The configuration option of the last files will overrule prior ones.
 
     Args:
         config_path (Path): base config file.
@@ -71,8 +70,7 @@ def get_config_files(config_path: Path) -> list[Path]:
 
 
 def read_config_ext(config_paths: list[Path]) -> configparser.ConfigParser:
-    """
-    Read configuration with extended functionalities.
+    """Read configuration with extended functionalities.
 
     Args:
         config_paths (list[Path]): the configuration files to load.
@@ -98,9 +96,7 @@ def read_config_ext(config_paths: list[Path]) -> configparser.ConfigParser:
             return None
 
     def safe_math_eval(string):
-        """
-        Function to evaluate a mathematical expression safely.
-        """
+        """Function to evaluate a mathematical expression safely."""
         if string is None:
             return None
 
@@ -139,8 +135,7 @@ def read_config_ext(config_paths: list[Path]) -> configparser.ConfigParser:
 
 
 def as_dict(config: configparser.ConfigParser):
-    """
-    Converts a ConfigParser object into a dictionary.
+    """Converts a ConfigParser object into a dictionary.
 
     The resulting dictionary has sections as keys which point to a dict of the
     sections options as key => value pairs.
