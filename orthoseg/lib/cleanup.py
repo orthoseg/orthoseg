@@ -5,6 +5,7 @@ import os
 import shutil
 from pathlib import Path
 
+
 from orthoseg.model import model_helper
 from orthoseg.util.data import aidetection_info
 

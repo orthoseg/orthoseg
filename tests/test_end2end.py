@@ -2,19 +2,19 @@
 Tests for functionalities in orthoseg.train.
 """
 
+from datetime import datetime
 import os
+from pathlib import Path
 import shutil
 import tempfile
-from datetime import datetime
-from pathlib import Path
 
 import gdown
 import geofileops as gfo
+import orthoseg
+from orthoseg.helpers import config_helper as conf
+import orthoseg.model.model_helper as mh
 import pytest
 
-import orthoseg
-import orthoseg.model.model_helper as mh
-from orthoseg.helpers import config_helper as conf
 from tests import test_helper
 
 testprojects_dir = Path(tempfile.gettempdir()) / "orthoseg_test_end2end/sample_projects"

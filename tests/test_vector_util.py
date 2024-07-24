@@ -5,10 +5,10 @@ Tests for functionalities in vector_util.
 import os
 
 import geopandas as gpd
-import pandas as pd
-import pytest
 from geopandas.testing import assert_geodataframe_equal
+import pandas as pd
 from pandas.testing import assert_frame_equal
+import pytest
 from shapely import geometry as sh_geom
 
 # Make hdf5 version warning non-blocking

@@ -4,12 +4,12 @@ Based on https://github.com/sdushantha/gitdir/blob/master/gitdir/gitdir.py
 """
 
 import json
+from pathlib import Path
 import re
 import ssl
 import time
-import urllib.request
-from pathlib import Path
 from typing import Optional, Union
+import urllib.request
 
 
 def create_url(url: str) -> tuple[str, list[Path]]:

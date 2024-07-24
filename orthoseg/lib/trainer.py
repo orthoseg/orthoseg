@@ -7,12 +7,13 @@ from pathlib import Path
 from typing import Optional
 
 import numpy as np
+import tensorflow as tf
+from tensorflow import keras as kr
 
 # import keras as kr
+
 import pandas as pd
-import tensorflow as tf
 from PIL import Image
-from tensorflow import keras as kr
 
 import orthoseg.model.model_factory as mf
 import orthoseg.model.model_helper as mh

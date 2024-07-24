@@ -8,13 +8,13 @@ import os
 from pathlib import Path
 from typing import Optional, Union
 
-import geofileops as gfo
-import geopandas as gpd
 import pytest
-from PIL import Image
 from shapely import geometry as sh_geom
+import geopandas as gpd
+import geofileops as gfo
 
 from tests import test_helper
+from PIL import Image
 
 # Make hdf5 version warning non-blocking
 os.environ["HDF5_DISABLE_VERSION_CHECK"] = "1"

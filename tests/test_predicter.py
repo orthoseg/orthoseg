@@ -1,5 +1,4 @@
 from contextlib import nullcontext
-
 import pytest
 
 from orthoseg.lib import predicter

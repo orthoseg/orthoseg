@@ -38,7 +38,7 @@ select = [
     # Ruff-specific rules
     "RUF",
     # isort
-    "I",
+    #"I",
     # pydocstyle
     "D",
 ]

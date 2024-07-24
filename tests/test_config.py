@@ -2,7 +2,8 @@ import pytest
 
 from orthoseg.helpers import config_helper as conf
 from orthoseg.lib.prepare_traindatasets import LabelInfo
-from tests.test_helper import SampleProjectFootball, TestData
+from tests.test_helper import SampleProjectFootball
+from tests.test_helper import TestData
 
 
 @pytest.mark.parametrize(

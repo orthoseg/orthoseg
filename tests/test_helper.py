@@ -3,8 +3,8 @@ Helper functions for all tests.
 """
 
 import logging
-import tempfile
 from pathlib import Path
+import tempfile
 from typing import ClassVar, Optional
 
 import geopandas as gpd

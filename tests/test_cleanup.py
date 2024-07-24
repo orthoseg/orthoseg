@@ -1,11 +1,11 @@
 import logging
-import shutil
 from pathlib import Path
+import shutil
 
 import pytest
 
-from orthoseg.helpers import config_helper as conf
 from orthoseg.lib import cleanup
+from orthoseg.helpers import config_helper as conf
 from tests import test_helper
 
 

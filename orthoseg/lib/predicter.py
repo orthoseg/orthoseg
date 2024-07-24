@@ -1,30 +1,30 @@
 """Module with high-level operations to segment images."""
 
+from concurrent import futures
 import csv
 import datetime
 import json
 import logging
 import multiprocessing
+from pathlib import Path
 import shutil
 import tempfile
 import time
 import traceback
-from concurrent import futures
-from pathlib import Path
 from typing import Optional
 
 import geofileops as gfo
-import keras.models
 import numpy as np
 import pandas as pd
 import rasterio as rio
 import rasterio.crs as rio_crs
 import rasterio.plot as rio_plot
 import tensorflow as tf
+import keras.models
 
 import orthoseg.lib.postprocess_predictions as postp
-from orthoseg.util import general_util
 from orthoseg.util.progress_util import ProgressLogger
+from orthoseg.util import general_util
 
 # Get a logger...
 logger = logging.getLogger(__name__)

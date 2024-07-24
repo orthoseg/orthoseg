@@ -3,17 +3,18 @@ Tests for functionalities in orthoseg.lib.postprocess_predictions.
 """
 
 import os
-import shutil
 from pathlib import Path
 
 import geofileops as gfo
-import geopandas as gpd
 import pandas as pd
+import shutil
 import pytest
+from tests import test_helper
+from orthoseg.lib import postprocess_predictions as postp
+
+import geopandas as gpd
 import shapely
 
-from orthoseg.lib import postprocess_predictions as postp
-from tests import test_helper
 
 # Make hdf5 version warning non-blocking
 os.environ["HDF5_DISABLE_VERSION_CHECK"] = "1"

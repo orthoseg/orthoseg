@@ -3,9 +3,9 @@
 TODO: maybe it is cleaner to replace most code here by a config dict?
 """
 
+from email.message import EmailMessage
 import logging
 import smtplib
-from email.message import EmailMessage
 from typing import Optional
 
 from orthoseg.helpers import config_helper as conf
