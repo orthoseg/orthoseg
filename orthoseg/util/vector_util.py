@@ -6,13 +6,8 @@ import logging
 from typing import Optional, Tuple
 
 import geopandas as gpd
-import geopandas._compat as gpd_compat
 import pandas as pd
-
-if gpd_compat.USE_PYGEOS:
-    import pygeos as shapely2_or_pygeos
-else:
-    import shapely as shapely2_or_pygeos
+import shapely
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +65,7 @@ def is_valid_reason(geoseries: gpd.GeoSeries) -> pd.Series:
     """
     # Get result and keep geoseries indexes
     return pd.Series(
-        data=shapely2_or_pygeos.is_valid_reason(geoseries.array.data),
+        data=shapely.is_valid_reason(geoseries),
         index=geoseries.index,
     )
 

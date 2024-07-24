@@ -1,6 +1,7 @@
 """
 Test if backwards compatibility for old API still works.
 """
+
 import orthoseg
 
 

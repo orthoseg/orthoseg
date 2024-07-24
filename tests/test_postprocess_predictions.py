@@ -19,8 +19,8 @@ import shapely
 # Make hdf5 version warning non-blocking
 os.environ["HDF5_DISABLE_VERSION_CHECK"] = "1"
 
-from orthoseg.lib import postprocess_predictions as post_pred  # noqa: E402
-from tests.test_helper import TestData  # noqa: E402
+from orthoseg.lib import postprocess_predictions as post_pred
+from tests.test_helper import TestData
 
 
 def test_read_prediction_file():

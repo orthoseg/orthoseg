@@ -50,6 +50,10 @@ jobs:
             os: windows-latest
             dev: false
             python: "3.10"
+          - env: minimal
+            os: ubuntu-latest
+            dev: false
+            python: "3.9"
             
     steps:
       - uses: actions/checkout@v4

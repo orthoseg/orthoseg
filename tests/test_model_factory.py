@@ -1,6 +1,7 @@
 """
 Tests for functionalities in orthoseg.model.model_factory.
 """
+
 from typing import Optional
 
 import pytest

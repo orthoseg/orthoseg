@@ -1,6 +1,7 @@
 """
 Tests for functionalities in vector_util.
 """
+
 import os
 
 import geopandas as gpd
@@ -13,7 +14,7 @@ from shapely import geometry as sh_geom
 # Make hdf5 version warning non-blocking
 os.environ["HDF5_DISABLE_VERSION_CHECK"] = "1"
 
-from orthoseg.util import vector_util  # noqa: E402
+from orthoseg.util import vector_util
 
 
 @pytest.mark.parametrize("onborder_column_name", ["onborder_custom", "default_value"])
