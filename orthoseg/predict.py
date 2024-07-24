@@ -9,7 +9,6 @@ import pprint
 import shutil
 import sys
 import traceback
-from typing import List
 
 # import os
 # os.environ["CUDA_VISIBLE_DEVICES"] = "-1" # Disable using GPU
@@ -58,13 +57,13 @@ def _predict_args(args) -> argparse.Namespace:
     return parser.parse_args(args)
 
 
-def predict(config_path: Path, config_overrules: List[str] = []):
+def predict(config_path: Path, config_overrules: list[str] = []):
     """
     Run a prediction for the config specified.
 
     Args:
         config_path (Path): Path to the config file to use.
-        config_overrules (List[str], optional): list of config options that will
+        config_overrules (list[str], optional): list of config options that will
             overrule other ways to supply configuration. They should be specified in the
             form of "<section>.<parameter>=<value>". Defaults to [].
     """
@@ -261,7 +260,7 @@ def predict(config_path: Path, config_overrules: List[str] = []):
 
         # Prepare the output dirs/paths
         predict_output_dir = Path(
-            f"{str(conf.dirs.getpath('predict_image_output_basedir'))}_"
+            f"{conf.dirs.getpath('predict_image_output_basedir')!s}_"
             f"{predict_out_subdir}"
         )
         output_vector_dir = conf.dirs.getpath("output_vector_dir")

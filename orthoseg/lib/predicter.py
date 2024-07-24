@@ -13,7 +13,7 @@ import shutil
 import tempfile
 import time
 import traceback
-from typing import List, Optional
+from typing import Optional
 
 import geofileops as gfo
 import numpy as np
@@ -141,7 +141,7 @@ def predict_dir(
         json.dump(pred_conf, pred_conf_file)
 
     # Get list of all image files to process and to skip
-    image_filepaths: List[Path] = []
+    image_filepaths: list[Path] = []
     input_ext = [".png", ".tif", ".jpg"]
     for input_ext_cur in input_ext:
         image_filepaths.extend(input_image_dir.rglob("*" + input_ext_cur))
@@ -177,7 +177,7 @@ def predict_dir(
     pred_tmp_output_path = None
     if output_vector_path is not None:
         pred_tmp_output_path = output_image_dir / f"{output_vector_path.stem}_tmp.gpkg"
-        pred_tmp_output_lock_path = Path(f"{str(pred_tmp_output_path)}.lock")
+        pred_tmp_output_lock_path = Path(f"{pred_tmp_output_path!s}.lock")
         # if lock file exists, remove it:
         if pred_tmp_output_lock_path.exists():
             pred_tmp_output_lock_path.unlink()
@@ -203,11 +203,13 @@ def predict_dir(
     def init_postprocess_worker():
         general_util.setprocessnice(15)
 
-    with futures.ThreadPoolExecutor(
-        nb_parallel_read
-    ) as read_pool, futures.ProcessPoolExecutor(
-        nb_parallel_postprocess, initializer=init_postprocess_worker()
-    ) as postprocess_pool, futures.ProcessPoolExecutor(max_workers=1) as write_pool:
+    with (
+        futures.ThreadPoolExecutor(nb_parallel_read) as read_pool,
+        futures.ProcessPoolExecutor(
+            nb_parallel_postprocess, initializer=init_postprocess_worker()
+        ) as postprocess_pool,
+        futures.ProcessPoolExecutor(max_workers=1) as write_pool,
+    ):
         # Start looping.
         # If ready to stop, the code below will break
         perf_time_start = datetime.datetime.now()

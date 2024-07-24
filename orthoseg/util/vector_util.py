@@ -3,7 +3,7 @@ Modile with generic Utility functions for vector manipulations.
 """
 
 import logging
-from typing import Optional, Tuple
+from typing import Optional
 
 import geopandas as gpd
 import pandas as pd
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 def is_onborder(
     gdf: gpd.GeoDataFrame,
-    border_bounds: Tuple[float, float, float, float],
+    border_bounds: tuple[float, float, float, float],
     onborder_column_name: str = "onborder",
 ) -> gpd.GeoDataFrame:
     """
@@ -74,7 +74,7 @@ def reclassify_neighbours(
     gdf: gpd.GeoDataFrame,
     reclassify_column: str,
     query: str,
-    border_bounds: Optional[Tuple[float, float, float, float]],
+    border_bounds: Optional[tuple[float, float, float, float]],
     class_background: str = "background",
 ) -> gpd.GeoDataFrame:
     """
@@ -95,7 +95,7 @@ def reclassify_neighbours(
         gdf (gpd.GeoDataFrame): input
         reclassify_column (str): column to reclassify.
         query (str): th query to find the features to reclassify.
-        border_bounds (Optional[Tuple[float, float, float, float]]): the bounds of the
+        border_bounds (Optional[tuple[float, float, float, float]]): the bounds of the
             border to use for th onborder field in the query.
         class_background (str, optional): the classname to treat as background.
             Defaults to "background".
@@ -116,7 +116,7 @@ def reclassify_neighbours(
     def _add_needed_columns(
         inner_gdf: gpd.GeoDataFrame,
         inner_query: str,
-        inner_border_bounds: Optional[Tuple[float, float, float, float]],
+        inner_border_bounds: Optional[tuple[float, float, float, float]],
     ) -> gpd.GeoDataFrame:
         gdf_result = inner_gdf.copy()
 

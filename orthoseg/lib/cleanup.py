@@ -6,7 +6,6 @@ import logging
 import os
 import shutil
 from pathlib import Path
-from typing import List
 
 
 from orthoseg.model import model_helper
@@ -18,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 def clean_models(
     model_dir: Path, versions_to_retain: int, simulate: bool
-) -> List[Path]:
+) -> list[Path]:
     """
     Cleanup models.
 
@@ -32,7 +31,7 @@ def clean_models(
         Exception: ERROR while deleting file
 
     Returns:
-        List[Path]: List of removed model files
+        list[Path]: List of removed model files
     """
     # Check input
     if versions_to_retain < 0:
@@ -81,7 +80,7 @@ def clean_models(
 
 def clean_training_data_directories(
     training_dir: Path, versions_to_retain: int, simulate: bool
-) -> List[Path]:
+) -> list[Path]:
     """
     Cleanup training data directories.
 
@@ -95,7 +94,7 @@ def clean_training_data_directories(
         Exception: ERROR while deleting directory
 
     Returns:
-        List[Path]: List of training directories to be removed
+        list[Path]: List of training directories to be removed
     """
     # Check input
     if versions_to_retain < 0:
@@ -138,7 +137,7 @@ def clean_training_data_directories(
 
 def clean_predictions(
     output_vector_dir: Path, versions_to_retain: int, simulate: bool
-) -> List[Path]:
+) -> list[Path]:
     """
     Cleanup predictions.
 
@@ -153,7 +152,7 @@ def clean_predictions(
         Exception: ERROR while deleting file
 
     Returns:
-        List[Path]: List of prediction files to be removed
+        list[Path]: List of prediction files to be removed
     """
     # Check input
     if versions_to_retain < 0:
@@ -166,7 +165,7 @@ def clean_predictions(
         f"clean_predictions with {output_vector_dir=}, {versions_to_retain=}, "
         f"{simulate=}"
     )
-    predictions_to_cleanup: List[aidetection_info] = []
+    predictions_to_cleanup: list[aidetection_info] = []
     prediction_files_to_remove = []
     files = output_vector_dir.glob(pattern="*.*")
     try:

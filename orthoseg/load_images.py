@@ -9,7 +9,6 @@ import shlex
 import shutil
 import sys
 import traceback
-from typing import List
 
 import pyproj
 
@@ -67,7 +66,7 @@ def _load_images_args(args):
 def load_images(
     config_path: Path,
     load_testsample_images: bool = False,
-    config_overrules: List[str] = [],
+    config_overrules: list[str] = [],
 ):
     """
     Load and cache images for a segmentation project.
@@ -76,7 +75,7 @@ def load_images(
         config_path (Path): Path to the projects config file.
         load_testsample_images (bool, optional): True to only load testsample
             images. Defaults to False.
-        config_overrules (List[str], optional): list of config options that will
+        config_overrules (list[str], optional): list of config options that will
             overrule other ways to supply configuration. They should be specified in the
             form of "<section>.<parameter>=<value>". Defaults to [].
     """

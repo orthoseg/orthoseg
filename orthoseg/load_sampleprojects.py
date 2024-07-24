@@ -70,7 +70,7 @@ def load_sampleprojects(dest_dir: Path, ssl_verify: Optional[bool] = None):
         raise ValueError(f"Destination directory already exists: {dest_dir_full}")
 
     # Download
-    print(f"Start download of sample projects to {str(dest_dir_full)}")
+    print(f"Start download of sample projects to {dest_dir_full!s}")
     git_downloader.download(
         repo_url="https://github.com/orthoseg/orthoseg/tree/main/sample_projects",
         output_dir=dest_dir,

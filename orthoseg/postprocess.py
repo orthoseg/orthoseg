@@ -9,7 +9,6 @@ import shlex
 import shutil
 import sys
 import traceback
-from typing import List
 
 from orthoseg.helpers import config_helper as conf
 from orthoseg.helpers import email_helper
@@ -62,13 +61,13 @@ def _postprocess_args(args):
     postprocess(config_path=Path(args.config), config_overrules=args.config_overrules)
 
 
-def postprocess(config_path: Path, config_overrules: List[str] = []):
+def postprocess(config_path: Path, config_overrules: list[str] = []):
     """
     Postprocess the output of a prediction for the config specified.
 
     Args:
         config_path (Path): Path to the config file.
-        config_overrules (List[str], optional): list of config options that will
+        config_overrules (list[str], optional): list of config options that will
             overrule other ways to supply configuration. They should be specified in the
             form of "<section>.<parameter>=<value>". Defaults to [].
     """

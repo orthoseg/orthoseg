@@ -10,7 +10,6 @@ from pathlib import Path
 import shutil
 import sys
 import traceback
-from typing import List
 
 from tensorflow import keras as kr
 
@@ -59,13 +58,13 @@ def _train_args(args) -> argparse.Namespace:
     return parser.parse_args(args)
 
 
-def train(config_path: Path, config_overrules: List[str] = []):
+def train(config_path: Path, config_overrules: list[str] = []):
     """
     Run a training session for the config specified.
 
     Args:
         config_path (Path): Path to the config file to use.
-        config_overrules (List[str], optional): list of config options that will
+        config_overrules (list[str], optional): list of config options that will
             overrule other ways to supply configuration. They should be specified in the
             form of "<section>.<parameter>=<value>". Defaults to [].
     """
