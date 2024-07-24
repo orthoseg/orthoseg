@@ -13,9 +13,9 @@ import os
 from pathlib import Path
 from typing import Any, Optional
 
+import keras.models
 import numpy as np
 import tensorflow as tf
-import keras.models
 
 # Get a logger...
 logger = logging.getLogger(__name__)
