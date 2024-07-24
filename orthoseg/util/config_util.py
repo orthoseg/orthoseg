@@ -17,9 +17,17 @@ illegal_chars_in_codes = ["_", ",", ".", "?", ":"]
 
 
 def get_config_files(config_path: Path) -> list[Path]:
-    """Get the list of all relevant config files.
+    """Get a list of all relevant config files.
 
-    The configuration option of the last files will overrule prior ones.
+    The list of files returned is of importance:
+    - first the general "project_defaults.ini" file packaged in orthoseg
+    - then all configuration files in property [general].extra_config_files_to_load of
+      ``config_path``, in the order they are listed there
+    - finally ``config_path`` itself
+
+    The main principle is that the configuration files are ordered by importance.
+    Configuration in the files later in the list will overrule configuration in the
+    prior ones.
 
     Args:
         config_path (Path): base config file.

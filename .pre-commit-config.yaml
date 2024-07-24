@@ -6,6 +6,8 @@ repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: "v0.5.2"
     hooks:
+      # Format the code
       - id: ruff-format
+      # Lint the code
       - id: ruff
         # args: [ --fix, --unsafe-fixes ]
