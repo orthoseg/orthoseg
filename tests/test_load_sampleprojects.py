@@ -2,10 +2,10 @@
 Tests for functionalities in orthoseg.train.
 """
 import os
-from pathlib import Path
 import platform
 import shutil
 import sys
+from pathlib import Path
 
 import pytest
 

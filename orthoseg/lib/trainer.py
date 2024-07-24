@@ -1,21 +1,18 @@
-"""
-Module with high-level operations to segment images.
-"""
+"""Module with high-level operations to segment images."""
 
 import logging
 import math
 import os
 from pathlib import Path
-from typing import Tuple, Optional
+from typing import Optional
 
 import numpy as np
-import tensorflow as tf
-from tensorflow import keras as kr
 
 # import keras as kr
-
 import pandas as pd
+import tensorflow as tf
 from PIL import Image
+from tensorflow import keras as kr
 
 import orthoseg.model.model_factory as mf
 import orthoseg.model.model_helper as mh
@@ -38,8 +35,7 @@ def train(
     mask_subdir: str = "mask",
     save_augmented_subdir: Optional[str] = None,
 ):
-    """
-    Create/load a neural network and train it.
+    """Create/load a neural network and train it.
 
     Data from the train and validation directories specified for the training.
 
@@ -376,12 +372,11 @@ def create_train_generator(
     image_save_prefix: str = "image",
     mask_save_prefix: str = "mask",
     nb_classes: int = 1,
-    target_size: Tuple[int, int] = (256, 256),
+    target_size: tuple[int, int] = (256, 256),
     shuffle: bool = True,
     seed: int = 1,
 ):
-    """
-    Creates a generator to generate and augment train images.
+    """Creates a generator to generate and augment train images.
 
     The augmentations
     specified in aug_dict will be applied. For the augmentations that can be

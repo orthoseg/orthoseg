@@ -1,6 +1,4 @@
-"""
-Configuration setting to build the orthoseg package.
-"""
+"""Configuration setting to build the orthoseg package."""
 
 import setuptools
 
@@ -49,5 +47,5 @@ setuptools.setup(
         "Programming Language :: Python :: 3",
         "Operating System :: OS Independent",
     ],
-    python_requires=">=3.8",
+    python_requires=">=3.9",
 )

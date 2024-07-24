@@ -1,23 +1,18 @@
-"""
-Script to load images from a WMS server.
-"""
+"""Script to load images from a WMS server."""
 
 import argparse
 import logging
-from pathlib import Path
 import shlex
 import shutil
 import sys
 import traceback
-from typing import List
+from pathlib import Path
 
 import pyproj
 
-from orthoseg.helpers import config_helper as conf
-from orthoseg.helpers import email_helper
 import orthoseg.model.model_factory as mf
-from orthoseg.util import log_util
-from orthoseg.util import ows_util
+from orthoseg.helpers import config_helper as conf, email_helper
+from orthoseg.util import log_util, ows_util
 
 # Get a logger...
 logger = logging.getLogger(__name__)
@@ -67,10 +62,9 @@ def _load_images_args(args):
 def load_images(
     config_path: Path,
     load_testsample_images: bool = False,
-    config_overrules: List[str] = [],
+    config_overrules: list[str] = [],
 ):
-    """
-    Load and cache images for a segmentation project.
+    """Load and cache images for a segmentation project.
 
     Args:
         config_path (Path): Path to the projects config file.
@@ -196,9 +190,7 @@ def load_images(
 
 
 def main():
-    """
-    Run load images.
-    """
+    """Run load images."""
     try:
         _load_images_args(sys.argv[1:])
     except Exception as ex:

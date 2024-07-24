@@ -1,13 +1,9 @@
-"""
-Module with functions to clean up old models, predictions and training data directories.
-"""
+"""Module with functions to clean up old project data."""
 
 import logging
 import os
 import shutil
 from pathlib import Path
-from typing import List
-
 
 from orthoseg.model import model_helper
 from orthoseg.util.data import aidetection_info
@@ -18,9 +14,8 @@ logger = logging.getLogger(__name__)
 
 def clean_models(
     model_dir: Path, versions_to_retain: int, simulate: bool
-) -> List[Path]:
-    """
-    Cleanup models.
+) -> list[Path]:
+    """Cleanup models.
 
     Args:
         model_dir (Path): Path to the directory with the models to be cleaned
@@ -81,9 +76,8 @@ def clean_models(
 
 def clean_training_data_directories(
     training_dir: Path, versions_to_retain: int, simulate: bool
-) -> List[Path]:
-    """
-    Cleanup training data directories.
+) -> list[Path]:
+    """Cleanup training data directories.
 
     Args:
         training_dir (Path): Path to the directory with the training data
@@ -138,9 +132,8 @@ def clean_training_data_directories(
 
 def clean_predictions(
     output_vector_dir: Path, versions_to_retain: int, simulate: bool
-) -> List[Path]:
-    """
-    Cleanup predictions.
+) -> list[Path]:
+    """Cleanup predictions.
 
     Args:
         output_vector_dir (Path): Path to the directory containing the vector
@@ -166,7 +159,7 @@ def clean_predictions(
         f"clean_predictions with {output_vector_dir=}, {versions_to_retain=}, "
         f"{simulate=}"
     )
-    predictions_to_cleanup: List[aidetection_info] = []
+    predictions_to_cleanup: list[aidetection_info] = []
     prediction_files_to_remove = []
     files = output_vector_dir.glob(pattern="*.*")
     try:
@@ -224,8 +217,7 @@ def clean_project_dir(
     prediction_versions_to_retain: int,
     simulate: bool,
 ) -> dict:
-    """
-    Cleanup project directory.
+    """Cleanup project directory.
 
     Args:
         model_dir (Path): Path to the directory with the models to be cleaned

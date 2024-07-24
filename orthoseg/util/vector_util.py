@@ -1,9 +1,7 @@
-"""
-Modile with generic Utility functions for vector manipulations.
-"""
+"""Modile with generic Utility functions for vector manipulations."""
 
 import logging
-from typing import Optional, Tuple
+from typing import Optional
 
 import geopandas as gpd
 import geopandas._compat as gpd_compat
@@ -19,11 +17,10 @@ logger = logging.getLogger(__name__)
 
 def is_onborder(
     gdf: gpd.GeoDataFrame,
-    border_bounds: Tuple[float, float, float, float],
+    border_bounds: tuple[float, float, float, float],
     onborder_column_name: str = "onborder",
 ) -> gpd.GeoDataFrame:
-    """
-    Add/update the is_onborder column to the GeoDataFrame.
+    """Add/update the is_onborder column to the GeoDataFrame.
 
     The column containes these values:
         * 0 if the polygon isn't on the border and
@@ -59,8 +56,7 @@ def is_onborder(
 
 
 def is_valid_reason(geoseries: gpd.GeoSeries) -> pd.Series:
-    """
-    Get the reason for invalidity of all geometries in the GeoSeries.
+    """Get the reason for invalidity of all geometries in the GeoSeries.
 
     Args:
         geoseries (gpd.GeoSeries): the GeoSeries to check.
@@ -79,11 +75,10 @@ def reclassify_neighbours(
     gdf: gpd.GeoDataFrame,
     reclassify_column: str,
     query: str,
-    border_bounds: Optional[Tuple[float, float, float, float]],
+    border_bounds: Optional[tuple[float, float, float, float]],
     class_background: str = "background",
 ) -> gpd.GeoDataFrame:
-    """
-    Reclassify features to the class of neighbouring features.
+    """Reclassify features to the class of neighbouring features.
 
     For features that comply to the query, if they have a neighbour (touch/overlap),
     change their classname to that of the neighbour with the longest intersection and
@@ -121,7 +116,7 @@ def reclassify_neighbours(
     def _add_needed_columns(
         inner_gdf: gpd.GeoDataFrame,
         inner_query: str,
-        inner_border_bounds: Optional[Tuple[float, float, float, float]],
+        inner_border_bounds: Optional[tuple[float, float, float, float]],
     ) -> gpd.GeoDataFrame:
         gdf_result = inner_gdf.copy()
 

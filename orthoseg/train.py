@@ -1,26 +1,19 @@
-"""
-Module to make it easy to start a training session.
-"""
+"""Module to make it easy to start a training session."""
 
 import argparse
 import gc
 import logging
 import os
-from pathlib import Path
 import shutil
 import sys
 import traceback
-from typing import List
+from pathlib import Path
 
 from tensorflow import keras as kr
 
-from orthoseg.helpers import config_helper as conf
-from orthoseg.helpers import email_helper
-from orthoseg.lib import prepare_traindatasets as prep
-from orthoseg.lib import predicter
-from orthoseg.lib import trainer
-from orthoseg.model import model_factory as mf
-from orthoseg.model import model_helper as mh
+from orthoseg.helpers import config_helper as conf, email_helper
+from orthoseg.lib import predicter, prepare_traindatasets as prep, trainer
+from orthoseg.model import model_factory as mf, model_helper as mh
 from orthoseg.util import log_util
 
 # Get a logger...
@@ -59,9 +52,8 @@ def _train_args(args) -> argparse.Namespace:
     return parser.parse_args(args)
 
 
-def train(config_path: Path, config_overrules: List[str] = []):
-    """
-    Run a training session for the config specified.
+def train(config_path: Path, config_overrules: list[str] = []):
+    """Run a training session for the config specified.
 
     Args:
         config_path (Path): Path to the config file to use.
@@ -433,9 +425,7 @@ def train(config_path: Path, config_overrules: List[str] = []):
 
 
 def main():
-    """
-    Run train.
-    """
+    """Run train."""
     try:
         # Interprete arguments
         args = _train_args(sys.argv[1:])

@@ -1,18 +1,13 @@
-"""
-Module to make it easy to start a validating session.
-"""
+"""Module to make it easy to start a validating session."""
 
 import argparse
 import logging
-from pathlib import Path
 import shutil
 import sys
 import traceback
-from typing import List
+from pathlib import Path
 
-
-from orthoseg.helpers import config_helper as conf
-from orthoseg.helpers import email_helper
+from orthoseg.helpers import config_helper as conf, email_helper
 from orthoseg.lib import prepare_traindatasets as prep
 from orthoseg.util import log_util
 
@@ -52,9 +47,8 @@ def _validate_args(args) -> argparse.Namespace:
     return parser.parse_args(args)
 
 
-def validate(config_path: Path, config_overrules: List[str] = []):
-    """
-    Run a validating session for the config specified.
+def validate(config_path: Path, config_overrules: list[str] = []):
+    """Run a validating session for the config specified.
 
     Args:
         config_path (Path): Path to the config file to use.
@@ -127,9 +121,7 @@ def validate(config_path: Path, config_overrules: List[str] = []):
 
 
 def main():
-    """
-    Run validate.
-    """
+    """Run validate."""
     try:
         # Interprete arguments
         args = _validate_args(sys.argv[1:])

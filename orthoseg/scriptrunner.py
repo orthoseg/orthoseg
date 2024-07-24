@@ -1,23 +1,18 @@
-"""
-Run the scripts in a directory.
-"""
+"""Run the scripts in a directory."""
 
 import argparse
 import configparser
-from pathlib import Path
 import subprocess
 import time
+from pathlib import Path
 
-from orthoseg.util import log_util
-from orthoseg.util import config_util
+from orthoseg.util import config_util, log_util
 
 runner_config = None
 
 
 def main():
-    """
-    Main.
-    """
+    """Main."""
     # Interprete arguments
     parser = argparse.ArgumentParser(add_help=False)
 
@@ -158,8 +153,7 @@ def main():
 def load_scriptrunner_config(
     config_path: str, script_dir: Path
 ) -> configparser.ConfigParser:
-    """
-    Load the configuration of scriptrunner.
+    """Load the configuration of scriptrunner.
 
     Args:
         config_path (str): config file to load.

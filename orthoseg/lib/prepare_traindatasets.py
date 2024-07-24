@@ -1,38 +1,33 @@
-"""
-Module to prepare the training datasets.
-"""
+"""Module to prepare the training datasets."""
 
 import logging
-import shutil
 import math
-from pathlib import Path
 import pprint
-from typing import List, Optional, Tuple, Union
+import shutil
 import warnings
+from pathlib import Path
+from typing import Optional, Union
 
 import geofileops as gfo
-import pandas as pd
 import geopandas as gpd
 import numpy as np
-from PIL import Image
+import pandas as pd
 import rasterio as rio
 import rasterio.features as rio_features
 import rasterio.profiles as rio_profiles
 import shapely
 import shapely.geometry as sh_geom
+from PIL import Image
 
+from orthoseg.util import ows_util, vector_util
 from orthoseg.util.progress_util import ProgressLogger
-from orthoseg.util import ows_util
-from orthoseg.util import vector_util
 
 # Get a logger...
 logger = logging.getLogger(__name__)
 
 
 class LabelInfo:
-    """
-    Information needed to find train labels.
-    """
+    """Information needed to find train labels."""
 
     def __init__(
         self,
@@ -44,8 +39,7 @@ class LabelInfo:
         locations_gdf: Optional[gpd.GeoDataFrame] = None,
         polygons_gdf: Optional[gpd.GeoDataFrame] = None,
     ):
-        """
-        Conctructor of LabelInfo.
+        """Conctructor of LabelInfo.
 
         Args:
             locations_path (Path): file path to the locations file.
@@ -67,8 +61,7 @@ class LabelInfo:
         self.polygons_gdf = polygons_gdf
 
     def __repr__(self) -> str:
-        """
-        Return the object information as readable string.
+        """Return the object information as readable string.
 
         Returns:
             str: readable string representation of object.
@@ -81,16 +74,14 @@ class LabelInfo:
 
 
 class ValidationError(ValueError):
-    """
-    A validation exception.
+    """A validation exception.
 
     Args:
         ValueError (_type_): _description_
     """
 
     def __init__(self, message, errors):
-        """
-        Conctructor of ValidationError.
+        """Conctructor of ValidationError.
 
         Args:
             message (str): error message.
@@ -103,8 +94,7 @@ class ValidationError(ValueError):
         self.errors = errors
 
     def __repr__(self):
-        """
-        Formats validation errors to string.
+        """Formats validation errors to string.
 
         Returns:
             str: returns the validation errors as string.
@@ -115,8 +105,7 @@ class ValidationError(ValueError):
         return repr
 
     def __str__(self) -> str:
-        """
-        Formats validation errors to string.
+        """Formats validation errors to string.
 
         Returns:
             str: returns the validation errors as string.
@@ -127,8 +116,7 @@ class ValidationError(ValueError):
         return repr
 
     def to_html(self) -> str:
-        """
-        Formats validation errors to html.
+        """Formats validation errors to html.
 
         Returns:
             str: the validation errors as html.
@@ -141,7 +129,7 @@ class ValidationError(ValueError):
 
 
 def prepare_traindatasets(
-    label_infos: List[LabelInfo],
+    label_infos: list[LabelInfo],
     classes: dict,
     image_layers: dict,
     training_dir: Path,
@@ -153,9 +141,8 @@ def prepare_traindatasets(
     ssl_verify: Union[bool, str] = True,
     only_validate: bool = False,
     force: bool = False,
-) -> Tuple[Path, int]:
-    """
-    This function prepares training data for the vector labels provided.
+) -> tuple[Path, int]:
+    """This function prepares training data for the vector labels provided.
 
     It will:
         * get orthophoto images from the correct image_layer
@@ -419,16 +406,15 @@ def prepare_traindatasets(
 
 
 def prepare_labeldata(
-    label_infos: List[LabelInfo],
+    label_infos: list[LabelInfo],
     classes: dict,
     labelname_column: str,
     image_pixel_x_size: Optional[float],
     image_pixel_y_size: Optional[float],
     image_pixel_width: int,
     image_pixel_height: int,
-) -> List[Tuple[gpd.GeoDataFrame, gpd.GeoDataFrame]]:
-    """
-    Prepare and validate the data in the labelinfos.
+) -> list[tuple[gpd.GeoDataFrame, gpd.GeoDataFrame]]:
+    """Prepare and validate the data in the labelinfos.
 
     The GeoDataFrames returned can be used to fetch train images and burn masks.
 
@@ -700,8 +686,7 @@ def prepare_labeldata(
 def create_tmp_dir(
     parent_dir: Path, dir_name: str, remove_existing: bool = False
 ) -> Path:
-    """
-    Helper function to create a 'TMP' dir based on a directory name.
+    """Helper function to create a 'TMP' dir based on a directory name.
 
     The temp dir will be named like this:
         parent_dir / <dir_name>_TMP_<sequence>

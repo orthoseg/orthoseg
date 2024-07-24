@@ -1,20 +1,16 @@
-"""
-Module with functions for post-processing prediction masks towards polygons.
-"""
+"""Module with functions for post-processing prediction masks towards polygons."""
 
 import argparse
 import logging
-from pathlib import Path
 import shlex
 import shutil
 import sys
 import traceback
-from typing import List
+from pathlib import Path
 
-from orthoseg.helpers import config_helper as conf
-from orthoseg.helpers import email_helper
-from orthoseg.lib import postprocess_predictions as postp
 import orthoseg.model.model_helper as mh
+from orthoseg.helpers import config_helper as conf, email_helper
+from orthoseg.lib import postprocess_predictions as postp
 from orthoseg.util import log_util
 
 # Get a logger...
@@ -62,9 +58,8 @@ def _postprocess_args(args):
     postprocess(config_path=Path(args.config), config_overrules=args.config_overrules)
 
 
-def postprocess(config_path: Path, config_overrules: List[str] = []):
-    """
-    Postprocess the output of a prediction for the config specified.
+def postprocess(config_path: Path, config_overrules: list[str] = []):
+    """Postprocess the output of a prediction for the config specified.
 
     Args:
         config_path (Path): Path to the config file.
@@ -173,9 +168,7 @@ def postprocess(config_path: Path, config_overrules: List[str] = []):
 
 
 def main():
-    """
-    Run postprocess.
-    """
+    """Run postprocess."""
     try:
         _postprocess_args(sys.argv[1:])
     except Exception as ex:

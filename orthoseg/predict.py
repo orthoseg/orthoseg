@@ -1,25 +1,21 @@
-"""
-High-level API to run a segmentation.
-"""
+"""High-level API to run a segmentation."""
 
 import argparse
 import logging
-from pathlib import Path
 import pprint
 import shutil
 import sys
 import traceback
-from typing import List
+from pathlib import Path
 
 # import os
 # os.environ["CUDA_VISIBLE_DEVICES"] = "-1" # Disable using GPU
 import tensorflow as tf
 
-from orthoseg.helpers import config_helper as conf
-from orthoseg.helpers import email_helper
-from orthoseg.lib import cleanup, predicter
 import orthoseg.model.model_factory as mf
 import orthoseg.model.model_helper as mh
+from orthoseg.helpers import config_helper as conf, email_helper
+from orthoseg.lib import cleanup, predicter
 from orthoseg.util import log_util
 
 # Get a logger...
@@ -58,9 +54,8 @@ def _predict_args(args) -> argparse.Namespace:
     return parser.parse_args(args)
 
 
-def predict(config_path: Path, config_overrules: List[str] = []):
-    """
-    Run a prediction for the config specified.
+def predict(config_path: Path, config_overrules: list[str] = []):
+    """Run a prediction for the config specified.
 
     Args:
         config_path (Path): Path to the config file to use.
@@ -261,7 +256,7 @@ def predict(config_path: Path, config_overrules: List[str] = []):
 
         # Prepare the output dirs/paths
         predict_output_dir = Path(
-            f"{str(conf.dirs.getpath('predict_image_output_basedir'))}_"
+            f"{conf.dirs.getpath('predict_image_output_basedir')!s}_"
             f"{predict_out_subdir}"
         )
         output_vector_dir = conf.dirs.getpath("output_vector_dir")
@@ -325,9 +320,7 @@ def predict(config_path: Path, config_overrules: List[str] = []):
 
 
 def main():
-    """
-    Run predict.
-    """
+    """Run predict."""
     try:
         # Interprete arguments
         args = _predict_args(sys.argv[1:])
