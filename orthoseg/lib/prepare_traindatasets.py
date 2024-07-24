@@ -1,26 +1,27 @@
 """Module to prepare the training datasets."""
 
 import logging
-import math
-import pprint
 import shutil
-import warnings
+import math
 from pathlib import Path
+import pprint
 from typing import Optional, Union
+import warnings
 
 import geofileops as gfo
+import pandas as pd
 import geopandas as gpd
 import numpy as np
-import pandas as pd
+from PIL import Image
 import rasterio as rio
 import rasterio.features as rio_features
 import rasterio.profiles as rio_profiles
 import shapely
 import shapely.geometry as sh_geom
-from PIL import Image
 
-from orthoseg.util import ows_util, vector_util
 from orthoseg.util.progress_util import ProgressLogger
+from orthoseg.util import ows_util
+from orthoseg.util import vector_util
 
 # Get a logger...
 logger = logging.getLogger(__name__)
