@@ -2,16 +2,15 @@
 
 import argparse
 import logging
-from pathlib import Path
 import shlex
 import shutil
 import sys
 import traceback
+from pathlib import Path
 
-from orthoseg.helpers import config_helper as conf
-from orthoseg.helpers import email_helper
-from orthoseg.lib import postprocess_predictions as postp
 import orthoseg.model.model_helper as mh
+from orthoseg.helpers import config_helper as conf, email_helper
+from orthoseg.lib import postprocess_predictions as postp
 from orthoseg.util import log_util
 
 # Get a logger...

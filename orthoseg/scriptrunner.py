@@ -2,12 +2,11 @@
 
 import argparse
 import configparser
-from pathlib import Path
 import subprocess
 import time
+from pathlib import Path
 
-from orthoseg.util import log_util
-from orthoseg.util import config_util
+from orthoseg.util import config_util, log_util
 
 runner_config = None
 

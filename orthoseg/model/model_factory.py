@@ -7,7 +7,8 @@ Many models are supported by using this segmentation model zoo:
 https://github.com/qubvel/segmentation_models
 """
 
-import json
+# Disable isort, another import order gives a segmentation fault on Windows.
+import json  # noqa: I001
 import logging
 import os
 from pathlib import Path
