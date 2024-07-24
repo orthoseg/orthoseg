@@ -1,6 +1,4 @@
-"""
-Module with functions to manage progress logging.
-"""
+"""Module with functions to manage progress logging."""
 
 import datetime
 import logging
@@ -11,9 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 class ProgressLogger:
-    """
-    Class to support progress logging.
-    """
+    """Class to support progress logging."""
 
     first_reporting_done = False
 
@@ -26,8 +22,7 @@ class ProgressLogger:
         time_between_reporting_s: int = 60,
         calculate_eta_since_lastreporting: bool = True,
     ):
-        """
-        ProgressLogger contructor.
+        """ProgressLogger contructor.
 
         Args:
             message (str): _description_
@@ -56,8 +51,7 @@ class ProgressLogger:
         nb_steps_total: Optional[int] = None,
         message: Optional[str] = None,
     ):
-        """
-        Update the steps.
+        """Update the steps.
 
         Args:
             nb_steps_done (int): number of steps done.
@@ -71,8 +65,7 @@ class ProgressLogger:
         self.step(message=message, nb_steps=0)
 
     def step(self, message: Optional[str] = None, nb_steps: int = 1):
-        """
-        Step the progress with the number of steps specified.
+        """Step the progress with the number of steps specified.
 
         Args:
             message (Optional[str], optional): message. Defaults to None.

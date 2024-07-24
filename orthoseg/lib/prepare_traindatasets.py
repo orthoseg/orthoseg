@@ -1,6 +1,4 @@
-"""
-Module to prepare the training datasets.
-"""
+"""Module to prepare the training datasets."""
 
 import logging
 import shutil
@@ -30,9 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 class LabelInfo:
-    """
-    Information needed to find train labels.
-    """
+    """Information needed to find train labels."""
 
     def __init__(
         self,
@@ -44,8 +40,7 @@ class LabelInfo:
         locations_gdf: Optional[gpd.GeoDataFrame] = None,
         polygons_gdf: Optional[gpd.GeoDataFrame] = None,
     ):
-        """
-        Conctructor of LabelInfo.
+        """Conctructor of LabelInfo.
 
         Args:
             locations_path (Path): file path to the locations file.
@@ -67,8 +62,7 @@ class LabelInfo:
         self.polygons_gdf = polygons_gdf
 
     def __repr__(self) -> str:
-        """
-        Return the object information as readable string.
+        """Return the object information as readable string.
 
         Returns:
             str: readable string representation of object.
@@ -81,16 +75,14 @@ class LabelInfo:
 
 
 class ValidationError(ValueError):
-    """
-    A validation exception.
+    """A validation exception.
 
     Args:
         ValueError (_type_): _description_
     """
 
     def __init__(self, message, errors):
-        """
-        Conctructor of ValidationError.
+        """Conctructor of ValidationError.
 
         Args:
             message (str): error message.
@@ -103,8 +95,7 @@ class ValidationError(ValueError):
         self.errors = errors
 
     def __repr__(self):
-        """
-        Formats validation errors to string.
+        """Formats validation errors to string.
 
         Returns:
             str: returns the validation errors as string.
@@ -115,8 +106,7 @@ class ValidationError(ValueError):
         return repr
 
     def __str__(self) -> str:
-        """
-        Formats validation errors to string.
+        """Formats validation errors to string.
 
         Returns:
             str: returns the validation errors as string.
@@ -127,8 +117,7 @@ class ValidationError(ValueError):
         return repr
 
     def to_html(self) -> str:
-        """
-        Formats validation errors to html.
+        """Formats validation errors to html.
 
         Returns:
             str: the validation errors as html.
@@ -154,8 +143,7 @@ def prepare_traindatasets(
     only_validate: bool = False,
     force: bool = False,
 ) -> tuple[Path, int]:
-    """
-    This function prepares training data for the vector labels provided.
+    """This function prepares training data for the vector labels provided.
 
     It will:
         * get orthophoto images from the correct image_layer
@@ -427,8 +415,7 @@ def prepare_labeldata(
     image_pixel_width: int,
     image_pixel_height: int,
 ) -> list[tuple[gpd.GeoDataFrame, gpd.GeoDataFrame]]:
-    """
-    Prepare and validate the data in the labelinfos.
+    """Prepare and validate the data in the labelinfos.
 
     The GeoDataFrames returned can be used to fetch train images and burn masks.
 
@@ -700,8 +687,7 @@ def prepare_labeldata(
 def create_tmp_dir(
     parent_dir: Path, dir_name: str, remove_existing: bool = False
 ) -> Path:
-    """
-    Helper function to create a 'TMP' dir based on a directory name.
+    """Helper function to create a 'TMP' dir based on a directory name.
 
     The temp dir will be named like this:
         parent_dir / <dir_name>_TMP_<sequence>

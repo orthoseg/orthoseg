@@ -1,6 +1,4 @@
-"""
-Module containing some general utilities.
-"""
+"""Module containing some general utilities."""
 
 import datetime
 import logging
@@ -13,16 +11,14 @@ logger = logging.getLogger(__name__)
 
 
 class MissingRuntimeDependencyError(Exception):
-    """
-    Exception raised when an unsupported SQL statement is passed.
+    """Exception raised when an unsupported SQL statement is passed.
 
     Attributes:
         message (str): Exception message
     """
 
     def __init__(self, message):
-        """
-        Constructor of MissingRuntimeDependencyError.
+        """Constructor of MissingRuntimeDependencyError.
 
         Args:
             message (str): message.
@@ -43,8 +39,7 @@ def report_progress(
     operation: Optional[str] = None,
     nb_parallel: int = 1,
 ):
-    """
-    Function to report progress to the output.
+    """Function to report progress to the output.
 
     Args:
         start_time (datetime): time when the processing started.
@@ -88,8 +83,7 @@ def report_progress(
 
 
 def formatbytes(bytes: float) -> str:
-    """
-    Return the given bytes as a human friendly KB, MB, GB, or TB string.
+    """Return the given bytes as a human friendly KB, MB, GB, or TB string.
 
     Args:
         bytes (float): number of bytes to format.
@@ -116,8 +110,7 @@ def formatbytes(bytes: float) -> str:
 
 
 def process_nice_to_priority_class(nice_value: int) -> int:
-    """
-    Convert a linux nice value to a windows priority class.
+    """Convert a linux nice value to a windows priority class.
 
     Args:
         nice_value (int): nice value between -20 and 20.
@@ -140,8 +133,7 @@ def process_nice_to_priority_class(nice_value: int) -> int:
 
 
 def setprocessnice(nice_value: int):
-    """
-    Make the process nicer to other processes.
+    """Make the process nicer to other processes.
 
     Args:
         nice_value (int): Value between -20 (highest priority) and 20 (lowest priority)
@@ -154,8 +146,7 @@ def setprocessnice(nice_value: int):
 
 
 def getprocessnice() -> int:
-    """
-    Get the niceness of the process.
+    """Get the niceness of the process.
 
     Returns:
         int: Value between -20 (highest priority) and 20 (lowest priority)

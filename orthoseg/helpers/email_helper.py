@@ -1,5 +1,4 @@
-"""
-Module with specific helper functions to manage the logging of orthoseg.
+"""Module with specific helper functions to manage the logging of orthoseg.
 
 TODO: maybe it is cleaner to replace most code here by a config dict?
 """
@@ -16,8 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 def sendmail(subject: str, body: Optional[str] = None, stop_on_error: bool = False):
-    """
-    Send an email.
+    """Send an email.
 
     Args:
         subject (str): subject of the email

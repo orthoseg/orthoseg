@@ -1,6 +1,4 @@
-"""
-Configuration setting to build the orthoseg package.
-"""
+"""Configuration setting to build the orthoseg package."""
 
 import setuptools
 

@@ -1,6 +1,4 @@
-"""
-Module with high-level operations to segment images.
-"""
+"""Module with high-level operations to segment images."""
 
 import logging
 import math
@@ -38,8 +36,7 @@ def train(
     mask_subdir: str = "mask",
     save_augmented_subdir: Optional[str] = None,
 ):
-    """
-    Create/load a neural network and train it.
+    """Create/load a neural network and train it.
 
     Data from the train and validation directories specified for the training.
 
@@ -380,8 +377,7 @@ def create_train_generator(
     shuffle: bool = True,
     seed: int = 1,
 ):
-    """
-    Creates a generator to generate and augment train images.
+    """Creates a generator to generate and augment train images.
 
     The augmentations
     specified in aug_dict will be applied. For the augmentations that can be

@@ -1,6 +1,4 @@
-"""
-Module with generic usable utility functions for using OWS services.
-"""
+"""Module with generic usable utility functions for using OWS services."""
 
 from concurrent import futures
 import logging
@@ -55,9 +53,7 @@ logger = logging.getLogger(__name__)
 
 
 class WMSLayerSource:
-    """
-    Properties of a WMS layer source.
-    """
+    """Properties of a WMS layer source."""
 
     def __init__(
         self,
@@ -76,8 +72,7 @@ class WMSLayerSource:
             None,
         ] = None,
     ):
-        """
-        Constructor of WMSLayerSource.
+        """Constructor of WMSLayerSource.
 
         Args:
             wms_server_url (str): _description_
@@ -106,9 +101,7 @@ class WMSLayerSource:
 
 
 class FileLayerSource:
-    """
-    Properties of a file layer source.
-    """
+    """Properties of a file layer source."""
 
     def __init__(
         self,
@@ -116,8 +109,7 @@ class FileLayerSource:
         layernames: list[str],
         bands: Optional[list[int]] = None,
     ):
-        """
-        Contructor for FileLayerSource.
+        """Contructor for FileLayerSource.
 
         Args:
             path (Union[str, Path]): Path to the layer.
@@ -154,8 +146,7 @@ def get_images_for_grid(
     ssl_verify: Union[bool, str] = True,
     force: bool = False,
 ):
-    """
-    Loads all images in a grid from a WMS service.
+    """Loads all images in a grid from a WMS service.
 
     Args:
         layersources (list[dict]): Layer sources to get images from. Multiple
@@ -414,8 +405,7 @@ def align_bbox_to_grid(
     pixel_size_y: float,
     log_level: int = logging.INFO,
 ) -> tuple[float, float, float, float]:
-    """
-    Align a bounding box to the grid specified.
+    """Align a bounding box to the grid specified.
 
     Args:
         bbox (tuple[float, float, float, float]): the bounding box
@@ -496,8 +486,7 @@ def getmap_to_file(
     has_switched_axes: Optional[bool] = None,
     on_outside_layer_bounds: Optional[str] = "raise",
 ) -> Optional[Path]:
-    """
-    Reads/fetches an image from a layer source and saves it to a file.
+    """Reads/fetches an image from a layer source and saves it to a file.
 
     Args:
         layersources (WMSLayerSource, FileLayerSource, List): Layer source(s) to get

@@ -1,6 +1,4 @@
-"""
-Module with functions for post-processing prediction masks towards polygons.
-"""
+"""Module with functions for post-processing prediction masks towards polygons."""
 
 import argparse
 import logging
@@ -62,8 +60,7 @@ def _postprocess_args(args):
 
 
 def postprocess(config_path: Path, config_overrules: list[str] = []):
-    """
-    Postprocess the output of a prediction for the config specified.
+    """Postprocess the output of a prediction for the config specified.
 
     Args:
         config_path (Path): Path to the config file.
@@ -172,9 +169,7 @@ def postprocess(config_path: Path, config_overrules: list[str] = []):
 
 
 def main():
-    """
-    Run postprocess.
-    """
+    """Run postprocess."""
     try:
         _postprocess_args(sys.argv[1:])
     except Exception as ex:

@@ -1,6 +1,4 @@
-"""
-Module with helper functions regarding (keras) models.
-"""
+"""Module with helper functions regarding (keras) models."""
 
 import json
 import logging
@@ -16,9 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class ArchitectureParams:
-    """
-    Parameters regarding the neural network architecture to use.
-    """
+    """Parameters regarding the neural network architecture to use."""
 
     def __init__(
         self,
@@ -28,8 +24,7 @@ class ArchitectureParams:
         activation_function: str = "softmax",
         architecture_id: int = 0,
     ):
-        """
-        Class containing the hyper parameters needed to create the model.
+        """Class containing the hyper parameters needed to create the model.
 
         Args:
             architecture (str): the model architecture to use.
@@ -53,8 +48,7 @@ class ArchitectureParams:
         self.architecture_id = architecture_id
 
     def toJSON(self) -> str:
-        """
-        Serialize to JSON string.
+        """Serialize to JSON string.
 
         Returns:
             str: JSON string
@@ -63,9 +57,7 @@ class ArchitectureParams:
 
 
 class TrainParams:
-    """
-    Hyperparameter on how to train the neural network.
-    """
+    """Hyperparameter on how to train the neural network."""
 
     def __init__(
         self,
@@ -90,8 +82,7 @@ class TrainParams:
         log_tensorboard: bool = False,
         log_csv: bool = True,
     ):
-        """
-        Class containing the hyper parameters needed to perform a training.
+        """Class containing the hyper parameters needed to perform a training.
 
         Args:
             image_augmentations (dict): The augmentations to use on the input image
@@ -181,8 +172,7 @@ class TrainParams:
         self.log_csv = log_csv
 
     def toJSON(self) -> str:
-        """
-        Serializes object to a JSON string.
+        """Serializes object to a JSON string.
 
         Returns:
             str: JSON string
@@ -191,9 +181,7 @@ class TrainParams:
 
 
 class HyperParams:
-    """
-    Groups all hyper parameters to use for creating a neural network model.
-    """
+    """Groups all hyper parameters to use for creating a neural network model."""
 
     def __init__(
         self,
@@ -201,8 +189,7 @@ class HyperParams:
         train: Optional[TrainParams] = None,
         path: Optional[Path] = None,
     ):
-        """
-        Class to store the hyper parameters to use for the machine learning algorythm.
+        """Class to store the hyperparameters to use for the machine learning algorythm.
 
         Args:
             architecture (ArchitectureParams): the fixed parameters that define the
@@ -236,8 +223,7 @@ class HyperParams:
                 self.train = TrainParams(**data["train"])
 
     def toJSON(self) -> str:
-        """
-        Serialize the data to a JSON string.
+        """Serialize the data to a JSON string.
 
         Returns:
             str: the object serialized as JSON string.
@@ -251,8 +237,7 @@ def format_model_basefilename(
     architecture_id: int = 0,
     trainparams_id: int = 0,
 ) -> str:
-    """
-    Format the parameters into a model_filename.
+    """Format the parameters into a model_filename.
 
     Args;
         segment_subject: the segment subject
@@ -278,8 +263,7 @@ def format_model_filename(
     epoch: int,
     save_format: str,
 ) -> str:
-    """
-    Format the parameters into a model_filename.
+    """Format the parameters into a model_filename.
 
     Args:
         segment_subject: the segment subject
@@ -311,8 +295,7 @@ def format_model_filename(
 
 
 def parse_model_filename(filepath: Path) -> Optional[dict]:
-    """
-    Parse a model_filename to a dict with the properties of the model.
+    """Parse a model_filename to a dict with the properties of the model.
 
     These are the properties:
         * segment_subject: the segment subject
@@ -395,8 +378,7 @@ def get_models(
     architecture_id: Optional[int] = None,
     trainparams_id: Optional[int] = None,
 ) -> list[dict]:
-    """
-    Return the list of models in the model_dir passed.
+    """Return the list of models in the model_dir passed.
 
     It is returned as a dataframe with the columns as returned in parse_model_filename.
 
@@ -457,8 +439,7 @@ def get_best_model(
     architecture_id: Optional[int] = None,
     trainparams_id: Optional[int] = None,
 ) -> Optional[dict]:
-    """
-    Get the properties of the model with the highest combined accuracy.
+    """Get the properties of the model with the highest combined accuracy.
 
     Only models with the highest traindata version in the dir are considered.
 
@@ -516,8 +497,7 @@ def get_best_model(
 
 
 class ModelCheckpointExt(callbacks.Callback):
-    """
-    Class to checkpoint a model while training it with extended options.
+    """Class to checkpoint a model while training it with extended options.
 
     Args:
         callbacks (_type_): _description_
@@ -541,8 +521,7 @@ class ModelCheckpointExt(callbacks.Callback):
         verbose: bool = True,
         only_report: bool = False,
     ):
-        """
-        Constructor.
+        """Constructor.
 
         Args:
             model_save_dir (Path): [description]
@@ -600,8 +579,7 @@ class ModelCheckpointExt(callbacks.Callback):
         self.only_report = only_report
 
     def on_epoch_end(self, epoch, logs={}):
-        """
-        on_epoch_end method.
+        """on_epoch_end method.
 
         Args:
             epoch (_type_): _description_
@@ -660,8 +638,7 @@ def save_and_clean_models(
     debug: bool = False,
     only_report: bool = False,
 ):
-    """
-    Save the new model.
+    """Save the new model.
 
     The model is only saved if it is good enough... and existing models are cleaned up
     if they are worse than the new or other existing models.

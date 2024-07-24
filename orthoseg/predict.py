@@ -1,6 +1,4 @@
-"""
-High-level API to run a segmentation.
-"""
+"""High-level API to run a segmentation."""
 
 import argparse
 import logging
@@ -58,8 +56,7 @@ def _predict_args(args) -> argparse.Namespace:
 
 
 def predict(config_path: Path, config_overrules: list[str] = []):
-    """
-    Run a prediction for the config specified.
+    """Run a prediction for the config specified.
 
     Args:
         config_path (Path): Path to the config file to use.
@@ -324,9 +321,7 @@ def predict(config_path: Path, config_overrules: list[str] = []):
 
 
 def main():
-    """
-    Run predict.
-    """
+    """Run predict."""
     try:
         # Interprete arguments
         args = _predict_args(sys.argv[1:])

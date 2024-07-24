@@ -1,6 +1,4 @@
-"""
-Module with functions to clean up old models, predictions and training data directories.
-"""
+"""Module with functions to clean up old project data."""
 
 import logging
 import os
@@ -18,8 +16,7 @@ logger = logging.getLogger(__name__)
 def clean_models(
     model_dir: Path, versions_to_retain: int, simulate: bool
 ) -> list[Path]:
-    """
-    Cleanup models.
+    """Cleanup models.
 
     Args:
         model_dir (Path): Path to the directory with the models to be cleaned
@@ -81,8 +78,7 @@ def clean_models(
 def clean_training_data_directories(
     training_dir: Path, versions_to_retain: int, simulate: bool
 ) -> list[Path]:
-    """
-    Cleanup training data directories.
+    """Cleanup training data directories.
 
     Args:
         training_dir (Path): Path to the directory with the training data
@@ -138,8 +134,7 @@ def clean_training_data_directories(
 def clean_predictions(
     output_vector_dir: Path, versions_to_retain: int, simulate: bool
 ) -> list[Path]:
-    """
-    Cleanup predictions.
+    """Cleanup predictions.
 
     Args:
         output_vector_dir (Path): Path to the directory containing the vector
@@ -223,8 +218,7 @@ def clean_project_dir(
     prediction_versions_to_retain: int,
     simulate: bool,
 ) -> dict:
-    """
-    Cleanup project directory.
+    """Cleanup project directory.
 
     Args:
         model_dir (Path): Path to the directory with the models to be cleaned

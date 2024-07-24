@@ -1,3 +1,1 @@
-"""
-Modules to help creating/saving/... models.
-"""
+"""Modules to help creating/saving/... models."""

@@ -1,6 +1,4 @@
-"""
-Module with high-level operations to segment images.
-"""
+"""Module with high-level operations to segment images."""
 
 from concurrent import futures
 import csv
@@ -51,8 +49,7 @@ def predict_dir(
     force: bool = False,
     no_images_ok: bool = False,
 ):
-    """
-    Create a prediction for all the images in a directory.
+    """Create a prediction for all the images in a directory.
 
     If evaluate_mode is False, the output folder(s) will contain:
         * the "raw" prediction for every image (if there are white pixels)
@@ -619,8 +616,7 @@ def _handle_error(image_path: Path, ex: Exception, log_path: Path):
 def read_image(
     image_filepath: Path, projection_if_missing: Optional[str] = None
 ) -> dict:
-    """
-    Read image file.
+    """Read image file.
 
     Args:
         image_filepath (Path): file path.
