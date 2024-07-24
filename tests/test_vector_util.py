@@ -1,6 +1,7 @@
 """
 Tests for functionalities in vector_util.
 """
+
 import os
 
 import geopandas as gpd

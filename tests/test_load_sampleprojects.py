@@ -1,6 +1,7 @@
 """
 Tests for functionalities in orthoseg.train.
 """
+
 import os
 import platform
 import shutil

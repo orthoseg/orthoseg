@@ -1,6 +1,7 @@
 """
 Tests for functionalities in orthoseg.lib.postprocess_predictions.
 """
+
 import os
 
 import geofileops as gfo
