@@ -9,7 +9,7 @@ dependencies:
   - cudnn
   - gdown
   - geofileops >=0.6,<0.10
-  - geopandas-base >=0.12
+  - geopandas-base >=0.12,<1.1
   - matplotlib-base
   - numpy <2
   - owslib
@@ -31,5 +31,5 @@ dependencies:
   - pytest-order
   - pip:
     - segmentation-models >=1.0,<1.1
-    - tensorflow >=2.7,<2.11
+    - tensorflow >=2.8,<2.11
  

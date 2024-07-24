@@ -24,7 +24,7 @@ setuptools.setup(
     install_requires=[
         "gdown",
         "geofileops>=0.6,<0.10",
-        "geopandas>=0.12",
+        "geopandas>=0.12,<1.1",
         "matplotlib",
         "numpy<2",
         "owslib",
@@ -35,7 +35,7 @@ setuptools.setup(
         "segmentation-models>=1.0,<1.1",
         "shapely>=2",
         "simplification",
-        "tensorflow>=2.7,<2.11",
+        "tensorflow>=2.8,<2.11",
     ],
     entry_points="""
             [console_scripts]
