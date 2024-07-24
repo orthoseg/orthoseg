@@ -13,6 +13,7 @@
 - Add options to improve control of output of postprocess (#167)
 - Several small improvements (#128)
 - Update dependencies: geopandas, ruff,... + drop support for pygeos (#179)
+- Update python dependency to >= 3.9 + improve ruff rules (#180)
 
 ### Bugs fixed
 
