@@ -7,7 +7,7 @@ dependencies:
   # required
   - gdown
   - geofileops >=0.6,<0.10
-  - geopandas-base >=0.12,<1
+  - geopandas-base >=0.12
   - matplotlib-base
   - numpy <2
   - owslib
@@ -19,7 +19,7 @@ dependencies:
   - shapely >=2
   - simplification
   # dependencies of tensorflow that need to be conda versions to evade binary compatibility issues
-  - h5py <3.11
+  - h5py <3.11  # When a version > 3.10 is used: segmentation fault in test_train
   # testing
   - pytest
   - pytest-cov
