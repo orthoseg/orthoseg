@@ -2,9 +2,9 @@
 
 import argparse
 import logging
-from pathlib import Path
 import shlex
 import sys
+from pathlib import Path
 from typing import Optional
 
 import gdown

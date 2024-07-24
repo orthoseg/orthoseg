@@ -1,6 +1,6 @@
-from datetime import datetime
 import os
 import shutil
+from datetime import datetime
 
 import pytest
 

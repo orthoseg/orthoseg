@@ -3,12 +3,12 @@
 TODO: maybe it is cleaner to replace most code here by a config dict?
 """
 
+import datetime
 import json
 import logging
 import logging.config
-import datetime
-from pathlib import Path
 import tempfile
+from pathlib import Path
 from typing import Optional
 
 

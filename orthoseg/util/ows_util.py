@@ -1,30 +1,32 @@
 """Module with generic usable utility functions for using OWS services."""
 
-from concurrent import futures
 import logging
 import math
-from pathlib import Path
 import random
 import time
-from typing import Optional, Union
-import urllib3
 import warnings
+from concurrent import futures
+from pathlib import Path
+from typing import Optional, Union
 
-import numpy as np
 import geofileops as gfo
 import geopandas as gpd
+import numpy as np
 import owslib
-import owslib.wms
 import owslib.util
+import owslib.wms
 import pycron
 import pygeoops
 import pyproj
 import rasterio as rio
 import rasterio.enums
 import rasterio.errors as rio_errors
-from rasterio import profiles as rio_profiles
-from rasterio import transform as rio_transform
-from rasterio import windows as rio_windows
+import urllib3
+from rasterio import (
+    profiles as rio_profiles,
+    transform as rio_transform,
+    windows as rio_windows,
+)
 
 from . import progress_util
 

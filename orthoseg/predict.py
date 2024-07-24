@@ -2,21 +2,20 @@
 
 import argparse
 import logging
-from pathlib import Path
 import pprint
 import shutil
 import sys
 import traceback
+from pathlib import Path
 
 # import os
 # os.environ["CUDA_VISIBLE_DEVICES"] = "-1" # Disable using GPU
 import tensorflow as tf
 
-from orthoseg.helpers import config_helper as conf
-from orthoseg.helpers import email_helper
-from orthoseg.lib import cleanup, predicter
 import orthoseg.model.model_factory as mf
 import orthoseg.model.model_helper as mh
+from orthoseg.helpers import config_helper as conf, email_helper
+from orthoseg.lib import cleanup, predicter
 from orthoseg.util import log_util
 
 # Get a logger...
