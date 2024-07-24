@@ -1,0 +1,29 @@
+name: orthoseg-minimal
+channels:
+  - conda-forge
+dependencies:
+  - python
+  - pip
+  # required
+  - gdown
+  - geofileops =0.6
+  - geopandas-base =0.12
+  - matplotlib-base
+  - numpy =1.26
+  - owslib
+  - pillow
+  - pycron
+  - pygeoops =0.2
+  - pyproj
+  - rasterio
+  - shapely =2.0
+  - simplification
+  # dependencies of tensorflow that need to be conda versions to evade binary compatibility issues
+  - h5py =3.9  # When a version > 3.10 is used: segmentation fault
+  # testing
+  - pytest
+  - pytest-cov
+  - pytest-order
+  - pip:
+    - segmentation-models =1.0
+    - tensorflow =2.7
