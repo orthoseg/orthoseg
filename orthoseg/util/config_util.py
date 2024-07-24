@@ -33,7 +33,7 @@ def get_config_files(config_path: Path) -> list[Path]:
         config_path (Path): base config file.
 
     Returns:
-        List[Path]: all relevant config files.
+        list[Path]: all relevant config files.
     """
     # Init
     # First check input param
@@ -81,7 +81,7 @@ def read_config_ext(config_paths: list[Path]) -> configparser.ConfigParser:
     """Read configuration with extended functionalities.
 
     Args:
-        config_paths (List[Path]): the configuration files to load.
+        config_paths (list[Path]): the configuration files to load.
 
     Returns:
         configparser.ConfigParser: _description_

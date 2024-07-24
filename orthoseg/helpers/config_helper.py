@@ -44,7 +44,7 @@ def read_orthoseg_config(config_path: Path, overrules: list[str] = []):
 
     Args:
         config_path (Path): path to the configuration file to read.
-        overrules (List[str], optional): list of config options that will overrule other
+        overrules (list[str], optional): list of config options that will overrule other
             ways to supply configuration. They should be specified as a list of
             "<section>.<parameter>=<value>" strings. Defaults to [].
     """
@@ -169,7 +169,7 @@ def get_train_label_infos() -> list[LabelInfo]:
     """Searches and returns LabelInfos that can be used to create a training dataset.
 
     Returns:
-        List[LabelInfo]: List of LabelInfos found.
+        list[LabelInfo]: List of LabelInfos found.
     """
     train_label_infos = _prepare_train_label_infos(
         labelpolygons_pattern=train.getpath("labelpolygons_pattern"),

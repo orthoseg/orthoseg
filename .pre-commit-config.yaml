@@ -10,4 +10,4 @@ repos:
       - id: ruff-format
       # Lint the code
       - id: ruff
-        # args: [ --fix ]
+        # args: [ --fix, --unsafe-fixes ]

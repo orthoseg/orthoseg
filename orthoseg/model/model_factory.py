@@ -7,7 +7,8 @@ Many models are supported by using this segmentation model zoo:
 https://github.com/qubvel/segmentation_models
 """
 
-import json
+# Disable isort, another import order gives a segmentation fault on Windows.
+import json  # noqa: I001
 import logging
 import os
 from pathlib import Path
@@ -133,7 +134,7 @@ def compile_model(
             * categorical_crossentropy
             * weighted_categorical_crossentropy: class_weights should be specified!
 
-        metrics (List[Metric], optional): metrics to use. Defaults to None. One of:
+        metrics (list[Metric], optional): metrics to use. Defaults to None. One of:
             *
         sample_weight_mode (str, optional): sample weight mode to use. Defaults to None.
         class_weights (list, optional): class weigths to use. Defaults to None.

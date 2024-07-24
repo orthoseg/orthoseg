@@ -52,7 +52,7 @@ def validate(config_path: Path, config_overrules: list[str] = []):
 
     Args:
         config_path (Path): Path to the config file to use.
-        config_overrules (List[str], optional): list of config options that will
+        config_overrules (list[str], optional): list of config options that will
             overrule other ways to supply configuration. They should be specified in the
             form of "<section>.<parameter>=<value>". Defaults to [].
     """

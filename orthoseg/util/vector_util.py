@@ -90,7 +90,7 @@ def reclassify_neighbours(
         gdf (gpd.GeoDataFrame): input
         reclassify_column (str): column to reclassify.
         query (str): th query to find the features to reclassify.
-        border_bounds (Optional[Tuple[float, float, float, float]]): the bounds of the
+        border_bounds (Optional[tuple[float, float, float, float]]): the bounds of the
             border to use for th onborder field in the query.
         class_background (str, optional): the classname to treat as background.
             Defaults to "background".

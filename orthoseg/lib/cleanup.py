@@ -27,7 +27,7 @@ def clean_models(
         Exception: ERROR while deleting file
 
     Returns:
-        List[Path]: List of removed model files
+        list[Path]: List of removed model files
     """
     # Check input
     if versions_to_retain < 0:
@@ -89,7 +89,7 @@ def clean_training_data_directories(
         Exception: ERROR while deleting directory
 
     Returns:
-        List[Path]: List of training directories to be removed
+        list[Path]: List of training directories to be removed
     """
     # Check input
     if versions_to_retain < 0:
@@ -146,7 +146,7 @@ def clean_predictions(
         Exception: ERROR while deleting file
 
     Returns:
-        List[Path]: List of prediction files to be removed
+        list[Path]: List of prediction files to be removed
     """
     # Check input
     if versions_to_retain < 0:

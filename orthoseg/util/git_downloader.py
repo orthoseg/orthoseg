@@ -11,10 +11,8 @@ import urllib.request
 from pathlib import Path
 from typing import Optional, Union
 
-from pyparsing import Tuple
 
-
-def create_url(url: str) -> Tuple[str, list[Path]]:
+def create_url(url: str) -> tuple[str, list[Path]]:
     """From the given url, produce a URL that is compatible with Github's REST API.
 
     Can handle blob or tree paths.
@@ -23,7 +21,7 @@ def create_url(url: str) -> Tuple[str, list[Path]]:
         url (str): the base url.
 
     Returns:
-        (str, List[Path]): Github REST API compatible url + directories to download.
+        (str, list[Path]): Github REST API compatible url + directories to download.
     """
     # extract the branch name from the given url (e.g master)
     branch = re.findall(r"/tree/(.*?)/", url)

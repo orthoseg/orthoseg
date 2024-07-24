@@ -867,7 +867,7 @@ def polygonize_pred(
         image_crs (str): _description_
         image_transform (_type_): _description_
         mask_background (bool, optional): _description_. Defaults to True.
-        classnames (Optional[List[str]], optional): _description_. Defaults to None.
+        classnames (Optional[list[str]], optional): _description_. Defaults to None.
         output_basefilepath (Optional[Path], optional): _description_. Defaults to None.
 
     Raises:
