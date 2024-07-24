@@ -23,17 +23,19 @@ setuptools.setup(
     include_package_data=True,
     install_requires=[
         "gdown",
-        "geofileops>=0.6,<0.9",
-        "geopandas>=0.12,<1",
+        "geofileops>=0.6,<0.10",
+        "geopandas>=0.12,<1.1",
+        "matplotlib",
+        "numpy<2",
         "owslib",
         "pillow",
         "pycron",
-        "pygeoops>=0.2,<0.4",
+        "pygeoops>=0.2,<0.5",
         "rasterio",
         "segmentation-models>=1.0,<1.1",
         "shapely>=2",
         "simplification",
-        "tensorflow>=2.7,<2.11",
+        "tensorflow>=2.8,<2.11",
     ],
     entry_points="""
             [console_scripts]

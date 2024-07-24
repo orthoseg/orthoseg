@@ -1,4 +1,4 @@
-name: orthoseg-dev
+name: orthoseg
 channels:
   - conda-forge
 dependencies:
@@ -22,14 +22,5 @@ dependencies:
   - simplification
   # dependencies of tensorflow that need to be conda versions to evade binary compatibility issues
   - h5py <3.11  # When a version > 3.10 is used: segmentation fault
-  # linting
-  - pre-commit
-  - ruff ==0.5.2
-  # testing
-  - pytest
-  - pytest-cov
-  - pytest-order
   - pip:
-    - segmentation-models >=1.0,<1.1
-    - tensorflow >=2.8,<2.11
- 
+    - orthoseg
