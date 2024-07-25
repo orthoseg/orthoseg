@@ -1,32 +1,32 @@
-"""
-Module with generic usable utility functions for using OWS services.
-"""
+"""Module with generic usable utility functions for using OWS services."""
 
-from concurrent import futures
 import logging
 import math
-from pathlib import Path
 import random
 import time
-from typing import List, Optional, Tuple, Union
-import urllib3
 import warnings
+from concurrent import futures
+from pathlib import Path
+from typing import Optional, Union
 
-import numpy as np
 import geofileops as gfo
 import geopandas as gpd
+import numpy as np
 import owslib
-import owslib.wms
 import owslib.util
+import owslib.wms
 import pycron
 import pygeoops
 import pyproj
 import rasterio as rio
 import rasterio.enums
 import rasterio.errors as rio_errors
-from rasterio import profiles as rio_profiles
-from rasterio import transform as rio_transform
-from rasterio import windows as rio_windows
+import urllib3
+from rasterio import (
+    profiles as rio_profiles,
+    transform as rio_transform,
+    windows as rio_windows,
+)
 
 from . import progress_util
 
@@ -55,16 +55,14 @@ logger = logging.getLogger(__name__)
 
 
 class WMSLayerSource:
-    """
-    Properties of a WMS layer source.
-    """
+    """Properties of a WMS layer source."""
 
     def __init__(
         self,
         wms_server_url: str,
-        layernames: List[str],
-        layerstyles: Optional[List[str]] = None,
-        bands: Optional[List[int]] = None,
+        layernames: list[str],
+        layerstyles: Optional[list[str]] = None,
+        bands: Optional[list[int]] = None,
         username: Optional[str] = None,
         password: Optional[str] = None,
         wms_version: str = "1.3.0",
@@ -76,15 +74,14 @@ class WMSLayerSource:
             None,
         ] = None,
     ):
-        """
-        Constructor of WMSLayerSource.
+        """Constructor of WMSLayerSource.
 
         Args:
             wms_server_url (str): _description_
-            layernames (List[str]): _description_
-            layerstyles (Optional[List[str]], optional): _description_.
+            layernames (list[str]): _description_
+            layerstyles (Optional[list[str]], optional): _description_.
                 Defaults to None.
-            bands (Optional[List[int]], optional): _description_. Defaults to None.
+            bands (Optional[list[int]], optional): _description_. Defaults to None.
             username (str, optional): username to logon with. Defaults to None.
             password (str, optional): password to logon with. Defaults to None.
             wms_version (str, optional): _description_. Defaults to "1.3.0".
@@ -106,23 +103,20 @@ class WMSLayerSource:
 
 
 class FileLayerSource:
-    """
-    Properties of a file layer source.
-    """
+    """Properties of a file layer source."""
 
     def __init__(
         self,
         path: Union[str, Path],
-        layernames: List[str],
-        bands: Optional[List[int]] = None,
+        layernames: list[str],
+        bands: Optional[list[int]] = None,
     ):
-        """
-        Contructor for FileLayerSource.
+        """Contructor for FileLayerSource.
 
         Args:
             path (Union[str, Path]): Path to the layer.
-            layernames (List[str]): list of layer names.
-            bands (Optional[List[int]], optional): list of bands. Defaults to None.
+            layernames (list[str]): list of layer names.
+            bands (Optional[list[int]], optional): list of bands. Defaults to None.
         """
         self.path = Path(path)
         self.layernames = layernames
@@ -130,10 +124,10 @@ class FileLayerSource:
 
 
 def get_images_for_grid(
-    layersources: List[Union[FileLayerSource, WMSLayerSource]],
+    layersources: list[Union[FileLayerSource, WMSLayerSource]],
     output_image_dir: Path,
     crs: Union[str, pyproj.CRS],
-    image_gen_bbox: Optional[Tuple[float, float, float, float]] = None,
+    image_gen_bbox: Optional[tuple[float, float, float, float]] = None,
     image_gen_roi_filepath: Optional[Path] = None,
     grid_xmin: float = 0.0,
     grid_ymin: float = 0.0,
@@ -154,16 +148,15 @@ def get_images_for_grid(
     ssl_verify: Union[bool, str] = True,
     force: bool = False,
 ):
-    """
-    Loads all images in a grid from a WMS service.
+    """Loads all images in a grid from a WMS service.
 
     Args:
-        layersources (List[dict]): Layer sources to get images from. Multiple
+        layersources (list[dict]): Layer sources to get images from. Multiple
             sources can be specified to create a combined image, eg. use band
             1 of a WMS service with band 2 and 3 of another one.
         output_image_dir (Path): Directory to save the images to.
         crs (Union[str, pyproj.CRS]): The crs of the source and destination images.
-        image_gen_bbox (Tuple[float, float, float, float], optional): bbox of the roi to
+        image_gen_bbox (tuple[float, float, float, float], optional): bbox of the roi to
             request/save images for. Defaults to None.
         image_gen_roi_filepath (Optional[Path], optional): File with the roi
             where images should be requested/saved for. Defaults to None.
@@ -407,18 +400,17 @@ def get_images_for_grid(
 
 
 def align_bbox_to_grid(
-    bbox: Tuple[float, float, float, float],
+    bbox: tuple[float, float, float, float],
     grid_xmin: float,
     grid_ymin: float,
     pixel_size_x: float,
     pixel_size_y: float,
     log_level: int = logging.INFO,
-) -> Tuple[float, float, float, float]:
-    """
-    Align a bounding box to the grid specified.
+) -> tuple[float, float, float, float]:
+    """Align a bounding box to the grid specified.
 
     Args:
-        bbox (Tuple[float, float, float, float]): the bounding box
+        bbox (tuple[float, float, float, float]): the bounding box
         grid_xmin (float): xmin of the grid to align to.
         grid_ymin (float): ymin of the grid to align to.
         pixel_size_x (float): pixel size for x.
@@ -426,7 +418,7 @@ def align_bbox_to_grid(
         log_level (int, optional): the log level to use. Defaults to logging.INFO.
 
     Returns:
-        Tuple[float, float, float, float]: the aligned bbox.
+        tuple[float, float, float, float]: the aligned bbox.
     """
     # Make bounds compatible with the grid
     bbox_tmp = list(bbox)
@@ -479,11 +471,11 @@ def _interprete_ssl_verify(ssl_verify: Union[bool, str, None]):
 
 
 def getmap_to_file(
-    layersources: Union[WMSLayerSource, FileLayerSource, List],
+    layersources: Union[WMSLayerSource, FileLayerSource, list],
     output_dir: Path,
     crs: Union[str, pyproj.CRS],
-    bbox: Tuple[float, float, float, float],
-    size: Tuple[int, int],
+    bbox: tuple[float, float, float, float],
+    size: tuple[int, int],
     ssl_verify: Union[bool, str] = True,
     image_format: str = FORMAT_GEOTIFF,
     image_format_save: Optional[str] = None,
@@ -496,8 +488,7 @@ def getmap_to_file(
     has_switched_axes: Optional[bool] = None,
     on_outside_layer_bounds: Optional[str] = "raise",
 ) -> Optional[Path]:
-    """
-    Reads/fetches an image from a layer source and saves it to a file.
+    """Reads/fetches an image from a layer source and saves it to a file.
 
     Args:
         layersources (WMSLayerSource, FileLayerSource, List): Layer source(s) to get
@@ -505,8 +496,8 @@ def getmap_to_file(
             eg. use band 1 of a layersource with band 2 and 3 of another one.
         output_dir (Path): Directory to save the images to.
         crs (pyproj.CRS): The crs of the source and destination images.
-        bbox (Tuple[float, float, float, float]): Bbox of the image to get.
-        size (Tuple[int, int]): The image width and height.
+        bbox (tuple[float, float, float, float]): Bbox of the image to get.
+        size (tuple[int, int]): The image width and height.
         ssl_verify (bool or str, optional): True to use the default
             certificate bundle as installed on your system. False disables
             certificate validation (NOT recommended!). If a path to a
@@ -544,7 +535,7 @@ def getmap_to_file(
     # Convert input parameters if relevant
     if isinstance(crs, str):
         crs = pyproj.CRS(crs)
-    if not isinstance(layersources, List):
+    if not isinstance(layersources, list):
         layersources = [layersources]
 
     # If there isn't a filename supplied, create one...

@@ -1,3 +1,1 @@
-"""
-Helper modules for orthoseg.
-"""
+"""Helper modules for orthoseg."""

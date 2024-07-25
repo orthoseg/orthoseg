@@ -1,32 +1,30 @@
-"""
-Module with high-level operations to segment images.
-"""
+"""Module with high-level operations to segment images."""
 
-from concurrent import futures
 import csv
 import datetime
 import json
 import logging
 import multiprocessing
-from pathlib import Path
 import shutil
 import tempfile
 import time
 import traceback
-from typing import List, Optional
+from concurrent import futures
+from pathlib import Path
+from typing import Optional
 
 import geofileops as gfo
+import keras.models
 import numpy as np
 import pandas as pd
 import rasterio as rio
 import rasterio.crs as rio_crs
 import rasterio.plot as rio_plot
 import tensorflow as tf
-import keras.models
 
 import orthoseg.lib.postprocess_predictions as postp
-from orthoseg.util.progress_util import ProgressLogger
 from orthoseg.util import general_util
+from orthoseg.util.progress_util import ProgressLogger
 
 # Get a logger...
 logger = logging.getLogger(__name__)
@@ -51,8 +49,7 @@ def predict_dir(
     force: bool = False,
     no_images_ok: bool = False,
 ):
-    """
-    Create a prediction for all the images in a directory.
+    """Create a prediction for all the images in a directory.
 
     If evaluate_mode is False, the output folder(s) will contain:
         * the "raw" prediction for every image (if there are white pixels)
@@ -141,7 +138,7 @@ def predict_dir(
         json.dump(pred_conf, pred_conf_file)
 
     # Get list of all image files to process and to skip
-    image_filepaths: List[Path] = []
+    image_filepaths: list[Path] = []
     input_ext = [".png", ".tif", ".jpg"]
     for input_ext_cur in input_ext:
         image_filepaths.extend(input_image_dir.rglob("*" + input_ext_cur))
@@ -177,7 +174,7 @@ def predict_dir(
     pred_tmp_output_path = None
     if output_vector_path is not None:
         pred_tmp_output_path = output_image_dir / f"{output_vector_path.stem}_tmp.gpkg"
-        pred_tmp_output_lock_path = Path(f"{str(pred_tmp_output_path)}.lock")
+        pred_tmp_output_lock_path = Path(f"{pred_tmp_output_path!s}.lock")
         # if lock file exists, remove it:
         if pred_tmp_output_lock_path.exists():
             pred_tmp_output_lock_path.unlink()
@@ -203,11 +200,13 @@ def predict_dir(
     def init_postprocess_worker():
         general_util.setprocessnice(15)
 
-    with futures.ThreadPoolExecutor(
-        nb_parallel_read
-    ) as read_pool, futures.ProcessPoolExecutor(
-        nb_parallel_postprocess, initializer=init_postprocess_worker()
-    ) as postprocess_pool, futures.ProcessPoolExecutor(max_workers=1) as write_pool:
+    with (
+        futures.ThreadPoolExecutor(nb_parallel_read) as read_pool,
+        futures.ProcessPoolExecutor(
+            nb_parallel_postprocess, initializer=init_postprocess_worker()
+        ) as postprocess_pool,
+        futures.ProcessPoolExecutor(max_workers=1) as write_pool,
+    ):
         # Start looping.
         # If ready to stop, the code below will break
         perf_time_start = datetime.datetime.now()
@@ -617,8 +616,7 @@ def _handle_error(image_path: Path, ex: Exception, log_path: Path):
 def read_image(
     image_filepath: Path, projection_if_missing: Optional[str] = None
 ) -> dict:
-    """
-    Read image file.
+    """Read image file.
 
     Args:
         image_filepath (Path): file path.

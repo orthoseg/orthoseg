@@ -1,12 +1,10 @@
-"""
-Download the sample project.
-"""
+"""Download the sample project."""
 
 import argparse
 import logging
-from pathlib import Path
 import shlex
 import sys
+from pathlib import Path
 from typing import Optional
 
 import gdown
@@ -53,8 +51,7 @@ def _parse_load_sampleprojects_args(args) -> dict:
 
 
 def load_sampleprojects(dest_dir: Path, ssl_verify: Optional[bool] = None):
-    """
-    Load the orthoseg sample projects.
+    """Load the orthoseg sample projects.
 
     Args:
         dest_dir (Path): directory to save them to.
@@ -70,7 +67,7 @@ def load_sampleprojects(dest_dir: Path, ssl_verify: Optional[bool] = None):
         raise ValueError(f"Destination directory already exists: {dest_dir_full}")
 
     # Download
-    print(f"Start download of sample projects to {str(dest_dir_full)}")
+    print(f"Start download of sample projects to {dest_dir_full!s}")
     git_downloader.download(
         repo_url="https://github.com/orthoseg/orthoseg/tree/main/sample_projects",
         output_dir=dest_dir,
@@ -108,9 +105,7 @@ def load_sampleprojects(dest_dir: Path, ssl_verify: Optional[bool] = None):
 
 
 def main():
-    """
-    Run load sampleprojects.
-    """
+    """Run load sampleprojects."""
     try:
         parsed_args = _parse_load_sampleprojects_args(sys.argv[1:])
         load_sampleprojects(**parsed_args)

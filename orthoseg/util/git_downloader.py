@@ -1,22 +1,19 @@
-"""
-Module to download files from a github repo.
+"""Module to download files from a github repo.
 
 Based on https://github.com/sdushantha/gitdir/blob/master/gitdir/gitdir.py
 """
 
 import json
-from pathlib import Path
-from pyparsing import Tuple
 import re
 import ssl
 import time
-from typing import List, Optional, Union
 import urllib.request
+from pathlib import Path
+from typing import Optional, Union
 
 
-def create_url(url: str) -> Tuple[str, List[Path]]:
-    """
-    From the given url, produce a URL that is compatible with Github's REST API.
+def create_url(url: str) -> tuple[str, list[Path]]:
+    """From the given url, produce a URL that is compatible with Github's REST API.
 
     Can handle blob or tree paths.
 
@@ -24,7 +21,7 @@ def create_url(url: str) -> Tuple[str, List[Path]]:
         url (str): the base url.
 
     Returns:
-        (str, List[Path]): Github REST API compatible url + directories to download.
+        (str, list[Path]): Github REST API compatible url + directories to download.
     """
     # extract the branch name from the given url (e.g master)
     branch = re.findall(r"/tree/(.*?)/", url)
@@ -48,8 +45,7 @@ def download(
     ssl_verify: Union[bool, str, None] = None,
     limit_rate: bool = True,
 ) -> Optional[int]:
-    """
-    Downloads the files and directories in repo_url.
+    """Downloads the files and directories in repo_url.
 
     Args:
         repo_url (str): url to the repository to download.
@@ -116,9 +112,10 @@ def download(
                 if limit_rate:
                     time.sleep(1)
                 url = data["download_url"]
-                with urllib.request.urlopen(url, context=context) as u, open(
-                    dir_out / data["name"], "wb"
-                ) as f:
+                with (
+                    urllib.request.urlopen(url, context=context) as u,
+                    open(dir_out / data["name"], "wb") as f,
+                ):
                     f.write(u.read())
 
                 return total_files
@@ -133,9 +130,10 @@ def download(
                 if url is not None:
                     if limit_rate:
                         time.sleep(1)
-                    with urllib.request.urlopen(url, context=context) as u, open(
-                        path, "wb"
-                    ) as f:
+                    with (
+                        urllib.request.urlopen(url, context=context) as u,
+                        open(path, "wb") as f,
+                    ):
                         f.write(u.read())
                 else:
                     download(file["html_url"], output_dir)

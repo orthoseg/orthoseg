@@ -1,13 +1,11 @@
-"""
-Module with specific helper functions to manage the configuration of orthoseg.
-"""
+"""Module with specific helper functions to manage the configuration of orthoseg."""
 
 import configparser
 import json
 import logging
-from pathlib import Path
 import tempfile
-from typing import List, Optional
+from pathlib import Path
+from typing import Optional
 
 # Get a logger...
 logger = logging.getLogger(__name__)
@@ -18,15 +16,24 @@ logger = logging.getLogger(__name__)
 illegal_chars_in_codes = ["_", ",", ".", "?", ":"]
 
 
-def get_config_files(config_path: Path) -> List[Path]:
-    """
-    Get the list of all relevant config files, with the last ones overruling prior ones.
+def get_config_files(config_path: Path) -> list[Path]:
+    """Get a list of all relevant config files.
+
+    The list of files returned is of importance:
+    - first the general "project_defaults.ini" file packaged in orthoseg
+    - then all configuration files in property [general].extra_config_files_to_load of
+      ``config_path``, in the order they are listed there
+    - finally ``config_path`` itself
+
+    The main principle is that the configuration files are ordered by importance.
+    Configuration in the files later in the list will overrule configuration in the
+    prior ones.
 
     Args:
         config_path (Path): base config file.
 
     Returns:
-        List[Path]: all relevant config files.
+        list[Path]: all relevant config files.
     """
     # Init
     # First check input param
@@ -70,12 +77,11 @@ def get_config_files(config_path: Path) -> List[Path]:
     return config_filepaths
 
 
-def read_config_ext(config_paths: List[Path]) -> configparser.ConfigParser:
-    """
-    Read configuration with extended functionalities.
+def read_config_ext(config_paths: list[Path]) -> configparser.ConfigParser:
+    """Read configuration with extended functionalities.
 
     Args:
-        config_paths (List[Path]): the configuration files to load.
+        config_paths (list[Path]): the configuration files to load.
 
     Returns:
         configparser.ConfigParser: _description_
@@ -98,9 +104,7 @@ def read_config_ext(config_paths: List[Path]) -> configparser.ConfigParser:
             return None
 
     def safe_math_eval(string):
-        """
-        Function to evaluate a mathematical expression safely.
-        """
+        """Function to evaluate a mathematical expression safely."""
         if string is None:
             return None
 
@@ -139,8 +143,7 @@ def read_config_ext(config_paths: List[Path]) -> configparser.ConfigParser:
 
 
 def as_dict(config: configparser.ConfigParser):
-    """
-    Converts a ConfigParser object into a dictionary.
+    """Converts a ConfigParser object into a dictionary.
 
     The resulting dictionary has sections as keys which point to a dict of the
     sections options as key => value pairs.

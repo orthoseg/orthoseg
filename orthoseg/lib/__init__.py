@@ -1,3 +1,1 @@
-"""
-Modules with base orthoseg functionalities.
-"""
+"""Modules with base orthoseg functionalities."""
