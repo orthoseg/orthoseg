@@ -11,7 +11,7 @@
 - In prepare_trainingdata, reuse images already available in previous version (#170)
 - Add command to (only) validate a training dataset (#133)
 - Add options to improve control of output of postprocess (#167)
-- Several small improvements (#128, #180)
+- Several small improvements to logging, documentation,... (#128, #180, #185)
 - Apply pyupgrade (python >= 3.9), pydocstyle and isort (#181, #182, #184)
 - Update dependencies: geopandas, ruff,... + drop support for pygeos (#179)
 
