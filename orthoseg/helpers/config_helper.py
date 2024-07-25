@@ -7,7 +7,7 @@ import pprint
 import re
 import tempfile
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from orthoseg.lib.prepare_traindatasets import LabelInfo
 from orthoseg.util import config_util
@@ -21,7 +21,27 @@ logger = logging.getLogger(__name__)
 # it is used in codes as well the parsing becomes a lot more difficult.
 illegal_chars_in_codes = ["_", ",", ".", "?", ":"]
 
-tmp_dir = None
+tmp_dir: Optional[Path] = None
+
+config: configparser.ConfigParser
+config_paths: list[Path]
+config_filepaths_used: list[Path]
+config_overrules: Any
+config_overrules_path: Optional[Path]
+general: Any
+model: Any
+download: Any
+train: Any
+predict: Any
+postprocess: Any
+dirs: Any
+files: Any
+email: Any
+logging_conf: Any
+cleanup: Any
+
+layer_config_filepath_used: Path
+image_layers: dict
 
 
 def pformat_config() -> str:
@@ -104,8 +124,8 @@ def read_orthoseg_config(config_path: Path, overrules: list[str] = []):
     dirs = config["dirs"]
     global files
     files = config["files"]
-    global logging
-    logging = config["logging"]
+    global logging_conf
+    logging_conf = config["logging"]
     global email
     email = config["email"]
     global cleanup

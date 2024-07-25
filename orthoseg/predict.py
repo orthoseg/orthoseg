@@ -71,7 +71,7 @@ def predict(config_path: Path, config_overrules: list[str] = []):
     # Init logging
     log_util.clean_log_dir(
         log_dir=conf.dirs.getpath("log_dir"),
-        nb_logfiles_tokeep=conf.logging.getint("nb_logfiles_tokeep"),
+        nb_logfiles_tokeep=conf.logging_conf.getint("nb_logfiles_tokeep"),
     )
     global logger
     logger = log_util.main_log_init(conf.dirs.getpath("log_dir"), __name__)
