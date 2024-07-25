@@ -67,8 +67,8 @@ class LabelInfo:
             str: readable string representation of object.
         """
         repr = (
-            f"LabelInfo with image_layer: {self.image_layer}, locations_path: "
-            f"{self.locations_path}, polygons_path: {self.polygons_path}"
+            f"LabelInfo(image_layer={self.image_layer}, locations_path="
+            f"{self.locations_path}, polygons_path={self.polygons_path},...)"
         )
         return repr
 
