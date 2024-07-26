@@ -1,3 +1,5 @@
+import re
+
 import pytest
 
 from orthoseg.helpers import config_helper as conf
@@ -143,7 +145,9 @@ def test_prepare_train_label_infos_invalid_layer():
     labellocation_pattern = TestData.dir / "footballfields_{image_layer}_locations.gpkg"
     image_layers = {"BEFL-2019": {}}
 
-    with pytest.raises(ValueError, match="invalid image_layer in <LabelInfo"):
+    with pytest.raises(
+        ValueError, match=re.escape("invalid image_layer in LabelInfo(image_layer=")
+    ):
         _ = conf._prepare_train_label_infos(
             labeldata_pattern,
             labellocation_pattern,
