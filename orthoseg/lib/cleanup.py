@@ -6,7 +6,7 @@ import shutil
 from pathlib import Path
 
 from orthoseg.model import model_helper
-from orthoseg.util.data import aidetection_info
+from orthoseg.util.data import AiDetectionInfo, aidetection_info
 
 # Get a logger...
 logger = logging.getLogger(__name__)
@@ -159,7 +159,7 @@ def clean_predictions(
         f"clean_predictions with {output_vector_dir=}, {versions_to_retain=}, "
         f"{simulate=}"
     )
-    predictions_to_cleanup: list[aidetection_info] = []
+    predictions_to_cleanup: list[AiDetectionInfo] = []
     prediction_files_to_remove = []
     files = output_vector_dir.glob(pattern="*.*")
     try:

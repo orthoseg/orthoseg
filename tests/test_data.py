@@ -1,4 +1,4 @@
-from contextlib import nullcontext
+from contextlib import AbstractContextManager, nullcontext
 
 import pytest
 
@@ -19,11 +19,13 @@ def test_aidetection_info(tmp_path, file: str, exp_error: bool):
     path = testproject_dir / file
     path.touch()
 
+    handler: AbstractContextManager
     if exp_error:
         matchstr = r"Error in get_aidetection_info on .*"
         handler = pytest.raises(ValueError, match=matchstr)
     else:
         handler = nullcontext()
+
     with handler:
         # Get aidetection info
         ai_detection_info = aidetection_info(path=path)

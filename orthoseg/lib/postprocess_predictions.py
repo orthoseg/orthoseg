@@ -512,12 +512,11 @@ def polygonize_pred_for_evaluation(
         ) as dst:
             dst.write(image_pred_uint8_bin, 1)
 
-        # If the input image contained a tranform, also create an image
+        # If the input image contained a transform, also create an image
         # based on the simplified vectors
         if image_transform[0] != 0 and len(geoms) > 0:
             # Simplify geoms
             geoms_simpl = []
-            geoms_simpl_vis = []
             for geom in geoms:
                 # The simplify of shapely uses the deuter-pecker algo
                 # preserve_topology is slower bu makes sure no polygons are removed
@@ -548,40 +547,6 @@ def polygonize_pred_for_evaluation(
                     logger.debug("Before rasterize")
                     burned = rio_features.rasterize(
                         shapes=geoms_simpl,
-                        out_shape=(image_height, image_width),
-                        fill=0,
-                        default_value=255,
-                        dtype=rio.uint8,
-                        transform=image_transform,
-                    )
-                    dst.write(burned, 1)
-
-            # Write simplified wkt result to raster for comparing. Use the same
-            if len(geoms_simpl_vis) > 0:
-                # file profile as created before for writing the raw prediction result
-                # TODO: doesn't support multiple classes
-                logger.debug(
-                    "Before writing simpl with visvangali algo rasterized file"
-                )
-                image_pred_simpl_filepath = (
-                    f"{output_basefilepath!s}_pred_cleaned_simpl_vis.tif"
-                )
-                with rio.open(
-                    image_pred_simpl_filepath,
-                    "w",
-                    driver="GTiff",
-                    compress="lzw",
-                    height=image_height,
-                    width=image_width,
-                    count=1,
-                    dtype=rio.uint8,
-                    crs=image_crs,
-                    transform=image_transform,
-                ) as dst:
-                    # create a generator of geom, value pairs to use in rasterizing
-                    logger.debug("Before rasterize")
-                    burned = rio_features.rasterize(
-                        shapes=geoms_simpl_vis,
                         out_shape=(image_height, image_width),
                         fill=0,
                         default_value=255,
@@ -785,7 +750,7 @@ def polygonize_pred_multiclass(
         classnames=classes,
     )
     if result_gdf is None:
-        return
+        return None
 
     # Calculate the bounds of the image in projected coordinates
     image_shape = image_pred_decoded_arr.shape
