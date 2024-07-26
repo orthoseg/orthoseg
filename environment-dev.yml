@@ -24,7 +24,7 @@ dependencies:
   - cudatoolkit >=11.2,<11.3
   - cudnn
   # linting
-  - mypy
+  - mypy ==1.10.1
   - pandas-stubs
   - pre-commit
   - ruff ==0.5.2
