@@ -413,7 +413,7 @@ def _prepare_train_label_infos(
     for label_info in label_infos.values():
         if label_info.image_layer not in image_layers:
             raise ValueError(
-                f"invalid image_layer in <{label_info}>: not in {list(image_layers)}"
+                f"invalid image_layer in {label_info}: not in {list(image_layers)}"
             )
 
     return list(label_infos.values())
