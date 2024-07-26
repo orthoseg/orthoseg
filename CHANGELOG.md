@@ -1,16 +1,20 @@
 # CHANGELOG
 
-## 0.6.0 (???)
+## 0.6.0 (2024-07-26)
+
+### Deprecations and compatibility notes
+
+- Change default nb_concurrent_calls when downloading layer to 1 instead of 6 (##149)
 
 ### Improvements
 
+- Add command to (only) validate a training dataset (#133)
+- Add options to improve control of output of postprocess (#167)
 - Add support to train subject on different pixel sizes (#143, #174)
 - Add support to overrule configuration parameters via command line arguments (#152)
 - Add option(s) to do automatic cleanup of "old" models, predictions and training data
   directories (#52)
 - In prepare_trainingdata, reuse images already available in previous version (#170)
-- Add command to (only) validate a training dataset (#133)
-- Add options to improve control of output of postprocess (#167)
 - Several small improvements to logging, documentation,... (#128, #180, #185)
 - Apply pyupgrade (python >= 3.9), pydocstyle, isort and mypy (#181, #182, #184, #187)
 - Update dependencies: geopandas, ruff,... + drop support for pygeos (#179)
@@ -20,11 +24,7 @@
 - Fix check that traindataset has validation samples should not be per file (#131)
 - Fix support for WMS username/password (#146)
 - Fix train gives an error after training if there are no "test" locations defined (#165)
-- Fix occassional errors when deleting redundant files in `load_images` (#186)
-
-### Deprecations and compatibility notes
-
-- Change default nb_concurrent_calls when downloading layer to 1 instead of 6 (##149)
+- Ignore occassional irrelevant errors thrown during `load_images` (#186)
 
 ## 0.5.0 (2023-07-27)
 
