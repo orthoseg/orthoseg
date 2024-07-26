@@ -2,6 +2,13 @@
 exclude = ["local_ignore"]
 reportGeneralTypeIssues = false
 
+[tool.mypy]
+exclude = ["local_ignore"]
+
+[[tool.mypy.overrides]]
+module = "gdown.*,geopandas.*,keras.*,matplotlib.*,owslib.*,psutil.*,pycron.*,rasterio.*,segmentation_models.*,setuptools.*,openeo.*"
+ignore_missing_imports = true
+
 [tool.ruff]
 target-version = "py39"
 line-length = 88

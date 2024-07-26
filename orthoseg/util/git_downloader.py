@@ -2,6 +2,7 @@
 
 Based on https://github.com/sdushantha/gitdir/blob/master/gitdir/gitdir.py
 """
+# mypy: ignore-errors
 
 import json
 import re

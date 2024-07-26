@@ -8,8 +8,6 @@ from pathlib import Path
 
 from orthoseg.util import config_util, log_util
 
-runner_config = None
-
 
 def main():
     """Main."""

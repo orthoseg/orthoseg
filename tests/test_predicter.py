@@ -1,4 +1,4 @@
-from contextlib import nullcontext
+from contextlib import AbstractContextManager, nullcontext
 
 import pytest
 
@@ -22,6 +22,7 @@ def test_predict_dir_input_image_dir_empty(
     output_image_dir = tmp_path / "output"
     output_image_dir.mkdir()
 
+    handler: AbstractContextManager
     if exp_error:
         handler = pytest.raises(ValueError)
     else:

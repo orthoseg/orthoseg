@@ -12,7 +12,7 @@ import json  # noqa: I001
 import logging
 import os
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable, Optional, Union
 
 import numpy as np
 import tensorflow as tf
@@ -163,6 +163,7 @@ def compile_model(
         raise ValueError("Specifying metrics not yet implemented")
 
     # Check loss function
+    loss_func: Union[Callable, str]
     if loss == "bcedice":
         loss_func = dice_coef_loss_bce
     elif loss == "dice_loss":
