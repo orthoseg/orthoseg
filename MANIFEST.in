@@ -3,7 +3,7 @@ include orthoseg/project_defaults.ini
 include orthoseg/scriptrunner_defaults.ini
 
 # Include the version.txt file
-include geofileops/version.txt
+include orthoseg/version.txt
 
 # Include the py.types so e.g. mypy knows orthoseg is typed
-include geofileops/py.typed
+include orthoseg/py.typed
