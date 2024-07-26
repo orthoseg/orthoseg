@@ -75,19 +75,16 @@ def predict(config_path: Path, config_overrules: list[str] = []):
     )
     global logger
     logger = log_util.main_log_init(conf.dirs.getpath("log_dir"), __name__)
-
-    # Log start + send email
-    message = f"Start predict for config {config_path.stem}"
-    logger.info(message)
+    logger.info(f"Start predict for config {config_path.stem}")
     logger.debug(f"Config used: \n{conf.pformat_config()}")
-    email_helper.sendmail(message)
 
     try:
         # Read some config, and check if values are ok
-        image_layer = conf.image_layers[conf.predict["image_layer"]]
-        if image_layer is None:
+        image_layer = conf.predict["image_layer"]
+        image_layer_info = conf.image_layers[image_layer]
+        if image_layer_info is None:
             raise Exception(
-                f"image_layer to predict is not specified in config: {image_layer}"
+                f"image_layer to predict is not specified in config: {image_layer_info}"
             )
         input_image_dir = conf.dirs.getpath("predict_image_input_dir")
         if not input_image_dir.exists():
@@ -261,12 +258,18 @@ def predict(config_path: Path, config_overrules: list[str] = []):
         )
         output_vector_dir = conf.dirs.getpath("output_vector_dir")
         output_vector_name = (
-            f"{best_model['basefilename']}_{best_model['epoch']}_"
-            f"{conf.predict['image_layer']}"
+            f"{best_model['basefilename']}_{best_model['epoch']}_{image_layer}"
         )
         output_vector_path = output_vector_dir / f"{output_vector_name}.gpkg"
 
-        # Predict for entire dataset
+        # Start predict for entire dataset
+        # --------------------------------
+        # Send email
+        email_helper.sendmail(
+            f"Start predict for config {config_path.stem} on {image_layer}"
+        )
+
+        # Predict!
         nb_parallel = conf.general.getint("nb_parallel")
         predicter.predict_dir(
             model=model_for_predict,
@@ -277,7 +280,7 @@ def predict(config_path: Path, config_overrules: list[str] = []):
             min_probability=min_probability,
             postprocess=postprocess,
             border_pixels_to_ignore=conf.predict.getint("image_pixels_overlap"),
-            projection_if_missing=image_layer["projection"],
+            projection_if_missing=image_layer_info["projection"],
             input_mask_dir=None,
             batch_size=batch_size,
             evaluate_mode=False,
