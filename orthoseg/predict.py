@@ -75,12 +75,8 @@ def predict(config_path: Path, config_overrules: list[str] = []):
     )
     global logger
     logger = log_util.main_log_init(conf.dirs.getpath("log_dir"), __name__)
-
-    # Log start + send email
-    message = f"Start predict for config {config_path.stem}"
-    logger.info(message)
+    logger.info(f"Start predict for config {config_path.stem}")
     logger.debug(f"Config used: \n{conf.pformat_config()}")
-    email_helper.sendmail(message)
 
     try:
         # Read some config, and check if values are ok
@@ -266,7 +262,14 @@ def predict(config_path: Path, config_overrules: list[str] = []):
         )
         output_vector_path = output_vector_dir / f"{output_vector_name}.gpkg"
 
-        # Predict for entire dataset
+        # Start predict for entire dataset
+        # --------------------------------
+        # Send email
+        email_helper.sendmail(
+            f"Start predict for config {config_path.stem} on {image_layer}"
+        )
+
+        # Predict!
         nb_parallel = conf.general.getint("nb_parallel")
         predicter.predict_dir(
             model=model_for_predict,
