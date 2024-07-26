@@ -6,7 +6,7 @@ reportGeneralTypeIssues = false
 exclude = ["local_ignore"]
 
 [[tool.mypy.overrides]]
-module = "geopandas.*,matplotlib.*,psutil.*,setuptools.*,openeo.*"
+module = "gdown.*,geopandas.*,keras.*,matplotlib.*,owslib.*,psutil.*,pycron.*,rasterio.*,segmentation_models.*,setuptools.*,openeo.*"
 ignore_missing_imports = true
 
 [tool.ruff]

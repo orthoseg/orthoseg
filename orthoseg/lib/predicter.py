@@ -11,7 +11,7 @@ import time
 import traceback
 from concurrent import futures
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import geofileops as gfo
 import keras.models
@@ -132,7 +132,7 @@ def predict_dir(
     # Write prediction config used, so it can be used for postprocessing
     prediction_config_path = output_image_dir / "prediction_config.json"
     with open(prediction_config_path, "w") as pred_conf_file:
-        pred_conf = {}
+        pred_conf: dict[str, Any] = {}
         pred_conf["border_pixels_to_ignore"] = border_pixels_to_ignore
         pred_conf["classes"] = classes
         json.dump(pred_conf, pred_conf_file)
@@ -183,15 +183,15 @@ def predict_dir(
     nb_parallel_read = batch_size * 3
     if nb_parallel_postprocess == -1:
         nb_parallel_postprocess = multiprocessing.cpu_count()
-    predict_queue = []
+    predict_queue: list[dict] = []
     nb_to_predict = nb_images
     nb_done = 0
     nb_errors = 0
     read_sleep_logged = False
     progress = None
-    read_queue = {}
-    postp_queue = {}
-    write_queue = {}
+    read_queue: dict[futures.Future, Path] = {}
+    postp_queue: dict[futures.Future, Path] = {}
+    write_queue: dict[futures.Future, Path] = {}
     image_id = -1
     last_image_reached = False
 
@@ -227,7 +227,7 @@ def predict_dir(
                 break
 
             # Init for new loop
-            perfinfo = []
+            perfinfo: list[str] = []
 
             # Fill the read queue
             # -------------------
@@ -335,7 +335,7 @@ def predict_dir(
             ):
                 read_sleep_logged = False
                 perf_time_now = datetime.datetime.now()
-                perfinfo = f"waiting for read took {perf_time_now-perf_time_start}"
+                perfinfo += f"waiting for read took {perf_time_now-perf_time_start}"
                 perf_time_start = perf_time_now
 
                 # Predict!
@@ -575,7 +575,7 @@ def predict_dir(
 def _write_vector_result(
     image_path: Path,
     partial_vector_path: Path,
-    vector_output_path: Path,
+    vector_output_path: Optional[Path],
     images_done_log_filepath: Path,
 ):
     # Copy the result to the main vector output file

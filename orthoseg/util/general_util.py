@@ -107,6 +107,8 @@ def formatbytes(bytes: float) -> str:
         return f"{bytes_float / GB:.2f} GB"
     elif TB <= bytes_float:
         return f"{bytes_float / TB:.2f} TB"
+    else:
+        return ""
 
 
 def process_nice_to_priority_class(nice_value: int) -> int:

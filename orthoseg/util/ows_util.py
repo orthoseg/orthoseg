@@ -448,7 +448,7 @@ def align_bbox_to_grid(
         logger.log(level=log_level, msg=msg)
         bbox_tmp[3] = ymax_new
 
-    return tuple(bbox_tmp)
+    return (bbox_tmp[0], bbox_tmp[1], bbox_tmp[2], bbox_tmp[3])
 
 
 def _interprete_ssl_verify(ssl_verify: Union[bool, str, None]):

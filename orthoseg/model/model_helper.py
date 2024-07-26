@@ -390,7 +390,7 @@ def get_models(
         trainparams_id (int, optional): only models with this hyperparams version
     """
     # List models
-    model_paths = []
+    model_paths: list[Path] = []
     model_paths.extend(model_dir.glob("*.hdf5"))
     model_paths.extend(model_dir.glob("*.h5"))
     model_paths.extend(model_dir.glob("*_tf"))
@@ -775,6 +775,7 @@ def save_and_clean_models(
                 and model_info.filepath == str(new_model_path)
                 and not new_model_path.exists()
             ):
+                assert isinstance(model_info.monitor_metric_accuracy, float)
                 if (
                     new_model_epoch > save_min_accuracy_ignored_epoch
                     or model_info.monitor_metric_accuracy > save_min_accuracy
@@ -798,6 +799,7 @@ def save_and_clean_models(
                     )
         else:
             # Bad model... can be removed (or not saved)
+            assert isinstance(model_info.filepath, Path)
             if only_report is True:
                 logger.debug(f"DELETE {model_info.filename}")
             elif Path(model_info.filepath).exists() is True:

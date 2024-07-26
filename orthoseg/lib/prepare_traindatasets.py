@@ -191,9 +191,10 @@ def prepare_traindatasets(
     # Check if the latest version of training data is already ok
     # Determine the current data version based on existing output data dir(s),
     # If dir ends on _TMP_* ignore it, as it (probably) ended with an error.
-    output_dirs = training_dir.glob("[0-9]*/")
     output_dirs = [
-        output_dir for output_dir in output_dirs if "_TMP_" not in output_dir.name
+        output_dir
+        for output_dir in training_dir.glob("[0-9]*/")
+        if "_TMP_" not in output_dir.name
     ]
 
     reuse_traindata = False
@@ -494,6 +495,8 @@ def prepare_labeldata(
         pixel_x_size = pixel_x_size if pixel_x_size is not None else image_pixel_x_size
         pixel_y_size = label_info.pixel_y_size
         pixel_y_size = pixel_y_size if pixel_y_size is not None else image_pixel_y_size
+        assert pixel_x_size is not None
+        assert pixel_y_size is not None
 
         # Tile width/height in units of crs
         image_crs_width = math.fabs(image_pixel_width * pixel_x_size)
@@ -538,6 +541,8 @@ def prepare_labeldata(
             intersection = location_geom_aligned.intersection(
                 labellocations_gdf.at[location.Index, "geometry"]
             )
+            assert image_pixel_x_size is not None
+            assert image_pixel_y_size is not None
             area_1row_1col = (
                 image_pixel_x_size * image_crs_width
                 + image_pixel_y_size * image_crs_height
@@ -768,7 +773,7 @@ def _create_mask(
         logger.debug(
             f"Output file exist, and force is False, return: {output_mask_filepath}"
         )
-        return
+        return None
 
     # Create a mask corresponding with the image file
     # First read the properties of the input image to copy them for the output

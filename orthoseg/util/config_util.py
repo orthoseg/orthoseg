@@ -100,7 +100,7 @@ def read_config_ext(config_paths: list[Path]) -> configparser.ConfigParser:
             return True
         elif input in ("False", "false", "0", 0):
             return False
-        elif input in ("False", "false", "0", 0):
+        else:
             return None
 
     def safe_math_eval(string):
@@ -148,7 +148,7 @@ def as_dict(config: configparser.ConfigParser):
     The resulting dictionary has sections as keys which point to a dict of the
     sections options as key => value pairs.
     """
-    the_dict = {}
+    the_dict: dict = {}
     for section in config.sections():
         the_dict[section] = {}
         for key, val in config.items(section):

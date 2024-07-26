@@ -7,7 +7,7 @@ import pprint
 import re
 import tempfile
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 from orthoseg.lib.prepare_traindatasets import LabelInfo
 from orthoseg.util import config_util
@@ -245,7 +245,7 @@ def _read_layer_config(layer_config_filepath: Path) -> dict:
     layer_config.read(layer_config_filepath)
 
     # Prepare data
-    image_layers = {}
+    image_layers: dict[str, dict] = {}
     for image_layer in layer_config.sections():
         # First check if the image_layer code doesn't contain 'illegal' characters
         if any(illegal_char in image_layer for illegal_char in illegal_chars_in_codes):
@@ -292,12 +292,12 @@ def _read_layer_config(layer_config_filepath: Path) -> dict:
         # Convert the layersource dicts to layersource objects
         layersource_objects = []
         for layersource in image_layers[image_layer]["layersources"]:
-            layersource_object = None
+            layersource_object: Union[WMSLayerSource, FileLayerSource]
             try:
                 # If not, the layersource should be specified in seperate parameters
                 if "wms_server_url" in layersource:
                     layersource_object = WMSLayerSource(
-                        wms_server_url=layersource.get("wms_server_url"),
+                        wms_server_url=layersource["wms_server_url"],
                         wms_version=layersource.get("wms_version", "1.3.0"),
                         layernames=_str2list(layersource["wms_layernames"]),
                         layerstyles=_str2list(layersource.get("wms_layerstyles")),
@@ -306,7 +306,7 @@ def _read_layer_config(layer_config_filepath: Path) -> dict:
                         password=layersource.get("wms_password", None),
                         random_sleep=int(layersource.get("random_sleep", 0)),
                         wms_ignore_capabilities_url=_str2bool(
-                            layersource.get("wms_ignore_capabilities_url", False)
+                            layersource.get("wms_ignore_capabilities_url", "False")
                         ),
                     )
                 elif "path" in layersource:
@@ -317,18 +317,18 @@ def _read_layer_config(layer_config_filepath: Path) -> dict:
                         path = path.resolve()
                     layersource_object = FileLayerSource(
                         path=path,
-                        layernames=layersource["layername"],
+                        layernames=_str2list(layersource["layername"]),
                         bands=_str2intlist(layersource.get("bands", None)),
+                    )
+                else:
+                    raise ValueError(
+                        f"Invalid layersource, should be WMS or file: {layersource}"
                     )
             except Exception as ex:
                 raise ValueError(
                     f"Missing parameter in image_layer {image_layer}, layersource "
                     f"{layersource}: {ex}"
                 ) from ex
-            if layersource_object is None:
-                raise ValueError(
-                    f"Invalid layersource, should be WMS or file: {layersource}"
-                )
             layersource_objects.append(layersource_object)
         image_layers[image_layer]["layersources"] = layersource_objects
 
