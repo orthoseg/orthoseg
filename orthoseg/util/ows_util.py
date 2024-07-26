@@ -846,7 +846,7 @@ def getmap_to_file(
                 str(output_filepath), "w", **image_profile_output
             ) as image_file:
                 image_file.write(image_data_output)
-        except CPLE_AppDefinedError as ex:
+        except CPLE_AppDefinedError as ex:  # pragma: no cover
             if ex.errmsg.startswith("Deleting ") and ex.errmsg.endswith(
                 " failed: No such file or directory"
             ):
@@ -859,7 +859,7 @@ def getmap_to_file(
     output_aux_path = output_filepath.parent / f"{output_filepath.name}.aux.xml"
     try:
         output_aux_path.unlink(missing_ok=True)
-    except Exception as ex:
+    except Exception as ex:  # pragma: no cover
         # Occasionally the .aux.xml file is locked, not sure why: ignore it.
         logger.debug(f"Ignore error: {ex}")
 
