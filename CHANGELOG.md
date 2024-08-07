@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.6.1 (????-??-??)
+
+### Bugs fixed
+
+- Fix error when validating some empty traindata files (#192)
+
 ## 0.6.0 (2024-07-26)
 
 ### Deprecations and compatibility notes
