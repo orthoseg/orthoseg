@@ -379,6 +379,8 @@ def prepare_traindatasets(
                     nb_classes = len(classes)
 
                     # Only keep the labels that are meant for this image layer
+                    if "image_layer" not in labels_to_burn_gdf.columns:
+                        print("odd")
                     labels_for_layer_gdf = (
                         labels_to_burn_gdf.loc[
                             labels_to_burn_gdf["image_layer"] == image_layer
@@ -450,12 +452,11 @@ def prepare_labeldata(
         else:
             logger.debug(f"Read label locations from {label_info.locations_path}")
             labellocations_gdf = gfo.read_file(label_info.locations_path)
-            if labellocations_gdf is not None and len(labellocations_gdf) > 0:
-                labellocations_gdf.loc[:, "path"] = str(label_info.locations_path)
-                labellocations_gdf.loc[:, "image_layer"] = label_info.image_layer
-                # Remark: geopandas 0.7.0 drops fid column internally!
-                labellocations_gdf.loc[:, "row_nb_orig"] = labellocations_gdf.index
-            else:
+            labellocations_gdf["path"] = str(label_info.locations_path)
+            labellocations_gdf["image_layer"] = label_info.image_layer
+            # Remark: geopandas 0.7.0 drops fid column internally!
+            labellocations_gdf["row_nb_orig"] = labellocations_gdf.index
+            if len(labellocations_gdf) == 0:
                 logger.warning(
                     f"No label locations found in {label_info.locations_path}"
                 )
@@ -467,10 +468,9 @@ def prepare_labeldata(
         else:
             logger.debug(f"Read label data from {label_info.polygons_path}")
             labelpolygons_gdf = gfo.read_file(label_info.polygons_path)
-            if labelpolygons_gdf is not None and len(labelpolygons_gdf) > 0:
-                labelpolygons_gdf.loc[:, "path"] = str(label_info.polygons_path)
-                labelpolygons_gdf.loc[:, "image_layer"] = label_info.image_layer
-            else:
+            labelpolygons_gdf["path"] = str(label_info.polygons_path)
+            labelpolygons_gdf["image_layer"] = label_info.image_layer
+            if len(labelpolygons_gdf) == 0:
                 logger.warning(f"No label polygons found in {label_info.polygons_path}")
 
         assert labellocations_gdf is not None
