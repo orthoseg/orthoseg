@@ -4,7 +4,8 @@
 
 ### Bugs fixed
 
-- Fix error when validating some empty traindata files (#192)
+- Fix error in `prepare_traindatasets` when a polygons training dataset is empty
+  (#192, #193)
 
 ## 0.6.0 (2024-07-26)
 
