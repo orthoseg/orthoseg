@@ -799,7 +799,7 @@ def save_and_clean_models(
                     )
         else:
             # Bad model... can be removed (or not saved)
-            assert isinstance(model_info.filepath, Path)
+            assert isinstance(model_info.filepath, (str, Path))
             if only_report is True:
                 logger.debug(f"DELETE {model_info.filename}")
             elif Path(model_info.filepath).exists() is True:
