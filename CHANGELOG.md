@@ -1,11 +1,13 @@
 # CHANGELOG
 
-## 0.6.1 (????-??-??)
+## 0.6.1 (2024-08-12)
 
 ### Bugs fixed
 
 - Fix error in `prepare_traindatasets` when a polygons training dataset is empty
   (#192, #193)
+- Fix error in `train` when a model was saved and the next epoch should not be retained
+  (#195)
 
 ## 0.6.0 (2024-07-26)
 
