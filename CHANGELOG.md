@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.7.0 (????-??-??)
+
+### Improvements
+
+- Small improvements to logging, error messages,... (#198)
+
 ## 0.6.1 (2024-08-12)
 
 ### Bugs fixed
