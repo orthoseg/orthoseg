@@ -513,9 +513,11 @@ def prepare_labeldata(
                 continue
 
             # Check if the traindata_type is valid
-            if location.traindata_type not in ["train", "validation", "test", "todo"]:
+            traindata_types = ["train", "validation", "test", "todo"]
+            if location.traindata_type not in traindata_types:
                 validation_errors.append(
                     f"Invalid traindata_type in {Path(location.path).name}: "
+                    f"{location.traindata_type} not in {traindata_types}, wkt:"
                     f"{location.geometry.wkt}"
                 )
 
