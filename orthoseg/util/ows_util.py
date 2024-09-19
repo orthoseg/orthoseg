@@ -570,8 +570,7 @@ def getmap_to_file(
 
     logger.debug(f"Get image to {output_filepath}")
 
-    if not output_dir.exists():
-        output_dir.mkdir()
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     # Get image(s), read the band to keep and save
     # Some hacks for special cases...
