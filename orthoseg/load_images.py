@@ -119,7 +119,6 @@ def load_images(
             image_pixel_x_size = conf.predict.getfloat("image_pixel_x_size")
             image_pixel_y_size = conf.predict.getfloat("image_pixel_y_size")
             image_pixels_overlap = conf.predict.getint("image_pixels_overlap", 0)
-            image_format = ows_util.FORMAT_JPEG
 
             # For the real prediction dataset, no skipping obviously...
             nb_images_to_skip = 0
@@ -140,6 +139,9 @@ def load_images(
 
         # Get the layer info
         predict_layer = conf.predict["image_layer"]
+        if predict_layer not in conf.image_layers:
+            raise ValueError(f"{predict_layer=} is not configured in image_layers")
+
         layersources = conf.image_layers[predict_layer]["layersources"]
         nb_concurrent_calls = conf.image_layers[predict_layer]["nb_concurrent_calls"]
         crs = pyproj.CRS.from_user_input(conf.image_layers[predict_layer]["projection"])
@@ -150,6 +152,9 @@ def load_images(
             "image_pixels_ignore_border"
         ]
         roi_filepath = conf.image_layers[predict_layer]["roi_filepath"]
+        image_format = conf.image_layers[predict_layer].get(
+            "image_format", ows_util.FORMAT_JPEG
+        )
 
         # Now we are ready to get the images...
         ows_util.get_images_for_grid(

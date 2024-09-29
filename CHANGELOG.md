@@ -4,7 +4,12 @@
 
 ### Improvements
 
+- Make image format for downloaded images configurable (#204)
 - Small improvements to logging, error messages,... (#198)
+
+### Bugs fixed
+
+- Avoid error if a training dataset contains 2 identical locations (#205)
 
 ## 0.6.1 (2024-08-12)
 
