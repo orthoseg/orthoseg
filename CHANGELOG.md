@@ -4,6 +4,7 @@
 
 ### Improvements
 
+- Make image format for downloaded images configurable (#204)
 - Small improvements to logging, error messages,... (#198)
 
 ## 0.6.1 (2024-08-12)
