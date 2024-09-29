@@ -564,7 +564,7 @@ def getmap_to_file(
     if force is False and output_filepath.exists():
         if output_filepath.stat().st_size > 0:
             logger.debug(f"File already exists, skip: {output_filepath}")
-            return None
+            return output_filepath
         else:
             output_filepath.unlink()
 
