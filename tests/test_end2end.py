@@ -33,9 +33,9 @@ def test_1_init_testproject():
 
 
 @pytest.mark.order(after="test_1_init_testproject")
-def test_2_load_images(footballfields_ini: str):
+def test_2_load_images():
     # Load project config to init some vars.
-    config_path = footballfields_dir / footballfields_ini
+    config_path = footballfields_dir / "footballfields_BEFL-2019_test.ini"
     conf.read_orthoseg_config(config_path)
     image_cache_dir = conf.dirs.getpath("predict_image_input_dir")
 
