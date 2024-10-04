@@ -262,7 +262,7 @@ def get_images_for_grid(
     tiles_path = output_image_dir / "tiles_to_download.gpkg"
     gfo.to_file(tiles_to_download_gdf, tiles_path)
 
-    with futures.ThreadPoolExecutor(nb_concurrent_calls) as pool:
+    with futures.ProcessPoolExecutor(nb_concurrent_calls) as pool:
         # Loop through all columns and get the images...
         has_switched_axes = _has_switched_axes(crs)
         nb_total = len(tiles_to_download_gdf)
