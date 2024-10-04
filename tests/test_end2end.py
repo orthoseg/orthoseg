@@ -32,10 +32,17 @@ def test_1_init_testproject():
     shutil.copytree(test_helper.sampleprojects_dir, testprojects_dir)
 
 
+@pytest.mark.parametrize(
+    "footballfields_ini",
+    [
+        "footballfields_BEFL-2019_test.ini",
+        "footballfields_BEFL-2023-WMTS_test.ini",
+    ],
+)
 @pytest.mark.order(after="test_1_init_testproject")
-def test_2_load_images():
+def test_2_load_images(footballfields_ini: str):
     # Load project config to init some vars.
-    config_path = footballfields_dir / "footballfields_BEFL-2019_test.ini"
+    config_path = footballfields_dir / footballfields_ini
     conf.read_orthoseg_config(config_path)
     image_cache_dir = conf.dirs.getpath("predict_image_input_dir")
 
