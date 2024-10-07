@@ -14,7 +14,7 @@ from tests import test_helper
         "footballfields_BEFL-2023-XYZ_test.ini",
     ],
 )
-def test_load_images_wmts(tmp_path, football_ini: str):
+def test_load_images(tmp_path, football_ini: str):
     # Use footballfields sample project for these end to end tests
     testprojects_dir = tmp_path / "sample_projects"
     footballfields_dir = testprojects_dir / "footballfields"
