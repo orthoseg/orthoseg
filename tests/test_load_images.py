@@ -7,7 +7,7 @@ from tests import test_helper
 
 def test_load_images_wmts(tmp_path):
     # Use footballfields sample project for these end to end tests
-    testprojects_dir = tmp_path / "orthoseg_test_end2end/sample_projects"
+    testprojects_dir = tmp_path / "sample_projects"
     footballfields_dir = testprojects_dir / "footballfields"
     shutil.copytree(test_helper.sampleprojects_dir, testprojects_dir)
     # Load project config to init some vars.
