@@ -5,9 +5,12 @@ import json
 import logging
 import pprint
 import re
+import shutil
 import tempfile
 from pathlib import Path
 from typing import Any, Optional, Union
+
+from osgeo import gdal
 
 from orthoseg.lib.prepare_traindatasets import LabelInfo
 from orthoseg.util import config_util
@@ -77,7 +80,7 @@ def read_orthoseg_config(config_path: Path, overrules: list[str] = []):
     global config_overrules_path
     config_overrules_path = None
     if len(config_overrules) > 0:
-        config_overrules_path = get_tmp_dir() / "config_overrules.ini"
+        config_overrules_path = get_run_tmp_dir() / "config_overrules.ini"
 
         # Create config parser, add all overrules
         overrules_parser = configparser.ConfigParser()
@@ -167,7 +170,7 @@ def read_orthoseg_config(config_path: Path, overrules: list[str] = []):
     image_layers = _read_layer_config(layer_config_filepath=layer_config_filepath)
 
 
-def get_tmp_dir() -> Path:
+def get_run_tmp_dir() -> Path:
     """Get a temporary directory for this run.
 
     If no temporary directory exists yet, it is created.
@@ -183,6 +186,14 @@ def get_tmp_dir() -> Path:
         tmp_dir = Path(tempfile.mkdtemp(prefix="run_", dir=tmp_dir))
 
     return tmp_dir
+
+
+def remove_run_tmp_dir():
+    """Remove the temporary directory for this run."""
+    global tmp_dir
+    if tmp_dir is not None:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        tmp_dir = None
 
 
 def get_train_label_infos() -> list[LabelInfo]:
@@ -283,6 +294,12 @@ def _read_layer_config(layer_config_filepath: Path) -> dict:
                 "wms_ignore_capabilities_url",
                 "path",
                 "layername",
+                "wmts_server_url",
+                "wmts_version",
+                "wmts_layernames",
+                "wmts_layerstyles",
+                "wmts_tile_matrix_set",
+                "wmts_xyz",
             ]
             for key in layersource_keys:
                 if key in layer_config[image_layer]:
@@ -308,6 +325,15 @@ def _read_layer_config(layer_config_filepath: Path) -> dict:
                         wms_ignore_capabilities_url=_str2bool(
                             layersource.get("wms_ignore_capabilities_url", "False")
                         ),
+                    )
+                elif "wmts_server_url" in layersource:
+                    path = _gdal_virtual_file_path(
+                        path=layer_config_filepath.parent, layersource=layersource
+                    )
+                    layersource_object = FileLayerSource(
+                        path=path,
+                        layernames=_str2list(layersource["layername"]),
+                        bands=_str2intlist(layersource.get("bands", None)),
                     )
                 elif "path" in layersource:
                     path = Path(layersource["path"])
@@ -538,3 +564,32 @@ def _str2bool(input: Optional[str]):
     if isinstance(input, bool):
         return input
     return input.lower() in ("yes", "true", "false", "1")
+
+
+def _gdal_virtual_file_path(path: Path, layersource) -> Path:
+    """Create a virtual file path for GDAL.
+
+    Returns:    Path: the path to the virtual file.
+    """
+    output_path = get_run_tmp_dir() / f"{layersource['layername']}.vrt"
+    input = (
+        f"WMTS:{layersource['wmts_server_url']}SERVICE=WMTS"
+        f"&VERSION={layersource['wmts_version']}&REQUEST=GetCapabilities"
+        f"&LAYER={layersource['wmts_layernames']}"
+        f"&TILEMATRIXSET={layersource['wmts_tile_matrix_set']}"
+    )
+    input = input + layersource["wmts_xyz"] if "wmts_xyz" in layersource else input
+    input = (
+        input
+        + f",layer={layersource['wmts_layernames']}"
+        + f",tilematrixset={layersource['wmts_tile_matrix_set']}"
+    )
+    gdal_options = gdal.TranslateOptions(format="VRT")
+
+    gdal.Translate(
+        output_path,
+        input,
+        options=gdal_options,
+    )
+
+    return output_path

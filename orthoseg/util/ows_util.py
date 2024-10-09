@@ -955,8 +955,8 @@ def getmap_to_file(
             wld_file.write("\n0.000")
             wld_file.write("\n0.000")
             wld_file.write(f"\n{crs_pixel_y_size}")
-            wld_file.write(f"\n{bbox[0]}")
-            wld_file.write(f"\n{bbox[3]}")
+            wld_file.write(f"\n{bbox[0]+crs_pixel_x_size/2}")
+            wld_file.write(f"\n{bbox[3]+crs_pixel_y_size/2}")
 
         # If the image format to save is different, or if a border needs to be ignored
         if image_format != image_format_save or image_pixels_ignore_border > 0:
