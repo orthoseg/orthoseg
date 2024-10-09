@@ -5,6 +5,7 @@ import json
 import logging
 import pprint
 import re
+import shutil
 import tempfile
 from pathlib import Path
 from typing import Any, Optional, Union
@@ -79,7 +80,7 @@ def read_orthoseg_config(config_path: Path, overrules: list[str] = []):
     global config_overrules_path
     config_overrules_path = None
     if len(config_overrules) > 0:
-        config_overrules_path = get_tmp_dir() / "config_overrules.ini"
+        config_overrules_path = get_run_tmp_dir() / "config_overrules.ini"
 
         # Create config parser, add all overrules
         overrules_parser = configparser.ConfigParser()
@@ -169,7 +170,7 @@ def read_orthoseg_config(config_path: Path, overrules: list[str] = []):
     image_layers = _read_layer_config(layer_config_filepath=layer_config_filepath)
 
 
-def get_tmp_dir() -> Path:
+def get_run_tmp_dir() -> Path:
     """Get a temporary directory for this run.
 
     If no temporary directory exists yet, it is created.
@@ -185,6 +186,14 @@ def get_tmp_dir() -> Path:
         tmp_dir = Path(tempfile.mkdtemp(prefix="run_", dir=tmp_dir))
 
     return tmp_dir
+
+
+def remove_run_tmp_dir():
+    """Remove the temporary directory for this run."""
+    global tmp_dir
+    if tmp_dir is not None:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        tmp_dir = None
 
 
 def get_train_label_infos() -> list[LabelInfo]:
@@ -562,7 +571,7 @@ def _gdal_virtual_file_path(path: Path, layersource) -> Path:
 
     Returns:    Path: the path to the virtual file.
     """
-    output_path = path / f"{layersource['layername']}.vrt"
+    output_path = get_run_tmp_dir() / f"{layersource['layername']}.vrt"
     input = (
         f"WMTS:{layersource['wmts_server_url']}SERVICE=WMTS"
         f"&VERSION={layersource['wmts_version']}&REQUEST=GetCapabilities"
