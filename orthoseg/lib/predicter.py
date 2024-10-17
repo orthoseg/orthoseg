@@ -112,7 +112,7 @@ def predict_dir(
         return
 
     # Create tmp dir for this predict run
-    tmp_dir = Path(tempfile.gettempdir()) / "orthoseg"
+    tmp_dir = Path(tempfile.gettempdir())
     tmp_dir.mkdir(parents=True, exist_ok=True)
     tmp_dir = Path(tempfile.mkdtemp(prefix=f"{Path(__file__).stem}_", dir=tmp_dir))
     logger.info(f"Start predict for input_image_dir: {input_image_dir}")
