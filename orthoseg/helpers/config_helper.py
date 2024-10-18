@@ -3,6 +3,7 @@
 import configparser
 import json
 import logging
+import os
 import pprint
 import re
 import tempfile
@@ -68,6 +69,9 @@ def read_orthoseg_config(config_path: Path, overrules: list[str] = []):
             ways to supply configuration. They should be specified as a list of
             "<section>.<parameter>=<value>" strings. Defaults to [].
     """
+    # Set the temporary directory
+    _set_tmp_dir()
+
     # Determine list of config files that should be loaded
     config_paths = config_util.get_config_files(config_path)
 
@@ -167,6 +171,23 @@ def read_orthoseg_config(config_path: Path, overrules: list[str] = []):
     image_layers = _read_layer_config(layer_config_filepath=layer_config_filepath)
 
 
+def _set_tmp_dir(dir: str = "orthoseg") -> Path:
+    # Check if TMPDIR exists in environment
+    tmpdir = os.getenv("TMPDIR")
+    tmpdir = Path(tempfile.gettempdir() if tmpdir is None else tmpdir).as_posix()
+    # Check if the TMPDIR is not already set to a orthoseg directory
+    if os.path.basename(tmpdir).lower() != dir.lower():
+        tmpdir = f"{tmpdir}/{dir}"
+        # Set the TMPDIR in the environment
+        os.environ["TMPDIR"] = tmpdir
+        tempfile.tempdir = tmpdir
+
+    # Create TMPDIR
+    Path(tmpdir).mkdir(parents=True, exist_ok=True)
+
+    return Path(tmpdir)
+
+
 def get_tmp_dir() -> Path:
     """Get a temporary directory for this run.
 
@@ -178,7 +199,7 @@ def get_tmp_dir() -> Path:
     global tmp_dir
 
     if tmp_dir is None:
-        tmp_dir = Path(tempfile.gettempdir()) / "orthoseg"
+        tmp_dir = Path(tempfile.gettempdir())
         tmp_dir.mkdir(parents=True, exist_ok=True)
         tmp_dir = Path(tempfile.mkdtemp(prefix="run_", dir=tmp_dir))
 

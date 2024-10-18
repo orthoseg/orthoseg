@@ -1,4 +1,6 @@
 import re
+import tempfile
+from pathlib import Path
 
 import pytest
 
@@ -197,3 +199,10 @@ def test_unformat_error():
             "fields_BEFL-2018_polygons.gpkg",
             pattern="fields_{image_layer}_data.gpkg",
         )
+
+
+def test_tmpdir():
+    tmpdir = conf._set_tmp_dir("orthoseg")
+
+    assert tmpdir.exists()
+    assert tmpdir == Path(tempfile.gettempdir())
