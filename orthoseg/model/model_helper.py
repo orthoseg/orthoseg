@@ -4,7 +4,7 @@ import json
 import logging
 import shutil
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import pandas as pd
 from keras import callbacks
@@ -125,9 +125,13 @@ class TrainParams:
         Raises:
             Exception: [description]
         """
+        # Validate if the augmentations specified are OK
+        _validate_augmentations(image_augmentations, mask_augmentations)
+
         self.trainparams_id = trainparams_id
         self.image_augmentations = image_augmentations
         self.mask_augmentations = mask_augmentations
+
         self.class_weights = class_weights
         self.batch_size = batch_size
 
@@ -229,6 +233,50 @@ class HyperParams:
             str: the object serialized as JSON string.
         """
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
+
+
+def _validate_augmentations(
+    image_augmentations: dict[str, Any], mask_augmentations: dict[str, Any]
+):
+    errors = []
+
+    # These augmentations should be the same for the mask and the image
+    should_be_same = [
+        "rotation_range",
+        "width_shift_range",
+        "height_shift_range",
+        "zoom_range",
+    ]
+    for key in should_be_same:
+        error_message = (
+            f"when {key} is used, it should be in image_augmentations and "
+            "mask_augmentations with the same value."
+        )
+        if key in image_augmentations:
+            if key not in mask_augmentations:
+                # Key is only in image augmentation -> error
+                errors.append(error_message)
+            elif mask_augmentations[key] != image_augmentations[key]:
+                # Augmentation parameter is not the same -> error
+                errors.append(error_message)
+        elif key in mask_augmentations:
+            # Key is only in mask augmentation -> error
+            errors.append(error_message)
+
+    # Check augmentations that should have specific values for mask_augmentations
+    mask_specifics = [("cval", 0), ("rescale", 1), ("brightness_range", [1.0, 1.0])]
+    for key, value in mask_specifics:
+        if key not in mask_augmentations:
+            mask_augmentations[key] = value
+        else:
+            if mask_augmentations[key] != value:
+                errors.append(
+                    f"{key} for mask_augmentations should be {value}, not "
+                    f"{mask_augmentations[key]}"
+                )
+
+    if len(errors) > 0:
+        raise ValueError(f"issues found in augmentation parameters: {errors}")
 
 
 def format_model_basefilename(
