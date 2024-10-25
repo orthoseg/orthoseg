@@ -189,7 +189,7 @@ def load_images(
         )
         raise Exception(message) from ex
     finally:
-        conf.remove_tmp_dir()
+        conf.remove_run_tmp_dir()
 
 
 def main():
