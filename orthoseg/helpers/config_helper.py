@@ -174,18 +174,19 @@ def read_orthoseg_config(config_path: Path, overrules: list[str] = []):
 def _set_tmp_dir(dir: str = "orthoseg") -> Path:
     # Check if TMPDIR exists in environment
     tmpdir = os.getenv("TMPDIR")
-    tmpdir = Path(tempfile.gettempdir() if tmpdir is None else tmpdir).as_posix()
+    tmp_dir = Path(tempfile.gettempdir() if tmpdir is None else tmpdir)
+
     # Check if the TMPDIR is not already set to a orthoseg directory
-    if os.path.basename(tmpdir).lower() != dir.lower():
-        tmpdir = f"{tmpdir}/{dir}"
+    if tmp_dir.name.lower() != dir.lower():
+        tmp_dir /= dir
         # Set the TMPDIR in the environment
-        os.environ["TMPDIR"] = tmpdir
-        tempfile.tempdir = tmpdir
+        os.environ["TMPDIR"] = tmp_dir.as_posix()
+        tempfile.tempdir = tmp_dir.as_posix()
 
     # Create TMPDIR
-    Path(tmpdir).mkdir(parents=True, exist_ok=True)
+    tmp_dir.mkdir(parents=True, exist_ok=True)
 
-    return Path(tmpdir)
+    return tmp_dir
 
 
 def get_tmp_dir() -> Path:
