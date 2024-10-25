@@ -240,6 +240,13 @@ def _validate_augmentations(
 ):
     errors = []
 
+    # The same augmentations should be specified for images and masks
+    if not sorted(image_augmentations) == sorted(mask_augmentations):
+        raise ValueError(
+            "The same augmentations should be specified for images and masks to avoid "
+            "problems with random augmentation factors"
+        )
+
     # These augmentations should be the same for the mask and the image
     should_be_same = [
         "rotation_range",
@@ -250,7 +257,7 @@ def _validate_augmentations(
     for key in should_be_same:
         error_message = (
             f"when {key} is used, it should be in image_augmentations and "
-            "mask_augmentations with the same value."
+            "mask_augmentations with the same value"
         )
         if key in image_augmentations:
             if key not in mask_augmentations:
@@ -264,10 +271,19 @@ def _validate_augmentations(
             errors.append(error_message)
 
     # Check augmentations that should have specific values for mask_augmentations
-    mask_specifics = [("cval", 0), ("rescale", 1), ("brightness_range", [1.0, 1.0])]
-    for key, value in mask_specifics:
+    mask_specifics = [
+        ("fill_mode", "constant", True),
+        ("cval", 0, True),
+        ("rescale", 1, True),
+        ("brightness_range", [1.0, 1.0], False),
+    ]
+    for key, value, mandatory in mask_specifics:
         if key not in mask_augmentations:
-            mask_augmentations[key] = value
+            if mandatory:
+                errors.append(
+                    f"{key} is a mandatory augmentation that should be {value} for "
+                    "mask_augmentations"
+                )
         else:
             if mask_augmentations[key] != value:
                 errors.append(
