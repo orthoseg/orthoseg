@@ -241,10 +241,11 @@ def _validate_augmentations(
     errors = []
 
     # The same augmentations should be specified for images and masks
-    if not sorted(image_augmentations) == sorted(mask_augmentations):
+    if not list(image_augmentations) == list(mask_augmentations):
         raise ValueError(
-            "The same augmentations should be specified for images and masks to avoid "
-            "problems with random augmentation factors"
+            "the same augmentations should be specified in the same order for images "
+            "and masks to avoid possible issues with random augmentation factors "
+            "getting mixed up. Values can be different for some augmentations."
         )
 
     # These augmentations should be the same for the mask and the image
