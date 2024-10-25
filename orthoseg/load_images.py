@@ -3,7 +3,6 @@
 import argparse
 import logging
 import shlex
-import shutil
 import sys
 import traceback
 from pathlib import Path
@@ -190,8 +189,7 @@ def load_images(
         )
         raise Exception(message) from ex
     finally:
-        if conf.tmp_dir is not None:
-            shutil.rmtree(conf.tmp_dir, ignore_errors=True)
+        conf.remove_tmp_dir()
 
 
 def main():
