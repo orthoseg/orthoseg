@@ -5,6 +5,7 @@
 ### Improvements
 
 - Make image format for downloaded images configurable (#204)
+- Add validations on the augmentation configuration (#214)
 - Small improvements to logging, error messages,... (#198)
 
 ### Bugs fixed
