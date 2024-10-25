@@ -115,7 +115,7 @@ def validate(config_path: Path, config_overrules: list[str] = []):
         email_helper.sendmail(subject=message, body=message_body)
         raise Exception(message) from ex
     finally:
-        conf.remove_tmp_dir()
+        conf.remove_run_tmp_dir()
 
 
 def main():

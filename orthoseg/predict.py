@@ -318,7 +318,7 @@ def predict(config_path: Path, config_overrules: list[str] = []):
         )
         raise Exception(message) from ex
     finally:
-        conf.remove_tmp_dir()
+        conf.remove_run_tmp_dir()
 
 
 def main():
