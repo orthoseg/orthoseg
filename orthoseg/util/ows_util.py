@@ -847,8 +847,9 @@ def getmap_to_file(
             ) as image_file:
                 image_file.write(image_data_output)
         except CPLE_AppDefinedError as ex:  # pragma: no cover
-            if ex.errmsg.startswith("Deleting ") and ex.errmsg.endswith(
-                " failed: No such file or directory"
+            errmsg = ex.errmsg.strip()
+            if errmsg.startswith("Deleting ") and errmsg.endswith(
+                (" failed: No such file or directory", " failed: Permission denied")
             ):
                 # Occasionally this error occurs, not sure why: ignore it.
                 logger.debug(f"Ignore error: {ex}")
