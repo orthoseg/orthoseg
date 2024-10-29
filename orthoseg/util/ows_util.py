@@ -264,7 +264,7 @@ def get_images_for_grid(
     tiles_path = output_image_dir / "tiles_to_download.gpkg"
     gfo.to_file(tiles_to_download_gdf, tiles_path)
 
-    with futures.ThreadPoolExecutor(nb_concurrent_calls) as pool:
+    with futures.ProcessPoolExecutor(nb_concurrent_calls) as pool:
         # Loop through all columns and get the images...
         has_switched_axes = _has_switched_axes(crs)
         nb_total = len(tiles_to_download_gdf)
@@ -880,8 +880,9 @@ def getmap_to_file(
             ) as image_file:
                 image_file.write(image_data_output)
         except CPLE_AppDefinedError as ex:  # pragma: no cover
-            if ex.errmsg.startswith("Deleting ") and ex.errmsg.endswith(
-                " failed: No such file or directory"
+            errmsg = ex.errmsg.strip()
+            if errmsg.startswith("Deleting ") and errmsg.endswith(
+                (" failed: No such file or directory", " failed: Permission denied")
             ):
                 # Occasionally this error occurs, not sure why: ignore it.
                 logger.debug(f"Ignore error: {ex}")
