@@ -610,7 +610,7 @@ def _gdal_virtual_file_path(path: Path, layersource) -> Path:
     gdal_options = gdal.TranslateOptions(format="VRT")
 
     gdal.Translate(
-        output_path,
+        str(output_path),
         input,
         options=gdal_options,
     )
