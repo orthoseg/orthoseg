@@ -728,7 +728,7 @@ def getmap_to_file(
                         bbox_for_getmap[1],
                     ]
                 )
-                gdal.Translate(tmp_file, layersource.path, options=options)
+                gdal.Translate(str(tmp_file), layersource.path, options=options)
 
                 image_file = rio.open(tmp_file)
                 if layersource.bands is not None:
