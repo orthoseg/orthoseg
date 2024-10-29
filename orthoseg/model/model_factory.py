@@ -258,7 +258,7 @@ def load_model(model_to_use_filepath: Path, compile: bool = True) -> keras.model
 
             except Exception as ex:
                 # If not tried yet, try upgrade the model to keras 3 compliant
-                if not upgrade_tried and ex.errmsg.startswith(
+                if not upgrade_tried and str(ex).startswith(
                     "Unrecognized keyword arguments passed to DepthwiseConv2D"
                 ):
                     upgrade_tried = True
