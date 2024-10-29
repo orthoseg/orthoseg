@@ -259,8 +259,9 @@ def load_model(model_to_use_filepath: Path, compile: bool = True) -> keras.model
             except Exception as ex:
                 # If not tried yet, try upgrade the model to keras 3 compliant
                 if not upgrade_tried and str(ex).startswith(
-                    "Unrecognized keyword arguments passed to DepthwiseConv2D"
+                    "Error when deserializing class 'DepthwiseConv2D' using config"
                 ):
+                    logger.warning("Error loading model, try to upgrade it to keras 3.")
                     upgrade_tried = True
 
                     # Ref: https://github.com/keras-team/keras/issues/19441
