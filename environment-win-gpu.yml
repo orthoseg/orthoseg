@@ -1,10 +1,12 @@
-name: orthoseg-latest
+name: orthoseg
 channels:
   - conda-forge
 dependencies:
-  - python
+  - python =3.10
   - pip
   # required
+  - cudatoolkit >=11.2,<11.3
+  - cudnn
   - gdown
   - geofileops >=0.6,<0.10
   - geopandas-base >=0.12,<1.1
@@ -19,11 +21,7 @@ dependencies:
   - shapely >=2
   - simplification
   # dependencies of tensorflow that need to be conda versions to evade binary compatibility issues
-  #- h5py <3.11  # When a version > 3.10 is used: segmentation fault
-  # testing
-  - pytest
-  - pytest-cov
-  - pytest-order
+  - h5py <3.11  # When a version > 3.10 is used: segmentation fault
   - pip:
-    - segmentation-models >=1.0,<1.1
-    - tensorflow >=2.7
+    - orthoseg
+    - tensorflow >=2.8,<2.11  # Window native GPU builds only ava!ilable till tf 2.10
