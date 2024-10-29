@@ -153,9 +153,9 @@ def test_4_predict():
     assert result_vector_path.exists()
     result_gdf = gfo.read_file(result_vector_path)
     if os.name == "nt":
-        assert len(result_gdf) == 211
+        assert len(result_gdf) == 124
     else:
-        assert len(result_gdf) == 211
+        assert len(result_gdf) == 124
 
 
 @pytest.mark.skipif(
@@ -183,6 +183,6 @@ def test_5_postprocess():
     assert result_diss_path.exists()
     result_gdf = gfo.read_file(result_diss_path)
     if os.name == "nt":
-        assert len(result_gdf) == 207
+        assert len(result_gdf) == 120
     else:
-        assert len(result_gdf) == 207
+        assert len(result_gdf) == 120

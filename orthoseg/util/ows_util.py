@@ -830,15 +830,15 @@ def getmap_to_file(
             if image_file is not None:
                 image_file.close()
                 image_file = None
-                try:
-                    tmp_file.unlink()
-                    # If an aux.xml file was written, remove it again...
-                    output_aux_path = (
-                        tmp_file.parent / f"{output_filepath.name}.aux.xml"
-                    )
-                    output_aux_path.unlink(missing_ok=True)
-                except Exception:
-                    pass
+                # try:
+                #     tmp_file.unlink()
+                #     # If an aux.xml file was written, remove it again...
+                #     output_aux_path = (
+                #         tmp_file.parent / f"{output_filepath.name}.aux.xml"
+                #     )
+                #     output_aux_path.unlink(missing_ok=True)
+                # except Exception:
+                #     pass
             if memfile is not None:
                 memfile.close()
                 memfile = None

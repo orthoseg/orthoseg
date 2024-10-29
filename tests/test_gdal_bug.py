@@ -2,6 +2,7 @@ import pytest
 from osgeo import gdal
 
 
+@pytest.mark.skip(reason="No actual test, just a demo for gdal bug")
 @pytest.mark.parametrize("input_format", ["VRT", "GTiff"])
 def test_gdal_bug(tmp_path, input_format):
     # WMTS url
