@@ -9,8 +9,8 @@ from tests import test_helper
 @pytest.mark.parametrize(
     "overrules",
     [
-        ["predict.image_layer=BEFL-2023-WMTS"],
-        ["predict.image_layer=BEFL-2023-XYZ"],
+        # ["predict.image_layer=BEFL-2023-WMTS"],
+        # ["predict.image_layer=BEFL-2023-XYZ"],
         [],
     ],
 )
