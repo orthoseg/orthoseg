@@ -121,7 +121,6 @@ def compile_model(
     optimizer_params: dict,
     loss: str,
     metrics: Optional[list[str]] = None,
-    sample_weight_mode: Optional[str] = None,
     class_weights: Optional[list] = None,
 ) -> keras.models.Model:
     """Compile the model for training.
@@ -134,9 +133,8 @@ def compile_model(
             * categorical_crossentropy
             * weighted_categorical_crossentropy: class_weights should be specified!
 
-        metrics (list[Metric], optional): metrics to use. Defaults to None. One of:
-            *
-        sample_weight_mode (str, optional): sample weight mode to use. Defaults to None.
+        metrics (list[str], optional): metrics to use. Support to specify them is not
+            implemented... so should be None. Defaults to None.
         class_weights (list, optional): class weigths to use. Defaults to None.
     """
     import segmentation_models
@@ -189,12 +187,7 @@ def compile_model(
         f"Compile model, optimizer: {optimizer}, loss: {loss}, "
         f"class_weights: {class_weights}"
     )
-    model.compile(
-        optimizer=optimizer_func,
-        loss=loss_func,
-        metrics=metric_funcs,
-        sample_weight_mode=sample_weight_mode,
-    )
+    model.compile(optimizer=optimizer_func, loss=loss_func, metrics=metric_funcs)
 
     return model
 
@@ -244,25 +237,55 @@ def load_model(model_to_use_filepath: Path, compile: bool = True) -> keras.model
             num_classes=nb_classes, name="one_hot_mean_iou"
         )
 
-        try:
-            model = tf.keras.models.load_model(
-                str(model_to_use_filepath),
-                custom_objects={
-                    "jaccard_coef": jaccard_coef,
-                    "jaccard_coef_flat": jaccard_coef_flat,
-                    "jaccard_coef_round": jaccard_coef_round,
-                    "dice_coef": dice_coef,
-                    "iou_score": iou_score,
-                    "f1_score": f1_score,
-                    "one_hot_mean_iou": onehot_mean_iou,
-                    "weighted_categorical_crossentropy": weighted_categorical_crossentropy,  # noqa: E501
-                },
-                compile=compile,
-            )
-        except Exception as ex:
-            errors.append(
-                f"Error loading model+weights from {model_to_use_filepath}: {ex}"
-            )
+        upgrade_tried = False
+        while True:
+            try:
+                model = tf.keras.models.load_model(
+                    str(model_to_use_filepath),
+                    custom_objects={
+                        "jaccard_coef": jaccard_coef,
+                        "jaccard_coef_flat": jaccard_coef_flat,
+                        "jaccard_coef_round": jaccard_coef_round,
+                        "dice_coef": dice_coef,
+                        "iou_score": iou_score,
+                        "f1_score": f1_score,
+                        "one_hot_mean_iou": onehot_mean_iou,
+                        "weighted_categorical_crossentropy": weighted_categorical_crossentropy,  # noqa: E501
+                    },
+                    compile=compile,
+                )
+                break
+
+            except Exception as ex:
+                # If not tried yet, try upgrade the model to keras 3 compliant
+                if not upgrade_tried and str(ex).startswith(
+                    "Error when deserializing class 'DepthwiseConv2D' using config"
+                ):
+                    logger.warning("Error loading model, try to upgrade it to keras 3.")
+                    upgrade_tried = True
+
+                    # Ref: https://github.com/keras-team/keras/issues/19441
+                    # Hack to change model config from keras 2->3 compliant
+                    import h5py
+
+                    f = h5py.File(str(model_to_use_filepath), mode="r+")
+                    model_config_string = f.attrs.get("model_config")
+                    if model_config_string.find('"groups": 1,') != -1:
+                        model_config_string = model_config_string.replace(
+                            '"groups": 1,', ""
+                        )
+                        f.attrs.modify("model_config", model_config_string)
+                        f.flush()
+                        model_config_string = f.attrs.get("model_config")
+                        assert model_config_string.find('"groups": 1,') == -1
+
+                    f.close()
+                    continue
+
+                errors.append(
+                    f"Error loading model+weights from {model_to_use_filepath}: {ex}"
+                )
+                break
 
     # If no model returned yet, try loading loading architecture and weights seperately
     if model is None:
