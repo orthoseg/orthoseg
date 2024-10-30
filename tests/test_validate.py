@@ -11,9 +11,6 @@ from tests import test_helper
 from tests.test_helper import SampleProjectFootball
 
 
-@pytest.mark.skipif(
-    "GITHUB_ACTIONS" in os.environ and os.name == "nt", reason="crashes on windows"
-)
 def test_validate(tmp_path):
     # Copy footballfields sample project for this test
     testprojects_dir = tmp_path / "sample_projects"
