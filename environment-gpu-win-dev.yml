@@ -19,7 +19,7 @@ dependencies:
   - shapely >=2
   - simplification
   # optional, for CUDA support
-  - cudatoolkit >=11.2,<11.3
+  - cudatoolkit >=11.2,<11.3  # cudatoolkit needed for tf 2.10
   - cudnn
   # dependencies of tensorflow that need to be conda versions to evade binary compatibility issues
   - h5py <3.11  # When a version > 3.10 is used with tf 2.10: segmentation fault
