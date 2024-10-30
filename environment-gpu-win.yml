@@ -1,12 +1,10 @@
-name: orthoseg
+name: orthoseg-gpu
 channels:
   - conda-forge
 dependencies:
   - python =3.10
   - pip
   # required
-  - cudatoolkit >=11.2,<11.3
-  - cudnn
   - gdown
   - geofileops >=0.6,<0.10
   - geopandas-base >=0.12,<1.1
@@ -20,8 +18,11 @@ dependencies:
   - rasterio
   - shapely >=2
   - simplification
-  # dependencies of tensorflow that need to be conda versions to evade binary compatibility issues
-  - h5py <3.11  # When a version > 3.10 is used: segmentation fault
+  # optional, for CUDA support
+  - cudatoolkit >=11.2,<11.3
+  - cudnn
+  # dependencies of tensorflow that need to be conda versions to avoid binary compatibility issues
+  - h5py <3.11  # When a version > 3.10 is used with tf 2.10: segmentation fault
   - pip:
     - orthoseg
     - tensorflow >=2.8,<2.11  # Window native GPU builds only ava!ilable till tf 2.10

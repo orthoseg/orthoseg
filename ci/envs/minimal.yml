@@ -19,7 +19,7 @@ dependencies:
   - shapely =2.0
   - simplification
   # dependencies of tensorflow that need to be conda versions to evade binary compatibility issues
-  - h5py =3.9  # When a version > 3.10 is used: segmentation fault
+  - h5py =3.9  # When a version > 3.10 is used with tf 2.10: segmentation fault
   # testing
   - pytest
   - pytest-cov

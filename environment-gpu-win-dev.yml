@@ -1,4 +1,4 @@
-name: orthoseg-dev
+name: orthoseg-gpu-dev
 channels:
   - conda-forge
 dependencies:
@@ -18,11 +18,11 @@ dependencies:
   - rasterio
   - shapely >=2
   - simplification
-  # dependencies of tensorflow that need to be conda versions to evade binary compatibility issues
-  - h5py <3.11  # When a version > 3.10 is used: segmentation fault
   # optional, for CUDA support
   - cudatoolkit >=11.2,<11.3
   - cudnn
+  # dependencies of tensorflow that need to be conda versions to evade binary compatibility issues
+  - h5py <3.11  # When a version > 3.10 is used with tf 2.10: segmentation fault
   # linting
   - mypy ==1.10.1
   - pandas-stubs
