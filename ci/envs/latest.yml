@@ -18,6 +18,7 @@ dependencies:
   - rasterio
   - shapely >=2
   - simplification
+  - gdal
   # dependencies of tensorflow that need to be conda versions to evade binary compatibility issues
   - h5py <3.11  # When a version > 3.10 is used: segmentation fault
   # testing
