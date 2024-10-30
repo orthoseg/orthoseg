@@ -3,7 +3,6 @@
 import logging
 import math
 import random
-import tempfile
 import time
 import warnings
 from concurrent import futures
@@ -23,7 +22,6 @@ import rasterio as rio
 import rasterio.enums
 import rasterio.errors as rio_errors
 import urllib3
-from osgeo import gdal
 from rasterio import (
     profiles as rio_profiles,
     transform as rio_transform,
@@ -721,19 +719,19 @@ def getmap_to_file(
                 # To avoid this, we create a temporary file with the
                 # correct bounding box and open this file instead.
                 # See also test_gdal_bug.py.
-                # image_file = rio.open(str(layersource.path))
-                tmp_file = Path(tempfile.gettempdir()) / output_filename
-                options = gdal.TranslateOptions(
-                    projWin=[
-                        bbox_for_getmap[0],
-                        bbox_for_getmap[3],
-                        bbox_for_getmap[2],
-                        bbox_for_getmap[1],
-                    ]
-                )
-                gdal.Translate(str(tmp_file), str(layersource.path), options=options)
+                image_file = rio.open(str(layersource.path))
+                # tmp_file = Path(tempfile.gettempdir()) / output_filename
+                # options = gdal.TranslateOptions(
+                #     projWin=[
+                #         bbox_for_getmap[0],
+                #         bbox_for_getmap[3],
+                #         bbox_for_getmap[2],
+                #         bbox_for_getmap[1],
+                #     ]
+                # )
+                # gdal.Translate(str(tmp_file), str(layersource.path), options=options)
 
-                image_file = rio.open(tmp_file)
+                # image_file = rio.open(tmp_file)
                 if layersource.bands is not None:
                     nb_bands = len(layersource.bands)
                 else:
