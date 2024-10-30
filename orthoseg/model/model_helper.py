@@ -848,14 +848,20 @@ def save_and_clean_models(
                     logger.debug("Save model start")
                     if save_weights_only:
                         if model_template_for_save is not None:
-                            model_template_for_save.save_weights(str(new_model_path))
+                            model_template_for_save.save_weights(
+                                str(new_model_path), save_format=save_format
+                            )
                         else:
-                            new_model.save_weights(str(new_model_path))
+                            new_model.save_weights(
+                                str(new_model_path), save_format=save_format
+                            )
                     else:
                         if model_template_for_save is not None:
-                            model_template_for_save.save(str(new_model_path))
+                            model_template_for_save.save(
+                                str(new_model_path), save_format=save_format
+                            )
                         else:
-                            new_model.save(str(new_model_path))
+                            new_model.save(str(new_model_path), save_format=save_format)
                     logger.debug("Save model ready")
                 else:
                     print(
