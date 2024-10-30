@@ -54,11 +54,14 @@ def get_config_files(config_path: Path) -> list[Path]:
     )
     basic_projectconfig.read(config_path)
 
-    default_basedir = config_path.parent
-    extra_config_files_to_load = basic_projectconfig["general"].getlist(
-        "extra_config_files_to_load"
-    )
+    extra_config_files_to_load = None
+    if "general" in basic_projectconfig:
+        extra_config_files_to_load = basic_projectconfig["general"].getlist(
+            "extra_config_files_to_load"
+        )
+
     if extra_config_files_to_load is not None:
+        default_basedir = config_path.parent
         for config_file in extra_config_files_to_load:
             config_file_formatted = Path(
                 config_file.format(

@@ -364,7 +364,7 @@ def postprocess_for_evaluation(
             # per class with one-hot encoding
             if nb_classes > 1:
                 mask_categorical_arr = tf.keras.utils.to_categorical(
-                    mask_arr, nb_classes, dtype=rio.uint8
+                    mask_arr, nb_classes
                 )
                 mask_arr = (mask_categorical_arr[:, :, class_id]) * 255
 

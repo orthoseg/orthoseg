@@ -563,12 +563,15 @@ def getmap_to_file(
     output_filepath = output_dir / output_filename
 
     # If force is false and file exists already, stop...
-    if force is False and output_filepath.exists():
+    if not force and output_filepath.exists():
         if output_filepath.stat().st_size > 0:
             logger.debug(f"File already exists, skip: {output_filepath}")
             return output_filepath
         else:
-            output_filepath.unlink()
+            try:
+                output_filepath.unlink()
+            except Exception as ex:
+                logger.warning(f"Error removing file {output_filepath}: {ex}")
 
     logger.debug(f"Get image to {output_filepath}")
 

@@ -5,6 +5,7 @@ dependencies:
   - python
   - pip
   # required
+  - gdal
   - gdown
   - geofileops >=0.6,<0.10
   - geopandas-base >=0.12,<1.1
@@ -18,13 +19,10 @@ dependencies:
   - rasterio
   - shapely >=2
   - simplification
-  - gdal
-  # dependencies of tensorflow that need to be conda versions to evade binary compatibility issues
-  - h5py <3.11  # When a version > 3.10 is used: segmentation fault
   # testing
   - pytest
   - pytest-cov
   - pytest-order
   - pip:
     - segmentation-models >=1.0,<1.1
-    - tensorflow >=2.7,<2.11
+    - tensorflow >=2.7

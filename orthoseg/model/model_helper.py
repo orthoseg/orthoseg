@@ -4,7 +4,7 @@ import json
 import logging
 import shutil
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import pandas as pd
 from keras import callbacks
@@ -125,9 +125,13 @@ class TrainParams:
         Raises:
             Exception: [description]
         """
+        # Validate if the augmentations specified are OK
+        _validate_augmentations(image_augmentations, mask_augmentations)
+
         self.trainparams_id = trainparams_id
         self.image_augmentations = image_augmentations
         self.mask_augmentations = mask_augmentations
+
         self.class_weights = class_weights
         self.batch_size = batch_size
 
@@ -229,6 +233,67 @@ class HyperParams:
             str: the object serialized as JSON string.
         """
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
+
+
+def _validate_augmentations(
+    image_augmentations: dict[str, Any], mask_augmentations: dict[str, Any]
+):
+    errors = []
+
+    # The same augmentations should be specified for images and masks
+    if not list(image_augmentations) == list(mask_augmentations):
+        raise ValueError(
+            "the same augmentations should be specified in the same order for images "
+            "and masks to avoid possible issues with random augmentation factors "
+            "getting mixed up. Values can be different for some augmentations."
+        )
+
+    # These augmentations should be the same for the mask and the image
+    should_be_same = [
+        "rotation_range",
+        "width_shift_range",
+        "height_shift_range",
+        "zoom_range",
+    ]
+    for key in should_be_same:
+        error_message = (
+            f"when {key} is used, it should be in image_augmentations and "
+            "mask_augmentations with the same value"
+        )
+        if key in image_augmentations:
+            if key not in mask_augmentations:
+                # Key is only in image augmentation -> error
+                errors.append(error_message)
+            elif mask_augmentations[key] != image_augmentations[key]:
+                # Augmentation parameter is not the same -> error
+                errors.append(error_message)
+        elif key in mask_augmentations:
+            # Key is only in mask augmentation -> error
+            errors.append(error_message)
+
+    # Check augmentations that should have specific values for mask_augmentations
+    mask_specifics = [
+        ("fill_mode", "constant", True),
+        ("cval", 0, True),
+        ("rescale", 1, True),
+        ("brightness_range", [1.0, 1.0], False),
+    ]
+    for key, value, mandatory in mask_specifics:
+        if key not in mask_augmentations:
+            if mandatory:
+                errors.append(
+                    f"{key} is a mandatory augmentation that should be {value} for "
+                    "mask_augmentations"
+                )
+        else:
+            if mask_augmentations[key] != value:
+                errors.append(
+                    f"{key} for mask_augmentations should be {value}, not "
+                    f"{mask_augmentations[key]}"
+                )
+
+    if len(errors) > 0:
+        raise ValueError(f"issues found in augmentation parameters: {errors}")
 
 
 def format_model_basefilename(
@@ -783,14 +848,20 @@ def save_and_clean_models(
                     logger.debug("Save model start")
                     if save_weights_only:
                         if model_template_for_save is not None:
-                            model_template_for_save.save_weights(str(new_model_path))
+                            model_template_for_save.save_weights(
+                                str(new_model_path), save_format=save_format
+                            )
                         else:
-                            new_model.save_weights(str(new_model_path))
+                            new_model.save_weights(
+                                str(new_model_path), save_format=save_format
+                            )
                     else:
                         if model_template_for_save is not None:
-                            model_template_for_save.save(str(new_model_path))
+                            model_template_for_save.save(
+                                str(new_model_path), save_format=save_format
+                            )
                         else:
-                            new_model.save(str(new_model_path))
+                            new_model.save(str(new_model_path), save_format=save_format)
                     logger.debug("Save model ready")
                 else:
                     print(
