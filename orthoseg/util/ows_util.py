@@ -262,7 +262,7 @@ def get_images_for_grid(
     tiles_path = output_image_dir / "tiles_to_download.gpkg"
     gfo.to_file(tiles_to_download_gdf, tiles_path)
 
-    with futures.ThreadPoolExecutor(nb_concurrent_calls) as pool:
+    with futures.ProcessPoolExecutor(nb_concurrent_calls) as pool:
         # Loop through all columns and get the images...
         has_switched_axes = _has_switched_axes(crs)
         nb_total = len(tiles_to_download_gdf)
@@ -561,12 +561,15 @@ def getmap_to_file(
     output_filepath = output_dir / output_filename
 
     # If force is false and file exists already, stop...
-    if force is False and output_filepath.exists():
+    if not force and output_filepath.exists():
         if output_filepath.stat().st_size > 0:
             logger.debug(f"File already exists, skip: {output_filepath}")
-            return None
+            return output_filepath
         else:
-            output_filepath.unlink()
+            try:
+                output_filepath.unlink()
+            except Exception as ex:
+                logger.warning(f"Error removing file {output_filepath}: {ex}")
 
     logger.debug(f"Get image to {output_filepath}")
 
@@ -846,8 +849,9 @@ def getmap_to_file(
             ) as image_file:
                 image_file.write(image_data_output)
         except CPLE_AppDefinedError as ex:  # pragma: no cover
-            if ex.errmsg.startswith("Deleting ") and ex.errmsg.endswith(
-                " failed: No such file or directory"
+            errmsg = ex.errmsg.strip()
+            if errmsg.startswith("Deleting ") and errmsg.endswith(
+                (" failed: No such file or directory", " failed: Permission denied")
             ):
                 # Occasionally this error occurs, not sure why: ignore it.
                 logger.debug(f"Ignore error: {ex}")

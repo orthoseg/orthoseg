@@ -3,8 +3,10 @@
 import configparser
 import json
 import logging
+import os
 import pprint
 import re
+import shutil
 import tempfile
 from pathlib import Path
 from typing import Any, Optional, Union
@@ -21,7 +23,7 @@ logger = logging.getLogger(__name__)
 # it is used in codes as well the parsing becomes a lot more difficult.
 illegal_chars_in_codes = ["_", ",", ".", "?", ":"]
 
-tmp_dir: Optional[Path] = None
+_run_tmp_dir: Optional[Path] = None
 
 config: configparser.ConfigParser
 config_paths: list[Path]
@@ -68,6 +70,9 @@ def read_orthoseg_config(config_path: Path, overrules: list[str] = []):
             ways to supply configuration. They should be specified as a list of
             "<section>.<parameter>=<value>" strings. Defaults to [].
     """
+    # Set the temporary directory
+    _set_tmp_dir()
+
     # Determine list of config files that should be loaded
     config_paths = config_util.get_config_files(config_path)
 
@@ -77,7 +82,7 @@ def read_orthoseg_config(config_path: Path, overrules: list[str] = []):
     global config_overrules_path
     config_overrules_path = None
     if len(config_overrules) > 0:
-        config_overrules_path = get_tmp_dir() / "config_overrules.ini"
+        config_overrules_path = get_run_tmp_dir() / "config_overrules.ini"
 
         # Create config parser, add all overrules
         overrules_parser = configparser.ConfigParser()
@@ -167,7 +172,25 @@ def read_orthoseg_config(config_path: Path, overrules: list[str] = []):
     image_layers = _read_layer_config(layer_config_filepath=layer_config_filepath)
 
 
-def get_tmp_dir() -> Path:
+def _set_tmp_dir(dir: str = "orthoseg") -> Path:
+    # Check if TMPDIR exists in environment
+    tmpdir = os.getenv("TMPDIR")
+    tmp_dir = Path(tempfile.gettempdir() if tmpdir is None else tmpdir)
+
+    # Check if the TMPDIR is not already set to a orthoseg directory
+    if tmp_dir.name.lower() != dir.lower():
+        tmp_dir /= dir
+        # Set the TMPDIR in the environment
+        os.environ["TMPDIR"] = tmp_dir.as_posix()
+        tempfile.tempdir = tmp_dir.as_posix()
+
+    # Create TMPDIR
+    tmp_dir.mkdir(parents=True, exist_ok=True)
+
+    return tmp_dir
+
+
+def get_run_tmp_dir() -> Path:
     """Get a temporary directory for this run.
 
     If no temporary directory exists yet, it is created.
@@ -175,14 +198,23 @@ def get_tmp_dir() -> Path:
     Returns:
         Path: the path to the temporary directory.
     """
-    global tmp_dir
+    global _run_tmp_dir
 
-    if tmp_dir is None:
-        tmp_dir = Path(tempfile.gettempdir()) / "orthoseg"
-        tmp_dir.mkdir(parents=True, exist_ok=True)
-        tmp_dir = Path(tempfile.mkdtemp(prefix="run_", dir=tmp_dir))
+    if _run_tmp_dir is None:
+        _run_tmp_dir = Path(tempfile.gettempdir())
+        _run_tmp_dir.mkdir(parents=True, exist_ok=True)
+        _run_tmp_dir = Path(tempfile.mkdtemp(prefix="run_", dir=_run_tmp_dir))
 
-    return tmp_dir
+    return _run_tmp_dir
+
+
+def remove_run_tmp_dir():
+    """Remove temporary run directory, including all files or directories in it."""
+    global _run_tmp_dir
+
+    if _run_tmp_dir is not None:
+        shutil.rmtree(_run_tmp_dir, ignore_errors=True)
+        _run_tmp_dir = None
 
 
 def get_train_label_infos() -> list[LabelInfo]:

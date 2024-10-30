@@ -4,7 +4,15 @@
 
 ### Improvements
 
+- Make image format for downloaded images configurable (#204)
+- Add validations on the augmentation configuration (#214)
+- Make load_images more robust by ignoring some filesystem errors that occur sometimes
+  but that don't seem to give actual issues (#216, #2019)
 - Small improvements to logging, error messages,... (#198)
+
+### Bugs fixed
+
+- Avoid error if a training dataset contains 2 identical locations (#205)
 
 ## 0.6.1 (2024-08-12)
 

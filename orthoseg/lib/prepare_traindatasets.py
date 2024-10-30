@@ -367,7 +367,7 @@ def prepare_traindatasets(
                         )
 
                     # Create a mask corresponding with the image file
-                    # Mask should not be in a lossy format -> png!
+                    # Mask should never be in a lossy format -> png!
                     mask_filepath = Path(
                         str(image_filepath)
                         .replace(

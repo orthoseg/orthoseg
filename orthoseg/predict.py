@@ -3,7 +3,6 @@
 import argparse
 import logging
 import pprint
-import shutil
 import sys
 import traceback
 from pathlib import Path
@@ -319,8 +318,7 @@ def predict(config_path: Path, config_overrules: list[str] = []):
         )
         raise Exception(message) from ex
     finally:
-        if conf.tmp_dir is not None:
-            shutil.rmtree(conf.tmp_dir, ignore_errors=True)
+        conf.remove_run_tmp_dir()
 
 
 def main():
