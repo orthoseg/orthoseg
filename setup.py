@@ -20,6 +20,7 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     include_package_data=True,
     install_requires=[
+        "gdal",
         "gdown",
         "geofileops>=0.6,<0.10",
         "geopandas>=0.12,<1.1",
