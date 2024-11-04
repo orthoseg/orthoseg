@@ -722,9 +722,8 @@ def getmap_to_file(
                 # correct bounding box and open this file instead.
                 # See also test_gdal_bug.py.
                 # image_file = rio.open(str(layersource.path))
-                tmp_file = Path(tempfile.gettempdir()) / output_filename.replace(
-                    ".jpg", ".vrt"
-                )
+                tmp_file = Path(tempfile.gettempdir()) / output_filename
+                tmp_file = tmp_file.parent / f"{tmp_file.stem}.vrt"
                 options = gdal.TranslateOptions(
                     projWin=[
                         bbox_for_getmap[0],
@@ -1199,5 +1198,14 @@ def _get_cleaned_write_profile(
                 profile_cleaned[profile_key] = profile[profile_key]
     else:
         profile_cleaned = profile.copy()
+        # check if profile_key blockxsize and blockysize are dividable by 16
+        for profile_key in profile:
+            if profile_key in ["blockxsize", "blockysize"]:
+                if profile[profile_key] % 16 != 0:
+                    profile_cleaned[profile_key] = (
+                        profile[profile_key] + 16 - (profile[profile_key] % 16)
+                    )
+                else:
+                    profile_cleaned[profile_key] = profile[profile_key]
 
     return profile_cleaned
