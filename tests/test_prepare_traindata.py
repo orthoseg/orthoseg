@@ -5,6 +5,7 @@ Tests for functionalities in orthoseg.lib.postprocess_predictions.
 import filecmp
 import math
 import os
+import shutil
 from pathlib import Path
 from typing import Optional, Union
 
@@ -23,6 +24,19 @@ from orthoseg.helpers import config_helper
 from orthoseg.lib import prepare_traindatasets as prep_traindata
 from orthoseg.lib.prepare_traindatasets import ValidationError
 from tests.test_helper import TestData
+
+
+@pytest.fixture
+def empty_image(tmp_path):
+    path = tmp_path / "empty_image.png"
+    if not path.exists():
+        img = Image.new(
+            mode="RGB",
+            size=(TestData.image_pixel_width, TestData.image_pixel_height),
+        )
+        img.save(path, "png")
+
+    return path
 
 
 def _prepare_locations_file(
@@ -296,57 +310,70 @@ def test_prepare_labeldata_polygons_columnname_backw_compat():
     assert len(polygons_to_burn_gdf) == 2
 
 
-image_1 = "150100_150100_150228_150228_512_512_OMWRGB19VL.png"
-image_2 = "150200_150200_150328_150328_512_512_OMWRGB19VL.png"
-image_3 = "150300_150300_150428_150428_512_512_OMWRGB19VL.png"
+locations = {
+    "loc1": (150100, 150100, "150100_150100_150228_150228_512_512_OMWRGB19VL.png"),
+    "loc2": (150200, 150200, "150200_150200_150328_150328_512_512_OMWRGB19VL.png"),
+    "loc3": (150300, 150300, "150300_150300_150428_150428_512_512_OMWRGB19VL.png"),
+}
 
 
 @pytest.mark.skipif(os.name == "nt", reason="crashes on windows")
 @pytest.mark.parametrize(
-    "copy_images, match, mismatch, error, filesize_kb",
+    "descr, prev_locations, new_locations",
     [
-        ("add_one", [image_1, image_2], [], [image_3], (1, 1, 2)),
-        ("remove_one", [image_1], [], [image_2, image_3], (1, None, None)),
-        ("copy_all", [image_1, image_2], [], [image_3], (1, 1, None)),
-        ("copy_none", [], [], [image_1, image_2, image_3], (None, None, 2)),
-    ],
-    ids=[
-        "add one new location",
-        "remove one location",
-        "all the same locations",
-        "all different locations",
+        ("reuse1_new1", ["loc1"], ["loc1", "loc2"]),
+        ("remove1", ["loc1", "loc2", "loc3"], ["loc1", "loc2"]),
+        ("reuse_all", ["loc1", "loc2"], ["loc1", "loc2"]),
+        ("reuse_none", ["loc3"], ["loc1", "loc2"]),
     ],
 )
-def test_prepare_traindatasets(
-    tmp_path, copy_images: str, match, mismatch, error, filesize_kb
+def test_prepare_traindatasets_reuse_prev_images(
+    tmp_path, empty_image, descr, prev_locations, new_locations
 ):
+    """Test if images of previous training versions are reused properly."""
     # Prepare test data
     classes = TestData.classes
     image_layers_config_path = test_helper.sampleprojects_dir / "imagelayers.ini"
     image_layers = config_helper._read_layer_config(image_layers_config_path)
     label_infos = _prepare_labelinfos(tmp_path)
-
     training_dir = tmp_path / "training"
-    previous_training_version_dir = training_dir / "01"
+
+    # Prepare images to be reused from previous training version
+    prev_training_dir = training_dir / "01"
     traindata_types = ["train", "validation", "test"]
 
     for traindata_type in traindata_types:
-        dir = previous_training_version_dir / traindata_type
+        dir = prev_training_dir / traindata_type
         (dir / "image").mkdir(parents=True, exist_ok=True)
         (dir / "mask").mkdir(parents=True, exist_ok=True)
-        for image in [image_1, image_2]:
-            img = Image.new(
-                mode="RGB",
-                size=(TestData.image_pixel_width, TestData.image_pixel_height),
-            )
-            img.save(dir / "image" / image, "png")
-            (dir / "image" / image.replace(".png", ".pgw")).touch()
+        for previous_location in prev_locations:
+            _, _, image = locations[previous_location]
+            image_path = dir / "image" / image
+            shutil.copy(empty_image, image_path)
+            image_path.with_suffix(".pgw").touch()
 
-    locations_gdf = _create_locations_dataframe(copy_images=copy_images)
+    # Prepare gdf with new locations
+    new_locations_list = []
+    crs_width = TestData.image_pixel_width * TestData.image_pixel_x_size
+    crs_height = TestData.image_pixel_height * TestData.image_pixel_y_size
+    for new_location in new_locations:
+        xmin, ymin, _ = locations[new_location]
+        geometry = sh_geom.box(xmin, ymin, xmin + crs_width, ymin + crs_height)
+        for traindata_type in traindata_types:
+            new_locations_list.append(
+                {
+                    "geometry": geometry,
+                    "traindata_type": traindata_type,
+                    "path": "/tmp/locations.gdf",
+                }
+            )
+
+    new_locations_gdf = gpd.GeoDataFrame(new_locations_list, crs=31370)
 
     # Run prepare traindatasets
-    label_infos = _prepare_labelinfos(tmp_path=tmp_path, locations=locations_gdf)
-    output_dir, _ = prep_traindata.prepare_traindatasets(
+    label_infos = _prepare_labelinfos(tmp_path=tmp_path, locations=new_locations_gdf)
+
+    new_training_dir, _ = prep_traindata.prepare_traindatasets(
         label_infos=label_infos,
         classes=classes,
         image_layers=image_layers,
@@ -356,110 +383,20 @@ def test_prepare_traindatasets(
     # Check if files exist in new output folder and if they have the correct size
     # if size = 1kb then copied else if size = 2kb downloaded
     for traindata_type in traindata_types:
-        images_to_compare = [image_1, image_2, image_3]
-        assert filecmp.cmpfiles(
-            previous_training_version_dir / traindata_type / "image",
-            output_dir / traindata_type / "image",
-            images_to_compare,
-            shallow=False,
-        ) == (match, mismatch, error)
+        for loc in ["loc1", "loc2", "loc3"]:
+            filename = locations[loc][2]
+            prev_path = prev_training_dir / traindata_type / "image" / filename
+            new_path = new_training_dir / traindata_type / "image" / filename
 
-        for i, image in enumerate(images_to_compare):
-            image_path = output_dir / traindata_type / "image" / image
-            if filesize_kb[i] is None:
-                assert not image_path.exists()
-            else:
-                assert image_path.exists()
-                assert math.ceil(image_path.stat().st_size / 1024) == filesize_kb[i]
-
-
-def _create_locations_dataframe(copy_images: str) -> gpd.GeoDataFrame:
-    def _create_location(crs_xmin: int, crs_ymin: int):
-        return sh_geom.box(
-            crs_xmin,
-            crs_ymin,
-            crs_xmin + (TestData.image_pixel_width * TestData.image_pixel_x_size),
-            crs_ymin + (TestData.image_pixel_height * TestData.image_pixel_y_size),
-        )
-
-    location_1 = _create_location(crs_xmin=150100, crs_ymin=150100)
-    location_2 = _create_location(crs_xmin=150200, crs_ymin=150200)
-    location_3 = _create_location(crs_xmin=150300, crs_ymin=150300)
-
-    if copy_images == "add_one":
-        locations_gdf = gpd.GeoDataFrame(
-            {
-                "geometry": [
-                    location_1,
-                    location_1,
-                    location_1,
-                    location_2,
-                    location_2,
-                    location_2,
-                    location_3,
-                    location_3,
-                    location_3,
-                ],
-                "traindata_type": [
-                    "train",
-                    "validation",
-                    "test",
-                    "train",
-                    "validation",
-                    "test",
-                    "train",
-                    "validation",
-                    "test",
-                ],
-                "path": "/tmp/locations.gdf",
-            },
-            crs="epsg:31370",
-        )
-
-    elif copy_images == "remove_one":
-        locations_gdf = gpd.GeoDataFrame(
-            {
-                "geometry": [location_1, location_1, location_1],
-                "traindata_type": ["train", "validation", "test"],
-                "path": "/tmp/locations.gdf",
-            },
-            crs="epsg:31370",
-        )
-    elif copy_images == "copy_all":
-        locations_gdf = gpd.GeoDataFrame(
-            {
-                "geometry": [
-                    location_1,
-                    location_1,
-                    location_1,
-                    location_2,
-                    location_2,
-                    location_2,
-                ],
-                "traindata_type": [
-                    "train",
-                    "validation",
-                    "test",
-                    "train",
-                    "validation",
-                    "test",
-                ],
-                "path": "/tmp/locations.gdf",
-            },
-            crs="epsg:31370",
-        )
-    elif copy_images == "copy_none":
-        locations_gdf = gpd.GeoDataFrame(
-            {
-                "geometry": [
-                    location_3,
-                    location_3,
-                    location_3,
-                ],
-                "traindata_type": ["train", "validation", "test"],
-                "path": "/tmp/locations.gdf",
-            },
-            crs="epsg:31370",
-        )
-
-    return locations_gdf
+            if loc in new_locations and loc in prev_locations:
+                # File is reused, so should be the same and small
+                assert filecmp.cmp(prev_path, new_path, shallow=False) is True
+                assert math.ceil(new_path.stat().st_size) <= 1024
+            elif loc in new_locations:
+                # File is new, so should exist and be larger than 1 kb
+                assert new_path.exists()
+                assert math.ceil(new_path.stat().st_size) > 1024
+            elif loc in prev_locations:
+                # File is only supposed to be in previous locations, not in new
+                assert not new_path.exists()
+                assert prev_path.exists()
