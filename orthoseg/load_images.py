@@ -187,7 +187,7 @@ def load_images(
         email_helper.sendmail(
             subject=message, body=f"Exception: {ex}\n\n {traceback.format_exc()}"
         )
-        raise Exception(message) from ex
+        raise RuntimeError(message) from ex
     finally:
         conf.remove_run_tmp_dir()
 

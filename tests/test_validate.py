@@ -78,8 +78,7 @@ def test_validate_error(tmp_path):
     )
 
     with pytest.raises(
-        Exception,
-        match="ERROR while running validate for task footballfields_BEFL-2019",
+        RuntimeError, match="ERROR in validate for footballfields_BEFL-2019"
     ):
         orthoseg.validate(
             config_path=project_dir / "footballfields_BEFL-2019.ini",
