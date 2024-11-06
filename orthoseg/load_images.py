@@ -182,7 +182,7 @@ def load_images(
         logger.info(message)
         email_helper.sendmail(message)
     except Exception as ex:
-        message = f"ERROR while running load_images for task {config_path.stem}"
+        message = f"ERROR in load_images for config {config_path.stem}"
         logger.exception(message)
         email_helper.sendmail(
             subject=message, body=f"Exception: {ex}\n\n {traceback.format_exc()}"
