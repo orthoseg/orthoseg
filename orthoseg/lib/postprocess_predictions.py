@@ -364,7 +364,7 @@ def postprocess_for_evaluation(
             # per class with one-hot encoding
             if nb_classes > 1:
                 mask_categorical_arr = tf.keras.utils.to_categorical(
-                    mask_arr, nb_classes, dtype=rio.uint8
+                    mask_arr, nb_classes
                 )
                 mask_arr = (mask_categorical_arr[:, :, class_id]) * 255
 
@@ -790,7 +790,7 @@ def polygonize_pred_multiclass(
             assert border_polygon.exterior is not None
             border_lines = sh_geom.LineString(border_polygon.exterior.coords)
 
-            # Determine of topological or normal simplify needs to be used
+            # Determine if topological or normal simplify needs to be used
             simplify_topological = simplify["simplify_topological"]
             if simplify_topological is None:
                 simplify_topological = True if len(classes) > 2 else False

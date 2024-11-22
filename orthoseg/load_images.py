@@ -3,7 +3,6 @@
 import argparse
 import logging
 import shlex
-import shutil
 import sys
 import traceback
 from pathlib import Path
@@ -88,7 +87,7 @@ def load_images(
     logger = log_util.main_log_init(conf.dirs.getpath("log_dir"), __name__)
 
     # Log + send email
-    message = f"Start load_images for config {config_path.stem}"
+    message = f"Start load_images for {config_path.stem}"
     logger.info(message)
     logger.debug(f"Config used: \n{conf.pformat_config()}")
     email_helper.sendmail(message)
@@ -179,19 +178,18 @@ def load_images(
         )
 
         # Log and send mail
-        message = f"Completed load_images for config {config_path.stem}"
+        message = f"Completed load_images for {config_path.stem}"
         logger.info(message)
         email_helper.sendmail(message)
     except Exception as ex:
-        message = f"ERROR while running load_images for task {config_path.stem}"
+        message = f"ERROR in load_images for {config_path.stem}"
         logger.exception(message)
         email_helper.sendmail(
             subject=message, body=f"Exception: {ex}\n\n {traceback.format_exc()}"
         )
-        raise Exception(message) from ex
+        raise RuntimeError(message) from ex
     finally:
-        if conf.tmp_dir is not None:
-            shutil.rmtree(conf.tmp_dir, ignore_errors=True)
+        conf.remove_run_tmp_dir()
 
 
 def main():

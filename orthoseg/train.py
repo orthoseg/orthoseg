@@ -4,7 +4,6 @@ import argparse
 import gc
 import logging
 import os
-import shutil
 import sys
 import traceback
 from pathlib import Path
@@ -118,7 +117,7 @@ def train(config_path: Path, config_overrules: list[str] = []):
             )
 
         # Send mail that we are starting train
-        email_helper.sendmail(f"Start train for config {config_path.stem}")
+        email_helper.sendmail(f"Start train for {config_path.stem}")
         logger.info(
             f"Traindata dir to use is {training_dir}, with traindata_id: {traindata_id}"
         )
@@ -407,21 +406,20 @@ def train(config_path: Path, config_overrules: list[str] = []):
         gc.collect()
 
         # Log and send mail
-        message = f"Completed train for config {config_path.stem}"
+        message = f"Completed train for {config_path.stem}"
         logger.info(message)
         email_helper.sendmail(message)
     except Exception as ex:
-        message = f"ERROR while running train for task {config_path.stem}"
+        message = f"ERROR in train for {config_path.stem}"
         logger.exception(message)
         if isinstance(ex, prep.ValidationError):
             message_body = f"Validation error: {ex.to_html()}"
         else:
             message_body = f"Exception: {ex}<br/><br/>{traceback.format_exc()}"
         email_helper.sendmail(subject=message, body=message_body)
-        raise Exception(message) from ex
+        raise RuntimeError(message) from ex
     finally:
-        if conf.tmp_dir is not None:
-            shutil.rmtree(conf.tmp_dir, ignore_errors=True)
+        conf.remove_run_tmp_dir()
 
 
 def main():

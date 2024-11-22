@@ -5,7 +5,11 @@
 ### Improvements
 
 - Make image format for downloaded images configurable (#204)
-- Small improvements to logging, error messages,... (#198)
+- Add validations on the augmentation configuration (#214)
+- Make load_images more robust by ignoring some filesystem errors that occur sometimes
+  but that don't seem to give actual issues (#216, #2019)
+- Small improvements to logging, error messages,... (#198, #218)
+- Add support + tests for latest tensorflow version (#217)
 
 ### Bugs fixed
 

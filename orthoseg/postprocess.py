@@ -3,7 +3,6 @@
 import argparse
 import logging
 import shlex
-import shutil
 import sys
 import traceback
 from pathlib import Path
@@ -81,7 +80,8 @@ def postprocess(config_path: Path, config_overrules: list[str] = []):
     logger = log_util.main_log_init(conf.dirs.getpath("log_dir"), __name__)
 
     # Log start + send email
-    message = f"Start postprocess for config {config_path.stem}"
+    image_layer = conf.predict["image_layer"]
+    message = f"Start postprocess for {config_path.stem} on {image_layer}"
     logger.info(message)
     logger.debug(f"Config used: \n{conf.pformat_config()}")
     email_helper.sendmail(message)
@@ -152,19 +152,18 @@ def postprocess(config_path: Path, config_overrules: list[str] = []):
         )
 
         # Log and send mail
-        message = f"Completed postprocess for config {config_path.stem}"
+        message = f"Completed postprocess for {config_path.stem} on {image_layer}"
         logger.info(message)
         email_helper.sendmail(message)
     except Exception as ex:
-        message = f"ERROR while running postprocess for task {config_path.stem}"
+        message = f"ERROR in postprocess for {config_path.stem} on {image_layer}"
         logger.exception(message)
         email_helper.sendmail(
             subject=message, body=f"Exception: {ex}\n\n {traceback.format_exc()}"
         )
         raise RuntimeError(message) from ex
     finally:
-        if conf.tmp_dir is not None:
-            shutil.rmtree(conf.tmp_dir, ignore_errors=True)
+        conf.remove_run_tmp_dir()
 
 
 def main():

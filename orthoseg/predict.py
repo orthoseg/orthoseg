@@ -3,7 +3,6 @@
 import argparse
 import logging
 import pprint
-import shutil
 import sys
 import traceback
 from pathlib import Path
@@ -264,9 +263,7 @@ def predict(config_path: Path, config_overrules: list[str] = []):
         # Start predict for entire dataset
         # --------------------------------
         # Send email
-        email_helper.sendmail(
-            f"Start predict for config {config_path.stem} on {image_layer}"
-        )
+        email_helper.sendmail(f"Start predict for {config_path.stem} on {image_layer}")
 
         # Check if the layer to predict is configured in the image_layers
         predict_layer = conf.predict["image_layer"]
@@ -350,7 +347,7 @@ def predict(config_path: Path, config_overrules: list[str] = []):
             )
 
         # Log and send mail
-        message = f"Completed predict for config {config_path.stem}"
+        message = f"Completed predict for {config_path.stem} on {image_layer}"
         logger.info(message)
         email_helper.sendmail(message)
 
@@ -371,15 +368,14 @@ def predict(config_path: Path, config_overrules: list[str] = []):
             simulate=conf.cleanup.getboolean("simulate"),
         )
     except Exception as ex:
-        message = f"ERROR while running predict for task {config_path.stem}"
+        message = f"ERROR in predict for {config_path.stem} on {image_layer}"
         logger.exception(message)
         email_helper.sendmail(
             subject=message, body=f"Exception: {ex}\n\n {traceback.format_exc()}"
         )
-        raise Exception(message) from ex
+        raise RuntimeError(message) from ex
     finally:
-        if conf.tmp_dir is not None:
-            shutil.rmtree(conf.tmp_dir, ignore_errors=True)
+        conf.remove_run_tmp_dir()
 
 
 def main():

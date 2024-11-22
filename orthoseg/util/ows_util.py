@@ -606,6 +606,10 @@ def getmap_to_file(
         Optional[Path]: The path the file is created at if created succesfully. None if
             the file is not created.
     """
+    # Init
+    if on_outside_layer_bounds not in ["raise", "return"]:
+        raise ValueError(f"Invalid value for {on_outside_layer_bounds=}")
+
     # If no separate save format is specified, use the standard image_format
     if image_format_save is None:
         image_format_save = image_format
@@ -638,12 +642,15 @@ def getmap_to_file(
     output_filepath = output_dir / output_filename
 
     # If force is false and file exists already, stop...
-    if force is False and output_filepath.exists():
+    if not force and output_filepath.exists():
         if output_filepath.stat().st_size > 0:
             logger.debug(f"File already exists, skip: {output_filepath}")
             return output_filepath
         else:
-            output_filepath.unlink()
+            try:
+                output_filepath.unlink()
+            except Exception as ex:
+                logger.warning(f"Error removing file {output_filepath}: {ex}")
 
     logger.debug(f"Get image to {output_filepath}")
 
@@ -698,8 +705,9 @@ def getmap_to_file(
             ) as image_file:
                 image_file.write(image_data_output)
         except CPLE_AppDefinedError as ex:  # pragma: no cover
-            if ex.errmsg.startswith("Deleting ") and ex.errmsg.endswith(
-                " failed: No such file or directory"
+            errmsg = ex.errmsg.strip()
+            if errmsg.startswith("Deleting ") and errmsg.endswith(
+                (" failed: No such file or directory", " failed: Permission denied")
             ):
                 # Occasionally this error occurs, not sure why: ignore it.
                 logger.debug(f"Ignore error: {ex}")
