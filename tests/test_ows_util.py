@@ -34,7 +34,7 @@ def test_get_images_for_grid(tmp_path):
     # Test getting the images for this grid
     # -------------------------------------
     layersource_rgb = ows_util.FileLayerSource(path=filelayer_path, layernames=["S1"])
-    ows_util.get_images_for_grid(
+    ows_util.get_images_for_cache(
         layersources=[layersource_rgb],
         output_image_dir=tmp_path,
         crs=crs,

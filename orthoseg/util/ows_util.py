@@ -7,7 +7,7 @@ import time
 import warnings
 from concurrent import futures
 from pathlib import Path
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 import geofileops as gfo
 import geopandas as gpd
@@ -125,6 +125,143 @@ class FileLayerSource:
 
 
 def get_images_for_grid(
+    output_image_dir: Path,
+    crs: pyproj.CRS,
+    image_gen_bbox: Optional[tuple[float, float, float, float]] = None,
+    image_gen_roi_filepath: Optional[Path] = None,
+    grid_xmin: float = 0.0,
+    grid_ymin: float = 0.0,
+    image_crs_pixel_x_size: float = 0.25,
+    image_crs_pixel_y_size: float = 0.25,
+    image_pixel_width: int = 1024,
+    image_pixel_height: int = 1024,
+    image_format: str = FORMAT_GEOTIFF,
+    pixels_overlap: int = 0,
+):
+    """get_images_for_grid.
+
+    Args:
+        output_image_dir (Path): Directory to save the images to.
+        crs (Union[str, pyproj.CRS]): _description_
+        image_gen_bbox (Optional[tuple[float, float, float, float]], optional):
+            _description_. Defaults to None.
+        image_gen_roi_filepath (Optional[Path], optional): _description_.
+            Defaults to None.
+        grid_xmin (float, optional): _description_. Defaults to 0.0.
+        grid_ymin (float, optional): _description_. Defaults to 0.0.
+        image_crs_pixel_x_size (float, optional): _description_. Defaults to 0.25.
+        image_crs_pixel_y_size (float, optional): _description_. Defaults to 0.25.
+        image_pixel_width (int, optional): _description_. Defaults to 1024.
+        image_pixel_height (int, optional): _description_. Defaults to 1024.
+        image_format (str, optional): The image format to get. Defaults to
+            FORMAT_GEOTIFF.
+        pixels_overlap (int, optional): [description]. Defaults to 0.
+
+
+    Raises:
+        Exception: _description_
+
+    Returns:
+        _type_: _description_
+    """
+    crs_width = math.fabs(
+        image_pixel_width * image_crs_pixel_x_size
+    )  # tile width in units of crs => 500 m
+    crs_height = math.fabs(
+        image_pixel_height * image_crs_pixel_y_size
+    )  # tile height in units of crs => 500 m
+
+    # Read the region of interest file if provided
+    grid_bbox = image_gen_bbox
+    roi_gdf = None
+    if image_gen_roi_filepath is not None:
+        # Read roi
+        logger.info(f"Read + optimize region of interest from {image_gen_roi_filepath}")
+        roi_gdf = gpd.read_file(str(image_gen_roi_filepath))
+
+        # If the generate_window not specified, use bounds of the roi
+        if grid_bbox is None:
+            grid_bbox = roi_gdf.geometry.total_bounds
+
+    # If there is still no image_gen_bbox, stop.
+    if grid_bbox is None:
+        raise Exception(
+            "Either image_gen_bbox or an image_gen_roi_filepath should be specified."
+        )
+
+    # Make grid_bounds compatible with the grid
+    grid_bbox = align_bbox_to_grid(
+        bbox=grid_bbox,
+        grid_xmin=grid_xmin,
+        grid_ymin=grid_ymin,
+        pixel_size_x=crs_width,
+        pixel_size_y=crs_height,
+        log_level=logging.WARNING,
+    )
+
+    # Create a grid of the images that need to be downloaded
+    tiles_to_download_gdf = gpd.GeoDataFrame(
+        geometry=pygeoops.create_grid3(grid_bbox, width=crs_width, height=crs_height),
+        crs=crs,
+    )
+    # tiles_to_download_gdf["path"] = None
+
+    for tile in tiles_to_download_gdf.geometry.bounds.itertuples():
+        _, tile_xmin, tile_ymin, tile_xmax, tile_ymax = tile
+        tile_pixel_width = image_pixel_width
+        tile_pixel_height = image_pixel_height
+
+        # If overlapping images are wanted... increase image bbox
+        if pixels_overlap:
+            tile_xmin -= pixels_overlap * image_crs_pixel_x_size
+            tile_xmax += pixels_overlap * image_crs_pixel_x_size
+            tile_ymin -= pixels_overlap * image_crs_pixel_y_size
+            tile_ymax += pixels_overlap * image_crs_pixel_y_size
+            tile_pixel_width += 2 * pixels_overlap
+            tile_pixel_height += 2 * pixels_overlap
+
+        # Create output filepath
+        if crs.is_projected:
+            output_dir = output_image_dir / f"{tile_xmin:06.0f}"
+        else:
+            output_dir = output_image_dir / f"{tile_xmin:09.4f}"
+        output_filename = create_filename(
+            crs=crs,
+            bbox=(tile_xmin, tile_ymin, tile_xmax, tile_ymax),
+            size=(tile_pixel_width, tile_pixel_height),
+            image_format=image_format,
+            layername=None,
+        )
+        output_filepath = output_dir / output_filename
+        # add output path to gdf
+        tiles_to_download_gdf.loc[tile.Index, "path"] = output_filepath
+        tiles_to_download_gdf.loc[tile.Index, "xmin"] = tile_xmin
+        tiles_to_download_gdf.loc[tile.Index, "xmax"] = tile_xmax
+        tiles_to_download_gdf.loc[tile.Index, "ymin"] = tile_ymin
+        tiles_to_download_gdf.loc[tile.Index, "ymax"] = tile_ymax
+        tiles_to_download_gdf.loc[tile.Index, "pixel_width"] = tile_pixel_width
+        tiles_to_download_gdf.loc[tile.Index, "pixel_height"] = tile_pixel_height
+
+    # If an roi is defined, filter the split it using a grid as large objects are small
+    if roi_gdf is not None:
+        # The tiles should intersect, but touching is not enough
+        tiles_intersects_roi_gdf = tiles_to_download_gdf.sjoin(
+            roi_gdf[["geometry"]], how="inner", predicate="intersects"
+        )
+        tiles_touches_roi_gdf = tiles_to_download_gdf.sjoin(
+            roi_gdf[["geometry"]], how="inner", predicate="touches"
+        )
+        tiles_to_download_gdf = tiles_intersects_roi_gdf.loc[
+            ~tiles_intersects_roi_gdf.index.isin(tiles_touches_roi_gdf.index)
+        ]
+
+    tiles_path = output_image_dir / "tiles_to_download.gpkg"
+    gfo.to_file(tiles_to_download_gdf, tiles_path)
+
+    return tiles_to_download_gdf
+
+
+def get_images_for_cache(
     layersources: list[Union[FileLayerSource, WMSLayerSource]],
     output_image_dir: Path,
     crs: Union[str, pyproj.CRS],
@@ -196,71 +333,30 @@ def get_images_for_grid(
     if not isinstance(crs, pyproj.CRS):
         crs = pyproj.CRS(crs)
 
-    crs_width = math.fabs(
-        image_pixel_width * image_crs_pixel_x_size
-    )  # tile width in units of crs => 500 m
-    crs_height = math.fabs(
-        image_pixel_height * image_crs_pixel_y_size
-    )  # tile height in units of crs => 500 m
     if cron_schedule is not None and cron_schedule != "":
         logger.info(
             "A cron_schedule was specified, so the download will only proceed in the "
             f"specified time range: {cron_schedule}"
         )
 
-    # Read the region of interest file if provided
-    grid_bbox = image_gen_bbox
-    roi_gdf = None
-    if image_gen_roi_filepath is not None:
-        # Read roi
-        logger.info(f"Read + optimize region of interest from {image_gen_roi_filepath}")
-        roi_gdf = gpd.read_file(str(image_gen_roi_filepath))
-
-        # If the generate_window not specified, use bounds of the roi
-        if grid_bbox is None:
-            grid_bbox = roi_gdf.geometry.total_bounds
-
-    # If there is still no image_gen_bbox, stop.
-    if grid_bbox is None:
-        raise Exception(
-            "Either image_gen_bbox or an image_gen_roi_filepath should be specified."
-        )
-
-    # Make grid_bounds compatible with the grid
-    grid_bbox = align_bbox_to_grid(
-        bbox=grid_bbox,
-        grid_xmin=grid_xmin,
-        grid_ymin=grid_ymin,
-        pixel_size_x=crs_width,
-        pixel_size_y=crs_height,
-        log_level=logging.WARNING,
-    )
-
     # Create the output dir if it doesn't exist yet
     output_image_dir.mkdir(parents=True, exist_ok=True)
 
-    # Create a grid of the images that need to be downloaded
-    tiles_to_download_gdf = gpd.GeoDataFrame(
-        geometry=pygeoops.create_grid3(grid_bbox, width=crs_width, height=crs_height),
-        crs=crs,
-    )
-
-    # If an roi is defined, filter the split it using a grid as large objects are small
-    if roi_gdf is not None:
-        # The tiles should intersect, but touching is not enough
-        tiles_intersects_roi_gdf = tiles_to_download_gdf.sjoin(
-            roi_gdf[["geometry"]], how="inner", predicate="intersects"
-        )
-        tiles_touches_roi_gdf = tiles_to_download_gdf.sjoin(
-            roi_gdf[["geometry"]], how="inner", predicate="touches"
-        )
-        tiles_to_download_gdf = tiles_intersects_roi_gdf.loc[
-            ~tiles_intersects_roi_gdf.index.isin(tiles_touches_roi_gdf.index)
-        ]
-
     # Write the tiles to download to file for reference
-    tiles_path = output_image_dir / "tiles_to_download.gpkg"
-    gfo.to_file(tiles_to_download_gdf, tiles_path)
+    tiles_to_download_gdf = get_images_for_grid(
+        output_image_dir=output_image_dir,
+        crs=crs,
+        image_gen_bbox=image_gen_bbox,
+        image_gen_roi_filepath=image_gen_roi_filepath,
+        grid_xmin=grid_xmin,
+        grid_ymin=grid_ymin,
+        image_crs_pixel_x_size=image_crs_pixel_x_size,
+        image_crs_pixel_y_size=image_crs_pixel_y_size,
+        image_pixel_width=image_pixel_width,
+        image_pixel_height=image_pixel_height,
+        image_format=image_format,
+        pixels_overlap=pixels_overlap,
+    )
 
     with futures.ProcessPoolExecutor(nb_concurrent_calls) as pool:
         # Loop through all columns and get the images...
@@ -296,32 +392,9 @@ def get_images_for_grid(
                 )
 
             nb_processed += 1
-            _, tile_xmin, tile_ymin, tile_xmax, tile_ymax = tile
-            tile_pixel_width = image_pixel_width
-            tile_pixel_height = image_pixel_height
-
-            # If overlapping images are wanted... increase image bbox
-            if pixels_overlap:
-                tile_xmin -= pixels_overlap * image_crs_pixel_x_size
-                tile_xmax += pixels_overlap * image_crs_pixel_x_size
-                tile_ymin -= pixels_overlap * image_crs_pixel_y_size
-                tile_ymax += pixels_overlap * image_crs_pixel_y_size
-                tile_pixel_width += 2 * pixels_overlap
-                tile_pixel_height += 2 * pixels_overlap
-
-            # Create output filepath
-            if crs.is_projected:
-                output_dir = output_image_dir / f"{tile_xmin:06.0f}"
-            else:
-                output_dir = output_image_dir / f"{tile_xmin:09.4f}"
-            output_filename = create_filename(
-                crs=crs,
-                bbox=(tile_xmin, tile_ymin, tile_xmax, tile_ymax),
-                size=(tile_pixel_width, tile_pixel_height),
-                image_format=image_format,
-                layername=None,
-            )
-            output_filepath = output_dir / output_filename
+            output_filepath = tiles_to_download_gdf.loc[tile.Index, "path"]
+            output_dir = output_filepath.parent
+            output_filename = output_filepath.name
 
             # Do some checks to know if the image needs to be downloaded
             if nb_images_to_skip > 0 and (nb_processed % nb_images_to_skip) != 0:
@@ -345,8 +418,16 @@ def get_images_for_grid(
                 layersources=layersources,
                 output_dir=output_dir,
                 crs=crs,
-                bbox=(tile_xmin, tile_ymin, tile_xmax, tile_ymax),
-                size=(tile_pixel_width, tile_pixel_height),
+                bbox=(
+                    tiles_to_download_gdf.loc[tile.Index, "xmin"].astype(int),
+                    tiles_to_download_gdf.loc[tile.Index, "ymin"].astype(int),
+                    tiles_to_download_gdf.loc[tile.Index, "xmax"].astype(int),
+                    tiles_to_download_gdf.loc[tile.Index, "ymax"].astype(int),
+                ),
+                size=(
+                    tiles_to_download_gdf.loc[tile.Index, "pixel_width"].astype(int),
+                    tiles_to_download_gdf.loc[tile.Index, "pixel_height"].astype(int),
+                ),
                 ssl_verify=ssl_verify,
                 image_format=image_format,
                 image_format_save=image_format_save,
@@ -525,10 +606,6 @@ def getmap_to_file(
         Optional[Path]: The path the file is created at if created succesfully. None if
             the file is not created.
     """
-    # Init
-    if on_outside_layer_bounds not in ["raise", "return"]:
-        raise ValueError(f"Invalid value for {on_outside_layer_bounds=}")
-
     # If no separate save format is specified, use the standard image_format
     if image_format_save is None:
         image_format_save = image_format
@@ -573,6 +650,277 @@ def getmap_to_file(
     if not output_dir.exists():
         output_dir.mkdir()
 
+    image = getmap(
+        layersources=layersources,
+        crs=crs,
+        bbox=bbox,
+        size=size,
+        ssl_verify=ssl_verify,
+        image_format=image_format,
+        transparent=transparent,
+        image_pixels_ignore_border=image_pixels_ignore_border,
+        has_switched_axes=has_switched_axes,
+        on_outside_layer_bounds=on_outside_layer_bounds,
+    )
+
+    # Write (temporary) output file
+    assert image is not None
+    image_data_output, image_profile_output = image
+    assert image_profile_output is not None
+    assert isinstance(image_data_output, np.ndarray)
+
+    # Set correct output driver in profile
+    image_profile_output["driver"] = _get_driver_for_image_format(image_format_save)
+
+    # Prepare output bands and set them correctly in profile
+    if (
+        image_format_save in [FORMAT_JPEG, FORMAT_PNG]
+        and image_data_output.shape[0] == 2
+    ):
+        zero_band = np.zeros(
+            shape=(1, image_data_output.shape[1], image_data_output.shape[2]),
+            dtype=image_data_output.dtype,
+        )
+        image_data_output = np.append(image_data_output, zero_band, axis=0)
+
+    assert isinstance(image_data_output, np.ndarray)
+    image_profile_output["count"] = image_data_output.shape[0]
+    image_profile_output = _get_cleaned_write_profile(image_profile_output)
+
+    # Because the (temporary) output file doesn't contain coordinates (yet),
+    # suppress NotGeoreferencedWarning while writing
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=rio_errors.NotGeoreferencedWarning)
+
+        try:
+            with rio.open(
+                str(output_filepath), "w", **image_profile_output
+            ) as image_file:
+                image_file.write(image_data_output)
+        except CPLE_AppDefinedError as ex:  # pragma: no cover
+            if ex.errmsg.startswith("Deleting ") and ex.errmsg.endswith(
+                " failed: No such file or directory"
+            ):
+                # Occasionally this error occurs, not sure why: ignore it.
+                logger.debug(f"Ignore error: {ex}")
+            else:
+                raise ex
+
+    # If an aux.xml file was written, remove it again...
+    output_aux_path = output_filepath.parent / f"{output_filepath.name}.aux.xml"
+    try:
+        output_aux_path.unlink(missing_ok=True)
+    except Exception as ex:  # pragma: no cover
+        # Occasionally the .aux.xml file is locked, not sure why: ignore it.
+        logger.debug(f"Ignore error: {ex}")
+
+    # Make the output image compliant with image_format_save
+
+    # If geotiff is asked, check if the the coordinates are embedded...
+    if image_format_save == FORMAT_GEOTIFF:
+        # Read output image to check if coördinates are there
+        with rio.open(str(output_filepath)) as image_file:
+            image_profile_orig = image_file.profile
+            image_transform_affine = image_file.transform
+
+            if image_pixels_ignore_border == 0:
+                image_data_output = image_file.read()
+            else:
+                image_data_output = image_file.read(
+                    window=rio_windows.Window(
+                        col_off=image_pixels_ignore_border,
+                        row_off=image_pixels_ignore_border,
+                        width=size[0],
+                        height=size[1],
+                    )
+                )
+
+        logger.debug(f"original image_profile: {image_profile_orig}")
+
+        # If coordinates are not embedded add them, if image_pixels_ignore_border
+        # change them
+        if (
+            image_transform_affine[2] == 0 and image_transform_affine[5] == 0
+        ) or image_pixels_ignore_border > 0:
+            logger.debug(
+                f"Coordinates not in image, driver: {image_profile_orig['driver']}"
+            )
+
+            # If profile format is not gtiff, create new profile
+            if image_profile_orig["driver"] != "GTiff":
+                image_profile_gtiff = rio_profiles.DefaultGTiffProfile.defaults
+
+                # Copy appropriate info from source file
+                image_profile_gtiff.update(
+                    count=image_profile_orig["count"],
+                    width=size[0],
+                    height=size[1],
+                    nodata=image_profile_orig["nodata"],
+                    dtype=image_profile_orig["dtype"],
+                )
+                image_profile = image_profile_gtiff
+            else:
+                image_profile = image_profile_orig
+
+            # Set the asked compression
+            image_profile.update(compress=tiff_compress)
+
+            # For some coordinate systems apparently the axis ordered is wrong in LibOWS
+            crs_pixel_x_size = (bbox[2] - bbox[0]) / size[0]
+            crs_pixel_y_size = (bbox[1] - bbox[3]) / size[1]
+
+            logger.debug(
+                "Coordinates to put in geotiff:\n"
+                f"    - x-part of pixel width, W-E: {crs_pixel_x_size}\n"
+                "    - y-part of pixel width, W-E (0 if image is exactly N up): 0\n"
+                f"    - top-left x: {bbox[0]}\n"
+                "    - x-part of pixel height, N-S (0 if image is exactly N up): \n"
+                f"    - y-part of pixel height, N-S: {crs_pixel_y_size}\n"
+                f"    - top-left y: {bbox[3]}"
+            )
+
+            # Add transform and crs to the profile
+            image_profile.update(
+                transform=rio_transform.Affine(
+                    crs_pixel_x_size, 0, bbox[0], 0, crs_pixel_y_size, bbox[3]
+                ),
+                crs=crs,
+            )
+
+            # Delete output file, and write again
+            output_filepath.unlink()
+            with rio.open(str(output_filepath), "w", **image_profile) as image_file:
+                image_file.write(image_data_output)
+
+    else:
+        # For file formats that doesn't support coordinates, we add a worldfile
+        crs_pixel_x_size = (bbox[2] - bbox[0]) / size[0]
+        crs_pixel_y_size = (bbox[1] - bbox[3]) / size[1]
+
+        path_noext = output_filepath.parent / output_filepath.stem
+        ext_world = _get_world_ext_for_image_format(image_format_save)
+        output_worldfile_filepath = Path(str(path_noext) + ext_world)
+
+        with output_worldfile_filepath.open("w") as wld_file:
+            wld_file.write(f"{crs_pixel_x_size}")
+            wld_file.write("\n0.000")
+            wld_file.write("\n0.000")
+            wld_file.write(f"\n{crs_pixel_y_size}")
+            wld_file.write(f"\n{bbox[0]}")
+            wld_file.write(f"\n{bbox[3]}")
+
+        # If the image format to save is different, or if a border needs to be ignored
+        if image_format != image_format_save or image_pixels_ignore_border > 0:
+            # Read image
+            with rio.open(str(output_filepath)) as image_file:
+                image_profile_orig = image_file.profile
+                image_transform_affine = image_file.transform
+
+                # If border needs to be ignored, only read data we are interested in
+                if image_pixels_ignore_border == 0:
+                    image_data_output = image_file.read()
+                else:
+                    image_data_output = image_file.read(
+                        window=rio_windows.Window(
+                            col_off=image_pixels_ignore_border,
+                            row_off=image_pixels_ignore_border,
+                            width=size[0],
+                            height=size[1],
+                        )
+                    )
+
+            # If same save format, reuse profile
+            if image_format == image_format_save:
+                image_profile_curr = image_profile_orig
+                if image_pixels_ignore_border != 0:
+                    image_profile_curr.update(width=size[0], height=size[1])
+            else:
+                if image_format_save == FORMAT_TIFF:
+                    driver = "GTiff"
+                    compress = tiff_compress
+                else:
+                    raise Exception(
+                        f"Unsupported image_format_save: {image_format_save}"
+                    )
+                image_profile_curr = rio_profiles.Profile(
+                    width=size[0],
+                    height=size[1],
+                    count=image_profile_orig["count"],
+                    nodata=image_profile_orig["nodata"],
+                    dtype=image_profile_orig["dtype"],
+                    compress=compress,
+                    driver=driver,
+                )
+
+            # Delete output file, and write again
+            output_filepath.unlink()
+            image_profile_curr = _get_cleaned_write_profile(image_profile_curr)
+            with rio.open(
+                str(output_filepath), "w", **image_profile_curr
+            ) as image_file:
+                image_file.write(image_data_output)
+
+    return output_filepath
+
+
+def getmap(
+    layersources: Union[WMSLayerSource, FileLayerSource, list],
+    crs: Union[str, pyproj.CRS],
+    bbox: tuple[float, float, float, float],
+    size: tuple[int, int],
+    ssl_verify: Union[bool, str] = True,
+    image_format: str = FORMAT_GEOTIFF,
+    transparent: bool = False,
+    image_pixels_ignore_border: int = 0,
+    has_switched_axes: Optional[bool] = None,
+    on_outside_layer_bounds: Optional[str] = "raise",
+) -> tuple[np.ndarray | None, dict[str, Any] | None] | None:
+    """Reads/fetches an image from a layer source and saves it to a file.
+
+    Args:
+        layersources (WMSLayerSource, FileLayerSource, List): Layer source(s) to get
+            images from. Multiple sources can be specified to create a combined image,
+            eg. use band 1 of a layersource with band 2 and 3 of another one.
+        output_dir (Path): Directory to save the images to.
+        crs (pyproj.CRS): The crs of the source and destination images.
+        bbox (tuple[float, float, float, float]): Bbox of the image to get.
+        size (tuple[int, int]): The image width and height.
+        ssl_verify (bool or str, optional): True to use the default
+            certificate bundle as installed on your system. False disables
+            certificate validation (NOT recommended!). If a path to a
+            certificate bundle file (.pem) is passed, this will be used.
+            In corporate networks using a proxy server this is often needed
+            to evade CERTIFICATE_VERIFY_FAILED errors. Defaults to True.
+        image_format (str, optional): [description]. Defaults to FORMAT_GEOTIFF.
+        image_format_save (str, optional): [description]. Defaults to None.
+        output_filename (str, optional): [description]. Defaults to None.
+        transparent (bool, optional): [description]. Defaults to False.
+        tiff_compress (str, optional): [description]. Defaults to 'lzw'.
+        image_pixels_ignore_border (int, optional): [description]. Defaults to 0.
+        force (bool, optional): [description]. Defaults to False.
+        layername_in_filename (bool, optional): [description]. Defaults to False.
+        has_switched_axes (bool, optional): True if x and y axes should be switched to
+            in the WMS GetMap request. If None, an effort is made to determine it
+            automatically based on the crs. Defaults to None.
+        on_outside_layer_bounds (str, optional): What to do if the bbox asked is outside
+            the layer bounds. Defaults to "raise". Options:
+            - "raise": raise an error.
+            - "return": don't save a file and return None.
+
+    Returns:
+        Optional[Path]: The path the file is created at if created succesfully. None if
+            the file is not created.
+    """
+    # Init
+    if on_outside_layer_bounds not in ["raise", "return"]:
+        raise ValueError(f"Invalid value for {on_outside_layer_bounds=}")
+
+    # Convert input parameters if relevant
+    if isinstance(crs, str):
+        crs = pyproj.CRS(crs)
+    if not isinstance(layersources, list):
+        layersources = [layersources]
+
     # Get image(s), read the band to keep and save
     # Some hacks for special cases...
     bbox_for_getmap = bbox
@@ -605,7 +953,7 @@ def getmap_to_file(
         )
 
     image_data_output = None
-    image_profile_output = None
+    image_profile_output: dict[str, Any] | None = None
     response = None
     for layersource in layersources:
         window = None
@@ -814,202 +1162,7 @@ def getmap_to_file(
                 memfile.close()
                 memfile = None
 
-    # Write (temporary) output file
-    assert image_profile_output is not None
-    assert isinstance(image_data_output, np.ndarray)
-
-    # Set correct output driver in profile
-    image_profile_output["driver"] = _get_driver_for_image_format(image_format_save)
-
-    # Prepare output bands and set them correctly in profile
-    if (
-        image_format_save in [FORMAT_JPEG, FORMAT_PNG]
-        and image_data_output.shape[0] == 2
-    ):
-        zero_band = np.zeros(
-            shape=(1, image_data_output.shape[1], image_data_output.shape[2]),
-            dtype=image_data_output.dtype,
-        )
-        image_data_output = np.append(image_data_output, zero_band, axis=0)
-
-    assert isinstance(image_data_output, np.ndarray)
-    image_profile_output["count"] = image_data_output.shape[0]
-    image_profile_output = _get_cleaned_write_profile(image_profile_output)
-
-    # Because the (temporary) output file doesn't contain coordinates (yet),
-    # suppress NotGeoreferencedWarning while writing
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", category=rio_errors.NotGeoreferencedWarning)
-
-        try:
-            with rio.open(
-                str(output_filepath), "w", **image_profile_output
-            ) as image_file:
-                image_file.write(image_data_output)
-        except CPLE_AppDefinedError as ex:  # pragma: no cover
-            if ex.errmsg.startswith("Deleting ") and ex.errmsg.endswith(
-                " failed: No such file or directory"
-            ):
-                # Occasionally this error occurs, not sure why: ignore it.
-                logger.debug(f"Ignore error: {ex}")
-            else:
-                raise ex
-
-    # If an aux.xml file was written, remove it again...
-    output_aux_path = output_filepath.parent / f"{output_filepath.name}.aux.xml"
-    try:
-        output_aux_path.unlink(missing_ok=True)
-    except Exception as ex:  # pragma: no cover
-        # Occasionally the .aux.xml file is locked, not sure why: ignore it.
-        logger.debug(f"Ignore error: {ex}")
-
-    # Make the output image compliant with image_format_save
-
-    # If geotiff is asked, check if the the coordinates are embedded...
-    if image_format_save == FORMAT_GEOTIFF:
-        # Read output image to check if coördinates are there
-        with rio.open(str(output_filepath)) as image_file:
-            image_profile_orig = image_file.profile
-            image_transform_affine = image_file.transform
-
-            if image_pixels_ignore_border == 0:
-                image_data_output = image_file.read()
-            else:
-                image_data_output = image_file.read(
-                    window=rio_windows.Window(
-                        col_off=image_pixels_ignore_border,
-                        row_off=image_pixels_ignore_border,
-                        width=size[0],
-                        height=size[1],
-                    )
-                )
-
-        logger.debug(f"original image_profile: {image_profile_orig}")
-
-        # If coordinates are not embedded add them, if image_pixels_ignore_border
-        # change them
-        if (
-            image_transform_affine[2] == 0 and image_transform_affine[5] == 0
-        ) or image_pixels_ignore_border > 0:
-            logger.debug(
-                f"Coordinates not in image, driver: {image_profile_orig['driver']}"
-            )
-
-            # If profile format is not gtiff, create new profile
-            if image_profile_orig["driver"] != "GTiff":
-                image_profile_gtiff = rio_profiles.DefaultGTiffProfile.defaults
-
-                # Copy appropriate info from source file
-                image_profile_gtiff.update(
-                    count=image_profile_orig["count"],
-                    width=size[0],
-                    height=size[1],
-                    nodata=image_profile_orig["nodata"],
-                    dtype=image_profile_orig["dtype"],
-                )
-                image_profile = image_profile_gtiff
-            else:
-                image_profile = image_profile_orig
-
-            # Set the asked compression
-            image_profile.update(compress=tiff_compress)
-
-            # For some coordinate systems apparently the axis ordered is wrong in LibOWS
-            crs_pixel_x_size = (bbox[2] - bbox[0]) / size[0]
-            crs_pixel_y_size = (bbox[1] - bbox[3]) / size[1]
-
-            logger.debug(
-                "Coordinates to put in geotiff:\n"
-                f"    - x-part of pixel width, W-E: {crs_pixel_x_size}\n"
-                "    - y-part of pixel width, W-E (0 if image is exactly N up): 0\n"
-                f"    - top-left x: {bbox[0]}\n"
-                "    - x-part of pixel height, N-S (0 if image is exactly N up): \n"
-                f"    - y-part of pixel height, N-S: {crs_pixel_y_size}\n"
-                f"    - top-left y: {bbox[3]}"
-            )
-
-            # Add transform and crs to the profile
-            image_profile.update(
-                transform=rio_transform.Affine(
-                    crs_pixel_x_size, 0, bbox[0], 0, crs_pixel_y_size, bbox[3]
-                ),
-                crs=crs,
-            )
-
-            # Delete output file, and write again
-            output_filepath.unlink()
-            with rio.open(str(output_filepath), "w", **image_profile) as image_file:
-                image_file.write(image_data_output)
-
-    else:
-        # For file formats that doesn't support coordinates, we add a worldfile
-        crs_pixel_x_size = (bbox[2] - bbox[0]) / size[0]
-        crs_pixel_y_size = (bbox[1] - bbox[3]) / size[1]
-
-        path_noext = output_filepath.parent / output_filepath.stem
-        ext_world = _get_world_ext_for_image_format(image_format_save)
-        output_worldfile_filepath = Path(str(path_noext) + ext_world)
-
-        with output_worldfile_filepath.open("w") as wld_file:
-            wld_file.write(f"{crs_pixel_x_size}")
-            wld_file.write("\n0.000")
-            wld_file.write("\n0.000")
-            wld_file.write(f"\n{crs_pixel_y_size}")
-            wld_file.write(f"\n{bbox[0]}")
-            wld_file.write(f"\n{bbox[3]}")
-
-        # If the image format to save is different, or if a border needs to be ignored
-        if image_format != image_format_save or image_pixels_ignore_border > 0:
-            # Read image
-            with rio.open(str(output_filepath)) as image_file:
-                image_profile_orig = image_file.profile
-                image_transform_affine = image_file.transform
-
-                # If border needs to be ignored, only read data we are interested in
-                if image_pixels_ignore_border == 0:
-                    image_data_output = image_file.read()
-                else:
-                    image_data_output = image_file.read(
-                        window=rio_windows.Window(
-                            col_off=image_pixels_ignore_border,
-                            row_off=image_pixels_ignore_border,
-                            width=size[0],
-                            height=size[1],
-                        )
-                    )
-
-            # If same save format, reuse profile
-            if image_format == image_format_save:
-                image_profile_curr = image_profile_orig
-                if image_pixels_ignore_border != 0:
-                    image_profile_curr.update(width=size[0], height=size[1])
-            else:
-                if image_format_save == FORMAT_TIFF:
-                    driver = "GTiff"
-                    compress = tiff_compress
-                else:
-                    raise Exception(
-                        f"Unsupported image_format_save: {image_format_save}"
-                    )
-                image_profile_curr = rio_profiles.Profile(
-                    width=size[0],
-                    height=size[1],
-                    count=image_profile_orig["count"],
-                    nodata=image_profile_orig["nodata"],
-                    dtype=image_profile_orig["dtype"],
-                    compress=compress,
-                    driver=driver,
-                )
-
-            # Delete output file, and write again
-            output_filepath.unlink()
-            image_profile_curr = _get_cleaned_write_profile(image_profile_curr)
-            with rio.open(
-                str(output_filepath), "w", **image_profile_curr
-            ) as image_file:
-                image_file.write(image_data_output)
-
-    return output_filepath
+    return (image_data_output, image_profile_output)
 
 
 def create_filename(

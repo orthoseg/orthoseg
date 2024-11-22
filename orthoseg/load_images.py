@@ -157,7 +157,7 @@ def load_images(
         )
 
         # Now we are ready to get the images...
-        ows_util.get_images_for_grid(
+        ows_util.get_images_for_cache(
             layersources=layersources,
             output_image_dir=output_image_dir,
             crs=crs,

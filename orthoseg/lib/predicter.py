@@ -17,13 +17,17 @@ import geofileops as gfo
 import keras.models
 import numpy as np
 import pandas as pd
+import pyproj
 import rasterio as rio
 import rasterio.crs as rio_crs
 import rasterio.plot as rio_plot
 import tensorflow as tf
+from rasterio import (
+    transform as rio_transform,
+)
 
 import orthoseg.lib.postprocess_predictions as postp
-from orthoseg.util import general_util
+from orthoseg.util import general_util, ows_util
 from orthoseg.util.progress_util import ProgressLogger
 
 # Get a logger...
@@ -139,17 +143,252 @@ def predict_dir(
 
     # Get list of all image files to process and to skip
     image_filepaths: list[Path] = []
+    image_files: list[dict[str, Any]] = []
     input_ext = [".png", ".tif", ".jpg"]
     for input_ext_cur in input_ext:
         image_filepaths.extend(input_image_dir.rglob("*" + input_ext_cur))
     image_filepaths = sorted(image_filepaths)
-    nb_images = len(image_filepaths)
+    for image_filepath in image_filepaths:
+        image_files.append({"path": image_filepath, "bbox": None})
+
+    _predict_layer(
+        model=model,
+        input_image_dir=input_image_dir,
+        input_image_profile=None,
+        output_image_dir=output_image_dir,
+        output_vector_path=output_vector_path,
+        classes=classes,
+        image_files=image_files,
+        tmp_dir=tmp_dir,
+        min_probability=min_probability,
+        postprocess=postprocess,
+        border_pixels_to_ignore=border_pixels_to_ignore,
+        projection_if_missing=projection_if_missing,
+        input_mask_dir=input_mask_dir,
+        batch_size=batch_size,
+        evaluate_mode=evaluate_mode,
+        cancel_filepath=cancel_filepath,
+        nb_parallel_postprocess=nb_parallel_postprocess,
+        max_prediction_errors=max_prediction_errors,
+        force=force,
+        no_images_ok=no_images_ok,
+    )
+
+
+def predict_layer(
+    model: keras.models.Model,
+    input_image_config: dict,
+    output_image_dir: Path,
+    output_vector_path: Optional[Path],
+    classes: list,
+    min_probability: float = 0.5,
+    postprocess: dict = {},
+    border_pixels_to_ignore: int = 0,
+    projection_if_missing: Optional[str] = None,
+    input_mask_dir: Optional[Path] = None,
+    batch_size: int = 16,
+    evaluate_mode: bool = False,
+    cancel_filepath: Optional[Path] = None,
+    nb_parallel_postprocess: int = 1,
+    max_prediction_errors: int = 100,
+    force: bool = False,
+    no_images_ok: bool = False,
+):
+    """Create a prediction for all the images of a layer.
+
+    If evaluate_mode is False, the output folder(s) will contain:
+        * the "raw" prediction for every image (if there are white pixels)
+        * a geojson with the vectorized prediction, with a column "onborder"
+          for each feature that is 1 if the feature is on the border of the
+          tile, taking the border_pixels_to_ignore in account if applicable.
+          This columns can be used to speed up union operations afterwards,
+          because only features on the border of tiles need to be unioned.
+
+    If evaluate_mode is True, the results will all be put in the root of the
+    output folder, and the following files will be outputted:
+        * the original image
+        * the mask that was provided, if available
+        * the "raw" prediction
+        * a "cleaned" version of the prediction
+    The files will in this case be prefixed with a number so they are ordered
+    in a way that is interesting for evaluation. If a mask was available, this
+    prefix will be the % overlap of the mask and the prediction. If no mask is
+    available, the prefix is the % white pixels in the prediction.
+
+    Args:
+        model (Model): the model to use for the prediction
+        input_image_config (dict): the profile of the input image
+        input_image_dir (Pathlike): dir where the input images are located
+        output_image_dir (Pathlike): dir where the output will be put
+        output_vector_path (Pathlike): the path to write the vector output to
+        classes (list): a list of the different class names. Mandatory
+            if more than background + 1 class.
+        min_probability (float): Minimum probability to consider a pixel being of a
+            certain class. Default to 0.5.
+        postprocess (dict, optional): specifies which postprocessing should be applied
+            to the prediction. Default is {}, so no postprocessing.
+        border_pixels_to_ignore: because the segmentation at the borders of the
+            input images images is not as good, you can specify that x
+            pixels need to be ignored
+        input_mask_dir: optional dir where the mask images are located
+        projection_if_missing: Normally the projection should be in the raster file. If
+            it is not, you can explicitly specify one.
+        batch_size: batch size to use while predicting. This must be choosen
+            depending on the neural network architecture and available
+            memory on you GPU.
+        evaluate_mode: True to run in evaluate mode
+        cancel_filepath: If the file in this path exists, processing stops asap
+        nb_parallel_postprocess (int, optional): The number of parallel
+            processes used to vectorize,... the predictions. If -1, all
+            available CPU's are used. Defaults to 1.
+        max_prediction_errors (int, optional): the maximum number of errors that is
+            tolerated before stopping prediction. If -1, no limit. Defaults to 100.
+        force: False to skip images that already have a prediction, true to
+            ignore existing predictions and overwrite them
+        no_images_ok (bool, optional): False to throw `ValueError`
+            when no images available in the `input_image_dir`,
+            True to return without error. Defaults to False.
+    """
+    # Init
+    if input_image_config is not None:
+        image_layer = input_image_config["image_layer"]
+        image_size_for_predict = input_image_config["image_size_for_predict"]
+        image_format = input_image_config["image_format"]
+    else:
+        logger.warning("input_image_profile doesn't exist")
+        return
+
+    if output_vector_path is not None and output_vector_path.exists():
+        logger.warning(f"output file exists already, so return: {output_vector_path}")
+        return
+
+    # Create tmp dir for this predict run
+    tmp_dir = Path(tempfile.gettempdir())
+    tmp_dir.mkdir(parents=True, exist_ok=True)
+    tmp_dir = Path(tempfile.mkdtemp(prefix=f"{Path(__file__).stem}_", dir=tmp_dir))
+    logger.info("Start predict")
+
+    # Eager and not eager prediction seems +- the same performance-wise
+    # model.run_eagerly = False
+
+    # If we are using evaluate mode, change the output dir...
+    if evaluate_mode:
+        output_image_dir = Path(str(output_image_dir) + "_eval")
+
+    # Create the output dir's if they don't exist yet...
+    for dir in [output_image_dir, tmp_dir]:
+        if not dir.exists():
+            dir.mkdir(parents=True, exist_ok=True)
+
+    crs = pyproj.CRS.from_user_input(image_layer["projection"])
+
+    tiles_to_download_gdf = ows_util.get_images_for_grid(
+        output_image_dir=output_image_dir,
+        crs=crs,
+        image_gen_bbox=image_layer["bbox"],
+        image_gen_roi_filepath=image_layer["roi_filepath"],
+        grid_xmin=image_layer["grid_xmin"],
+        grid_ymin=image_layer["grid_ymin"],
+        image_crs_pixel_x_size=image_size_for_predict["image_pixel_x_size"],
+        image_crs_pixel_y_size=image_size_for_predict["image_pixel_y_size"],
+        image_pixel_width=image_size_for_predict["image_pixel_width"],
+        image_pixel_height=image_size_for_predict["image_pixel_height"],
+        image_format=image_format,
+        pixels_overlap=image_size_for_predict["image_pixels_overlap"],
+    )
+    image_files: list[dict[str, Any]] = []
+    for tile in tiles_to_download_gdf.geometry.bounds.itertuples():
+        output_filepath = tiles_to_download_gdf.loc[tile.Index, "path"]
+        image_files.append(
+            {
+                "path": output_filepath,
+                "bbox": (
+                    tiles_to_download_gdf.loc[tile.Index, "xmin"].astype(int),
+                    tiles_to_download_gdf.loc[tile.Index, "ymin"].astype(int),
+                    tiles_to_download_gdf.loc[tile.Index, "xmax"].astype(int),
+                    tiles_to_download_gdf.loc[tile.Index, "ymax"].astype(int),
+                ),
+            }
+        )
+    tile_pixel_width = (
+        (
+            image_size_for_predict["image_pixel_width"]
+            + 2 * image_size_for_predict["image_pixels_overlap"]
+        )
+        if image_size_for_predict["image_pixels_overlap"]
+        else image_size_for_predict["image_pixel_width"]
+    )
+    tile_pixel_height = (
+        (
+            image_size_for_predict["image_pixel_height"]
+            + 2 * image_size_for_predict["image_pixels_overlap"]
+        )
+        if image_size_for_predict["image_pixels_overlap"]
+        else image_size_for_predict["image_pixel_height"]
+    )
+    input_image_config["size"] = (tile_pixel_width, tile_pixel_height)
+
+    _predict_layer(
+        model=model,
+        input_image_dir=None,
+        input_image_profile=input_image_config,
+        output_image_dir=output_image_dir,
+        output_vector_path=output_vector_path,
+        classes=classes,
+        image_files=image_files,
+        tmp_dir=tmp_dir,
+        min_probability=min_probability,
+        postprocess=postprocess,
+        border_pixels_to_ignore=border_pixels_to_ignore,
+        projection_if_missing=projection_if_missing,
+        input_mask_dir=input_mask_dir,
+        batch_size=batch_size,
+        evaluate_mode=evaluate_mode,
+        cancel_filepath=cancel_filepath,
+        nb_parallel_postprocess=nb_parallel_postprocess,
+        max_prediction_errors=max_prediction_errors,
+        force=force,
+        no_images_ok=no_images_ok,
+    )
+
+
+def _predict_layer(
+    model: keras.models.Model,
+    input_image_dir: Optional[Path],
+    input_image_profile: Optional[dict],
+    output_image_dir: Path,
+    output_vector_path: Optional[Path],
+    classes: list,
+    image_files: list[dict[str, Any]],
+    tmp_dir: Path,
+    min_probability: float = 0.5,
+    postprocess: dict = {},
+    border_pixels_to_ignore: int = 0,
+    projection_if_missing: Optional[str] = None,
+    input_mask_dir: Optional[Path] = None,
+    batch_size: int = 16,
+    evaluate_mode: bool = False,
+    cancel_filepath: Optional[Path] = None,
+    nb_parallel_postprocess: int = 1,
+    max_prediction_errors: int = 100,
+    force: bool = False,
+    no_images_ok: bool = False,
+):
+    nb_images = len(image_files)
 
     if nb_images == 0:
         if no_images_ok:
             return
-        raise ValueError(f"Found no {input_ext} images to predict in {input_image_dir}")
-    logger.info(f"Found {nb_images} {input_ext} images to predict in {input_image_dir}")
+        # raise valueerror only if input_image_dir is provided
+        if input_image_dir:
+            raise ValueError(f"Found no images to predict in {input_image_dir}")
+        else:
+            raise ValueError("Found no images to predict")
+    # log only when input_image_dir is provided
+    if input_image_dir:
+        logger.info(f"Found {nb_images} images to predict in {input_image_dir}")
+    else:
+        logger.info(f"Found {nb_images} images to predict")
 
     # If force is false, get list of all existing predictions
     # Getting the list once is way faster than checking file per file later on!
@@ -235,16 +474,17 @@ def predict_dir(
                 image_id += 1
 
                 # Last image reached
-                if image_id >= len(image_filepaths) - 1:
+                if image_id >= len(image_files) - 1:
                     last_image_reached = True
 
-                image_filepath = image_filepaths[image_id]
+                image_file = image_files[image_id]
+                # get the name of the image
 
                 # Check if the image has been processed already
-                if force is False and image_filepath.name in image_done_filenames:
+                if force is False and image_file["path"] in image_done_filenames:
                     logger.debug(
                         "Predict for image has already been done before and force is "
-                        f"False, so skip: {image_filepath.name}"
+                        f"False, so skip: {image_file['path']}"
                     )
                     nb_to_predict -= 1
                     continue
@@ -252,10 +492,11 @@ def predict_dir(
                 # Schedule file to be read
                 read_future = read_pool.submit(
                     read_image,
-                    image_filepath=image_filepath,
+                    image_file=image_file,
+                    image_profile=input_image_profile,
                     projection_if_missing=projection_if_missing,
                 )
-                read_queue[read_future] = image_filepath
+                read_queue[read_future] = image_file["path"]
 
             # Check read_queue for images read and add them to predict_queue
             # --------------------------------------------------------------
@@ -272,7 +513,7 @@ def predict_dir(
                     try:
                         # Get the result from the read
                         read_result = future.result()
-                        image_filepath_read = read_result["image_filepath"]
+                        image_filepath_read = read_result["image_file"]["path"]
 
                         # Prepare the filepath for the output
                         output_suffix = ".tif"
@@ -614,12 +855,15 @@ def _handle_error(image_path: Path, ex: Exception, log_path: Path):
 
 
 def read_image(
-    image_filepath: Path, projection_if_missing: Optional[str] = None
+    image_file: dict[str, Any],
+    image_profile: Optional[dict],
+    projection_if_missing: Optional[str] = None,
 ) -> dict:
     """Read image file.
 
     Args:
-        image_filepath (Path): file path.
+        image_file (Path): file path.
+        image_profile (Optional[dict], optional): _description_.
         projection_if_missing (Optional[str], optional): _description_.
             Defaults to None.
 
@@ -631,16 +875,66 @@ def read_image(
     retry_count = 0
     while True:
         try:
-            with rio.open(str(image_filepath)) as image_ds:
-                # Read geo info
-                image_crs = image_ds.profile["crs"]
-                image_transform = image_ds.transform
+            if image_file["bbox"] is None:
+                image_filepath = image_file["path"]
+                with rio.open(str(image_filepath)) as image_ds:
+                    # Read geo info
+                    image_crs = image_ds.profile["crs"]
+                    image_transform = image_ds.transform
 
-                # Read pixels + change from (channels, width, height) to
-                # (width, height, channels) + normalize to between 0 and 1
-                image_data = image_ds.read()
-                image_data = rio_plot.reshape_as_image(image_data)
-                image_data = image_data / 255.0
+                    # Read pixels
+                    image_data = image_ds.read()
+            else:
+                assert image_profile is not None
+                crs = pyproj.CRS.from_user_input(
+                    image_profile["image_layer"]["projection"]
+                )
+                bbox = image_file["bbox"]
+                size = image_profile["size"]
+
+                result = ows_util.getmap(
+                    layersources=image_profile["image_layer"]["layersources"],
+                    crs=crs,
+                    bbox=bbox,
+                    size=size,
+                    ssl_verify=image_profile["ssl_verify"],
+                    image_format=image_profile["image_format"],
+                    # transparent=transparent,
+                    image_pixels_ignore_border=image_profile["image_layer"][
+                        "image_pixels_ignore_border"
+                    ],
+                    # has_switched_axes=has_switched_axes,
+                    on_outside_layer_bounds="return",
+                )
+                # For some coordinate systems apparently the axis ordered is wrong
+                # in LibOWS
+                crs_pixel_x_size = (bbox[2] - bbox[0]) / size[0]
+                crs_pixel_y_size = (bbox[1] - bbox[3]) / size[1]
+
+                assert result is not None
+                image_data, profile = result
+
+                # Add transform and crs to the profile
+                assert profile is not None
+                profile.update(
+                    transform=rio_transform.Affine(
+                        crs_pixel_x_size,
+                        0,
+                        bbox[0],
+                        0,
+                        crs_pixel_y_size,
+                        bbox[3],
+                    ),
+                    crs=crs,
+                )
+
+                image_crs = profile["crs"]
+                image_transform = profile["transform"]
+
+            # change from (channels, width, height) to
+            # (width, height, channels) + normalize to between 0 and 1
+            image_data = rio_plot.reshape_as_image(image_data)
+            image_data = image_data / 255.0
 
             # Read worked, so jump out of the loop...
             break
@@ -665,10 +959,11 @@ def read_image(
             raise ValueError(message)
 
     # Now return the result
-    result = {
+    image = {
         "image_data": image_data,
         "image_crs": image_crs,
         "image_transform": image_transform,
-        "image_filepath": image_filepath,
+        "image_file": image_file,
     }
-    return result
+
+    return image
