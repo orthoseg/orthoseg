@@ -101,19 +101,19 @@ def validate(config_path: Path, config_overrules: list[str] = []):
         )
 
         # Send mail that validate was successful
-        email_helper.sendmail(f"Validate for config {config_path.stem} was successful")
+        email_helper.sendmail(f"Validate for {config_path.stem} was successful")
         logger.info(
             f"Traindata dir to use is {training_dir}, with traindata_id: {traindata_id}"
         )
     except Exception as ex:
-        message = f"ERROR while running validate for task {config_path.stem}"
+        message = f"ERROR in validate for {config_path.stem}"
         logger.exception(message)
         if isinstance(ex, prep.ValidationError):
             message_body = f"Validation error: {ex.to_html()}"
         else:
             message_body = f"Exception: {ex}<br/><br/>{traceback.format_exc()}"
         email_helper.sendmail(subject=message, body=message_body)
-        raise Exception(message) from ex
+        raise RuntimeError(message) from ex
     finally:
         conf.remove_run_tmp_dir()
 
