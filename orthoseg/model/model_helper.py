@@ -537,8 +537,7 @@ def get_best_model(
     # If no traindata_id provided, find highest traindata id
     max_traindata_id = -1
     for model_info in model_info_list:
-        if model_info["traindata_id"] > max_traindata_id:
-            max_traindata_id = model_info["traindata_id"]
+        max_traindata_id = max(model_info["traindata_id"], max_traindata_id)
 
     # Get the list of newest model
     newest_model_info_list = [
