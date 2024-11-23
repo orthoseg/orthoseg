@@ -6,7 +6,6 @@ import pprint
 import shutil
 import warnings
 from pathlib import Path
-from typing import Optional, Union
 
 import geofileops as gfo
 import geopandas as gpd
@@ -34,10 +33,10 @@ class LabelInfo:
         locations_path: Path,
         polygons_path: Path,
         image_layer: str,
-        pixel_x_size: Optional[float] = None,
-        pixel_y_size: Optional[float] = None,
-        locations_gdf: Optional[gpd.GeoDataFrame] = None,
-        polygons_gdf: Optional[gpd.GeoDataFrame] = None,
+        pixel_x_size: float | None = None,
+        pixel_y_size: float | None = None,
+        locations_gdf: gpd.GeoDataFrame | None = None,
+        polygons_gdf: gpd.GeoDataFrame | None = None,
     ):
         """Conctructor of LabelInfo.
 
@@ -138,7 +137,7 @@ def prepare_traindatasets(
     image_pixel_y_size: float = 0.25,
     image_pixel_width: int = 512,
     image_pixel_height: int = 512,
-    ssl_verify: Union[bool, str] = True,
+    ssl_verify: bool | str = True,
     only_validate: bool = False,
     force: bool = False,
 ) -> tuple[Path, int]:
@@ -412,8 +411,8 @@ def prepare_labeldata(
     label_infos: list[LabelInfo],
     classes: dict,
     labelname_column: str,
-    image_pixel_x_size: Optional[float],
-    image_pixel_y_size: Optional[float],
+    image_pixel_x_size: float | None,
+    image_pixel_y_size: float | None,
     image_pixel_width: int,
     image_pixel_height: int,
 ) -> list[tuple[gpd.GeoDataFrame, gpd.GeoDataFrame]]:
@@ -759,10 +758,10 @@ def _create_mask(
     output_mask_filepath: Path,
     labels_to_burn_gdf: gpd.GeoDataFrame,
     nb_classes: int = 1,
-    output_imagecopy_filepath: Optional[Path] = None,
+    output_imagecopy_filepath: Path | None = None,
     minimum_pct_labeled: float = 0.0,
     force: bool = False,
-) -> Optional[bool]:
+) -> bool | None:
     # If file exists already and force is False... stop.
     if force is False and output_mask_filepath.exists():
         logger.debug(

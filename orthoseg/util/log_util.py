@@ -9,7 +9,6 @@ import logging
 import logging.config
 import tempfile
 from pathlib import Path
-from typing import Optional
 
 
 class LoggingContext:
@@ -56,10 +55,10 @@ class LoggingContext:
 
 
 def init_logging_dictConfig(
-    logconfig_path: Optional[Path] = None,
-    logconfig_dict: Optional[dict] = None,
-    log_basedir: Optional[Path] = None,
-    loggername: Optional[str] = None,
+    logconfig_path: Path | None = None,
+    logconfig_dict: dict | None = None,
+    log_basedir: Path | None = None,
+    loggername: str | None = None,
 ) -> logging.Logger:
     """Initializes the logging based on input in dictConfig format.
 

@@ -5,7 +5,6 @@ import json
 import logging
 import tempfile
 from pathlib import Path
-from typing import Optional
 
 # Get a logger...
 logger = logging.getLogger(__name__)
@@ -95,7 +94,7 @@ def read_config_ext(config_paths: list[Path]) -> configparser.ConfigParser:
             logger.warning(f"config_filepath does not exist: {config_filepath}")
 
     # Now we are ready to read the entire configuration
-    def parse_boolean_ext(input) -> Optional[bool]:
+    def parse_boolean_ext(input) -> bool | None:
         if input is None:
             return None
 
@@ -118,7 +117,7 @@ def read_config_ext(config_paths: list[Path]) -> configparser.ConfigParser:
 
         return eval(string)
 
-    def to_path(pathlike: str) -> Optional[Path]:
+    def to_path(pathlike: str) -> Path | None:
         if pathlike is None:
             return None
         else:

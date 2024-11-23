@@ -7,7 +7,6 @@ import math
 import os
 import shutil
 from pathlib import Path
-from typing import Optional, Union
 
 import geofileops as gfo
 import geopandas as gpd
@@ -40,7 +39,7 @@ def empty_image(tmp_path):
 
 
 def _prepare_locations_file(
-    tmp_path, locations: Optional[Union[dict, gpd.GeoDataFrame]]
+    tmp_path, locations: dict | gpd.GeoDataFrame | None
 ) -> Path:
     locations_path = tmp_path / "locations.gpkg"
     if locations is None:
@@ -52,9 +51,7 @@ def _prepare_locations_file(
     return locations_path
 
 
-def _prepare_polygons_file(
-    tmp_path, polygons: Optional[Union[dict, gpd.GeoDataFrame]]
-) -> Path:
+def _prepare_polygons_file(tmp_path, polygons: dict | gpd.GeoDataFrame | None) -> Path:
     polygons_path = tmp_path / "polygons.gpkg"
     if polygons is None:
         polygons = TestData.polygons_gdf
@@ -67,8 +64,8 @@ def _prepare_polygons_file(
 
 def _prepare_labelinfos(
     tmp_path,
-    locations: Optional[Union[dict, gpd.GeoDataFrame]] = None,
-    polygons: Optional[Union[dict, gpd.GeoDataFrame]] = None,
+    locations: dict | gpd.GeoDataFrame | None = None,
+    polygons: dict | gpd.GeoDataFrame | None = None,
 ) -> list[prep_traindata.LabelInfo]:
     locations_path = _prepare_locations_file(tmp_path, locations)
     polygons_path = _prepare_polygons_file(tmp_path, polygons)
