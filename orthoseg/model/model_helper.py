@@ -4,7 +4,7 @@ import json
 import logging
 import shutil
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import pandas as pd
 from keras import callbacks
@@ -19,7 +19,7 @@ class ArchitectureParams:
     def __init__(
         self,
         architecture: str,
-        classes: Optional[list] = None,
+        classes: list | None = None,
         nb_channels: int = 3,
         activation_function: str = "softmax",
         architecture_id: int = 0,
@@ -64,12 +64,12 @@ class TrainParams:
         image_augmentations: dict,
         mask_augmentations: dict,
         trainparams_id: int = 0,
-        class_weights: Optional[list] = None,
+        class_weights: list | None = None,
         batch_size: int = 4,
         optimizer: str = "adam",
-        optimizer_params: Optional[dict] = None,
-        loss_function: Optional[str] = None,
-        monitor_metric: Optional[str] = None,
+        optimizer_params: dict | None = None,
+        loss_function: str | None = None,
+        monitor_metric: str | None = None,
         monitor_metric_mode: str = "auto",
         save_format: str = "h5",
         save_best_only: bool = True,
@@ -77,7 +77,7 @@ class TrainParams:
         nb_epoch: int = 1000,
         nb_epoch_with_freeze: int = 100,
         earlystop_patience: int = 100,
-        earlystop_monitor_metric: Optional[str] = None,
+        earlystop_monitor_metric: str | None = None,
         earlystop_monitor_metric_mode: str = "auto",
         log_tensorboard: bool = False,
         log_csv: bool = True,
@@ -189,9 +189,9 @@ class HyperParams:
 
     def __init__(
         self,
-        architecture: Optional[ArchitectureParams] = None,
-        train: Optional[TrainParams] = None,
-        path: Optional[Path] = None,
+        architecture: ArchitectureParams | None = None,
+        train: TrainParams | None = None,
+        path: Path | None = None,
     ):
         """Class to store the hyperparameters to use for the machine learning algorythm.
 
@@ -359,7 +359,7 @@ def format_model_filename(
     return filename
 
 
-def parse_model_filename(filepath: Path) -> Optional[dict]:
+def parse_model_filename(filepath: Path) -> dict | None:
     """Parse a model_filename to a dict with the properties of the model.
 
     These are the properties:
@@ -438,10 +438,10 @@ def parse_model_filename(filepath: Path) -> Optional[dict]:
 
 def get_models(
     model_dir: Path,
-    segment_subject: Optional[str] = None,
-    traindata_id: Optional[int] = None,
-    architecture_id: Optional[int] = None,
-    trainparams_id: Optional[int] = None,
+    segment_subject: str | None = None,
+    traindata_id: int | None = None,
+    architecture_id: int | None = None,
+    trainparams_id: int | None = None,
 ) -> list[dict]:
     """Return the list of models in the model_dir passed.
 
@@ -499,11 +499,11 @@ def get_models(
 
 def get_best_model(
     model_dir: Path,
-    segment_subject: Optional[str] = None,
-    traindata_id: Optional[int] = None,
-    architecture_id: Optional[int] = None,
-    trainparams_id: Optional[int] = None,
-) -> Optional[dict]:
+    segment_subject: str | None = None,
+    traindata_id: int | None = None,
+    architecture_id: int | None = None,
+    trainparams_id: int | None = None,
+) -> dict | None:
     """Get the properties of the model with the highest combined accuracy.
 
     Only models with the highest traindata version in the dir are considered.
@@ -691,8 +691,8 @@ def save_and_clean_models(
     trainparams_id: int,
     monitor_metric_mode: str,
     new_model=None,
-    new_model_monitor_value: Optional[float] = None,
-    new_model_epoch: Optional[int] = None,
+    new_model_monitor_value: float | None = None,
+    new_model_epoch: int | None = None,
     save_format: str = "h5",
     save_best_only: bool = False,
     save_min_accuracy: float = 0.9,
@@ -870,7 +870,7 @@ def save_and_clean_models(
                     )
         else:
             # Bad model... can be removed (or not saved)
-            assert isinstance(model_info.filepath, (str, Path))
+            assert isinstance(model_info.filepath, str | Path)
             if only_report is True:
                 logger.debug(f"DELETE {model_info.filename}")
             elif Path(model_info.filepath).exists() is True:

@@ -4,7 +4,6 @@ import logging
 import math
 import os
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 
@@ -28,12 +27,12 @@ def train(
     segment_subject: str,
     traindata_id: int,
     hyperparams: mh.HyperParams,
-    model_preload_filepath: Optional[Path] = None,
+    model_preload_filepath: Path | None = None,
     image_width: int = 512,
     image_height: int = 512,
     image_subdir: str = "image",
     mask_subdir: str = "mask",
-    save_augmented_subdir: Optional[str] = None,
+    save_augmented_subdir: str | None = None,
 ):
     """Create/load a neural network and train it.
 
@@ -370,7 +369,7 @@ def create_train_generator(
     batch_size: int = 32,
     image_color_mode: str = "rgb",
     mask_color_mode: str = "grayscale",
-    save_to_subdir: Optional[str] = None,
+    save_to_subdir: str | None = None,
     image_save_prefix: str = "image",
     mask_save_prefix: str = "mask",
     nb_classes: int = 1,
