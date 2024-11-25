@@ -1,7 +1,6 @@
 """Modile with generic Utility functions for vector manipulations."""
 
 import logging
-from typing import Optional
 
 import geopandas as gpd
 import pandas as pd
@@ -70,7 +69,7 @@ def reclassify_neighbours(
     gdf: gpd.GeoDataFrame,
     reclassify_column: str,
     query: str,
-    border_bounds: Optional[tuple[float, float, float, float]],
+    border_bounds: tuple[float, float, float, float] | None,
     class_background: str = "background",
 ) -> gpd.GeoDataFrame:
     """Reclassify features to the class of neighbouring features.
@@ -111,7 +110,7 @@ def reclassify_neighbours(
     def _add_needed_columns(
         inner_gdf: gpd.GeoDataFrame,
         inner_query: str,
-        inner_border_bounds: Optional[tuple[float, float, float, float]],
+        inner_border_bounds: tuple[float, float, float, float] | None,
     ) -> gpd.GeoDataFrame:
         gdf_result = inner_gdf.copy()
 

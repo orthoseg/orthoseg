@@ -39,13 +39,13 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         dev: [false]
-        python: ["3.9", "3.10", "3.11", "3.12"]
+        python: ["3.10", "3.11", "3.12"]
         env: ["latest"]
         include:
           - env: latest
             os: macos-13
             dev: false
-            python: "3.10"
+            python: "3.12"
           - env: latest
             os: windows-latest
             dev: false
@@ -53,8 +53,8 @@ jobs:
           - env: minimal
             os: ubuntu-latest
             dev: false
-            python: "3.9"
-            
+            python: "3.10"
+
     steps:
       - uses: actions/checkout@v4
 

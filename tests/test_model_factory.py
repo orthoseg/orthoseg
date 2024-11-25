@@ -2,8 +2,6 @@
 Tests for functionalities in orthoseg.model.model_factory.
 """
 
-from typing import Optional
-
 import pytest
 
 from orthoseg.model import model_factory
@@ -22,7 +20,7 @@ def test_check_image_size(
     architecture: str,
     input_width: int,
     input_height: int,
-    expected_error: Optional[str],
+    expected_error: str | None,
 ):
     if expected_error is not None:
         with pytest.raises(ValueError, match=expected_error):

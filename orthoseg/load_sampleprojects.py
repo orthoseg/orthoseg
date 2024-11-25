@@ -5,7 +5,6 @@ import logging
 import shlex
 import sys
 from pathlib import Path
-from typing import Optional
 
 import gdown
 
@@ -50,7 +49,7 @@ def _parse_load_sampleprojects_args(args) -> dict:
     return {"dest_dir": dest_dir, "ssl_verify": ssl_verify}
 
 
-def load_sampleprojects(dest_dir: Path, ssl_verify: Optional[bool] = None):
+def load_sampleprojects(dest_dir: Path, ssl_verify: bool | None = None):
     """Load the orthoseg sample projects.
 
     Args:

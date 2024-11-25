@@ -5,7 +5,7 @@ Helper functions for all tests.
 import logging
 import tempfile
 from pathlib import Path
-from typing import ClassVar, Optional
+from typing import ClassVar
 
 import geopandas as gpd
 from shapely import geometry as sh_geom
@@ -83,7 +83,7 @@ class TestData:
     )
 
 
-def create_tempdir(base_dirname: str, parent_dir: Optional[Path] = None) -> Path:
+def create_tempdir(base_dirname: str, parent_dir: Path | None = None) -> Path:
     # Parent
     if parent_dir is None:
         parent_dir = Path(tempfile.gettempdir())

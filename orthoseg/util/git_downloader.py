@@ -10,7 +10,6 @@ import ssl
 import time
 import urllib.request
 from pathlib import Path
-from typing import Optional, Union
 
 
 def create_url(url: str) -> tuple[str, list[Path]]:
@@ -43,9 +42,9 @@ def create_url(url: str) -> tuple[str, list[Path]]:
 def download(
     repo_url: str,
     output_dir: Path,
-    ssl_verify: Union[bool, str, None] = None,
+    ssl_verify: bool | str | None = None,
     limit_rate: bool = True,
-) -> Optional[int]:
+) -> int | None:
     """Downloads the files and directories in repo_url.
 
     Args:
