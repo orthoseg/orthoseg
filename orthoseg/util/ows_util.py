@@ -28,6 +28,7 @@ from rasterio import (
     windows as rio_windows,
 )
 from rasterio._err import CPLE_AppDefinedError
+from shapely.geometry import box
 
 from . import progress_util
 
@@ -218,6 +219,10 @@ def get_images_for_grid(
             tile_pixel_width += 2 * pixels_overlap
             tile_pixel_height += 2 * pixels_overlap
 
+        tiles_to_download_gdf.loc[tile.Index, "geometry"] = box(
+            tile_xmin, tile_ymin, tile_xmax, tile_ymax
+        )
+
         # Create output filepath
         if crs.is_projected:
             output_dir = output_image_dir / f"{tile_xmin:06.0f}"
@@ -233,12 +238,6 @@ def get_images_for_grid(
         output_filepath = output_dir / output_filename
         # add output path to gdf
         tiles_to_download_gdf.loc[tile.Index, "path"] = output_filepath
-        tiles_to_download_gdf.loc[tile.Index, "xmin"] = tile_xmin
-        tiles_to_download_gdf.loc[tile.Index, "xmax"] = tile_xmax
-        tiles_to_download_gdf.loc[tile.Index, "ymin"] = tile_ymin
-        tiles_to_download_gdf.loc[tile.Index, "ymax"] = tile_ymax
-        tiles_to_download_gdf.loc[tile.Index, "pixel_width"] = tile_pixel_width
-        tiles_to_download_gdf.loc[tile.Index, "pixel_height"] = tile_pixel_height
 
     # If an roi is defined, filter the split it using a grid as large objects are small
     if roi_gdf is not None:
@@ -366,6 +365,9 @@ def get_images_for_cache(
         logger.info(f"Start loading {nb_total} images")
         progress = None
         for tile in tiles_to_download_gdf.geometry.bounds.itertuples():
+            _, tile_xmin, tile_ymin, tile_xmax, tile_ymax = tile
+            tile_pixel_width = image_pixel_width
+            tile_pixel_height = image_pixel_height
             # If a cron_schedule is specified, check if we should be running
             if cron_schedule is not None and cron_schedule != "":
                 # Sleep till the schedule becomes active
@@ -411,21 +413,17 @@ def get_images_for_cache(
 
             # Submit the image to be downloaded
             output_dir.mkdir(parents=True, exist_ok=True)
+            if pixels_overlap:
+                tile_pixel_width += 2 * pixels_overlap
+                tile_pixel_height += 2 * pixels_overlap
+
             future = pool.submit(
                 getmap_to_file,  # Function
                 layersources=layersources,
                 output_dir=output_dir,
                 crs=crs,
-                bbox=(
-                    tiles_to_download_gdf.loc[tile.Index, "xmin"].astype(int),
-                    tiles_to_download_gdf.loc[tile.Index, "ymin"].astype(int),
-                    tiles_to_download_gdf.loc[tile.Index, "xmax"].astype(int),
-                    tiles_to_download_gdf.loc[tile.Index, "ymax"].astype(int),
-                ),
-                size=(
-                    tiles_to_download_gdf.loc[tile.Index, "pixel_width"].astype(int),
-                    tiles_to_download_gdf.loc[tile.Index, "pixel_height"].astype(int),
-                ),
+                bbox=(tile_xmin, tile_ymin, tile_xmax, tile_ymax),
+                size=(tile_pixel_width, tile_pixel_height),
                 ssl_verify=ssl_verify,
                 image_format=image_format,
                 image_format_save=image_format_save,

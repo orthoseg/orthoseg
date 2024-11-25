@@ -298,34 +298,21 @@ def predict_layer(
     )
     image_files: list[dict[str, Any]] = []
     for tile in tiles_to_download_gdf.geometry.bounds.itertuples():
+        _, tile_xmin, tile_ymin, tile_xmax, tile_ymax = tile
+        tile_pixel_width = image_size_for_predict["image_pixel_width"]
+        tile_pixel_height = image_size_for_predict["image_pixel_height"]
+
         output_filepath = tiles_to_download_gdf.loc[tile.Index, "path"]
         image_files.append(
             {
                 "path": output_filepath,
-                "bbox": (
-                    tiles_to_download_gdf.loc[tile.Index, "xmin"].astype(int),
-                    tiles_to_download_gdf.loc[tile.Index, "ymin"].astype(int),
-                    tiles_to_download_gdf.loc[tile.Index, "xmax"].astype(int),
-                    tiles_to_download_gdf.loc[tile.Index, "ymax"].astype(int),
-                ),
+                "bbox": (tile_xmin, tile_ymin, tile_xmax, tile_ymax),
             }
         )
-    tile_pixel_width = (
-        (
-            image_size_for_predict["image_pixel_width"]
-            + 2 * image_size_for_predict["image_pixels_overlap"]
-        )
-        if image_size_for_predict["image_pixels_overlap"]
-        else image_size_for_predict["image_pixel_width"]
-    )
-    tile_pixel_height = (
-        (
-            image_size_for_predict["image_pixel_height"]
-            + 2 * image_size_for_predict["image_pixels_overlap"]
-        )
-        if image_size_for_predict["image_pixels_overlap"]
-        else image_size_for_predict["image_pixel_height"]
-    )
+    if image_size_for_predict["image_pixels_overlap"]:
+        tile_pixel_width += 2 * image_size_for_predict["image_pixels_overlap"]
+        tile_pixel_height += 2 * image_size_for_predict["image_pixels_overlap"]
+
     input_image_config["size"] = (tile_pixel_width, tile_pixel_height)
 
     _predict_layer(
