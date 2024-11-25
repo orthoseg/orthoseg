@@ -21,7 +21,7 @@ setuptools.setup(
     include_package_data=True,
     install_requires=[
         "gdown",
-        "geofileops>=0.8,<0.10",
+        "geofileops>=0.9,<0.10",
         "geopandas>=1.0,<1.1",
         "matplotlib",
         "numpy<2",
