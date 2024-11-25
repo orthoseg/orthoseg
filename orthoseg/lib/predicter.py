@@ -11,7 +11,7 @@ import time
 import traceback
 from concurrent import futures
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import geofileops as gfo
 import keras.models
@@ -38,16 +38,16 @@ def predict_dir(
     model: keras.models.Model,
     input_image_dir: Path,
     output_image_dir: Path,
-    output_vector_path: Optional[Path],
+    output_vector_path: Path | None,
     classes: list,
     min_probability: float = 0.5,
     postprocess: dict = {},
     border_pixels_to_ignore: int = 0,
-    projection_if_missing: Optional[str] = None,
-    input_mask_dir: Optional[Path] = None,
+    projection_if_missing: str | None = None,
+    input_mask_dir: Path | None = None,
     batch_size: int = 16,
     evaluate_mode: bool = False,
-    cancel_filepath: Optional[Path] = None,
+    cancel_filepath: Path | None = None,
     nb_parallel_postprocess: int = 1,
     max_prediction_errors: int = 100,
     force: bool = False,
@@ -179,16 +179,16 @@ def predict_layer(
     model: keras.models.Model,
     input_image_config: dict,
     output_image_dir: Path,
-    output_vector_path: Optional[Path],
+    output_vector_path: Path | None,
     classes: list,
     min_probability: float = 0.5,
     postprocess: dict = {},
     border_pixels_to_ignore: int = 0,
-    projection_if_missing: Optional[str] = None,
-    input_mask_dir: Optional[Path] = None,
+    projection_if_missing: str | None = None,
+    input_mask_dir: Path | None = None,
     batch_size: int = 16,
     evaluate_mode: bool = False,
-    cancel_filepath: Optional[Path] = None,
+    cancel_filepath: Path | None = None,
     nb_parallel_postprocess: int = 1,
     max_prediction_errors: int = 100,
     force: bool = False,
@@ -354,21 +354,21 @@ def predict_layer(
 
 def _predict_layer(
     model: keras.models.Model,
-    input_image_dir: Optional[Path],
-    input_image_profile: Optional[dict],
+    input_image_dir: Path | None,
+    input_image_profile: dict | None,
     output_image_dir: Path,
-    output_vector_path: Optional[Path],
+    output_vector_path: Path | None,
     classes: list,
     image_files: list[dict[str, Any]],
     tmp_dir: Path,
     min_probability: float = 0.5,
     postprocess: dict = {},
     border_pixels_to_ignore: int = 0,
-    projection_if_missing: Optional[str] = None,
-    input_mask_dir: Optional[Path] = None,
+    projection_if_missing: str | None = None,
+    input_mask_dir: Path | None = None,
     batch_size: int = 16,
     evaluate_mode: bool = False,
-    cancel_filepath: Optional[Path] = None,
+    cancel_filepath: Path | None = None,
     nb_parallel_postprocess: int = 1,
     max_prediction_errors: int = 100,
     force: bool = False,
@@ -816,7 +816,7 @@ def _predict_layer(
 def _write_vector_result(
     image_path: Path,
     partial_vector_path: Path,
-    vector_output_path: Optional[Path],
+    vector_output_path: Path | None,
     images_done_log_filepath: Path,
 ):
     # Copy the result to the main vector output file
@@ -856,8 +856,8 @@ def _handle_error(image_path: Path, ex: Exception, log_path: Path):
 
 def read_image(
     image_file: dict[str, Any],
-    image_profile: Optional[dict],
-    projection_if_missing: Optional[str] = None,
+    image_profile: dict | None,
+    projection_if_missing: str | None = None,
 ) -> dict:
     """Read image file.
 

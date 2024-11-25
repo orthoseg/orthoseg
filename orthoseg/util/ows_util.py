@@ -7,7 +7,7 @@ import time
 import warnings
 from concurrent import futures
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 
 import geofileops as gfo
 import geopandas as gpd
@@ -62,18 +62,16 @@ class WMSLayerSource:
         self,
         wms_server_url: str,
         layernames: list[str],
-        layerstyles: Optional[list[str]] = None,
-        bands: Optional[list[int]] = None,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
+        layerstyles: list[str] | None = None,
+        bands: list[int] | None = None,
+        username: str | None = None,
+        password: str | None = None,
         wms_version: str = "1.3.0",
         wms_ignore_capabilities_url: bool = False,
         random_sleep: int = 0,
-        wms_service: Union[
-            owslib.wms.wms111.WebMapService_1_1_1,
-            owslib.wms.wms130.WebMapService_1_3_0,
-            None,
-        ] = None,
+        wms_service: owslib.wms.wms111.WebMapService_1_1_1
+        | owslib.wms.wms130.WebMapService_1_3_0
+        | None = None,
     ):
         """Constructor of WMSLayerSource.
 
@@ -108,9 +106,9 @@ class FileLayerSource:
 
     def __init__(
         self,
-        path: Union[str, Path],
+        path: str | Path,
         layernames: list[str],
-        bands: Optional[list[int]] = None,
+        bands: list[int] | None = None,
     ):
         """Contructor for FileLayerSource.
 
@@ -127,8 +125,8 @@ class FileLayerSource:
 def get_images_for_grid(
     output_image_dir: Path,
     crs: pyproj.CRS,
-    image_gen_bbox: Optional[tuple[float, float, float, float]] = None,
-    image_gen_roi_filepath: Optional[Path] = None,
+    image_gen_bbox: tuple[float, float, float, float] | None = None,
+    image_gen_roi_filepath: Path | None = None,
     grid_xmin: float = 0.0,
     grid_ymin: float = 0.0,
     image_crs_pixel_x_size: float = 0.25,
@@ -262,11 +260,11 @@ def get_images_for_grid(
 
 
 def get_images_for_cache(
-    layersources: list[Union[FileLayerSource, WMSLayerSource]],
+    layersources: list[FileLayerSource | WMSLayerSource],
     output_image_dir: Path,
-    crs: Union[str, pyproj.CRS],
-    image_gen_bbox: Optional[tuple[float, float, float, float]] = None,
-    image_gen_roi_filepath: Optional[Path] = None,
+    crs: str | pyproj.CRS,
+    image_gen_bbox: tuple[float, float, float, float] | None = None,
+    image_gen_roi_filepath: Path | None = None,
     grid_xmin: float = 0.0,
     grid_ymin: float = 0.0,
     image_crs_pixel_x_size: float = 0.25,
@@ -275,15 +273,15 @@ def get_images_for_cache(
     image_pixel_height: int = 1024,
     image_pixels_ignore_border: int = 0,
     nb_concurrent_calls: int = 1,
-    cron_schedule: Optional[str] = None,
+    cron_schedule: str | None = None,
     image_format: str = FORMAT_GEOTIFF,
-    image_format_save: Optional[str] = None,
+    image_format_save: str | None = None,
     tiff_compress: str = "lzw",
     transparent: bool = False,
     pixels_overlap: int = 0,
     nb_images_to_skip: int = 0,
     max_nb_images: int = -1,
-    ssl_verify: Union[bool, str] = True,
+    ssl_verify: bool | str = True,
     force: bool = False,
 ):
     """Loads all images in a grid from a WMS service.
@@ -532,7 +530,7 @@ def align_bbox_to_grid(
     return (bbox_tmp[0], bbox_tmp[1], bbox_tmp[2], bbox_tmp[3])
 
 
-def _interprete_ssl_verify(ssl_verify: Union[bool, str, None]):
+def _interprete_ssl_verify(ssl_verify: bool | str | None):
     # Interprete ssl_verify
     auth = None
     if ssl_verify is not None:
@@ -553,23 +551,23 @@ def _interprete_ssl_verify(ssl_verify: Union[bool, str, None]):
 
 
 def getmap_to_file(
-    layersources: Union[WMSLayerSource, FileLayerSource, list],
+    layersources: WMSLayerSource | FileLayerSource | list,
     output_dir: Path,
-    crs: Union[str, pyproj.CRS],
+    crs: str | pyproj.CRS,
     bbox: tuple[float, float, float, float],
     size: tuple[int, int],
-    ssl_verify: Union[bool, str] = True,
+    ssl_verify: bool | str = True,
     image_format: str = FORMAT_GEOTIFF,
-    image_format_save: Optional[str] = None,
-    output_filename: Optional[str] = None,
+    image_format_save: str | None = None,
+    output_filename: str | None = None,
     transparent: bool = False,
     tiff_compress: str = "lzw",
     image_pixels_ignore_border: int = 0,
     force: bool = False,
     layername_in_filename: bool = False,
-    has_switched_axes: Optional[bool] = None,
-    on_outside_layer_bounds: Optional[str] = "raise",
-) -> Optional[Path]:
+    has_switched_axes: bool | None = None,
+    on_outside_layer_bounds: str | None = "raise",
+) -> Path | None:
     """Reads/fetches an image from a layer source and saves it to a file.
 
     Args:
@@ -872,16 +870,16 @@ def getmap_to_file(
 
 
 def getmap(
-    layersources: Union[WMSLayerSource, FileLayerSource, list],
-    crs: Union[str, pyproj.CRS],
+    layersources: WMSLayerSource | FileLayerSource | list,
+    crs: str | pyproj.CRS,
     bbox: tuple[float, float, float, float],
     size: tuple[int, int],
-    ssl_verify: Union[bool, str] = True,
+    ssl_verify: bool | str = True,
     image_format: str = FORMAT_GEOTIFF,
     transparent: bool = False,
     image_pixels_ignore_border: int = 0,
-    has_switched_axes: Optional[bool] = None,
-    on_outside_layer_bounds: Optional[str] = "raise",
+    has_switched_axes: bool | None = None,
+    on_outside_layer_bounds: str | None = "raise",
 ) -> tuple[np.ndarray | None, dict[str, Any] | None] | None:
     """Reads/fetches an image from a layer source and saves it to a file.
 
@@ -1174,7 +1172,7 @@ def getmap(
 
 
 def create_filename(
-    crs: pyproj.CRS, bbox, size, image_format: str, layername: Optional[str] = None
+    crs: pyproj.CRS, bbox, size, image_format: str, layername: str | None = None
 ) -> str:
     """Create filename.
 
@@ -1290,8 +1288,8 @@ def _get_world_ext_for_image_format(image_format: str) -> str:
 
 
 def _get_cleaned_write_profile(
-    profile: Union[dict, rio_profiles.Profile],
-) -> Union[dict, rio_profiles.Profile]:
+    profile: dict | rio_profiles.Profile,
+) -> dict | rio_profiles.Profile:
     # Depending on the driver, different profile keys are supported
     if profile.get("driver") == "JPEG":
         # Don't copy profile keys to cleaned version that are not supported for JPEG

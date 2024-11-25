@@ -3,7 +3,6 @@
 import datetime
 import logging
 import os
-from typing import Optional
 
 import psutil
 
@@ -36,7 +35,7 @@ def report_progress(
     start_time: datetime.datetime,
     nb_done: int,
     nb_todo: int,
-    operation: Optional[str] = None,
+    operation: str | None = None,
     nb_parallel: int = 1,
 ):
     """Function to report progress to the output.
