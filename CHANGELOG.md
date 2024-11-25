@@ -10,7 +10,8 @@
   but that don't seem to give actual issues (#216, #2019)
 - Small improvements to logging, error messages,... (#198, #218)
 - Add support + tests for latest tensorflow version (#217)
-- Drop support of python 3.9 (#229)
+- Update minimal dependencies: drop support of python 3.9, geopandas 1.x,...
+  (#229, #230)
 
 ### Bugs fixed
 
