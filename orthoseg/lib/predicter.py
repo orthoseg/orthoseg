@@ -879,7 +879,7 @@ def read_image(
                 bbox = image_file["bbox"]
                 size = image_profile["size"]
 
-                result = ows_util.getmap(
+                result = ows_util.load_image(
                     layersources=image_profile["image_layer"]["layersources"],
                     crs=crs,
                     bbox=bbox,

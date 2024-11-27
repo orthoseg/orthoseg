@@ -1,4 +1,4 @@
-"""Module with generic usable utility functions for using OWS services."""
+"""Module with generic usable utility functions to load images."""
 
 import logging
 import math
@@ -136,39 +136,37 @@ def get_images_for_grid(
     image_pixel_height: int = 1024,
     image_format: str = FORMAT_GEOTIFF,
     pixels_overlap: int = 0,
-):
-    """get_images_for_grid.
+) -> gpd.GeoDataFrame:
+    """Get a list of all images in the grid specified.
 
     Args:
         output_image_dir (Path): Directory to save the images to.
-        crs (Union[str, pyproj.CRS]): _description_
-        image_gen_bbox (Optional[tuple[float, float, float, float]], optional):
-            _description_. Defaults to None.
-        image_gen_roi_filepath (Optional[Path], optional): _description_.
-            Defaults to None.
-        grid_xmin (float, optional): _description_. Defaults to 0.0.
-        grid_ymin (float, optional): _description_. Defaults to 0.0.
-        image_crs_pixel_x_size (float, optional): _description_. Defaults to 0.25.
-        image_crs_pixel_y_size (float, optional): _description_. Defaults to 0.25.
-        image_pixel_width (int, optional): _description_. Defaults to 1024.
-        image_pixel_height (int, optional): _description_. Defaults to 1024.
-        image_format (str, optional): The image format to get. Defaults to
+        crs (Union[str, pyproj.CRS]): The crs of the source and destination images.
+        image_gen_bbox (tuple[float, float, float, float], optional): bbox of the roi to
+            request/save images for. Defaults to None.
+        image_gen_roi_filepath (Optional[Path], optional): File with the roi
+            where images should be requested/saved for. Defaults to None.
+        grid_xmin (float, optional): xmin for the grid to be used.
+            Defaults to 0.0.
+        grid_ymin (float, optional): ymin for the grid to be used.
+            Defaults to 0.0.
+        image_crs_pixel_x_size (float, optional): Pixel size of the image tiles to
+            create in the `crs` specified. Defaults to 0.25.
+        image_crs_pixel_y_size (float, optional): Pixel size of the image tiles to
+            create in the `crs` specified. Defaults to 0.25.
+        image_pixel_width (int, optional): Width of the tiles to create in number of
+            pixels. Defaults to 1024.
+        image_pixel_height (int, optional): Height of the tiles to create in number of
+            pixels. Defaults to 1024.
+        image_format (str, optional): The image format to save to. Defaults to
             FORMAT_GEOTIFF.
-        pixels_overlap (int, optional): [description]. Defaults to 0.
-
-
-    Raises:
-        Exception: _description_
-
-    Returns:
-        _type_: _description_
+        pixels_overlap (int, optional): The number of pixels the tiles should be
+            enlarged in all directions to create overlapping tiles.
+            Defaults to 0.
     """
-    crs_width = math.fabs(
-        image_pixel_width * image_crs_pixel_x_size
-    )  # tile width in units of crs => 500 m
-    crs_height = math.fabs(
-        image_pixel_height * image_crs_pixel_y_size
-    )  # tile height in units of crs => 500 m
+    # Tile size in units of crs
+    crs_width = math.fabs(image_pixel_width * image_crs_pixel_x_size)
+    crs_height = math.fabs(image_pixel_height * image_crs_pixel_y_size)
 
     # Read the region of interest file if provided
     grid_bbox = image_gen_bbox
@@ -184,12 +182,12 @@ def get_images_for_grid(
 
     # If there is still no image_gen_bbox, stop.
     if grid_bbox is None:
-        raise Exception(
+        raise ValueError(
             "Either image_gen_bbox or an image_gen_roi_filepath should be specified."
         )
 
     # Make grid_bounds compatible with the grid
-    grid_bbox = align_bbox_to_grid(
+    grid_bbox = _align_bbox_to_grid(
         bbox=grid_bbox,
         grid_xmin=grid_xmin,
         grid_ymin=grid_ymin,
@@ -258,7 +256,7 @@ def get_images_for_grid(
     return tiles_to_download_gdf
 
 
-def get_images_for_cache(
+def load_images_to_cache(
     layersources: list[FileLayerSource | WMSLayerSource],
     output_image_dir: Path,
     crs: str | pyproj.CRS,
@@ -283,7 +281,7 @@ def get_images_for_cache(
     ssl_verify: bool | str = True,
     force: bool = False,
 ):
-    """Loads all images in a grid from a WMS service.
+    """Loads all images in a grid from a layer source to a cache directory.
 
     Args:
         layersources (list[dict]): Layer sources to get images from. Multiple
@@ -299,10 +297,14 @@ def get_images_for_cache(
             Defaults to 0.0.
         grid_ymin (float, optional): ymin for the grid to be used.
             Defaults to 0.0.
-        image_crs_pixel_x_size (float, optional): [description]. Defaults to 0.25.
-        image_crs_pixel_y_size (float, optional): [description]. Defaults to 0.25.
-        image_pixel_width (int, optional): [description]. Defaults to 1024.
-        image_pixel_height (int, optional): [description]. Defaults to 1024.
+        image_crs_pixel_x_size (float, optional): Pixel size of the image tiles to
+            create in the `crs` specified. Defaults to 0.25.
+        image_crs_pixel_y_size (float, optional): Pixel size of the image tiles to
+            create in the `crs` specified. Defaults to 0.25.
+        image_pixel_width (int, optional): Width of the tiles to create in number of
+            pixels. Defaults to 1024.
+        image_pixel_height (int, optional): Height of the tiles to create in number of
+            pixels. Defaults to 1024.
         image_pixels_ignore_border (int, optional): [description]. Defaults to 0.
         nb_concurrent_calls (int, optional): Number of images to treat in
             parallel. Will increase the load on the WMS server! Defaults to 1.
@@ -313,7 +315,9 @@ def get_images_for_cache(
             Defaults to None.
         tiff_compress (str, optional): [description]. Defaults to 'lzw'.
         transparent (bool, optional): [description]. Defaults to False.
-        pixels_overlap (int, optional): [description]. Defaults to 0.
+        pixels_overlap (int, optional): The number of pixels the tiles should be
+            enlarged in all directions to create overlapping tiles.
+            Defaults to 0.
         nb_images_to_skip (int, optional): [description]. Defaults to 0.
         max_nb_images (int, optional): [description]. Defaults to -1.
         ssl_verify (bool or str, optional): True to use the default
@@ -418,7 +422,7 @@ def get_images_for_cache(
                 tile_pixel_height += 2 * pixels_overlap
 
             future = pool.submit(
-                getmap_to_file,  # Function
+                load_image_to_file,  # Function
                 layersources=layersources,
                 output_dir=output_dir,
                 crs=crs,
@@ -477,7 +481,7 @@ def get_images_for_cache(
                 time.sleep(0.1)
 
 
-def align_bbox_to_grid(
+def _align_bbox_to_grid(
     bbox: tuple[float, float, float, float],
     grid_xmin: float,
     grid_ymin: float,
@@ -548,7 +552,7 @@ def _interprete_ssl_verify(ssl_verify: bool | str | None):
     return auth
 
 
-def getmap_to_file(
+def load_image_to_file(
     layersources: WMSLayerSource | FileLayerSource | list,
     output_dir: Path,
     crs: str | pyproj.CRS,
@@ -566,7 +570,7 @@ def getmap_to_file(
     has_switched_axes: bool | None = None,
     on_outside_layer_bounds: str | None = "raise",
 ) -> Path | None:
-    """Reads/fetches an image from a layer source and saves it to a file.
+    """Loads an image from a layer source and saves it to a file.
 
     Args:
         layersources (WMSLayerSource, FileLayerSource, List): Layer source(s) to get
@@ -653,7 +657,7 @@ def getmap_to_file(
     if not output_dir.exists():
         output_dir.mkdir()
 
-    image = getmap(
+    image = load_image(
         layersources=layersources,
         crs=crs,
         bbox=bbox,
@@ -867,7 +871,7 @@ def getmap_to_file(
     return output_filepath
 
 
-def getmap(
+def load_image(
     layersources: WMSLayerSource | FileLayerSource | list,
     crs: str | pyproj.CRS,
     bbox: tuple[float, float, float, float],
@@ -879,7 +883,7 @@ def getmap(
     has_switched_axes: bool | None = None,
     on_outside_layer_bounds: str | None = "raise",
 ) -> tuple[np.ndarray | None, dict[str, Any] | None] | None:
-    """Reads/fetches an image from a layer source and saves it to a file.
+    """Loads an image from a layer source and saves it to a file.
 
     Args:
         layersources (WMSLayerSource, FileLayerSource, List): Layer source(s) to get

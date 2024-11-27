@@ -34,7 +34,7 @@ def test_get_images_for_grid(tmp_path):
     # Test getting the images for this grid
     # -------------------------------------
     layersource_rgb = ows_util.FileLayerSource(path=filelayer_path, layernames=["S1"])
-    ows_util.get_images_for_cache(
+    ows_util.load_images_to_cache(
         layersources=[layersource_rgb],
         output_image_dir=tmp_path,
         crs=crs,
@@ -97,7 +97,7 @@ def test_getmap_to_file_filelayer(tmp_path):
     bbox = (xmin, ymin, xmin + width_crs, ymin + height_crs)
 
     # Align box to pixel size + make sure width stays the asked number of pixels
-    bbox = ows_util.align_bbox_to_grid(
+    bbox = ows_util._align_bbox_to_grid(
         bbox,
         grid_xmin=file_bounds[0],
         grid_ymin=file_bounds[1],
@@ -109,7 +109,7 @@ def test_getmap_to_file_filelayer(tmp_path):
     # Test getting a standard 3 band image from a file layer
     # ------------------------------------------------------
     layersource_rgb = ows_util.FileLayerSource(path=filelayer_path, layernames=["S1"])
-    image_path = ows_util.getmap_to_file(
+    image_path = ows_util.load_image_to_file(
         layersources=layersource_rgb,
         output_dir=tmp_path,
         crs=crs,
@@ -149,7 +149,7 @@ def test_getmap_to_file_wmslayer(tmp_path):
         layernames=["OMWRGB20VL"],
         layerstyles=["default"],
     )
-    image_path = ows_util.getmap_to_file(
+    image_path = ows_util.load_image_to_file(
         layersources=layersource_rgb,
         output_dir=tmp_path,
         crs=projection,
@@ -177,7 +177,7 @@ def test_getmap_to_file_wmslayer(tmp_path):
         layernames=["OGWRGB13_15VL"],
         bands=[-1],
     )
-    image_path = ows_util.getmap_to_file(
+    image_path = ows_util.load_image_to_file(
         layersources=layersource_dhm_ortho_grey,
         output_dir=tmp_path,
         crs=projection,
@@ -216,7 +216,7 @@ def test_getmap_to_file_wmslayer(tmp_path):
         layersource_dhm_hill,
         layersource_dhm_ortho_grey,
     ]
-    image_path = ows_util.getmap_to_file(
+    image_path = ows_util.load_image_to_file(
         layersources=layersources,
         output_dir=tmp_path,
         crs=projection,

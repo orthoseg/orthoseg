@@ -1,4 +1,4 @@
-"""Script to load images from a WMS server."""
+"""Script to load images to a cache directory."""
 
 import argparse
 import logging
@@ -156,7 +156,7 @@ def load_images(
         )
 
         # Now we are ready to get the images...
-        ows_util.get_images_for_cache(
+        ows_util.load_images_to_cache(
             layersources=layersources,
             output_image_dir=output_image_dir,
             crs=crs,

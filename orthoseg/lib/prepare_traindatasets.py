@@ -348,7 +348,7 @@ def prepare_traindatasets(
                             )
                     else:
                         # Get the image from the WMS service.
-                        image_filepath = ows_util.getmap_to_file(
+                        image_filepath = ows_util.load_image_to_file(
                             layersources=image_layers[image_layer]["layersources"],
                             output_dir=output_imagedata_image_dir,
                             crs=labellocations_gdf.crs,
