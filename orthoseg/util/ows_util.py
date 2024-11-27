@@ -203,6 +203,7 @@ def get_images_for_grid(
     )
     # tiles_to_download_gdf["path"] = None
 
+    # Loop through all tiles to apply pixels_overlap and add the output path
     for tile in tiles_to_download_gdf.geometry.bounds.itertuples():
         _, tile_xmin, tile_ymin, tile_xmax, tile_ymax = tile
         tile_pixel_width = image_pixel_width
@@ -234,8 +235,11 @@ def get_images_for_grid(
             layername=None,
         )
         output_filepath = output_dir / output_filename
-        # add output path to gdf
+
+        # Add the extra info to the gdf
         tiles_to_download_gdf.loc[tile.Index, "path"] = output_filepath
+        tiles_to_download_gdf.loc[tile.Index, "pixel_width"] = tile_pixel_width
+        tiles_to_download_gdf.loc[tile.Index, "pixel_height"] = tile_pixel_height
 
     # If an roi is defined, filter the split it using a grid as large objects are small
     if roi_gdf is not None:
@@ -923,9 +927,9 @@ def load_image(
     if on_outside_layer_bounds not in ["raise", "return"]:
         raise ValueError(f"Invalid value for {on_outside_layer_bounds=}")
 
-    # Convert input parameters if relevant
+    # Convert input parameters if needed
     if isinstance(crs, str):
-        crs = pyproj.CRS(crs)
+        crs = pyproj.CRS.from_user_input(crs)
     if not isinstance(layersources, list):
         layersources = [layersources]
 

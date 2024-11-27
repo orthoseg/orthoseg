@@ -3,7 +3,6 @@ import shutil
 from contextlib import nullcontext
 from pathlib import Path
 
-import gdown
 import pytest
 
 import orthoseg
@@ -62,15 +61,14 @@ def test_predict_error_handling():
     "use_cache",
     [True, False],
 )
-def test_predict_2(tmp_path, use_cache):
+def test_predict_use_cache(tmp_path, use_cache):
     # Init
-    testprojects_dir = tmp_path / "sample_projects"  # Path(tempfile.gettempdir())
+    testprojects_dir = tmp_path / "sample_projects"
     # Use footballfields sample project
     shutil.rmtree(testprojects_dir, ignore_errors=True)
     shutil.copytree(test_helper.sampleprojects_dir, testprojects_dir)
 
     footballfields_dir = testprojects_dir / "footballfields"
-    # projecttemplate_dir = testprojects_dir / "project_template"
 
     config_path = footballfields_dir / "footballfields_BEFL-2019_test.ini"
     conf.read_orthoseg_config(config_path=config_path)
@@ -91,26 +89,10 @@ def test_predict_2(tmp_path, use_cache):
     # Download the version 01 model
     model_dir = conf.dirs.getpath("model_dir")
     model_dir.mkdir(parents=True, exist_ok=True)
-    model_hdf5_path = model_dir / "footballfields_01_0.97392_201.hdf5"
-    if not model_hdf5_path.exists():
-        gdown.download(
-            id="1UlNorZ74ADCr3pL4MCJ_tnKRNoeZX79g", output=str(model_hdf5_path)
-        )
-    model_hyperparams_path = model_dir / "footballfields_01_hyperparams.json"
-    if not model_hyperparams_path.exists():
-        gdown.download(
-            id="1NwrVVjx9IsjvaioQ4-bkPMrq7S6HeWIo", output=str(model_hyperparams_path)
-        )
-    model_modeljson_path = model_dir / "footballfields_01_model.json"
-    if not model_modeljson_path.exists():
-        gdown.download(
-            id="1LNPLypM5in3aZngBKK_U4Si47Oe97ZWN", output=str(model_modeljson_path)
-        )
+    test_helper.SampleProjectFootball.download_model(model_dir)
 
     # Run predict
-    predict(
-        config_path=config_path,
-    )
+    predict(config_path=config_path)
 
     image_cache_dir = conf.dirs.getpath("predict_image_input_dir")
     assert image_cache_dir.exists() if use_cache else not image_cache_dir.exists()

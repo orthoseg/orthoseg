@@ -288,6 +288,7 @@ def _read_layer_config(layer_config_filepath: Path) -> dict:
 
         # Init layer with all parameters in the section as dict
         image_layers[image_layer] = dict(layer_config[image_layer])
+        image_layers[image_layer]["layername"] = image_layer
 
         # Check if the mandatory layer-level properties are present
         if "projection" not in image_layers[image_layer]:
