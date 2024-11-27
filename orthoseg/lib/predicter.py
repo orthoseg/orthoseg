@@ -22,9 +22,7 @@ import rasterio as rio
 import rasterio.crs as rio_crs
 import rasterio.plot as rio_plot
 import tensorflow as tf
-from rasterio import (
-    transform as rio_transform,
-)
+from rasterio import transform as rio_transform
 
 import orthoseg.lib.postprocess_predictions as postp
 from orthoseg.util import general_util, ows_util
@@ -122,12 +120,9 @@ def predict_dir(
     input_ext = [".png", ".tif", ".jpg"]
     for input_ext_cur in input_ext:
         image_filepaths.extend(input_image_dir.rglob("*" + input_ext_cur))
-    image_filepaths = sorted(image_filepaths)
-    for image_filepath in image_filepaths:
-        image_files.append({"path": image_filepath, "bbox": None})
 
     # If no images to predict, no use to continue
-    nb_images = len(image_files)
+    nb_images = len(image_filepaths)
     if nb_images == 0:
         if no_images_ok:
             return
@@ -136,6 +131,7 @@ def predict_dir(
 
     logger.info(f"Found {nb_images} images to predict in {input_image_dir}")
 
+    image_files = [{"path": path} for path in sorted(image_filepaths)]
     _predict_layer(
         model=model,
         input_image_dir=input_image_dir,
@@ -375,11 +371,7 @@ def _predict_layer(
     # If we are using evaluate mode, change the output dir...
     if evaluate_mode:
         output_image_dir = Path(str(output_image_dir) + "_eval")
-
-    # Create the output dir's if they don't exist yet...
-    for dir in [output_image_dir, tmp_dir]:
-        if not dir.exists():
-            dir.mkdir(parents=True, exist_ok=True)
+    output_image_dir.mkdir(parents=True, exist_ok=True)
 
     # Write prediction config used, so it can be used for postprocessing
     prediction_config_path = output_image_dir / "prediction_config.json"
