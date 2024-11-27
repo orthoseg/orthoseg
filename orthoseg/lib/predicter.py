@@ -495,7 +495,7 @@ def _predict_layer(
                     # No layer config specified, so the file should just be read
                     read_future = read_pool.submit(
                         read_image,
-                        image_file=image_file,
+                        image_path=image_file["path"],
                         projection_if_missing=projection_if_missing,
                     )
                     read_queue[read_future] = image_file["path"]
