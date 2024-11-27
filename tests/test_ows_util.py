@@ -1,5 +1,5 @@
 """
-Tests for functionalities in orthoseg.train.
+Tests for functionalities in ows_util.
 """
 
 import pyproj
@@ -10,7 +10,7 @@ from orthoseg.util import ows_util
 from tests import test_helper
 
 
-def test_get_images_for_grid(tmp_path):
+def test_load_images_to_cache(tmp_path):
     # Init some stuff
     filelayer_path = (
         test_helper.sampleprojects_dir
@@ -74,7 +74,7 @@ def test_has_switched_axes(crs_epsg: int, has_switched_axes: bool):
     assert ows_util._has_switched_axes(pyproj.CRS(crs_epsg)) is has_switched_axes
 
 
-def test_getmap_to_file_filelayer(tmp_path):
+def test_load_image_to_file_filelayer(tmp_path):
     # Init some stuff
     filelayer_path = (
         test_helper.sampleprojects_dir
@@ -129,7 +129,7 @@ def test_getmap_to_file_filelayer(tmp_path):
         assert image_file.height == height_pix
 
 
-def test_getmap_to_file_wmslayer(tmp_path):
+def test_load_image_to_file_wmslayer(tmp_path):
     # Init some stuff
     projection = "epsg:31370"
     pixsize_x = 0.25
