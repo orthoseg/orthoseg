@@ -1152,7 +1152,7 @@ def load_image(
                 memfile.close()
                 memfile = None
 
-    if image_data_output is None or image_profile_output is None:
+    if image_data_output is None or image_profile_output is None:  # pragma: no cover
         raise RuntimeError("No image data retrieved...")
 
     return (image_data_output, image_profile_output)
