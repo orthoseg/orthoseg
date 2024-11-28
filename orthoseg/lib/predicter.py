@@ -668,6 +668,8 @@ def _predict_layer(
                                 image_donelog_file.write(
                                     f"{image_info['input_image_filepath'].name}\n"
                                 )
+
+                            nb_done += 1
                     except Exception as ex:
                         nb_errors += 1
                         image_path = image_info["input_image_filepath"]
