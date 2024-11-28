@@ -106,12 +106,16 @@ def predict_dir(
             True to return without error. Defaults to False.
     """
     # Init
-    if not input_image_dir.exists():
-        logger.warning(f"input_image_dir doesn't exist, so return: {input_image_dir}")
-        return
     if output_vector_path is not None and output_vector_path.exists():
-        logger.warning(f"output file exists already, so return: {output_vector_path}")
+        logger.info(f"output file exists already, so return: {output_vector_path}")
         return
+    if not input_image_dir.exists():
+        if no_images_ok:
+            logger.info(f"input_image_dir doesn't exist, so return: {input_image_dir}")
+            return
+        else:
+            raise ValueError(f"input_image_dir doesn't exist: {input_image_dir}")
+
     logger.info("Start predict_dir")
 
     # Get list of all image files to process and to skip
@@ -252,7 +256,7 @@ def predict_layer(
     """
     # Init
     if output_vector_path is not None and output_vector_path.exists():
-        logger.warning(f"output file exists already, so return: {output_vector_path}")
+        logger.info(f"output file exists already, so return: {output_vector_path}")
         return
     logger.info("Start predict_layer")
 
@@ -923,17 +927,15 @@ def read_image(image_path: Path, projection_if_missing: str | None = None) -> di
 def load_image(
     bbox: tuple[float, float, float, float],
     size: tuple[int, int],
-    image_layer: dict | None,
+    image_layer: dict,
     ssl_verify: bool | str = True,
 ) -> dict:
-    """Read image file.
+    """Load an image from the image_layer specified.
 
     Args:
         bbox (Tuple): bounding box of the image to load.
         size (Tuple): size of the image to load.
-        image_layer (Optional[dict], optional): layer configuration to load the image.
-        projection_if_missing (Optional[str], optional): _description_.
-            Defaults to None.
+        image_layer (dict): layer configuration to load the image.
         ssl_verify (bool or str, optional): True to use the default
             certificate bundle as installed on your system. False disables
             certificate validation (NOT recommended!). If a path to a
@@ -942,7 +944,7 @@ def load_image(
             to evade CERTIFICATE_VERIFY_FAILED errors. Defaults to True.
 
     Returns:
-        dict: _description_
+        dict: the image and its properties.
     """
     # Load image
     if image_layer is None:
