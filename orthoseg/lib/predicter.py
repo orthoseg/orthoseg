@@ -669,7 +669,7 @@ def _predict_layer(
                                 )
 
                             nb_done += 1
-                    except Exception as ex:
+                    except Exception as ex:  # pragma: no cover
                         nb_errors += 1
                         image_path = image_info["input_image_filepath"]
                         _handle_error(image_path, ex, images_error_log_filepath)
@@ -711,9 +711,9 @@ def _predict_layer(
                             images_done_log_filepath=images_done_log_filepath,
                         )
                         write_queue[write_future] = image_path
-                    except ImportError as ex:
+                    except ImportError as ex:  # pragma: no cover
                         raise ex
-                    except Exception as ex:
+                    except Exception as ex:  # pragma: no cover
                         nb_errors += 1
                         _handle_error(image_path, ex, images_error_log_filepath)
 
@@ -756,7 +756,7 @@ def _predict_layer(
                     try:
                         # Get the result (= exception when something went wrong)
                         result = future.result()
-                    except Exception as ex:
+                    except Exception as ex:  # pragma: no cover
                         nb_errors += 1
                         image_path = write_queue[future]
                         _handle_error(image_path, ex, images_error_log_filepath)
@@ -894,7 +894,7 @@ def read_image(image_path: Path, projection_if_missing: str | None = None) -> di
 
             # Read worked, so jump out of the loop...
             break
-        except Exception as ex:
+        except Exception as ex:  # pragma: no cover
             retry_count += 1
             logger.warning(f"Read failed, retry nb {retry_count} for {image_path}")
             if retry_count >= 3:

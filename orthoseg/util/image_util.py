@@ -653,7 +653,7 @@ def load_image_to_file(
         else:
             try:
                 output_filepath.unlink()
-            except Exception as ex:
+            except Exception as ex:  # pragma: no cover
                 logger.warning(f"Error removing file {output_filepath}: {ex}")
 
     logger.debug(f"Get image to {output_filepath}")
