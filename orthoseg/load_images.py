@@ -2,7 +2,6 @@
 
 import argparse
 import logging
-import shlex
 import sys
 import traceback
 from pathlib import Path
@@ -17,12 +16,7 @@ from orthoseg.util import image_util, log_util
 logger = logging.getLogger(__name__)
 
 
-def _load_images_argstr(argstr):
-    args = shlex.split(argstr)
-    _load_images_args(args)
-
-
-def _load_images_args(args):
+def _load_images_args(args) -> argparse.Namespace:
     # Interprete arguments
     parser = argparse.ArgumentParser(add_help=False)
 
@@ -51,11 +45,7 @@ def _load_images_args(args):
         ),
     )
 
-    # Interprete arguments
-    args = parser.parse_args(args)
-
-    # Run!
-    load_images(config_path=Path(args.config), config_overrules=args.config_overrules)
+    return parser.parse_args(args)
 
 
 def load_images(
@@ -195,7 +185,13 @@ def load_images(
 def main():
     """Run load images."""
     try:
-        _load_images_args(sys.argv[1:])
+        # Interprete arguments
+        args = _load_images_args(sys.argv[1:])
+
+        # Run!
+        load_images(
+            config_path=Path(args.config), config_overrules=args.config_overrules
+        )
     except Exception as ex:
         logger.exception(f"Error: {ex}")
         raise

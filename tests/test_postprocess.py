@@ -1,7 +1,29 @@
+"""Tests for module postprocess."""
+
 import pytest
 
 from orthoseg import postprocess
+from orthoseg.postprocess import _postprocess_args
 from tests import test_helper
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        (
+            [
+                "--config",
+                "X:/Monitoring/OrthoSeg/test/test.ini",
+                "predict.image_layer=LT-2023",
+            ]
+        )
+    ],
+)
+def test_postprocess_args(args):
+    valid_args = _postprocess_args(args=args)
+    assert valid_args is not None
+    assert valid_args.config is not None
+    assert valid_args.config_overrules is not None
 
 
 def test_postprocess_error_handling():

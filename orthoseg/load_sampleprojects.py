@@ -2,7 +2,6 @@
 
 import argparse
 import logging
-import shlex
 import sys
 from pathlib import Path
 
@@ -12,11 +11,6 @@ from orthoseg.util import git_downloader
 
 # Get a logger...
 logger = logging.getLogger(__name__)
-
-
-def _parse_load_sampleprojects_argstr(argstr):
-    args = shlex.split(argstr)
-    _parse_load_sampleprojects_args(args)
 
 
 def _parse_load_sampleprojects_args(args) -> dict:

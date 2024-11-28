@@ -2,7 +2,6 @@
 
 import argparse
 import logging
-import shlex
 import sys
 import traceback
 from pathlib import Path
@@ -16,12 +15,7 @@ from orthoseg.util import log_util
 logger = logging.getLogger(__name__)
 
 
-def _postprocess_argstr(argstr):
-    args = shlex.split(argstr)
-    _postprocess_args(args)
-
-
-def _postprocess_args(args):
+def _postprocess_args(args) -> argparse.Namespace:
     # Interprete arguments
     parser = argparse.ArgumentParser(add_help=False)
 
@@ -50,11 +44,7 @@ def _postprocess_args(args):
         ),
     )
 
-    # Interprete arguments
-    args = parser.parse_args(args)
-
-    # Run!
-    postprocess(config_path=Path(args.config), config_overrules=args.config_overrules)
+    return parser.parse_args(args)
 
 
 def postprocess(config_path: Path, config_overrules: list[str] = []):
@@ -169,7 +159,14 @@ def postprocess(config_path: Path, config_overrules: list[str] = []):
 def main():
     """Run postprocess."""
     try:
-        _postprocess_args(sys.argv[1:])
+        # Interprete arguments
+        args = _postprocess_args(sys.argv[1:])
+
+        # Run!
+        postprocess(
+            config_path=Path(args.config), config_overrules=args.config_overrules
+        )
+
     except Exception as ex:
         logger.exception(f"Error: {ex}")
         raise
