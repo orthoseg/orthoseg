@@ -22,7 +22,6 @@ import rasterio as rio
 import rasterio.crs as rio_crs
 import rasterio.plot as rio_plot
 import tensorflow as tf
-from rasterio import transform as rio_transform
 
 import orthoseg.lib.postprocess_predictions as postp
 from orthoseg.util import general_util, image_util
@@ -949,11 +948,8 @@ def load_image(
         dict: the image and its properties.
     """
     # Load image
-    if image_layer is None:
-        raise ValueError("image_layer should be provided")
     crs = pyproj.CRS.from_user_input(image_layer["projection"])
-
-    result = image_util.load_image(
+    image_data, profile = image_util.load_image(
         layersources=image_layer["layersources"],
         crs=crs,
         bbox=bbox,
@@ -963,15 +959,7 @@ def load_image(
         # transparent=transparent,
         image_pixels_ignore_border=image_layer["image_pixels_ignore_border"],
         # has_switched_axes=has_switched_axes,
-        on_outside_layer_bounds="return",
     )
-    # For some coordinate systems apparently the axis ordered is wrong
-    # in LibOWS
-    crs_pixel_x_size = (bbox[2] - bbox[0]) / size[0]
-    crs_pixel_y_size = (bbox[1] - bbox[3]) / size[1]
-
-    assert result is not None
-    image_data, profile = result
 
     # change from (channels, width, height) to
     # (width, height, channels) + normalize to between 0 and 1
@@ -982,9 +970,7 @@ def load_image(
     image = {
         "image_data": image_data,
         "image_crs": crs,
-        "image_transform": rio_transform.Affine(
-            crs_pixel_x_size, 0, bbox[0], 0, crs_pixel_y_size, bbox[3]
-        ),
+        "image_transform": profile["transform"],
     }
 
     return image

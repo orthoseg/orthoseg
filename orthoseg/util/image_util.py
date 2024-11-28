@@ -657,26 +657,28 @@ def load_image_to_file(
                 logger.warning(f"Error removing file {output_filepath}: {ex}")
 
     logger.debug(f"Get image to {output_filepath}")
-
     output_dir.mkdir(parents=True, exist_ok=True)
-    image = load_image(
-        layersources=layersources,
-        crs=crs,
-        bbox=bbox,
-        size=size,
-        ssl_verify=ssl_verify,
-        image_format=image_format,
-        transparent=transparent,
-        image_pixels_ignore_border=image_pixels_ignore_border,
-        has_switched_axes=has_switched_axes,
-        on_outside_layer_bounds=on_outside_layer_bounds,
-    )
+
+    try:
+        image = load_image(
+            layersources=layersources,
+            crs=crs,
+            bbox=bbox,
+            size=size,
+            ssl_verify=ssl_verify,
+            image_format=image_format,
+            transparent=transparent,
+            image_pixels_ignore_border=image_pixels_ignore_border,
+            has_switched_axes=has_switched_axes,
+        )
+    except RuntimeError as ex:  # pragma: no cover
+        if str(ex).startswith("Bbox outside layer bounds"):
+            if on_outside_layer_bounds == "return":
+                return None
+        raise ex
 
     # Write (temporary) output file
-    assert image is not None
     image_data_output, image_profile_output = image
-    assert image_profile_output is not None
-    assert isinstance(image_data_output, np.ndarray)
 
     # Set correct output driver in profile
     image_profile_output["driver"] = _get_driver_for_image_format(image_format_save)
@@ -883,8 +885,7 @@ def load_image(
     transparent: bool = False,
     image_pixels_ignore_border: int = 0,
     has_switched_axes: bool | None = None,
-    on_outside_layer_bounds: str | None = "raise",
-) -> tuple[np.ndarray | None, dict[str, Any] | None] | None:
+) -> tuple[np.ndarray, dict[str, Any]]:
     """Loads an image from a layer source and saves it to a file.
 
     Args:
@@ -912,20 +913,15 @@ def load_image(
         has_switched_axes (bool, optional): True if x and y axes should be switched to
             in the WMS GetMap request. If None, an effort is made to determine it
             automatically based on the crs. Defaults to None.
-        on_outside_layer_bounds (str, optional): What to do if the bbox asked is outside
-            the layer bounds. Defaults to "raise". Options:
-            - "raise": raise an error.
-            - "return": don't save a file and return None.
+
+    Raises:
+        RuntimeError: If the image can't be retrieved.
 
     Returns:
-        Optional[Path]: The path the file is created at if created succesfully. None if
-            the file is not created.
+        tuple(ndarray, dict): a tuple with an array with the image data and a dict with
+            the profile information of the file (transform,...).
     """
     # Init
-    if on_outside_layer_bounds not in ["raise", "return"]:
-        raise ValueError(f"Invalid value for {on_outside_layer_bounds=}")
-
-    # Convert input parameters if needed
     if isinstance(crs, str):
         crs = pyproj.CRS.from_user_input(crs)
     if not isinstance(layersources, list):
@@ -933,20 +929,20 @@ def load_image(
 
     # Get image(s), read the band to keep and save
     # Some hacks for special cases...
-    bbox_for_getmap = bbox
-    size_for_getmap = size
+    bbox_local = bbox
+    size_to_use = size
     x_pixsize = (bbox[2] - bbox[0]) / size[0]
     y_pixsize = (bbox[3] - bbox[1]) / size[1]
 
     # Dirty hack to ask a bigger picture, and then remove the border again!
     if image_pixels_ignore_border > 0:
-        bbox_for_getmap = (
+        bbox_local = (
             bbox[0] - x_pixsize * image_pixels_ignore_border,
             bbox[1] - y_pixsize * image_pixels_ignore_border,
             bbox[2] + x_pixsize * image_pixels_ignore_border,
             bbox[3] + y_pixsize * image_pixels_ignore_border,
         )
-        size_for_getmap = (
+        size_to_use = (
             size[0] + 2 * image_pixels_ignore_border,
             size[1] + 2 * image_pixels_ignore_border,
         )
@@ -955,12 +951,7 @@ def load_image(
     if has_switched_axes is None:
         has_switched_axes = _has_switched_axes(crs)
     if has_switched_axes:
-        bbox_for_getmap = (
-            bbox_for_getmap[1],
-            bbox_for_getmap[0],
-            bbox_for_getmap[3],
-            bbox_for_getmap[2],
-        )
+        bbox_local = (bbox_local[1], bbox_local[0], bbox_local[3], bbox_local[2])
 
     image_data_output = None
     image_profile_output: dict[str, Any] | None = None
@@ -1004,8 +995,8 @@ def load_image(
                             layers=layersource.layernames,
                             styles=layersource.layerstyles,
                             srs=f"epsg:{crs.to_epsg()}",
-                            bbox=bbox_for_getmap,
-                            size=size_for_getmap,
+                            bbox=bbox_local,
+                            size=size_to_use,
                             format=image_format,
                             transparent=transparent,
                         )
@@ -1017,22 +1008,18 @@ def load_image(
 
                         # Image was retrieved... so stop loop
                         image_retrieved = True
-                    except Exception as ex:
+                    except Exception as ex:  # pragma: no cover
                         if isinstance(ex, owslib.util.ServiceException):
                             if "Error rendering coverage on the fast path" in str(ex):
-                                message = f"WMS error for bbox {bbox_for_getmap}: {ex}"
-                                if on_outside_layer_bounds == "return":
-                                    logger.error(message)
-                                    return None
-                                else:
-                                    raise RuntimeError(message) from ex
+                                message = f"Bbox outside layer bounds? {bbox_local}"
+                                raise RuntimeError(message) from ex
                             elif "java.lang.OutOfMemoryError: Java heap" in str(ex):
                                 logger.debug(
-                                    f"Request for bbox {bbox_for_getmap} gave an "
+                                    f"Request for bbox {bbox_local} gave an "
                                     f"exception, try again in {time_sleep} s: {ex}"
                                 )
                             else:
-                                message = f"WMS error for bbox {bbox_for_getmap}: {ex}"
+                                message = f"WMS error for bbox {bbox_local}: {ex}"
                                 raise RuntimeError(message) from ex
 
                         # If the exception isn't handled yet, retry 10 times...
@@ -1049,7 +1036,7 @@ def load_image(
                                 "Retried 10 times and didn't work, with "
                                 f"layers: {layersource.layernames}, "
                                 f"styles: {layersource.layerstyles}, "
-                                f"for bbox: {bbox_for_getmap}"
+                                f"for bbox: {bbox_local}"
                             )
                             raise RuntimeError(message) from ex
 
@@ -1074,10 +1061,10 @@ def load_image(
                 else:
                     nb_bands = image_file.profile["count"]
                 window = rio_windows.from_bounds(
-                    left=bbox_for_getmap[0],
-                    bottom=bbox_for_getmap[1],
-                    right=bbox_for_getmap[2],
-                    top=bbox_for_getmap[3],
+                    left=bbox_local[0],
+                    bottom=bbox_local[1],
+                    right=bbox_local[2],
+                    top=bbox_local[3],
                     transform=image_file.transform,
                 )
                 rio_read_kwargs = {
@@ -1145,24 +1132,17 @@ def load_image(
             # (# of bands will be corrected later if needed)
             if image_profile_output is None:
                 image_profile_output = dict(image_file.profile)
-                if window is not None:
-                    # Not entire file read, so update tranform with window used
-                    # transform = image_file.window_transform(window)
-                    # Prarameter to create Affine:
-                    #     (x_pixsize, 0.0, xmin, 0.0, -y_pixsize, ymax)
-                    transform = rio.Affine(
-                        x_pixsize,
-                        0.0,
-                        bbox_for_getmap[0],
-                        0.0,
-                        -y_pixsize,
-                        bbox_for_getmap[3],
-                    )
-                    image_profile_output["transform"] = transform
 
-                    assert isinstance(image_data_output, np.ndarray)
-                    image_profile_output["height"] = image_data_output.shape[1]
-                    image_profile_output["width"] = image_data_output.shape[2]
+                # Set transform. Pararameters to create Affine:
+                #   -> (x_pixsize, 0.0, xmin, 0.0, -y_pixsize, ymax)
+                transform = rio.Affine(
+                    x_pixsize, 0.0, bbox_local[0], 0.0, -y_pixsize, bbox_local[3]
+                )
+                image_profile_output["transform"] = transform
+
+                assert isinstance(image_data_output, np.ndarray)
+                image_profile_output["height"] = image_data_output.shape[1]
+                image_profile_output["width"] = image_data_output.shape[2]
 
         finally:
             if image_file is not None:
@@ -1171,6 +1151,9 @@ def load_image(
             if memfile is not None:
                 memfile.close()
                 memfile = None
+
+    if image_data_output is None or image_profile_output is None:  # pragma: no cover
+        raise RuntimeError("No image data retrieved...")
 
     return (image_data_output, image_profile_output)
 

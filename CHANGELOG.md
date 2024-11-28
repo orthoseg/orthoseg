@@ -4,6 +4,7 @@
 
 ### Improvements
 
+- Support reading images directly from the datasource while predicting (#228, #231)
 - Make image format for downloaded images configurable (#204)
 - Add validations on the augmentation configuration (#214)
 - Make load_images more robust by ignoring some filesystem errors that occur sometimes
