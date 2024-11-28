@@ -38,6 +38,11 @@ def _parse_load_sampleprojects_args(args) -> dict:
     args = parser.parse_args(args)
     dest_dir = Path(args.dest_dir).expanduser() / "orthoseg"
     ssl_verify = args.ssl_verify
+    if isinstance(args.ssl_verify, str):
+        if args.ssl_verify.lower() == "false":
+            ssl_verify = False
+        elif args.ssl_verify.lower() == "true":
+            ssl_verify = True
 
     # Return arguments
     return {"dest_dir": dest_dir, "ssl_verify": ssl_verify}

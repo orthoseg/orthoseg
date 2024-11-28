@@ -17,14 +17,22 @@ def get_testdata_dir() -> Path:
 
 
 @pytest.mark.parametrize(
-    "args",
-    [(["dest_dir", "X:/Monitoring/OrthoSeg/test"])],
+    "args, exp_ssl_verify",
+    [
+        (["C:/Monitoring/OrthoSeg/test"], True),
+        (["C:/Monitoring/OrthoSeg/test", "--ssl_verify", "FaLsE"], False),
+        (["C:/Monitoring/OrthoSeg/test", "--ssl_verify", "TrUe"], True),
+        (["C:/Monitoring/OrthoSeg/test", "--ssl_verify", "abc"], "abc"),
+    ],
 )
-def test_load_images_args(args):
+def test_load_images_args(args, exp_ssl_verify):
     valid_args = _parse_load_sampleprojects_args(args=args)
     assert valid_args is not None
     assert valid_args["dest_dir"] is not None
-    assert valid_args["ssl_verify"] is True
+    if isinstance(exp_ssl_verify, bool):
+        assert valid_args["ssl_verify"] is exp_ssl_verify
+    else:
+        assert valid_args["ssl_verify"] == exp_ssl_verify
 
 
 @pytest.mark.skipif(
