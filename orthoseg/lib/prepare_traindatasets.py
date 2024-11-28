@@ -18,7 +18,7 @@ import shapely
 import shapely.geometry as sh_geom
 from PIL import Image
 
-from orthoseg.util import ows_util, vector_util
+from orthoseg.util import image_util, vector_util
 from orthoseg.util.progress_util import ProgressLogger
 
 # Get a logger...
@@ -321,11 +321,11 @@ def prepare_traindatasets(
 
                     # Prepare file name for the image
                     assert labellocations_gdf.crs is not None
-                    output_filename = ows_util.create_filename(
+                    output_filename = image_util.create_filename(
                         crs=labellocations_gdf.crs,
                         bbox=img_bbox.bounds,
                         size=(image_pixel_width, image_pixel_height),
-                        image_format=ows_util.FORMAT_PNG,
+                        image_format=image_util.FORMAT_PNG,
                         layername="_".join(
                             image_layers[image_layer]["layersources"][0].layernames
                         ),
@@ -348,15 +348,15 @@ def prepare_traindatasets(
                             )
                     else:
                         # Get the image from the WMS service.
-                        image_filepath = ows_util.load_image_to_file(
+                        image_filepath = image_util.load_image_to_file(
                             layersources=image_layers[image_layer]["layersources"],
                             output_dir=output_imagedata_image_dir,
                             crs=labellocations_gdf.crs,
                             bbox=img_bbox.bounds,
                             size=(image_pixel_width, image_pixel_height),
                             ssl_verify=ssl_verify,
-                            image_format=ows_util.FORMAT_PNG,
-                            # image_format_save=ows_util.FORMAT_TIFF,
+                            image_format=image_util.FORMAT_PNG,
+                            # image_format_save=image_util.FORMAT_TIFF,
                             image_pixels_ignore_border=image_layers[image_layer][
                                 "image_pixels_ignore_border"
                             ],

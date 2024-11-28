@@ -11,7 +11,7 @@ import pyproj
 
 import orthoseg.model.model_factory as mf
 from orthoseg.helpers import config_helper as conf, email_helper
-from orthoseg.util import log_util, ows_util
+from orthoseg.util import image_util, log_util
 
 # Get a logger...
 logger = logging.getLogger(__name__)
@@ -104,7 +104,7 @@ def load_images(
             image_pixel_x_size = conf.train.getfloat("image_pixel_x_size")
             image_pixel_y_size = conf.train.getfloat("image_pixel_y_size")
             image_pixels_overlap = 0
-            image_format = ows_util.FORMAT_JPEG
+            image_format = image_util.FORMAT_JPEG
 
             # To create the testsample, fetch only on every ... images
             nb_images_to_skip = 50
@@ -152,11 +152,11 @@ def load_images(
         ]
         roi_filepath = conf.image_layers[predict_layer]["roi_filepath"]
         image_format = conf.image_layers[predict_layer].get(
-            "image_format", ows_util.FORMAT_JPEG
+            "image_format", image_util.FORMAT_JPEG
         )
 
         # Now we are ready to get the images...
-        ows_util.load_images_to_cache(
+        image_util.load_images_to_cache(
             layersources=layersources,
             output_image_dir=output_image_dir,
             crs=crs,

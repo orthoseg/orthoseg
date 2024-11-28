@@ -13,7 +13,7 @@ from typing import Any
 
 from orthoseg.lib.prepare_traindatasets import LabelInfo
 from orthoseg.util import config_util
-from orthoseg.util.ows_util import FileLayerSource, WMSLayerSource
+from orthoseg.util.image_util import FileLayerSource, WMSLayerSource
 
 # Get a logger...
 logger = logging.getLogger(__name__)

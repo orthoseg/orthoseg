@@ -25,7 +25,7 @@ import tensorflow as tf
 from rasterio import transform as rio_transform
 
 import orthoseg.lib.postprocess_predictions as postp
-from orthoseg.util import general_util, ows_util
+from orthoseg.util import general_util, image_util
 from orthoseg.util.progress_util import ProgressLogger
 
 # Get a logger...
@@ -261,11 +261,11 @@ def predict_layer(
     logger.info("Start predict_layer")
 
     crs = pyproj.CRS.from_user_input(image_layer["projection"])
-    image_format = image_layer.get("image_format", ows_util.FORMAT_JPEG)
+    image_format = image_layer.get("image_format", image_util.FORMAT_JPEG)
 
     # Determine the tiles to use to divide the prediction
     output_image_dir.mkdir(parents=True, exist_ok=True)
-    tiles_to_download_gdf = ows_util.get_images_for_grid(
+    tiles_to_download_gdf = image_util.get_images_for_grid(
         output_image_dir=output_image_dir,
         crs=crs,
         image_gen_bbox=image_layer["bbox"],
@@ -951,13 +951,13 @@ def load_image(
         raise ValueError("image_layer should be provided")
     crs = pyproj.CRS.from_user_input(image_layer["projection"])
 
-    result = ows_util.load_image(
+    result = image_util.load_image(
         layersources=image_layer["layersources"],
         crs=crs,
         bbox=bbox,
         size=size,
         ssl_verify=ssl_verify,
-        image_format=image_layer.get("image_format", ows_util.FORMAT_JPEG),
+        image_format=image_layer.get("image_format", image_util.FORMAT_JPEG),
         # transparent=transparent,
         image_pixels_ignore_border=image_layer["image_pixels_ignore_border"],
         # has_switched_axes=has_switched_axes,

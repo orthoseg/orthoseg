@@ -1,12 +1,12 @@
 """
-Tests for functionalities in ows_util.
+Tests for functionalities in image_util.
 """
 
 import pyproj
 import pytest
 import rasterio as rio
 
-from orthoseg.util import ows_util
+from orthoseg.util import image_util
 from tests import test_helper
 
 
@@ -33,8 +33,8 @@ def test_load_images_to_cache(tmp_path):
 
     # Test getting the images for this grid
     # -------------------------------------
-    layersource_rgb = ows_util.FileLayerSource(path=filelayer_path, layernames=["S1"])
-    ows_util.load_images_to_cache(
+    layersource_rgb = image_util.FileLayerSource(path=filelayer_path, layernames=["S1"])
+    image_util.load_images_to_cache(
         layersources=[layersource_rgb],
         output_image_dir=tmp_path,
         crs=crs,
@@ -44,7 +44,7 @@ def test_load_images_to_cache(tmp_path):
         image_pixel_width=width_pix,
         image_pixel_height=height_pix,
         nb_concurrent_calls=1,
-        image_format=ows_util.FORMAT_GEOTIFF,
+        image_format=image_util.FORMAT_GEOTIFF,
         pixels_overlap=pixels_overlap,
         ssl_verify=True,
     )
@@ -71,7 +71,7 @@ def test_load_images_to_cache(tmp_path):
     ],
 )
 def test_has_switched_axes(crs_epsg: int, has_switched_axes: bool):
-    assert ows_util._has_switched_axes(pyproj.CRS(crs_epsg)) is has_switched_axes
+    assert image_util._has_switched_axes(pyproj.CRS(crs_epsg)) is has_switched_axes
 
 
 def test_load_image_to_file_filelayer(tmp_path):
@@ -97,7 +97,7 @@ def test_load_image_to_file_filelayer(tmp_path):
     bbox = (xmin, ymin, xmin + width_crs, ymin + height_crs)
 
     # Align box to pixel size + make sure width stays the asked number of pixels
-    bbox = ows_util._align_bbox_to_grid(
+    bbox = image_util._align_bbox_to_grid(
         bbox,
         grid_xmin=file_bounds[0],
         grid_ymin=file_bounds[1],
@@ -108,8 +108,8 @@ def test_load_image_to_file_filelayer(tmp_path):
 
     # Test getting a standard 3 band image from a file layer
     # ------------------------------------------------------
-    layersource_rgb = ows_util.FileLayerSource(path=filelayer_path, layernames=["S1"])
-    image_path = ows_util.load_image_to_file(
+    layersource_rgb = image_util.FileLayerSource(path=filelayer_path, layernames=["S1"])
+    image_path = image_util.load_image_to_file(
         layersources=layersource_rgb,
         output_dir=tmp_path,
         crs=crs,
@@ -144,18 +144,18 @@ def test_load_image_to_file_wmslayer(tmp_path):
 
     # Test getting a standard 3 band image from a WMS layer
     # -----------------------------------------------------
-    layersource_rgb = ows_util.WMSLayerSource(
+    layersource_rgb = image_util.WMSLayerSource(
         wms_server_url="https://geo.api.vlaanderen.be/omw/wms?",
         layernames=["OMWRGB20VL"],
         layerstyles=["default"],
     )
-    image_path = ows_util.load_image_to_file(
+    image_path = image_util.load_image_to_file(
         layersources=layersource_rgb,
         output_dir=tmp_path,
         crs=projection,
         bbox=bbox,
         size=(width_pix, height_pix),
-        image_format=ows_util.FORMAT_PNG,
+        image_format=image_util.FORMAT_PNG,
         image_pixels_ignore_border=0,
         transparent=False,
         layername_in_filename=True,
@@ -172,19 +172,19 @@ def test_load_image_to_file_wmslayer(tmp_path):
     # Test creating greyscale image
     # -----------------------------
     # If band -1 is specified, a greyscale version of the rgb image will be created
-    layersource_dhm_ortho_grey = ows_util.WMSLayerSource(
+    layersource_dhm_ortho_grey = image_util.WMSLayerSource(
         wms_server_url="https://geo.api.vlaanderen.be/ogw/wms?",
         layernames=["OGWRGB13_15VL"],
         bands=[-1],
     )
-    image_path = ows_util.load_image_to_file(
+    image_path = image_util.load_image_to_file(
         layersources=layersource_dhm_ortho_grey,
         output_dir=tmp_path,
         crs=projection,
         bbox=bbox,
         size=(width_pix, height_pix),
-        image_format=ows_util.FORMAT_PNG,
-        # image_format_save=ows_util.FORMAT_TIFF,
+        image_format=image_util.FORMAT_PNG,
+        # image_format_save=image_util.FORMAT_TIFF,
         image_pixels_ignore_border=0,
         transparent=False,
         layername_in_filename=True,
@@ -201,12 +201,12 @@ def test_load_image_to_file_wmslayer(tmp_path):
     # ----------------------------------------------
     # Layer sources for for skyview and hillshade
     wms_server_url_dhm = "https://geo.api.vlaanderen.be/DHMV/wms?"
-    layersource_dhm_skyview = ows_util.WMSLayerSource(
+    layersource_dhm_skyview = image_util.WMSLayerSource(
         wms_server_url=wms_server_url_dhm,
         layernames=["DHMV_II_SVF_25cm"],
         bands=[0],
     )
-    layersource_dhm_hill = ows_util.WMSLayerSource(
+    layersource_dhm_hill = image_util.WMSLayerSource(
         wms_server_url=wms_server_url_dhm,
         layernames=["DHMV_II_HILL_25cm"],
         bands=[0],
@@ -216,14 +216,14 @@ def test_load_image_to_file_wmslayer(tmp_path):
         layersource_dhm_hill,
         layersource_dhm_ortho_grey,
     ]
-    image_path = ows_util.load_image_to_file(
+    image_path = image_util.load_image_to_file(
         layersources=layersources,
         output_dir=tmp_path,
         crs=projection,
         bbox=bbox,
         size=(width_pix, height_pix),
-        image_format=ows_util.FORMAT_PNG,
-        # image_format_save=ows_util.FORMAT_TIFF,
+        image_format=image_util.FORMAT_PNG,
+        # image_format_save=image_util.FORMAT_TIFF,
         image_pixels_ignore_border=0,
         transparent=False,
         layername_in_filename=True,
