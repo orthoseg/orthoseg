@@ -72,6 +72,6 @@ jobs:
           pytest --color=yes --cov=orthoseg --cov-append --cov-report term-missing --cov-report xml tests/
 
       - name: Upload coverage reports to Codecov with GitHub Action
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
