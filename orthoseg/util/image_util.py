@@ -671,7 +671,7 @@ def load_image_to_file(
             image_pixels_ignore_border=image_pixels_ignore_border,
             has_switched_axes=has_switched_axes,
         )
-    except RuntimeError as ex:
+    except RuntimeError as ex:  # pragma: no cover
         if str(ex).startswith("Bbox outside layer bounds"):
             if on_outside_layer_bounds == "return":
                 return None
@@ -1008,7 +1008,7 @@ def load_image(
 
                         # Image was retrieved... so stop loop
                         image_retrieved = True
-                    except Exception as ex:
+                    except Exception as ex:  # pragma: no cover
                         if isinstance(ex, owslib.util.ServiceException):
                             if "Error rendering coverage on the fast path" in str(ex):
                                 message = f"Bbox outside layer bounds? {bbox_local}"
