@@ -138,7 +138,7 @@ def download(
                 else:
                     download(file["html_url"], output_dir)
 
-    except urllib.error.HTTPError as ex:
+    except urllib.error.HTTPError as ex:  # pragma: no cover
         if ex.code == 403:
             message = f"Error: API Rate limit exceeded for url {url}"
         else:

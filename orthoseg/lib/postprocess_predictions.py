@@ -452,7 +452,7 @@ def postprocess_for_evaluation(
             f"Error postprocessing prediction for {image_filepath}:\n"
             f"    file: {image_pred_filepath}!!!"
         )
-        raise Exception(message) from ex
+        raise RuntimeError(message) from ex
 
 
 def polygonize_pred_for_evaluation(

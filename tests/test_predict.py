@@ -1,3 +1,5 @@
+"""Tests for module predict."""
+
 import os
 import shutil
 from contextlib import nullcontext

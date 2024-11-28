@@ -1,3 +1,5 @@
+"""Tests for module train."""
+
 from contextlib import nullcontext
 from pathlib import Path
 
