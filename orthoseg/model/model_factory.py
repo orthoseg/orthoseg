@@ -12,11 +12,14 @@ import json  # noqa: I001
 import logging
 import os
 from pathlib import Path
-from typing import Any, Callable, Optional, Union
+from typing import Any, TYPE_CHECKING
 
 import numpy as np
 import tensorflow as tf
 import keras.models
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 # Get a logger...
 logger = logging.getLogger(__name__)
@@ -30,8 +33,8 @@ x = preprocessing_fn(x)
 
 def get_model(
     architecture: str,
-    input_width: Optional[int] = None,
-    input_height: Optional[int] = None,
+    input_width: int | None = None,
+    input_height: int | None = None,
     nb_channels: int = 3,
     nb_classes: int = 1,
     activation: str = "softmax",
@@ -120,8 +123,8 @@ def compile_model(
     optimizer: str,
     optimizer_params: dict,
     loss: str,
-    metrics: Optional[list[str]] = None,
-    class_weights: Optional[list] = None,
+    metrics: list[str] | None = None,
+    class_weights: list | None = None,
 ) -> keras.models.Model:
     """Compile the model for training.
 
@@ -161,7 +164,7 @@ def compile_model(
         raise ValueError("Specifying metrics not yet implemented")
 
     # Check loss function
-    loss_func: Union[Callable, str]
+    loss_func: Callable | str
     if loss == "bcedice":
         loss_func = dice_coef_loss_bce
     elif loss == "dice_loss":
@@ -422,7 +425,7 @@ def weighted_categorical_crossentropy(weights):
     Returns:
         weighted categorical crossentropy function
     """
-    if isinstance(weights, (list, np.ndarray)):
+    if isinstance(weights, list | np.ndarray):
         weights = tf.keras.backend.variable(weights)
 
     def loss(target, output, from_logits=False):

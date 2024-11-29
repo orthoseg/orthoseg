@@ -4,7 +4,6 @@ import logging
 import math
 import shutil
 from pathlib import Path
-from typing import Optional
 
 import geofileops as gfo
 import geopandas as gpd
@@ -36,9 +35,9 @@ def postprocess_predictions(
     input_path: Path,
     output_path: Path,
     dissolve: bool,
-    dissolve_tiles_path: Optional[Path] = None,
-    reclassify_to_neighbour_query: Optional[str] = None,
-    simplify_algorithm: Optional[str] = None,
+    dissolve_tiles_path: Path | None = None,
+    reclassify_to_neighbour_query: str | None = None,
+    simplify_algorithm: str | None = None,
     simplify_tolerance: float = 1,
     simplify_lookahead: int = 8,
     keep_original_file: bool = True,
@@ -201,7 +200,7 @@ def postprocess_predictions(
 
 def read_prediction_file(
     filepath: Path, border_pixels_to_ignore: int = 0
-) -> Optional[gpd.GeoDataFrame]:
+) -> gpd.GeoDataFrame | None:
     """Read the prediction file specified.
 
     Args:
@@ -253,9 +252,9 @@ def postprocess_for_evaluation(
     class_name: str,
     nb_classes: int,
     output_dir: Path,
-    output_suffix: Optional[str] = None,
-    input_image_dir: Optional[Path] = None,
-    input_mask_dir: Optional[Path] = None,
+    output_suffix: str | None = None,
+    input_image_dir: Path | None = None,
+    input_mask_dir: Path | None = None,
     border_pixels_to_ignore: int = 0,
     force: bool = False,
 ):
@@ -453,7 +452,7 @@ def postprocess_for_evaluation(
             f"Error postprocessing prediction for {image_filepath}:\n"
             f"    file: {image_pred_filepath}!!!"
         )
-        raise Exception(message) from ex
+        raise RuntimeError(message) from ex
 
 
 def polygonize_pred_for_evaluation(
@@ -564,7 +563,7 @@ def polygonize_pred_from_file(
     image_pred_filepath: Path,
     border_pixels_to_ignore: int = 0,
     save_to_file: bool = False,
-) -> Optional[gpd.GeoDataFrame]:
+) -> gpd.GeoDataFrame | None:
     """Polygonize a prediction from a file.
 
     Args:
@@ -675,7 +674,7 @@ def polygonize_pred_multiclass(
     min_probability: float = 0.5,
     postprocess: dict = {},
     border_pixels_to_ignore: int = 0,
-) -> Optional[gpd.GeoDataFrame]:
+) -> gpd.GeoDataFrame | None:
     """Polygonize a multiclass prediction.
 
     Args:
@@ -822,9 +821,9 @@ def polygonize_pred(
     image_crs: str,
     image_transform,
     mask_background: bool = True,
-    classnames: Optional[list[str]] = None,
-    output_basefilepath: Optional[Path] = None,
-) -> Optional[gpd.GeoDataFrame]:
+    classnames: list[str] | None = None,
+    output_basefilepath: Path | None = None,
+) -> gpd.GeoDataFrame | None:
     """Polygonize a prediction.
 
     Args:
@@ -889,8 +888,8 @@ def clean_and_save_prediction(
     output_dir: Path,
     image_pred_arr: np.ndarray,
     classes: list,
-    input_image_dir: Optional[Path] = None,
-    input_mask_dir: Optional[Path] = None,
+    input_image_dir: Path | None = None,
+    input_mask_dir: Path | None = None,
     border_pixels_to_ignore: int = 0,
     min_probability: float = 0.5,
     evaluate_mode: bool = False,
@@ -1056,7 +1055,7 @@ def save_prediction_uint8(
     image_transform: str,
     output_dir: Path,
     output_suffix: str = "",
-    border_pixels_to_ignore: Optional[int] = None,
+    border_pixels_to_ignore: int | None = None,
     force: bool = False,
 ) -> Path:
     """Save the prediction as UINT8.
@@ -1086,8 +1085,7 @@ def save_prediction_uint8(
         raise Exception(message)
 
     # Make sure the output dir exists...
-    if not output_dir.exists():
-        output_dir.mkdir()
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     # Write prediction to file
     output_filepath = output_dir / f"{image_filepath.stem}{output_suffix}_pred.tif"

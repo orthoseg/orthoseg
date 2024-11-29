@@ -2,7 +2,6 @@
 
 import logging
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +34,7 @@ class AiDetectionInfo:
         subject: str,
         traindata_version: int,
         image_layer: str,
-        image_layer_year: Optional[int],
+        image_layer_year: int | None,
         postprocessing: str,
     ):
         """Init.

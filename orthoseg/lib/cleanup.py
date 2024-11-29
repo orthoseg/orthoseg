@@ -66,7 +66,7 @@ def clean_models(
 
             try:
                 file_to_remove.unlink()
-            except OSError as ex:
+            except OSError as ex:  # pragma: no cover
                 message = f"ERROR while deleting file {file_to_remove}"
                 logger.exception(message)
                 raise RuntimeError(message) from ex
@@ -122,7 +122,7 @@ def clean_training_data_directories(
 
         try:
             shutil.rmtree(dir)
-        except Exception as ex:
+        except Exception as ex:  # pragma: no cover
             message = f"ERROR deleting directory {dir}"
             logger.exception(message)
             raise RuntimeError(message) from ex
@@ -197,12 +197,12 @@ def clean_predictions(
 
             try:
                 prediction_path.unlink()
-            except Exception as ex:
+            except Exception as ex:  # pragma: no cover
                 message = f"ERROR while deleting file {prediction_path}"
                 logger.exception(message)
                 raise RuntimeError(message) from ex
 
-    except Exception as ex:
+    except Exception as ex:  # pragma: no cover
         logger.info(f"{ex}")
 
     return prediction_files_to_remove

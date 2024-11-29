@@ -9,11 +9,11 @@ import re
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 
 from orthoseg.lib.prepare_traindatasets import LabelInfo
 from orthoseg.util import config_util
-from orthoseg.util.ows_util import FileLayerSource, WMSLayerSource
+from orthoseg.util.image_util import FileLayerSource, WMSLayerSource
 
 # Get a logger...
 logger = logging.getLogger(__name__)
@@ -23,13 +23,13 @@ logger = logging.getLogger(__name__)
 # it is used in codes as well the parsing becomes a lot more difficult.
 illegal_chars_in_codes = ["_", ",", ".", "?", ":"]
 
-_run_tmp_dir: Optional[Path] = None
+_run_tmp_dir: Path | None = None
 
 config: configparser.ConfigParser
 config_paths: list[Path]
 config_filepaths_used: list[Path]
 config_overrules: Any
-config_overrules_path: Optional[Path]
+config_overrules_path: Path | None
 general: Any
 model: Any
 download: Any
@@ -288,6 +288,7 @@ def _read_layer_config(layer_config_filepath: Path) -> dict:
 
         # Init layer with all parameters in the section as dict
         image_layers[image_layer] = dict(layer_config[image_layer])
+        image_layers[image_layer]["layername"] = image_layer
 
         # Check if the mandatory layer-level properties are present
         if "projection" not in image_layers[image_layer]:
@@ -324,7 +325,7 @@ def _read_layer_config(layer_config_filepath: Path) -> dict:
         # Convert the layersource dicts to layersource objects
         layersource_objects = []
         for layersource in image_layers[image_layer]["layersources"]:
-            layersource_object: Union[WMSLayerSource, FileLayerSource]
+            layersource_object: WMSLayerSource | FileLayerSource
             try:
                 # If not, the layersource should be specified in seperate parameters
                 if "wms_server_url" in layersource:
@@ -548,7 +549,7 @@ def _unformat(string: str, pattern: str) -> dict:
         raise ValueError(f"pattern {pattern} not found in {string}")
 
 
-def _str2list(input: Optional[str]):
+def _str2list(input: str | None):
     if input is None:
         return None
     if isinstance(input, list):
@@ -556,7 +557,7 @@ def _str2list(input: Optional[str]):
     return [part.strip() for part in input.split(",")]
 
 
-def _str2intlist(input: Optional[str]):
+def _str2intlist(input: str | None):
     if input is None:
         return None
     if isinstance(input, list):
@@ -564,7 +565,7 @@ def _str2intlist(input: Optional[str]):
     return [int(i.strip()) for i in input.split(",")]
 
 
-def _str2bool(input: Optional[str]):
+def _str2bool(input: str | None):
     if input is None:
         return None
     if isinstance(input, bool):

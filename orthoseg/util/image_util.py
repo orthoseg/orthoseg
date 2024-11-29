@@ -1,4 +1,4 @@
-"""Module with generic usable utility functions for using OWS services."""
+"""Module with generic usable utility functions to load images."""
 
 import logging
 import math
@@ -7,7 +7,7 @@ import time
 import warnings
 from concurrent import futures
 from pathlib import Path
-from typing import Optional, Union
+from typing import Any
 
 import geofileops as gfo
 import geopandas as gpd
@@ -28,6 +28,7 @@ from rasterio import (
     windows as rio_windows,
 )
 from rasterio._err import CPLE_AppDefinedError
+from shapely.geometry import box
 
 from . import progress_util
 
@@ -62,18 +63,16 @@ class WMSLayerSource:
         self,
         wms_server_url: str,
         layernames: list[str],
-        layerstyles: Optional[list[str]] = None,
-        bands: Optional[list[int]] = None,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
+        layerstyles: list[str] | None = None,
+        bands: list[int] | None = None,
+        username: str | None = None,
+        password: str | None = None,
         wms_version: str = "1.3.0",
         wms_ignore_capabilities_url: bool = False,
         random_sleep: int = 0,
-        wms_service: Union[
-            owslib.wms.wms111.WebMapService_1_1_1,
-            owslib.wms.wms130.WebMapService_1_3_0,
-            None,
-        ] = None,
+        wms_service: owslib.wms.wms111.WebMapService_1_1_1
+        | owslib.wms.wms130.WebMapService_1_3_0
+        | None = None,
     ):
         """Constructor of WMSLayerSource.
 
@@ -108,9 +107,9 @@ class FileLayerSource:
 
     def __init__(
         self,
-        path: Union[str, Path],
+        path: str | Path,
         layernames: list[str],
-        bands: Optional[list[int]] = None,
+        bands: list[int] | None = None,
     ):
         """Contructor for FileLayerSource.
 
@@ -125,11 +124,148 @@ class FileLayerSource:
 
 
 def get_images_for_grid(
-    layersources: list[Union[FileLayerSource, WMSLayerSource]],
     output_image_dir: Path,
-    crs: Union[str, pyproj.CRS],
-    image_gen_bbox: Optional[tuple[float, float, float, float]] = None,
-    image_gen_roi_filepath: Optional[Path] = None,
+    crs: pyproj.CRS,
+    image_gen_bbox: tuple[float, float, float, float] | None = None,
+    image_gen_roi_filepath: Path | None = None,
+    grid_xmin: float = 0.0,
+    grid_ymin: float = 0.0,
+    image_crs_pixel_x_size: float = 0.25,
+    image_crs_pixel_y_size: float = 0.25,
+    image_pixel_width: int = 1024,
+    image_pixel_height: int = 1024,
+    image_format: str = FORMAT_GEOTIFF,
+    pixels_overlap: int = 0,
+) -> gpd.GeoDataFrame:
+    """Get a list of all images in the grid specified.
+
+    Args:
+        output_image_dir (Path): Directory to save the images to.
+        crs (Union[str, pyproj.CRS]): The crs of the source and destination images.
+        image_gen_bbox (tuple[float, float, float, float], optional): bbox of the roi to
+            request/save images for. Defaults to None.
+        image_gen_roi_filepath (Optional[Path], optional): File with the roi
+            where images should be requested/saved for. Defaults to None.
+        grid_xmin (float, optional): xmin for the grid to be used.
+            Defaults to 0.0.
+        grid_ymin (float, optional): ymin for the grid to be used.
+            Defaults to 0.0.
+        image_crs_pixel_x_size (float, optional): Pixel size of the image tiles to
+            create in the `crs` specified. Defaults to 0.25.
+        image_crs_pixel_y_size (float, optional): Pixel size of the image tiles to
+            create in the `crs` specified. Defaults to 0.25.
+        image_pixel_width (int, optional): Width of the tiles to create in number of
+            pixels. Defaults to 1024.
+        image_pixel_height (int, optional): Height of the tiles to create in number of
+            pixels. Defaults to 1024.
+        image_format (str, optional): The image format to save to. Defaults to
+            FORMAT_GEOTIFF.
+        pixels_overlap (int, optional): The number of pixels the tiles should be
+            enlarged in all directions to create overlapping tiles.
+            Defaults to 0.
+    """
+    # Tile size in units of crs
+    crs_width = math.fabs(image_pixel_width * image_crs_pixel_x_size)
+    crs_height = math.fabs(image_pixel_height * image_crs_pixel_y_size)
+
+    # Read the region of interest file if provided
+    grid_bbox = image_gen_bbox
+    roi_gdf = None
+    if image_gen_roi_filepath is not None:
+        # Read roi
+        logger.info(f"Read + optimize region of interest from {image_gen_roi_filepath}")
+        roi_gdf = gpd.read_file(str(image_gen_roi_filepath))
+
+        # If the generate_window not specified, use bounds of the roi
+        if grid_bbox is None:
+            grid_bbox = roi_gdf.geometry.total_bounds
+
+    # If there is still no image_gen_bbox, stop.
+    if grid_bbox is None:
+        raise ValueError(
+            "Either image_gen_bbox or an image_gen_roi_filepath should be specified."
+        )
+
+    # Make grid_bounds compatible with the grid
+    grid_bbox = _align_bbox_to_grid(
+        bbox=grid_bbox,
+        grid_xmin=grid_xmin,
+        grid_ymin=grid_ymin,
+        pixel_size_x=crs_width,
+        pixel_size_y=crs_height,
+        log_level=logging.WARNING,
+    )
+
+    # Create a grid of the images that need to be downloaded
+    tiles_to_download_gdf = gpd.GeoDataFrame(
+        geometry=pygeoops.create_grid3(grid_bbox, width=crs_width, height=crs_height),
+        crs=crs,
+    )
+    # tiles_to_download_gdf["path"] = None
+
+    # Loop through all tiles to apply pixels_overlap and add the output path
+    for tile in tiles_to_download_gdf.geometry.bounds.itertuples():
+        _, tile_xmin, tile_ymin, tile_xmax, tile_ymax = tile
+        tile_pixel_width = image_pixel_width
+        tile_pixel_height = image_pixel_height
+
+        # If overlapping images are wanted... increase image bbox
+        if pixels_overlap:
+            tile_xmin -= pixels_overlap * image_crs_pixel_x_size
+            tile_xmax += pixels_overlap * image_crs_pixel_x_size
+            tile_ymin -= pixels_overlap * image_crs_pixel_y_size
+            tile_ymax += pixels_overlap * image_crs_pixel_y_size
+            tile_pixel_width += 2 * pixels_overlap
+            tile_pixel_height += 2 * pixels_overlap
+
+        tiles_to_download_gdf.loc[tile.Index, "geometry"] = box(
+            tile_xmin, tile_ymin, tile_xmax, tile_ymax
+        )
+
+        # Create output filepath
+        if crs.is_projected:
+            output_dir = output_image_dir / f"{tile_xmin:06.0f}"
+        else:
+            output_dir = output_image_dir / f"{tile_xmin:09.4f}"
+        output_filename = create_filename(
+            crs=crs,
+            bbox=(tile_xmin, tile_ymin, tile_xmax, tile_ymax),
+            size=(tile_pixel_width, tile_pixel_height),
+            image_format=image_format,
+            layername=None,
+        )
+        output_filepath = output_dir / output_filename
+
+        # Add the extra info to the gdf
+        tiles_to_download_gdf.loc[tile.Index, "path"] = output_filepath
+        tiles_to_download_gdf.loc[tile.Index, "pixel_width"] = tile_pixel_width
+        tiles_to_download_gdf.loc[tile.Index, "pixel_height"] = tile_pixel_height
+
+    # If an roi is defined, filter the split it using a grid as large objects are small
+    if roi_gdf is not None:
+        # The tiles should intersect, but touching is not enough
+        tiles_intersects_roi_gdf = tiles_to_download_gdf.sjoin(
+            roi_gdf[["geometry"]], how="inner", predicate="intersects"
+        )
+        tiles_touches_roi_gdf = tiles_to_download_gdf.sjoin(
+            roi_gdf[["geometry"]], how="inner", predicate="touches"
+        )
+        tiles_to_download_gdf = tiles_intersects_roi_gdf.loc[
+            ~tiles_intersects_roi_gdf.index.isin(tiles_touches_roi_gdf.index)
+        ]
+
+    tiles_path = output_image_dir / "tiles_to_download.gpkg"
+    gfo.to_file(tiles_to_download_gdf, tiles_path)
+
+    return tiles_to_download_gdf
+
+
+def load_images_to_cache(
+    layersources: list[FileLayerSource | WMSLayerSource],
+    output_image_dir: Path,
+    crs: str | pyproj.CRS,
+    image_gen_bbox: tuple[float, float, float, float] | None = None,
+    image_gen_roi_filepath: Path | None = None,
     grid_xmin: float = 0.0,
     grid_ymin: float = 0.0,
     image_crs_pixel_x_size: float = 0.25,
@@ -138,18 +274,18 @@ def get_images_for_grid(
     image_pixel_height: int = 1024,
     image_pixels_ignore_border: int = 0,
     nb_concurrent_calls: int = 1,
-    cron_schedule: Optional[str] = None,
+    cron_schedule: str | None = None,
     image_format: str = FORMAT_GEOTIFF,
-    image_format_save: Optional[str] = None,
+    image_format_save: str | None = None,
     tiff_compress: str = "lzw",
     transparent: bool = False,
     pixels_overlap: int = 0,
     nb_images_to_skip: int = 0,
     max_nb_images: int = -1,
-    ssl_verify: Union[bool, str] = True,
+    ssl_verify: bool | str = True,
     force: bool = False,
 ):
-    """Loads all images in a grid from a WMS service.
+    """Loads all images in a grid from a layer source to a cache directory.
 
     Args:
         layersources (list[dict]): Layer sources to get images from. Multiple
@@ -165,10 +301,14 @@ def get_images_for_grid(
             Defaults to 0.0.
         grid_ymin (float, optional): ymin for the grid to be used.
             Defaults to 0.0.
-        image_crs_pixel_x_size (float, optional): [description]. Defaults to 0.25.
-        image_crs_pixel_y_size (float, optional): [description]. Defaults to 0.25.
-        image_pixel_width (int, optional): [description]. Defaults to 1024.
-        image_pixel_height (int, optional): [description]. Defaults to 1024.
+        image_crs_pixel_x_size (float, optional): Pixel size of the image tiles to
+            create in the `crs` specified. Defaults to 0.25.
+        image_crs_pixel_y_size (float, optional): Pixel size of the image tiles to
+            create in the `crs` specified. Defaults to 0.25.
+        image_pixel_width (int, optional): Width of the tiles to create in number of
+            pixels. Defaults to 1024.
+        image_pixel_height (int, optional): Height of the tiles to create in number of
+            pixels. Defaults to 1024.
         image_pixels_ignore_border (int, optional): [description]. Defaults to 0.
         nb_concurrent_calls (int, optional): Number of images to treat in
             parallel. Will increase the load on the WMS server! Defaults to 1.
@@ -179,7 +319,9 @@ def get_images_for_grid(
             Defaults to None.
         tiff_compress (str, optional): [description]. Defaults to 'lzw'.
         transparent (bool, optional): [description]. Defaults to False.
-        pixels_overlap (int, optional): [description]. Defaults to 0.
+        pixels_overlap (int, optional): The number of pixels the tiles should be
+            enlarged in all directions to create overlapping tiles.
+            Defaults to 0.
         nb_images_to_skip (int, optional): [description]. Defaults to 0.
         max_nb_images (int, optional): [description]. Defaults to -1.
         ssl_verify (bool or str, optional): True to use the default
@@ -196,71 +338,30 @@ def get_images_for_grid(
     if not isinstance(crs, pyproj.CRS):
         crs = pyproj.CRS(crs)
 
-    crs_width = math.fabs(
-        image_pixel_width * image_crs_pixel_x_size
-    )  # tile width in units of crs => 500 m
-    crs_height = math.fabs(
-        image_pixel_height * image_crs_pixel_y_size
-    )  # tile height in units of crs => 500 m
     if cron_schedule is not None and cron_schedule != "":
         logger.info(
             "A cron_schedule was specified, so the download will only proceed in the "
             f"specified time range: {cron_schedule}"
         )
 
-    # Read the region of interest file if provided
-    grid_bbox = image_gen_bbox
-    roi_gdf = None
-    if image_gen_roi_filepath is not None:
-        # Read roi
-        logger.info(f"Read + optimize region of interest from {image_gen_roi_filepath}")
-        roi_gdf = gpd.read_file(str(image_gen_roi_filepath))
-
-        # If the generate_window not specified, use bounds of the roi
-        if grid_bbox is None:
-            grid_bbox = roi_gdf.geometry.total_bounds
-
-    # If there is still no image_gen_bbox, stop.
-    if grid_bbox is None:
-        raise Exception(
-            "Either image_gen_bbox or an image_gen_roi_filepath should be specified."
-        )
-
-    # Make grid_bounds compatible with the grid
-    grid_bbox = align_bbox_to_grid(
-        bbox=grid_bbox,
-        grid_xmin=grid_xmin,
-        grid_ymin=grid_ymin,
-        pixel_size_x=crs_width,
-        pixel_size_y=crs_height,
-        log_level=logging.WARNING,
-    )
-
     # Create the output dir if it doesn't exist yet
     output_image_dir.mkdir(parents=True, exist_ok=True)
 
-    # Create a grid of the images that need to be downloaded
-    tiles_to_download_gdf = gpd.GeoDataFrame(
-        geometry=pygeoops.create_grid3(grid_bbox, width=crs_width, height=crs_height),
-        crs=crs,
-    )
-
-    # If an roi is defined, filter the split it using a grid as large objects are small
-    if roi_gdf is not None:
-        # The tiles should intersect, but touching is not enough
-        tiles_intersects_roi_gdf = tiles_to_download_gdf.sjoin(
-            roi_gdf[["geometry"]], how="inner", predicate="intersects"
-        )
-        tiles_touches_roi_gdf = tiles_to_download_gdf.sjoin(
-            roi_gdf[["geometry"]], how="inner", predicate="touches"
-        )
-        tiles_to_download_gdf = tiles_intersects_roi_gdf.loc[
-            ~tiles_intersects_roi_gdf.index.isin(tiles_touches_roi_gdf.index)
-        ]
-
     # Write the tiles to download to file for reference
-    tiles_path = output_image_dir / "tiles_to_download.gpkg"
-    gfo.to_file(tiles_to_download_gdf, tiles_path)
+    tiles_to_download_gdf = get_images_for_grid(
+        output_image_dir=output_image_dir,
+        crs=crs,
+        image_gen_bbox=image_gen_bbox,
+        image_gen_roi_filepath=image_gen_roi_filepath,
+        grid_xmin=grid_xmin,
+        grid_ymin=grid_ymin,
+        image_crs_pixel_x_size=image_crs_pixel_x_size,
+        image_crs_pixel_y_size=image_crs_pixel_y_size,
+        image_pixel_width=image_pixel_width,
+        image_pixel_height=image_pixel_height,
+        image_format=image_format,
+        pixels_overlap=pixels_overlap,
+    )
 
     with futures.ProcessPoolExecutor(nb_concurrent_calls) as pool:
         # Loop through all columns and get the images...
@@ -272,6 +373,9 @@ def get_images_for_grid(
         logger.info(f"Start loading {nb_total} images")
         progress = None
         for tile in tiles_to_download_gdf.geometry.bounds.itertuples():
+            _, tile_xmin, tile_ymin, tile_xmax, tile_ymax = tile
+            tile_pixel_width = image_pixel_width
+            tile_pixel_height = image_pixel_height
             # If a cron_schedule is specified, check if we should be running
             if cron_schedule is not None and cron_schedule != "":
                 # Sleep till the schedule becomes active
@@ -296,32 +400,9 @@ def get_images_for_grid(
                 )
 
             nb_processed += 1
-            _, tile_xmin, tile_ymin, tile_xmax, tile_ymax = tile
-            tile_pixel_width = image_pixel_width
-            tile_pixel_height = image_pixel_height
-
-            # If overlapping images are wanted... increase image bbox
-            if pixels_overlap:
-                tile_xmin -= pixels_overlap * image_crs_pixel_x_size
-                tile_xmax += pixels_overlap * image_crs_pixel_x_size
-                tile_ymin -= pixels_overlap * image_crs_pixel_y_size
-                tile_ymax += pixels_overlap * image_crs_pixel_y_size
-                tile_pixel_width += 2 * pixels_overlap
-                tile_pixel_height += 2 * pixels_overlap
-
-            # Create output filepath
-            if crs.is_projected:
-                output_dir = output_image_dir / f"{tile_xmin:06.0f}"
-            else:
-                output_dir = output_image_dir / f"{tile_xmin:09.4f}"
-            output_filename = create_filename(
-                crs=crs,
-                bbox=(tile_xmin, tile_ymin, tile_xmax, tile_ymax),
-                size=(tile_pixel_width, tile_pixel_height),
-                image_format=image_format,
-                layername=None,
-            )
-            output_filepath = output_dir / output_filename
+            output_filepath = tiles_to_download_gdf.loc[tile.Index, "path"]
+            output_dir = output_filepath.parent
+            output_filename = output_filepath.name
 
             # Do some checks to know if the image needs to be downloaded
             if nb_images_to_skip > 0 and (nb_processed % nb_images_to_skip) != 0:
@@ -340,8 +421,12 @@ def get_images_for_grid(
 
             # Submit the image to be downloaded
             output_dir.mkdir(parents=True, exist_ok=True)
+            if pixels_overlap:
+                tile_pixel_width += 2 * pixels_overlap
+                tile_pixel_height += 2 * pixels_overlap
+
             future = pool.submit(
-                getmap_to_file,  # Function
+                load_image_to_file,  # Function
                 layersources=layersources,
                 output_dir=output_dir,
                 crs=crs,
@@ -400,7 +485,7 @@ def get_images_for_grid(
                 time.sleep(0.1)
 
 
-def align_bbox_to_grid(
+def _align_bbox_to_grid(
     bbox: tuple[float, float, float, float],
     grid_xmin: float,
     grid_ymin: float,
@@ -451,7 +536,7 @@ def align_bbox_to_grid(
     return (bbox_tmp[0], bbox_tmp[1], bbox_tmp[2], bbox_tmp[3])
 
 
-def _interprete_ssl_verify(ssl_verify: Union[bool, str, None]):
+def _interprete_ssl_verify(ssl_verify: bool | str | None):
     # Interprete ssl_verify
     auth = None
     if ssl_verify is not None:
@@ -471,25 +556,25 @@ def _interprete_ssl_verify(ssl_verify: Union[bool, str, None]):
     return auth
 
 
-def getmap_to_file(
-    layersources: Union[WMSLayerSource, FileLayerSource, list],
+def load_image_to_file(
+    layersources: WMSLayerSource | FileLayerSource | list,
     output_dir: Path,
-    crs: Union[str, pyproj.CRS],
+    crs: str | pyproj.CRS,
     bbox: tuple[float, float, float, float],
     size: tuple[int, int],
-    ssl_verify: Union[bool, str] = True,
+    ssl_verify: bool | str = True,
     image_format: str = FORMAT_GEOTIFF,
-    image_format_save: Optional[str] = None,
-    output_filename: Optional[str] = None,
+    image_format_save: str | None = None,
+    output_filename: str | None = None,
     transparent: bool = False,
     tiff_compress: str = "lzw",
     image_pixels_ignore_border: int = 0,
     force: bool = False,
     layername_in_filename: bool = False,
-    has_switched_axes: Optional[bool] = None,
-    on_outside_layer_bounds: Optional[str] = "raise",
-) -> Optional[Path]:
-    """Reads/fetches an image from a layer source and saves it to a file.
+    has_switched_axes: bool | None = None,
+    on_outside_layer_bounds: str | None = "raise",
+) -> Path | None:
+    """Loads an image from a layer source and saves it to a file.
 
     Args:
         layersources (WMSLayerSource, FileLayerSource, List): Layer source(s) to get
@@ -568,257 +653,32 @@ def getmap_to_file(
         else:
             try:
                 output_filepath.unlink()
-            except Exception as ex:
+            except Exception as ex:  # pragma: no cover
                 logger.warning(f"Error removing file {output_filepath}: {ex}")
 
     logger.debug(f"Get image to {output_filepath}")
-
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Get image(s), read the band to keep and save
-    # Some hacks for special cases...
-    bbox_for_getmap = bbox
-    size_for_getmap = size
-    x_pixsize = (bbox[2] - bbox[0]) / size[0]
-    y_pixsize = (bbox[3] - bbox[1]) / size[1]
-
-    # Dirty hack to ask a bigger picture, and then remove the border again!
-    if image_pixels_ignore_border > 0:
-        bbox_for_getmap = (
-            bbox[0] - x_pixsize * image_pixels_ignore_border,
-            bbox[1] - y_pixsize * image_pixels_ignore_border,
-            bbox[2] + x_pixsize * image_pixels_ignore_border,
-            bbox[3] + y_pixsize * image_pixels_ignore_border,
+    try:
+        image = load_image(
+            layersources=layersources,
+            crs=crs,
+            bbox=bbox,
+            size=size,
+            ssl_verify=ssl_verify,
+            image_format=image_format,
+            transparent=transparent,
+            image_pixels_ignore_border=image_pixels_ignore_border,
+            has_switched_axes=has_switched_axes,
         )
-        size_for_getmap = (
-            size[0] + 2 * image_pixels_ignore_border,
-            size[1] + 2 * image_pixels_ignore_border,
-        )
-
-    # For coordinate systems with switched axis (y, x or lon, lat), switch x and y
-    if has_switched_axes is None:
-        has_switched_axes = _has_switched_axes(crs)
-    if has_switched_axes:
-        bbox_for_getmap = (
-            bbox_for_getmap[1],
-            bbox_for_getmap[0],
-            bbox_for_getmap[3],
-            bbox_for_getmap[2],
-        )
-
-    image_data_output = None
-    image_profile_output = None
-    response = None
-    for layersource in layersources:
-        window = None
-        memfile = None
-        image_file = None
-        rio_read_kwargs = {}
-        try:
-            # If it is a WMS layer source
-            if isinstance(layersource, WMSLayerSource):
-                # Initialize WMS if this hasn't been done yet
-                if layersource.wms_service is None:
-                    auth = _interprete_ssl_verify(ssl_verify=ssl_verify)
-                    wms_service = owslib.wms.WebMapService(
-                        url=layersource.wms_server_url,
-                        version=layersource.wms_version,
-                        username=layersource.username,
-                        password=layersource.password,
-                        auth=auth,
-                    )
-                    if layersource.wms_ignore_capabilities_url:
-                        # If the wms url in capabilities should be ignored,
-                        # overwrite with original url
-                        nb = len(wms_service.getOperationByName("GetMap").methods)
-                        for method_id in range(nb):
-                            wms_service.getOperationByName("GetMap").methods[method_id][
-                                "url"
-                            ] = layersource.wms_server_url
-                    layersource.wms_service = wms_service
-
-                # Get image from server, and retry up to 10 times...
-                nb_retries = 0
-                time_sleep = 5
-                image_retrieved = False
-                while image_retrieved is False:
-                    try:
-                        logger.debug(f"Start call GetMap for bbox {bbox}")
-                        response = layersource.wms_service.getmap(
-                            layers=layersource.layernames,
-                            styles=layersource.layerstyles,
-                            srs=f"epsg:{crs.to_epsg()}",
-                            bbox=bbox_for_getmap,
-                            size=size_for_getmap,
-                            format=image_format,
-                            transparent=transparent,
-                        )
-                        logger.debug(f"Finished doing request {response.geturl()}")
-
-                        # If a random sleep was specified... apply it
-                        if layersource.random_sleep > 0:
-                            time.sleep(random.uniform(0, layersource.random_sleep))
-
-                        # Image was retrieved... so stop loop
-                        image_retrieved = True
-                    except Exception as ex:
-                        if isinstance(ex, owslib.util.ServiceException):
-                            if "Error rendering coverage on the fast path" in str(ex):
-                                message = f"WMS error for bbox {bbox_for_getmap}: {ex}"
-                                if on_outside_layer_bounds == "return":
-                                    logger.error(message)
-                                    return None
-                                else:
-                                    raise RuntimeError(message) from ex
-                            elif "java.lang.OutOfMemoryError: Java heap" in str(ex):
-                                logger.debug(
-                                    f"Request for bbox {bbox_for_getmap} gave an "
-                                    f"exception, try again in {time_sleep} s: {ex}"
-                                )
-                            else:
-                                message = f"WMS error for bbox {bbox_for_getmap}: {ex}"
-                                raise RuntimeError(message) from ex
-
-                        # If the exception isn't handled yet, retry 10 times...
-                        if nb_retries < 10:
-                            time.sleep(time_sleep)
-
-                            # Increase sleep time every
-                            # time.
-                            time_sleep += 5
-                            nb_retries += 1
-                            continue
-                        else:
-                            message = (
-                                "Retried 10 times and didn't work, with "
-                                f"layers: {layersource.layernames}, "
-                                f"styles: {layersource.layerstyles}, "
-                                f"for bbox: {bbox_for_getmap}"
-                            )
-                            raise RuntimeError(message) from ex
-
-                # If the response is None, error
-                if response is None:
-                    raise RuntimeError("No valid response retrieved...")
-
-                # Open the response as a file
-                memfile = rio.MemoryFile(response.read())
-                # Because the image returned by WMS doesn't contain georeferencing
-                # info, suppress NotGeoreferencedWarning
-                with warnings.catch_warnings():
-                    warnings.filterwarnings(
-                        "ignore", category=rio_errors.NotGeoreferencedWarning
-                    )
-                    image_file = memfile.open()
-
-            elif isinstance(layersource, FileLayerSource):
-                image_file = rio.open(str(layersource.path))
-                if layersource.bands is not None:
-                    nb_bands = len(layersource.bands)
-                else:
-                    nb_bands = image_file.profile["count"]
-                window = rio_windows.from_bounds(
-                    left=bbox_for_getmap[0],
-                    bottom=bbox_for_getmap[1],
-                    right=bbox_for_getmap[2],
-                    top=bbox_for_getmap[3],
-                    transform=image_file.transform,
-                )
-                rio_read_kwargs = {
-                    "window": window,
-                    "out_shape": (nb_bands, size[1], size[0]),
-                    "resampling": rasterio.enums.Resampling.nearest,
-                    "boundless": True,
-                }
-            else:
-                raise ValueError(f"Unsupported layer source: {layersource}")
-
-            # Read the data we need from the opened file
-            if layersource.bands is None:
-                # If no specific bands specified, read them all...
-                if image_data_output is None:
-                    image_data_output = image_file.read(**rio_read_kwargs)
-                else:
-                    image_data_output = np.append(
-                        image_data_output,
-                        image_file.read(**rio_read_kwargs),
-                        axis=0,
-                    )
-            elif len(layersource.bands) == 1 and layersource.bands[0] == -1:
-                # If 1 band, -1 specified: dirty hack to use greyscale
-                # version of rgb image
-                image_data_tmp = image_file.read(**rio_read_kwargs)
-                image_data_grey = np.mean(image_data_tmp, axis=0).astype(
-                    image_data_tmp.dtype
-                )
-                new_shape = (
-                    1,
-                    image_data_grey.shape[0],
-                    image_data_grey.shape[1],
-                )
-                image_data_grey = np.reshape(image_data_grey, new_shape)
-                if image_data_output is None:
-                    image_data_output = image_data_grey
-                else:
-                    image_data_output = np.append(
-                        image_data_output, image_data_grey, axis=0
-                    )
-            else:
-                # If bands specified, only read the bands to keep...
-                for band in layersource.bands:
-                    # Read the band needed + reshape. Remark: rasterio uses
-                    # 1-based indexing instead of 0-based
-                    rio_read_kwargs["indexes"] = band + 1
-                    image_data_curr = image_file.read(**rio_read_kwargs)
-                    new_shape = (
-                        1,
-                        image_data_curr.shape[0],
-                        image_data_curr.shape[1],
-                    )
-                    image_data_curr = np.reshape(image_data_curr, new_shape)
-
-                    # Set or append to image_data_output
-                    if image_data_output is None:
-                        image_data_output = image_data_curr
-                    else:
-                        image_data_output = np.append(
-                            image_data_output, image_data_curr, axis=0
-                        )
-
-            # Set output profile
-            # (# of bands will be corrected later if needed)
-            if image_profile_output is None:
-                image_profile_output = dict(image_file.profile)
-                if window is not None:
-                    # Not entire file read, so update tranform with window used
-                    # transform = image_file.window_transform(window)
-                    # Prarameter to create Affine:
-                    #     (x_pixsize, 0.0, xmin, 0.0, -y_pixsize, ymax)
-                    transform = rio.Affine(
-                        x_pixsize,
-                        0.0,
-                        bbox_for_getmap[0],
-                        0.0,
-                        -y_pixsize,
-                        bbox_for_getmap[3],
-                    )
-                    image_profile_output["transform"] = transform
-
-                    assert isinstance(image_data_output, np.ndarray)
-                    image_profile_output["height"] = image_data_output.shape[1]
-                    image_profile_output["width"] = image_data_output.shape[2]
-
-        finally:
-            if image_file is not None:
-                image_file.close()
-                image_file = None
-            if memfile is not None:
-                memfile.close()
-                memfile = None
+    except RuntimeError as ex:  # pragma: no cover
+        if str(ex).startswith("Bbox outside layer bounds"):
+            if on_outside_layer_bounds == "return":
+                return None
+        raise ex
 
     # Write (temporary) output file
-    assert image_profile_output is not None
-    assert isinstance(image_data_output, np.ndarray)
+    image_data_output, image_profile_output = image
 
     # Set correct output driver in profile
     image_profile_output["driver"] = _get_driver_for_image_format(image_format_save)
@@ -1015,8 +875,291 @@ def getmap_to_file(
     return output_filepath
 
 
+def load_image(
+    layersources: WMSLayerSource | FileLayerSource | list,
+    crs: str | pyproj.CRS,
+    bbox: tuple[float, float, float, float],
+    size: tuple[int, int],
+    ssl_verify: bool | str = True,
+    image_format: str = FORMAT_GEOTIFF,
+    transparent: bool = False,
+    image_pixels_ignore_border: int = 0,
+    has_switched_axes: bool | None = None,
+) -> tuple[np.ndarray, dict[str, Any]]:
+    """Loads an image from a layer source and saves it to a file.
+
+    Args:
+        layersources (WMSLayerSource, FileLayerSource, List): Layer source(s) to get
+            images from. Multiple sources can be specified to create a combined image,
+            eg. use band 1 of a layersource with band 2 and 3 of another one.
+        output_dir (Path): Directory to save the images to.
+        crs (pyproj.CRS): The crs of the source and destination images.
+        bbox (tuple[float, float, float, float]): Bbox of the image to get.
+        size (tuple[int, int]): The image width and height.
+        ssl_verify (bool or str, optional): True to use the default
+            certificate bundle as installed on your system. False disables
+            certificate validation (NOT recommended!). If a path to a
+            certificate bundle file (.pem) is passed, this will be used.
+            In corporate networks using a proxy server this is often needed
+            to evade CERTIFICATE_VERIFY_FAILED errors. Defaults to True.
+        image_format (str, optional): [description]. Defaults to FORMAT_GEOTIFF.
+        image_format_save (str, optional): [description]. Defaults to None.
+        output_filename (str, optional): [description]. Defaults to None.
+        transparent (bool, optional): [description]. Defaults to False.
+        tiff_compress (str, optional): [description]. Defaults to 'lzw'.
+        image_pixels_ignore_border (int, optional): [description]. Defaults to 0.
+        force (bool, optional): [description]. Defaults to False.
+        layername_in_filename (bool, optional): [description]. Defaults to False.
+        has_switched_axes (bool, optional): True if x and y axes should be switched to
+            in the WMS GetMap request. If None, an effort is made to determine it
+            automatically based on the crs. Defaults to None.
+
+    Raises:
+        RuntimeError: If the image can't be retrieved.
+
+    Returns:
+        tuple(ndarray, dict): a tuple with an array with the image data and a dict with
+            the profile information of the file (transform,...).
+    """
+    # Init
+    if isinstance(crs, str):
+        crs = pyproj.CRS.from_user_input(crs)
+    if not isinstance(layersources, list):
+        layersources = [layersources]
+
+    # Get image(s), read the band to keep and save
+    # Some hacks for special cases...
+    bbox_local = bbox
+    size_to_use = size
+    x_pixsize = (bbox[2] - bbox[0]) / size[0]
+    y_pixsize = (bbox[3] - bbox[1]) / size[1]
+
+    # Dirty hack to ask a bigger picture, and then remove the border again!
+    if image_pixels_ignore_border > 0:
+        bbox_local = (
+            bbox[0] - x_pixsize * image_pixels_ignore_border,
+            bbox[1] - y_pixsize * image_pixels_ignore_border,
+            bbox[2] + x_pixsize * image_pixels_ignore_border,
+            bbox[3] + y_pixsize * image_pixels_ignore_border,
+        )
+        size_to_use = (
+            size[0] + 2 * image_pixels_ignore_border,
+            size[1] + 2 * image_pixels_ignore_border,
+        )
+
+    # For coordinate systems with switched axis (y, x or lon, lat), switch x and y
+    if has_switched_axes is None:
+        has_switched_axes = _has_switched_axes(crs)
+    if has_switched_axes:
+        bbox_local = (bbox_local[1], bbox_local[0], bbox_local[3], bbox_local[2])
+
+    image_data_output = None
+    image_profile_output: dict[str, Any] | None = None
+    response = None
+    for layersource in layersources:
+        window = None
+        memfile = None
+        image_file = None
+        rio_read_kwargs = {}
+        try:
+            # If it is a WMS layer source
+            if isinstance(layersource, WMSLayerSource):
+                # Initialize WMS if this hasn't been done yet
+                if layersource.wms_service is None:
+                    auth = _interprete_ssl_verify(ssl_verify=ssl_verify)
+                    wms_service = owslib.wms.WebMapService(
+                        url=layersource.wms_server_url,
+                        version=layersource.wms_version,
+                        username=layersource.username,
+                        password=layersource.password,
+                        auth=auth,
+                    )
+                    if layersource.wms_ignore_capabilities_url:
+                        # If the wms url in capabilities should be ignored,
+                        # overwrite with original url
+                        nb = len(wms_service.getOperationByName("GetMap").methods)
+                        for method_id in range(nb):
+                            wms_service.getOperationByName("GetMap").methods[method_id][
+                                "url"
+                            ] = layersource.wms_server_url
+                    layersource.wms_service = wms_service
+
+                # Get image from server, and retry up to 10 times...
+                nb_retries = 0
+                time_sleep = 5
+                image_retrieved = False
+                while image_retrieved is False:
+                    try:
+                        logger.debug(f"Start call GetMap for bbox {bbox}")
+                        response = layersource.wms_service.getmap(
+                            layers=layersource.layernames,
+                            styles=layersource.layerstyles,
+                            srs=f"epsg:{crs.to_epsg()}",
+                            bbox=bbox_local,
+                            size=size_to_use,
+                            format=image_format,
+                            transparent=transparent,
+                        )
+                        logger.debug(f"Finished doing request {response.geturl()}")
+
+                        # If a random sleep was specified... apply it
+                        if layersource.random_sleep > 0:
+                            time.sleep(random.uniform(0, layersource.random_sleep))
+
+                        # Image was retrieved... so stop loop
+                        image_retrieved = True
+                    except Exception as ex:  # pragma: no cover
+                        if isinstance(ex, owslib.util.ServiceException):
+                            if "Error rendering coverage on the fast path" in str(ex):
+                                message = f"Bbox outside layer bounds? {bbox_local}"
+                                raise RuntimeError(message) from ex
+                            elif "java.lang.OutOfMemoryError: Java heap" in str(ex):
+                                logger.debug(
+                                    f"Request for bbox {bbox_local} gave an "
+                                    f"exception, try again in {time_sleep} s: {ex}"
+                                )
+                            else:
+                                message = f"WMS error for bbox {bbox_local}: {ex}"
+                                raise RuntimeError(message) from ex
+
+                        # If the exception isn't handled yet, retry 10 times...
+                        if nb_retries < 10:
+                            time.sleep(time_sleep)
+
+                            # Increase sleep time every
+                            # time.
+                            time_sleep += 5
+                            nb_retries += 1
+                            continue
+                        else:
+                            message = (
+                                "Retried 10 times and didn't work, with "
+                                f"layers: {layersource.layernames}, "
+                                f"styles: {layersource.layerstyles}, "
+                                f"for bbox: {bbox_local}"
+                            )
+                            raise RuntimeError(message) from ex
+
+                # If the response is None, error
+                if response is None:
+                    raise RuntimeError("No valid response retrieved...")
+
+                # Open the response as a file
+                memfile = rio.MemoryFile(response.read())
+                # Because the image returned by WMS doesn't contain georeferencing
+                # info, suppress NotGeoreferencedWarning
+                with warnings.catch_warnings():
+                    warnings.filterwarnings(
+                        "ignore", category=rio_errors.NotGeoreferencedWarning
+                    )
+                    image_file = memfile.open()
+
+            elif isinstance(layersource, FileLayerSource):
+                image_file = rio.open(str(layersource.path))
+                if layersource.bands is not None:
+                    nb_bands = len(layersource.bands)
+                else:
+                    nb_bands = image_file.profile["count"]
+                window = rio_windows.from_bounds(
+                    left=bbox_local[0],
+                    bottom=bbox_local[1],
+                    right=bbox_local[2],
+                    top=bbox_local[3],
+                    transform=image_file.transform,
+                )
+                rio_read_kwargs = {
+                    "window": window,
+                    "out_shape": (nb_bands, size[1], size[0]),
+                    "resampling": rasterio.enums.Resampling.nearest,
+                    "boundless": True,
+                }
+            else:
+                raise ValueError(f"Unsupported layer source: {layersource}")
+
+            # Read the data we need from the opened file
+            if layersource.bands is None:
+                # If no specific bands specified, read them all...
+                if image_data_output is None:
+                    image_data_output = image_file.read(**rio_read_kwargs)
+                else:
+                    image_data_output = np.append(
+                        image_data_output,
+                        image_file.read(**rio_read_kwargs),
+                        axis=0,
+                    )
+            elif len(layersource.bands) == 1 and layersource.bands[0] == -1:
+                # If 1 band, -1 specified: dirty hack to use greyscale
+                # version of rgb image
+                image_data_tmp = image_file.read(**rio_read_kwargs)
+                image_data_grey = np.mean(image_data_tmp, axis=0).astype(
+                    image_data_tmp.dtype
+                )
+                new_shape = (
+                    1,
+                    image_data_grey.shape[0],
+                    image_data_grey.shape[1],
+                )
+                image_data_grey = np.reshape(image_data_grey, new_shape)
+                if image_data_output is None:
+                    image_data_output = image_data_grey
+                else:
+                    image_data_output = np.append(
+                        image_data_output, image_data_grey, axis=0
+                    )
+            else:
+                # If bands specified, only read the bands to keep...
+                for band in layersource.bands:
+                    # Read the band needed + reshape. Remark: rasterio uses
+                    # 1-based indexing instead of 0-based
+                    rio_read_kwargs["indexes"] = band + 1
+                    image_data_curr = image_file.read(**rio_read_kwargs)
+                    new_shape = (
+                        1,
+                        image_data_curr.shape[0],
+                        image_data_curr.shape[1],
+                    )
+                    image_data_curr = np.reshape(image_data_curr, new_shape)
+
+                    # Set or append to image_data_output
+                    if image_data_output is None:
+                        image_data_output = image_data_curr
+                    else:
+                        image_data_output = np.append(
+                            image_data_output, image_data_curr, axis=0
+                        )
+
+            # Set output profile
+            # (# of bands will be corrected later if needed)
+            if image_profile_output is None:
+                image_profile_output = dict(image_file.profile)
+
+                # Set transform. Pararameters to create Affine:
+                #   -> (x_pixsize, 0.0, xmin, 0.0, -y_pixsize, ymax)
+                transform = rio.Affine(
+                    x_pixsize, 0.0, bbox_local[0], 0.0, -y_pixsize, bbox_local[3]
+                )
+                image_profile_output["transform"] = transform
+
+                assert isinstance(image_data_output, np.ndarray)
+                image_profile_output["height"] = image_data_output.shape[1]
+                image_profile_output["width"] = image_data_output.shape[2]
+
+        finally:
+            if image_file is not None:
+                image_file.close()
+                image_file = None
+            if memfile is not None:
+                memfile.close()
+                memfile = None
+
+    if image_data_output is None or image_profile_output is None:  # pragma: no cover
+        raise RuntimeError("No image data retrieved...")
+
+    return (image_data_output, image_profile_output)
+
+
 def create_filename(
-    crs: pyproj.CRS, bbox, size, image_format: str, layername: Optional[str] = None
+    crs: pyproj.CRS, bbox, size, image_format: str, layername: str | None = None
 ) -> str:
     """Create filename.
 
@@ -1132,8 +1275,8 @@ def _get_world_ext_for_image_format(image_format: str) -> str:
 
 
 def _get_cleaned_write_profile(
-    profile: Union[dict, rio_profiles.Profile],
-) -> Union[dict, rio_profiles.Profile]:
+    profile: dict | rio_profiles.Profile,
+) -> dict | rio_profiles.Profile:
     # Depending on the driver, different profile keys are supported
     if profile.get("driver") == "JPEG":
         # Don't copy profile keys to cleaned version that are not supported for JPEG

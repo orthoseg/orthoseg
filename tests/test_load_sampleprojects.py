@@ -1,6 +1,4 @@
-"""
-Tests for functionalities in orthoseg.train.
-"""
+"""Tests for module load_sampleprojects."""
 
 import os
 import platform
@@ -11,10 +9,30 @@ from pathlib import Path
 import pytest
 
 from orthoseg import load_sampleprojects
+from orthoseg.load_sampleprojects import _parse_load_sampleprojects_args
 
 
 def get_testdata_dir() -> Path:
     return Path(__file__).resolve().parent / "data"
+
+
+@pytest.mark.parametrize(
+    "args, exp_ssl_verify",
+    [
+        (["C:/Monitoring/OrthoSeg/test"], True),
+        (["C:/Monitoring/OrthoSeg/test", "--ssl_verify", "FaLsE"], False),
+        (["C:/Monitoring/OrthoSeg/test", "--ssl_verify", "TrUe"], True),
+        (["C:/Monitoring/OrthoSeg/test", "--ssl_verify", "abc"], "abc"),
+    ],
+)
+def test_load_images_args(args, exp_ssl_verify):
+    valid_args = _parse_load_sampleprojects_args(args=args)
+    assert valid_args is not None
+    assert valid_args["dest_dir"] is not None
+    if isinstance(exp_ssl_verify, bool):
+        assert valid_args["ssl_verify"] is exp_ssl_verify
+    else:
+        assert valid_args["ssl_verify"] == exp_ssl_verify
 
 
 @pytest.mark.skipif(
