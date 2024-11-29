@@ -1,8 +1,7 @@
-"""Script to load images from a WMS server."""
+"""Script to load images to a cache directory."""
 
 import argparse
 import logging
-import shlex
 import sys
 import traceback
 from pathlib import Path
@@ -11,18 +10,13 @@ import pyproj
 
 import orthoseg.model.model_factory as mf
 from orthoseg.helpers import config_helper as conf, email_helper
-from orthoseg.util import log_util, ows_util
+from orthoseg.util import image_util, log_util
 
 # Get a logger...
 logger = logging.getLogger(__name__)
 
 
-def _load_images_argstr(argstr):
-    args = shlex.split(argstr)
-    _load_images_args(args)
-
-
-def _load_images_args(args):
+def _load_images_args(args) -> argparse.Namespace:
     # Interprete arguments
     parser = argparse.ArgumentParser(add_help=False)
 
@@ -51,11 +45,7 @@ def _load_images_args(args):
         ),
     )
 
-    # Interprete arguments
-    args = parser.parse_args(args)
-
-    # Run!
-    load_images(config_path=Path(args.config), config_overrules=args.config_overrules)
+    return parser.parse_args(args)
 
 
 def load_images(
@@ -87,7 +77,7 @@ def load_images(
     logger = log_util.main_log_init(conf.dirs.getpath("log_dir"), __name__)
 
     # Log + send email
-    message = f"Start load_images for config {config_path.stem}"
+    message = f"Start load_images for {config_path.stem}"
     logger.info(message)
     logger.debug(f"Config used: \n{conf.pformat_config()}")
     email_helper.sendmail(message)
@@ -104,7 +94,7 @@ def load_images(
             image_pixel_x_size = conf.train.getfloat("image_pixel_x_size")
             image_pixel_y_size = conf.train.getfloat("image_pixel_y_size")
             image_pixels_overlap = 0
-            image_format = ows_util.FORMAT_JPEG
+            image_format = image_util.FORMAT_JPEG
 
             # To create the testsample, fetch only on every ... images
             nb_images_to_skip = 50
@@ -152,11 +142,11 @@ def load_images(
         ]
         roi_filepath = conf.image_layers[predict_layer]["roi_filepath"]
         image_format = conf.image_layers[predict_layer].get(
-            "image_format", ows_util.FORMAT_JPEG
+            "image_format", image_util.FORMAT_JPEG
         )
 
         # Now we are ready to get the images...
-        ows_util.get_images_for_grid(
+        image_util.load_images_to_cache(
             layersources=layersources,
             output_image_dir=output_image_dir,
             crs=crs,
@@ -178,16 +168,16 @@ def load_images(
         )
 
         # Log and send mail
-        message = f"Completed load_images for config {config_path.stem}"
+        message = f"Completed load_images for {config_path.stem}"
         logger.info(message)
         email_helper.sendmail(message)
     except Exception as ex:
-        message = f"ERROR while running load_images for task {config_path.stem}"
+        message = f"ERROR in load_images for {config_path.stem}"
         logger.exception(message)
         email_helper.sendmail(
             subject=message, body=f"Exception: {ex}\n\n {traceback.format_exc()}"
         )
-        raise Exception(message) from ex
+        raise RuntimeError(message) from ex
     finally:
         conf.remove_run_tmp_dir()
 
@@ -195,7 +185,13 @@ def load_images(
 def main():
     """Run load images."""
     try:
-        _load_images_args(sys.argv[1:])
+        # Interprete arguments
+        args = _load_images_args(sys.argv[1:])
+
+        # Run!
+        load_images(
+            config_path=Path(args.config), config_overrules=args.config_overrules
+        )
     except Exception as ex:
         logger.exception(f"Error: {ex}")
         raise

@@ -28,7 +28,7 @@ dependencies:
   - mypy ==1.10.1
   - pandas-stubs
   - pre-commit
-  - ruff ==0.5.2
+  - ruff ==0.7.4
   - types-pillow
   # testing
   - pytest

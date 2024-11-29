@@ -2,7 +2,6 @@
 
 import argparse
 import logging
-import shlex
 import sys
 import traceback
 from pathlib import Path
@@ -16,12 +15,7 @@ from orthoseg.util import log_util
 logger = logging.getLogger(__name__)
 
 
-def _postprocess_argstr(argstr):
-    args = shlex.split(argstr)
-    _postprocess_args(args)
-
-
-def _postprocess_args(args):
+def _postprocess_args(args) -> argparse.Namespace:
     # Interprete arguments
     parser = argparse.ArgumentParser(add_help=False)
 
@@ -50,11 +44,7 @@ def _postprocess_args(args):
         ),
     )
 
-    # Interprete arguments
-    args = parser.parse_args(args)
-
-    # Run!
-    postprocess(config_path=Path(args.config), config_overrules=args.config_overrules)
+    return parser.parse_args(args)
 
 
 def postprocess(config_path: Path, config_overrules: list[str] = []):
@@ -80,7 +70,8 @@ def postprocess(config_path: Path, config_overrules: list[str] = []):
     logger = log_util.main_log_init(conf.dirs.getpath("log_dir"), __name__)
 
     # Log start + send email
-    message = f"Start postprocess for config {config_path.stem}"
+    image_layer = conf.predict["image_layer"]
+    message = f"Start postprocess for {config_path.stem} on {image_layer}"
     logger.info(message)
     logger.debug(f"Config used: \n{conf.pformat_config()}")
     email_helper.sendmail(message)
@@ -151,11 +142,11 @@ def postprocess(config_path: Path, config_overrules: list[str] = []):
         )
 
         # Log and send mail
-        message = f"Completed postprocess for config {config_path.stem}"
+        message = f"Completed postprocess for {config_path.stem} on {image_layer}"
         logger.info(message)
         email_helper.sendmail(message)
     except Exception as ex:
-        message = f"ERROR while running postprocess for task {config_path.stem}"
+        message = f"ERROR in postprocess for {config_path.stem} on {image_layer}"
         logger.exception(message)
         email_helper.sendmail(
             subject=message, body=f"Exception: {ex}\n\n {traceback.format_exc()}"
@@ -168,7 +159,14 @@ def postprocess(config_path: Path, config_overrules: list[str] = []):
 def main():
     """Run postprocess."""
     try:
-        _postprocess_args(sys.argv[1:])
+        # Interprete arguments
+        args = _postprocess_args(sys.argv[1:])
+
+        # Run!
+        postprocess(
+            config_path=Path(args.config), config_overrules=args.config_overrules
+        )
+
     except Exception as ex:
         logger.exception(f"Error: {ex}")
         raise

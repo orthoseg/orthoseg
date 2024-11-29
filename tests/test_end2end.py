@@ -8,7 +8,6 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 
-import gdown
 import geofileops as gfo
 import pytest
 
@@ -129,21 +128,7 @@ def test_4_predict():
     # Download the version 01 model
     model_dir = conf.dirs.getpath("model_dir")
     model_dir.mkdir(parents=True, exist_ok=True)
-    model_hdf5_path = model_dir / "footballfields_01_0.97392_201.hdf5"
-    if not model_hdf5_path.exists():
-        gdown.download(
-            id="1UlNorZ74ADCr3pL4MCJ_tnKRNoeZX79g", output=str(model_hdf5_path)
-        )
-    model_hyperparams_path = model_dir / "footballfields_01_hyperparams.json"
-    if not model_hyperparams_path.exists():
-        gdown.download(
-            id="1NwrVVjx9IsjvaioQ4-bkPMrq7S6HeWIo", output=str(model_hyperparams_path)
-        )
-    model_modeljson_path = model_dir / "footballfields_01_model.json"
-    if not model_modeljson_path.exists():
-        gdown.download(
-            id="1LNPLypM5in3aZngBKK_U4Si47Oe97ZWN", output=str(model_modeljson_path)
-        )
+    test_helper.SampleProjectFootball.download_model(model_dir)
 
     # Run task to predict
     orthoseg.predict(config_path)

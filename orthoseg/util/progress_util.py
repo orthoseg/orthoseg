@@ -2,7 +2,6 @@
 
 import datetime
 import logging
-from typing import Optional
 
 # Get a logger...
 logger = logging.getLogger(__name__)
@@ -18,7 +17,7 @@ class ProgressLogger:
         message: str,
         nb_steps_total: int,
         nb_steps_done: int = 0,
-        start_time: Optional[datetime.datetime] = None,
+        start_time: datetime.datetime | None = None,
         time_between_reporting_s: int = 60,
         calculate_eta_since_lastreporting: bool = True,
     ):
@@ -48,8 +47,8 @@ class ProgressLogger:
     def update(
         self,
         nb_steps_done: int,
-        nb_steps_total: Optional[int] = None,
-        message: Optional[str] = None,
+        nb_steps_total: int | None = None,
+        message: str | None = None,
     ):
         """Update the steps.
 
@@ -64,7 +63,7 @@ class ProgressLogger:
         self.nb_steps_done = nb_steps_done
         self.step(message=message, nb_steps=0)
 
-    def step(self, message: Optional[str] = None, nb_steps: int = 1):
+    def step(self, message: str | None = None, nb_steps: int = 1):
         """Step the progress with the number of steps specified.
 
         Args:

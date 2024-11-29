@@ -6,7 +6,6 @@ import pprint
 import shutil
 import warnings
 from pathlib import Path
-from typing import Optional, Union
 
 import geofileops as gfo
 import geopandas as gpd
@@ -19,7 +18,7 @@ import shapely
 import shapely.geometry as sh_geom
 from PIL import Image
 
-from orthoseg.util import ows_util, vector_util
+from orthoseg.util import image_util, vector_util
 from orthoseg.util.progress_util import ProgressLogger
 
 # Get a logger...
@@ -34,10 +33,10 @@ class LabelInfo:
         locations_path: Path,
         polygons_path: Path,
         image_layer: str,
-        pixel_x_size: Optional[float] = None,
-        pixel_y_size: Optional[float] = None,
-        locations_gdf: Optional[gpd.GeoDataFrame] = None,
-        polygons_gdf: Optional[gpd.GeoDataFrame] = None,
+        pixel_x_size: float | None = None,
+        pixel_y_size: float | None = None,
+        locations_gdf: gpd.GeoDataFrame | None = None,
+        polygons_gdf: gpd.GeoDataFrame | None = None,
     ):
         """Conctructor of LabelInfo.
 
@@ -138,7 +137,7 @@ def prepare_traindatasets(
     image_pixel_y_size: float = 0.25,
     image_pixel_width: int = 512,
     image_pixel_height: int = 512,
-    ssl_verify: Union[bool, str] = True,
+    ssl_verify: bool | str = True,
     only_validate: bool = False,
     force: bool = False,
 ) -> tuple[Path, int]:
@@ -309,98 +308,94 @@ def prepare_traindatasets(
                 dir.mkdir(parents=True, exist_ok=True)
 
         for labellocations_gdf, labels_to_burn_gdf in labeldata:
-            try:
-                # Get the label locations for this traindata type
-                labellocations_curr_gdf = labellocations_gdf[
-                    labellocations_gdf["traindata_type"] == traindata_type
-                ]
+            # Get the label locations for this traindata type
+            labellocations_curr_gdf = labellocations_gdf[
+                labellocations_gdf["traindata_type"] == traindata_type
+            ]
 
-                # Loop trough all locations labels to get an image for each of them
-                for i, label_tuple in enumerate(labellocations_curr_gdf.itertuples()):
-                    img_bbox = label_tuple.geometry
-                    image_layer = getattr(label_tuple, "image_layer")
+            # Loop trough all locations labels to get an image for each of them
+            for i, label_tuple in enumerate(labellocations_curr_gdf.itertuples()):
+                img_bbox = label_tuple.geometry
+                image_layer = getattr(label_tuple, "image_layer")
 
-                    # Prepare file name for the image
-                    assert labellocations_gdf.crs is not None
-                    output_filename = ows_util.create_filename(
+                # Prepare file name for the image
+                assert labellocations_gdf.crs is not None
+                output_filename = image_util.create_filename(
+                    crs=labellocations_gdf.crs,
+                    bbox=img_bbox.bounds,
+                    size=(image_pixel_width, image_pixel_height),
+                    image_format=image_util.FORMAT_PNG,
+                    layername="_".join(
+                        image_layers[image_layer]["layersources"][0].layernames
+                    ),
+                )
+
+                # If the image exists already in the previous version, reuse it.
+                if (
+                    dataversion_mostrecent is not None
+                    and (previous_imagedata_image_dir / output_filename).exists()
+                ):
+                    image_filepath = shutil.copy(
+                        src=previous_imagedata_image_dir / output_filename,
+                        dst=output_imagedata_image_dir / output_filename,
+                    )
+                    pgw_filename = output_filename.replace(".png", ".pgw")
+                    if (previous_imagedata_image_dir / pgw_filename).exists():
+                        shutil.copy(
+                            src=previous_imagedata_image_dir / pgw_filename,
+                            dst=output_imagedata_image_dir / pgw_filename,
+                        )
+                else:
+                    # Get the image from the WMS service.
+                    image_filepath = image_util.load_image_to_file(
+                        layersources=image_layers[image_layer]["layersources"],
+                        output_dir=output_imagedata_image_dir,
                         crs=labellocations_gdf.crs,
                         bbox=img_bbox.bounds,
                         size=(image_pixel_width, image_pixel_height),
-                        image_format=ows_util.FORMAT_PNG,
-                        layername="_".join(
-                            image_layers[image_layer]["layersources"][0].layernames
-                        ),
+                        ssl_verify=ssl_verify,
+                        image_format=image_util.FORMAT_PNG,
+                        # image_format_save=image_util.FORMAT_TIFF,
+                        image_pixels_ignore_border=image_layers[image_layer][
+                            "image_pixels_ignore_border"
+                        ],
+                        transparent=False,
+                        layername_in_filename=True,
+                        output_filename=output_filename,
                     )
 
-                    # If the image exists already in the previous version, reuse it.
-                    if (
-                        dataversion_mostrecent is not None
-                        and (previous_imagedata_image_dir / output_filename).exists()
-                    ):
-                        image_filepath = shutil.copy(
-                            src=previous_imagedata_image_dir / output_filename,
-                            dst=output_imagedata_image_dir / output_filename,
-                        )
-                        pgw_filename = output_filename.replace(".png", ".pgw")
-                        if (previous_imagedata_image_dir / pgw_filename).exists():
-                            shutil.copy(
-                                src=previous_imagedata_image_dir / pgw_filename,
-                                dst=output_imagedata_image_dir / pgw_filename,
-                            )
-                    else:
-                        # Get the image from the WMS service.
-                        image_filepath = ows_util.getmap_to_file(
-                            layersources=image_layers[image_layer]["layersources"],
-                            output_dir=output_imagedata_image_dir,
-                            crs=labellocations_gdf.crs,
-                            bbox=img_bbox.bounds,
-                            size=(image_pixel_width, image_pixel_height),
-                            ssl_verify=ssl_verify,
-                            image_format=ows_util.FORMAT_PNG,
-                            # image_format_save=ows_util.FORMAT_TIFF,
-                            image_pixels_ignore_border=image_layers[image_layer][
-                                "image_pixels_ignore_border"
-                            ],
-                            transparent=False,
-                            layername_in_filename=True,
-                            output_filename=output_filename,
-                        )
-
-                    # Create a mask corresponding with the image file
-                    # Mask should never be in a lossy format -> png!
-                    mask_filepath = Path(
-                        str(image_filepath)
-                        .replace(
-                            str(output_imagedata_image_dir),
-                            str(output_imagedata_mask_dir),
-                        )
-                        .replace(".jpg", ".png")
+                # Create a mask corresponding with the image file
+                # Mask should never be in a lossy format -> png!
+                mask_filepath = Path(
+                    str(image_filepath)
+                    .replace(
+                        str(output_imagedata_image_dir),
+                        str(output_imagedata_mask_dir),
                     )
-                    nb_classes = len(classes)
+                    .replace(".jpg", ".png")
+                )
+                nb_classes = len(classes)
 
-                    # Only keep the labels that are meant for this image layer
-                    if "image_layer" not in labels_to_burn_gdf.columns:
-                        print("odd")
-                    labels_for_layer_gdf = (
-                        labels_to_burn_gdf.loc[
-                            labels_to_burn_gdf["image_layer"] == image_layer
-                        ]
-                    ).copy()
-                    if len(labels_for_layer_gdf) == 0:
-                        logger.info(f"No polygons to burn for {image_layer=}!")
-                    _create_mask(
-                        input_image_filepath=image_filepath,
-                        output_mask_filepath=mask_filepath,
-                        labels_to_burn_gdf=labels_for_layer_gdf,
-                        nb_classes=nb_classes,
-                        force=force,
-                    )
+                # Only keep the labels that are meant for this image layer
+                if "image_layer" not in labels_to_burn_gdf.columns:
+                    print("odd")
+                labels_for_layer_gdf = (
+                    labels_to_burn_gdf.loc[
+                        labels_to_burn_gdf["image_layer"] == image_layer
+                    ]
+                ).copy()
+                if len(labels_for_layer_gdf) == 0:
+                    logger.info(f"No polygons to burn for {image_layer=}!")
+                _create_mask(
+                    input_image_filepath=image_filepath,
+                    output_mask_filepath=mask_filepath,
+                    labels_to_burn_gdf=labels_for_layer_gdf,
+                    nb_classes=nb_classes,
+                    force=force,
+                )
 
-                    # Log the progress and prediction speed
-                    progress.step()
-
-            except Exception as ex:
-                raise ex
+                # Log the progress and prediction speed
+                progress.step()
 
     # If everything went fine, rename output_tmp_dir to the final output_dir
     output_tmp_dir.rename(training_dataversion_dir)
@@ -412,8 +407,8 @@ def prepare_labeldata(
     label_infos: list[LabelInfo],
     classes: dict,
     labelname_column: str,
-    image_pixel_x_size: Optional[float],
-    image_pixel_y_size: Optional[float],
+    image_pixel_x_size: float | None,
+    image_pixel_y_size: float | None,
     image_pixel_width: int,
     image_pixel_height: int,
 ) -> list[tuple[gpd.GeoDataFrame, gpd.GeoDataFrame]]:
@@ -759,10 +754,10 @@ def _create_mask(
     output_mask_filepath: Path,
     labels_to_burn_gdf: gpd.GeoDataFrame,
     nb_classes: int = 1,
-    output_imagecopy_filepath: Optional[Path] = None,
+    output_imagecopy_filepath: Path | None = None,
     minimum_pct_labeled: float = 0.0,
     force: bool = False,
-) -> Optional[bool]:
+) -> bool | None:
     # If file exists already and force is False... stop.
     if force is False and output_mask_filepath.exists():
         logger.debug(
@@ -824,8 +819,10 @@ def _create_mask(
                 ),
             )
 
-        except Exception as ex:
-            raise Exception(f"Error creating mask for {image_transform_affine}") from ex
+        except Exception as ex:  # pragma: no cover
+            raise RuntimeError(
+                f"Error creating mask for {image_transform_affine}"
+            ) from ex
     else:
         mask_arr = np.zeros(
             shape=(

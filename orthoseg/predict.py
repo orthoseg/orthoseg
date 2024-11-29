@@ -87,8 +87,6 @@ def predict(config_path: Path, config_overrules: list[str] = []):
                 f"image_layer to predict is not specified in config: {image_layer_info}"
             )
         input_image_dir = conf.dirs.getpath("predict_image_input_dir")
-        if not input_image_dir.exists():
-            raise Exception(f"input image dir doesn't exist: {input_image_dir}")
 
         # Create base filename of model to use
         # TODO: is force data version the most logical, or rather implement
@@ -265,32 +263,69 @@ def predict(config_path: Path, config_overrules: list[str] = []):
         # Start predict for entire dataset
         # --------------------------------
         # Send email
-        email_helper.sendmail(
-            f"Start predict for config {config_path.stem} on {image_layer}"
-        )
+        email_helper.sendmail(f"Start predict for {config_path.stem} on {image_layer}")
+
+        # Check if the layer to predict is configured in the image_layers
+        predict_layer = conf.predict["image_layer"]
+        if predict_layer not in conf.image_layers:
+            raise ValueError(f"{predict_layer=} is not configured in image_layers")
+        image_layer = conf.image_layers[predict_layer]
+
+        use_cache = image_layer.get("use_cache", "yes")
+        if use_cache == "ifavailable":
+            use_cache = (
+                "yes"
+                if input_image_dir is not None and input_image_dir.exists()
+                else "no"
+            )
 
         # Predict!
-        nb_parallel = conf.general.getint("nb_parallel")
-        predicter.predict_dir(
-            model=model_for_predict,
-            input_image_dir=input_image_dir,
-            output_image_dir=predict_output_dir,
-            output_vector_path=output_vector_path,
-            classes=hyperparams.architecture.classes,
-            min_probability=min_probability,
-            postprocess=postprocess,
-            border_pixels_to_ignore=conf.predict.getint("image_pixels_overlap"),
-            projection_if_missing=image_layer_info["projection"],
-            input_mask_dir=None,
-            batch_size=batch_size,
-            evaluate_mode=False,
-            cancel_filepath=conf.files.getpath("cancel_filepath"),
-            nb_parallel_postprocess=nb_parallel,
-            max_prediction_errors=conf.predict.getint("max_prediction_errors"),
-        )
+        if use_cache == "yes":
+            # Predict from a directory with (cached) images
+            predicter.predict_dir(
+                model=model_for_predict,
+                input_image_dir=input_image_dir,
+                output_image_dir=predict_output_dir,
+                output_vector_path=output_vector_path,
+                classes=hyperparams.architecture.classes,
+                min_probability=min_probability,
+                postprocess=postprocess,
+                border_pixels_to_ignore=conf.predict.getint("image_pixels_overlap"),
+                projection_if_missing=image_layer_info["projection"],
+                input_mask_dir=None,
+                batch_size=batch_size,
+                evaluate_mode=False,
+                cancel_filepath=conf.files.getpath("cancel_filepath"),
+                nb_parallel_postprocess=conf.general.getint("nb_parallel"),
+                max_prediction_errors=conf.predict.getint("max_prediction_errors"),
+            )
+        else:
+            # Predict directly from an image/layer
+            predicter.predict_layer(
+                model=model_for_predict,
+                image_layer=image_layer,
+                image_pixel_width=conf.predict.getint("image_pixel_width"),
+                image_pixel_height=conf.predict.getint("image_pixel_height"),
+                image_pixel_x_size=conf.predict.getfloat("image_pixel_x_size"),
+                image_pixel_y_size=conf.predict.getfloat("image_pixel_y_size"),
+                image_pixels_overlap=conf.predict.getint("image_pixels_overlap", 0),
+                output_image_dir=predict_output_dir,
+                output_vector_path=output_vector_path,
+                classes=hyperparams.architecture.classes,
+                min_probability=min_probability,
+                postprocess=postprocess,
+                projection_if_missing=image_layer_info["projection"],
+                input_mask_dir=None,
+                batch_size=batch_size,
+                evaluate_mode=False,
+                cancel_filepath=conf.files.getpath("cancel_filepath"),
+                ssl_verify=conf.general["ssl_verify"],
+                nb_parallel_postprocess=conf.general.getint("nb_parallel"),
+                max_prediction_errors=conf.predict.getint("max_prediction_errors"),
+            )
 
         # Log and send mail
-        message = f"Completed predict for config {config_path.stem}"
+        message = f"Completed predict for {config_path.stem} on {image_layer}"
         logger.info(message)
         email_helper.sendmail(message)
 
@@ -311,12 +346,12 @@ def predict(config_path: Path, config_overrules: list[str] = []):
             simulate=conf.cleanup.getboolean("simulate"),
         )
     except Exception as ex:
-        message = f"ERROR while running predict for task {config_path.stem}"
+        message = f"ERROR in predict for {config_path.stem} on {image_layer}"
         logger.exception(message)
         email_helper.sendmail(
             subject=message, body=f"Exception: {ex}\n\n {traceback.format_exc()}"
         )
-        raise Exception(message) from ex
+        raise RuntimeError(message) from ex
     finally:
         conf.remove_run_tmp_dir()
 
