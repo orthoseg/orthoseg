@@ -3,10 +3,12 @@ Helper functions for all tests.
 """
 
 import logging
+import os
 import tempfile
 from pathlib import Path
 from typing import ClassVar
 
+import gdown
 import geopandas as gpd
 from shapely import geometry as sh_geom
 
@@ -17,6 +19,42 @@ class SampleProjectFootball:
     project_dir = sampleprojects_dir / "footballfields"
     predict_config_path = project_dir / "footballfields_BEFL-2019_test.ini"
     train_config_path = project_dir / "footballfields_train_test.ini"
+
+    @staticmethod
+    def download_model(dst_dir):
+        cache_dir = Path(tempfile.gettempdir()) / "orthoseg_test_cache"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+
+        model_name = "footballfields_01_0.97392_201.hdf5"
+        model_hyperparams_name = "footballfields_01_hyperparams.json"
+        model_modeljson_name = "footballfields_01_model.json"
+
+        model_hdf5_cache_path = cache_dir / model_name
+        if not model_hdf5_cache_path.exists():
+            gdown.download(
+                id="1UlNorZ74ADCr3pL4MCJ_tnKRNoeZX79g",
+                output=str(model_hdf5_cache_path),
+            )
+        if not (dst_dir / model_name).exists():
+            os.link(model_hdf5_cache_path, dst_dir / model_name)
+
+        model_hyperparams_cache_path = cache_dir / model_hyperparams_name
+        if not model_hyperparams_cache_path.exists():
+            gdown.download(
+                id="1NwrVVjx9IsjvaioQ4-bkPMrq7S6HeWIo",
+                output=str(model_hyperparams_cache_path),
+            )
+        if not (dst_dir / model_hyperparams_name).exists():
+            os.link(model_hyperparams_cache_path, dst_dir / model_hyperparams_name)
+
+        model_modeljson_cache_path = cache_dir / model_modeljson_name
+        if not model_modeljson_cache_path.exists():
+            gdown.download(
+                id="1LNPLypM5in3aZngBKK_U4Si47Oe97ZWN",
+                output=str(model_modeljson_cache_path),
+            )
+        if not (dst_dir / model_modeljson_name).exists():
+            os.link(model_modeljson_cache_path, dst_dir / model_modeljson_name)
 
 
 class SampleProjectTemplate:

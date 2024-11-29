@@ -452,7 +452,7 @@ def postprocess_for_evaluation(
             f"Error postprocessing prediction for {image_filepath}:\n"
             f"    file: {image_pred_filepath}!!!"
         )
-        raise Exception(message) from ex
+        raise RuntimeError(message) from ex
 
 
 def polygonize_pred_for_evaluation(
@@ -1085,8 +1085,7 @@ def save_prediction_uint8(
         raise Exception(message)
 
     # Make sure the output dir exists...
-    if not output_dir.exists():
-        output_dir.mkdir()
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     # Write prediction to file
     output_filepath = output_dir / f"{image_filepath.stem}{output_suffix}_pred.tif"

@@ -1,7 +1,29 @@
+"""Tests for the load_images module."""
+
 import pytest
 
 from orthoseg import load_images
+from orthoseg.load_images import _load_images_args
 from tests import test_helper
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        (
+            [
+                "--config",
+                "X:/Monitoring/OrthoSeg/test/test.ini",
+                "predict.image_layer=LT-2023",
+            ]
+        )
+    ],
+)
+def test_load_images_args(args):
+    valid_args = _load_images_args(args=args)
+    assert valid_args is not None
+    assert valid_args.config is not None
+    assert valid_args.config_overrules is not None
 
 
 def test_load_images_error_handling():
