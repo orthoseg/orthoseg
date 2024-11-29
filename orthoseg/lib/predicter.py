@@ -237,8 +237,8 @@ def predict_layer(
         evaluate_mode: True to run in evaluate mode
         cancel_filepath: If the file in this path exists, processing stops asap
         nb_parallel_postprocess (int, optional): The number of parallel
-            processes used to vectorize,... the predictions. If -1, all
-            available CPU's are used. Defaults to 1.
+            processes used to postprocess, e.g. vectorize,... the predictions. If -1,
+            all available CPU's are used. Defaults to 1.
         max_prediction_errors (int, optional): the maximum number of errors that is
             tolerated before stopping prediction. If -1, no limit. Defaults to 100.
         ssl_verify (bool or str, optional): True to use the default
@@ -614,7 +614,7 @@ def _predict_layer(
                     try:
                         # If not in evaluate mode... save to vector in background
                         if (
-                            evaluate_mode is False
+                            not evaluate_mode
                             and output_vector_path is not None
                             and pred_tmp_output_path is not None
                         ):
@@ -645,7 +645,8 @@ def _predict_layer(
                             # for evaluate mode...
                             # TODO: would ideally be moved to the background
                             # processing as well to simplify code here...
-                            postp.clean_and_save_prediction(
+                            future = postprocess_pool.submit(
+                                postp.clean_and_save_prediction,
                                 input_image_filepath=image_info["input_image_filepath"],
                                 image_crs=image_info["image_crs"],
                                 image_transform=image_info["image_transform"],
@@ -659,16 +660,8 @@ def _predict_layer(
                                 classes=classes,
                                 force=force,
                             )
+                            postp_queue[future] = image_info["input_image_filepath"]
 
-                            # Write filepath to file with files that are done
-                            with images_done_log_filepath.open(
-                                "a+"
-                            ) as image_donelog_file:
-                                image_donelog_file.write(
-                                    f"{image_info['input_image_filepath'].name}\n"
-                                )
-
-                            nb_done += 1
                     except Exception as ex:  # pragma: no cover
                         nb_errors += 1
                         image_path = image_info["input_image_filepath"]
@@ -694,23 +687,34 @@ def _predict_layer(
                     future for future in postp_queue if future.done() is True
                 ]
                 for future in futures_done:
-                    # Get the result from the polygonization
+                    # Get the result of the postprocessing
                     image_path = postp_queue[future]
                     try:
                         # Get the result (= exception when something went wrong)
                         result = future.result()
-                        logger.debug(f"result for {postp_queue[future].name}: {result}")
+                        logger.debug(f"result for {image_path.name}: {result}")
 
-                        name = f"{image_path.stem}.gpkg"
-                        partial_vector_path = tmp_dir / name
-                        write_future = write_pool.submit(
-                            _write_vector_result,
-                            image_path=image_path,
-                            partial_vector_path=partial_vector_path,
-                            vector_output_path=pred_tmp_output_path,
-                            images_done_log_filepath=images_done_log_filepath,
-                        )
-                        write_queue[write_future] = image_path
+                        if not evaluate_mode:
+                            # Save result of the polygonization
+                            name = f"{image_path.stem}.gpkg"
+                            partial_vector_path = tmp_dir / name
+                            write_future = write_pool.submit(
+                                _write_vector_result,
+                                image_path=image_path,
+                                partial_vector_path=partial_vector_path,
+                                vector_output_path=pred_tmp_output_path,
+                                images_done_log_filepath=images_done_log_filepath,
+                            )
+                            write_queue[write_future] = image_path
+                        else:
+                            # Write filepath to file with files that are done
+                            with images_done_log_filepath.open(
+                                "a+"
+                            ) as image_donelog_file:
+                                image_donelog_file.write(f"{image_path.name}\n")
+
+                            nb_done += 1
+
                     except ImportError as ex:  # pragma: no cover
                         raise ex
                     except Exception as ex:  # pragma: no cover

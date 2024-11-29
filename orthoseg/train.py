@@ -199,6 +199,8 @@ def train(config_path: Path, config_overrules: list[str] = []):
 
         # Train!!!
         min_probability = conf.predict.getfloat("min_probability")
+        nb_parallel_postprocess = conf.general.getint("nb_parallel")
+
         if train_needed is True:
             # If a model already exists, use it to predict (possibly new) training and
             # validation dataset. This way it is possible to have a quick check on
@@ -245,6 +247,7 @@ def train(config_path: Path, config_overrules: list[str] = []):
                         classes=best_hyperparams.architecture.classes,
                         min_probability=min_probability,
                         cancel_filepath=conf.files.getpath("cancel_filepath"),
+                        nb_parallel_postprocess=nb_parallel_postprocess,
                         max_prediction_errors=conf.predict.getint(
                             "max_prediction_errors"
                         ),
@@ -263,6 +266,7 @@ def train(config_path: Path, config_overrules: list[str] = []):
                         classes=best_hyperparams.architecture.classes,
                         min_probability=min_probability,
                         cancel_filepath=conf.files.getpath("cancel_filepath"),
+                        nb_parallel_postprocess=nb_parallel_postprocess,
                         max_prediction_errors=conf.predict.getint(
                             "max_prediction_errors"
                         ),
@@ -342,6 +346,7 @@ def train(config_path: Path, config_overrules: list[str] = []):
             classes=classes,
             min_probability=min_probability,
             cancel_filepath=conf.files.getpath("cancel_filepath"),
+            nb_parallel_postprocess=nb_parallel_postprocess,
             max_prediction_errors=conf.predict.getint("max_prediction_errors"),
         )
 
@@ -358,6 +363,7 @@ def train(config_path: Path, config_overrules: list[str] = []):
             classes=classes,
             min_probability=min_probability,
             cancel_filepath=conf.files.getpath("cancel_filepath"),
+            nb_parallel_postprocess=nb_parallel_postprocess,
             max_prediction_errors=conf.predict.getint("max_prediction_errors"),
         )
 
@@ -375,6 +381,7 @@ def train(config_path: Path, config_overrules: list[str] = []):
                 classes=classes,
                 min_probability=min_probability,
                 cancel_filepath=conf.files.getpath("cancel_filepath"),
+                nb_parallel_postprocess=nb_parallel_postprocess,
                 max_prediction_errors=conf.predict.getint("max_prediction_errors"),
                 no_images_ok=True,
             )
@@ -395,6 +402,7 @@ def train(config_path: Path, config_overrules: list[str] = []):
                 classes=classes,
                 min_probability=min_probability,
                 cancel_filepath=conf.files.getpath("cancel_filepath"),
+                nb_parallel_postprocess=nb_parallel_postprocess,
                 max_prediction_errors=conf.predict.getint("max_prediction_errors"),
             )
 
