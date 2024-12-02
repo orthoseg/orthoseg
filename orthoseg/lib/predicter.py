@@ -680,7 +680,7 @@ def _predict_layer(
                         result = future.result()
                         logger.debug(f"result for {image_path.name}: {result}")
 
-                        if not evaluate_mode:
+                        if output_vector_path is not None:
                             # Save result of the polygonization
                             name = f"{image_path.stem}.gpkg"
                             partial_vector_path = tmp_dir / name
