@@ -224,6 +224,7 @@ def prepare_traindatasets(
             ):
                 reuse_traindata = False
                 break
+
         if reuse_traindata:
             dataversion_new = dataversion_mostrecent
             logger.info(
@@ -587,31 +588,42 @@ def prepare_labeldata(
         labels_to_burn_gdf = labelpolygons_gdf.copy()
         labels_to_burn_gdf["burn_value"] = None
 
-        if labelname_column not in labelpolygons_gdf.columns:
+        labelname_column_cur = labelname_column
+        if labelname_column_cur not in labelpolygons_gdf.columns:
             # For backwards compatibility, also support old default column name
-            labelname_column = "label_name"
+            if "label_name" in labelpolygons_gdf.columns:
+                labelname_column_cur = "label_name"
 
-        if labelname_column in labelpolygons_gdf.columns:
-            # If there is a column labelname_column, use the burn values specified in
-            # the configuration
+        if labelname_column_cur in labelpolygons_gdf.columns:
+            # If there is a column labelname_column_cur, use the burn values specified
+            # in the configuration
             for classname in classes:
                 labels_to_burn_gdf.loc[
                     (
-                        labels_to_burn_gdf[labelname_column].isin(
+                        labels_to_burn_gdf[labelname_column_cur].isin(
                             classes[classname]["labelnames"]
                         )
                     ),
                     "burn_value",
                 ] = classes[classname]["burn_value"]
 
-            # Check if there are invalid class names
+            # If there are invalid label names in the file, add them to the errors
             invalid_gdf = labels_to_burn_gdf.loc[
                 labels_to_burn_gdf["burn_value"].isnull()
             ]
             for _, invalid_row in invalid_gdf.iterrows():
+                labelnames = []
+                for classvalue in classes.values():
+                    labelnames.extend(classvalue["labelnames"])
+                point = (
+                    invalid_row.geometry.representative_point()
+                    if invalid_row.geometry is not None
+                    else None
+                )
                 validation_errors.append(
-                    f"Invalid classname in {Path(invalid_row['path']).name}: "
-                    f"{invalid_row[labelname_column]}"
+                    f"Invalid class/label name at {point} "
+                    f"in {Path(invalid_row['path']).name}: "
+                    f"'{invalid_row[labelname_column_cur]}' (supported: {labelnames})"
                 )
 
             # Filter away rows that are going to burn 0, as this is useless...
@@ -620,19 +632,19 @@ def prepare_labeldata(
             ].copy()
 
         elif len(classes) == 2:
-            # There is no column with label names, but there are only 2 classes
+            # There is no column with class names, but there are only 2 classes
             # (background + subject), so no problem...
             logger.info(
-                f"Column ({labelname_column}) not found, so use all polygons in "
+                f"Column '{labelname_column}' not found, so use all polygons in "
                 f"{label_info.polygons_path.name}"
             )
             labels_to_burn_gdf.loc[:, "burn_value"] = 1
 
         else:
-            # There is no column with label names, but more than two classes, so stop.
+            # More than 2 classes, but no class column: stop.
             validation_errors.append(
-                f"Column {labelname_column} is mandatory in labeldata if multiple "
-                f"classes specified: {classes}"
+                f"Column '{labelname_column}' is mandatory with multiple classes, but "
+                f"not present in {label_info.polygons_path.name} ({classes=})"
             )
 
         # Filter away None and empty geometries... they cannot be burned
