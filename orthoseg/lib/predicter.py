@@ -79,7 +79,7 @@ def predict_dir(
         classes (list): a list of the different class names. Mandatory
             if more than background + 1 class.
         min_probability (float): Minimum probability to consider a pixel being of a
-            certain class. Default to 0.5.
+            certain class. Defaults to 0.5.
         postprocess (dict, optional): specifies which postprocessing should be applied
             to the prediction. Default is {}, so no postprocessing.
         border_pixels_to_ignore: because the segmentation at the borders of the
@@ -222,7 +222,7 @@ def predict_layer(
         classes (list): a list of the different class names. Mandatory
             if more than background + 1 class.
         min_probability (float): Minimum probability to consider a pixel being of a
-            certain class. Default to 0.5.
+            certain class. Defaults to 0.5.
         postprocess (dict, optional): specifies which postprocessing should be applied
             to the prediction. Default is {}, so no postprocessing.
         border_pixels_to_ignore: because the segmentation at the borders of the
@@ -237,8 +237,8 @@ def predict_layer(
         evaluate_mode: True to run in evaluate mode
         cancel_filepath: If the file in this path exists, processing stops asap
         nb_parallel_postprocess (int, optional): The number of parallel
-            processes used to vectorize,... the predictions. If -1, all
-            available CPU's are used. Defaults to 1.
+            processes used to postprocess, e.g. vectorize,... the predictions. If -1,
+            all available CPU's are used. Defaults to 1.
         max_prediction_errors (int, optional): the maximum number of errors that is
             tolerated before stopping prediction. If -1, no limit. Defaults to 100.
         ssl_verify (bool or str, optional): True to use the default
@@ -612,63 +612,42 @@ def _predict_layer(
                 logger.debug("Start post-processing")
                 for batch_image_id, image_info in enumerate(predict_queue):
                     try:
-                        # If not in evaluate mode... save to vector in background
-                        if (
-                            evaluate_mode is False
-                            and output_vector_path is not None
-                            and pred_tmp_output_path is not None
-                        ):
-                            # Prepare prediction array...
-                            #   - convert to uint8 to reduce pickle size/time
-                            image_pred_arr_uint8 = (
-                                (batch_pred_arr[batch_image_id, :, :, :]) * 255
-                            ).astype(np.uint8)
-                            # Save to specific temp file to avoid locking issues.
+                        # Schedule postprocessing
+
+                        # Save vector data first to seperate temp file to avoid locking
+                        # issues. Result is copied to the final file via write_queue
+                        # later on.
+                        prd_tmp_partial_output_file = None
+                        if output_vector_path is not None:
                             name = f"{image_info['input_image_filepath'].stem}.gpkg"
                             prd_tmp_partial_output_file = tmp_dir / name
-                            future = postprocess_pool.submit(
-                                postp.polygonize_pred_multiclass_to_file,
-                                image_pred_arr=image_pred_arr_uint8,
-                                image_crs=image_info["image_crs"],
-                                image_transform=image_info["image_transform"],
-                                classes=classes,
-                                output_vector_path=prd_tmp_partial_output_file,
-                                min_probability=min_probability,
-                                postprocess=postprocess,
-                                border_pixels_to_ignore=border_pixels_to_ignore,
-                                create_spatial_index=False,
-                            )
-                            postp_queue[future] = image_info["input_image_filepath"]
 
-                        else:
-                            # Saving the predictions as images at the moment only used
-                            # for evaluate mode...
-                            # TODO: would ideally be moved to the background
-                            # processing as well to simplify code here...
-                            postp.clean_and_save_prediction(
-                                input_image_filepath=image_info["input_image_filepath"],
-                                image_crs=image_info["image_crs"],
-                                image_transform=image_info["image_transform"],
-                                image_pred_arr=batch_pred_arr[batch_image_id],
-                                output_dir=image_info["output_image_pred_dir"],
-                                input_image_dir=input_image_dir,
-                                input_mask_dir=input_mask_dir,
-                                border_pixels_to_ignore=border_pixels_to_ignore,
-                                min_probability=min_probability,
-                                evaluate_mode=evaluate_mode,
-                                classes=classes,
-                                force=force,
-                            )
+                        # Only save the image if no vector output is needed
+                        output_image_result_dir = None
+                        if output_vector_path is None:
+                            output_image_result_dir = image_info[
+                                "output_image_pred_dir"
+                            ]
 
-                            # Write filepath to file with files that are done
-                            with images_done_log_filepath.open(
-                                "a+"
-                            ) as image_donelog_file:
-                                image_donelog_file.write(
-                                    f"{image_info['input_image_filepath'].name}\n"
-                                )
+                        future = postprocess_pool.submit(
+                            postp.postprocess_prediction_to_file,
+                            image_pred_arr=batch_pred_arr[batch_image_id],
+                            image_crs=image_info["image_crs"],
+                            image_transform=image_info["image_transform"],
+                            classes=classes,
+                            output_vector_path=prd_tmp_partial_output_file,
+                            output_image_dir=output_image_result_dir,
+                            input_image_filepath=image_info["input_image_filepath"],
+                            evaluate_mode=evaluate_mode,
+                            input_image_dir=input_image_dir,
+                            input_mask_dir=input_mask_dir,
+                            border_pixels_to_ignore=border_pixels_to_ignore,
+                            min_probability=min_probability,
+                            postprocess=postprocess,
+                            force=force,
+                        )
+                        postp_queue[future] = image_info["input_image_filepath"]
 
-                            nb_done += 1
                     except Exception as ex:  # pragma: no cover
                         nb_errors += 1
                         image_path = image_info["input_image_filepath"]
@@ -694,23 +673,35 @@ def _predict_layer(
                     future for future in postp_queue if future.done() is True
                 ]
                 for future in futures_done:
-                    # Get the result from the polygonization
+                    # Get the result of the postprocessing
                     image_path = postp_queue[future]
                     try:
                         # Get the result (= exception when something went wrong)
                         result = future.result()
-                        logger.debug(f"result for {postp_queue[future].name}: {result}")
+                        logger.debug(f"result for {image_path.name}: {result}")
 
-                        name = f"{image_path.stem}.gpkg"
-                        partial_vector_path = tmp_dir / name
-                        write_future = write_pool.submit(
-                            _write_vector_result,
-                            image_path=image_path,
-                            partial_vector_path=partial_vector_path,
-                            vector_output_path=pred_tmp_output_path,
-                            images_done_log_filepath=images_done_log_filepath,
-                        )
-                        write_queue[write_future] = image_path
+                        if output_vector_path is None:
+                            # No vector output, so we are ready with this image
+                            with images_done_log_filepath.open(
+                                "a+"
+                            ) as image_donelog_file:
+                                image_donelog_file.write(f"{image_path.name}\n")
+
+                            nb_done += 1
+                        else:
+                            # Result of the vectorisation still needs to be moved to the
+                            # final output file: schedule write
+                            name = f"{image_path.stem}.gpkg"
+                            partial_vector_path = tmp_dir / name
+                            write_future = write_pool.submit(
+                                _write_vector_result,
+                                image_path=image_path,
+                                partial_vector_path=partial_vector_path,
+                                vector_output_path=pred_tmp_output_path,
+                                images_done_log_filepath=images_done_log_filepath,
+                            )
+                            write_queue[write_future] = image_path
+
                     except ImportError as ex:  # pragma: no cover
                         raise ex
                     except Exception as ex:  # pragma: no cover
