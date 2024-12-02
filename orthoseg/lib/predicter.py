@@ -628,6 +628,13 @@ def _predict_layer(
                             name = f"{image_info['input_image_filepath'].stem}.gpkg"
                             prd_tmp_partial_output_file = tmp_dir / name
 
+                        # Only save the image if no vector output is needed
+                        output_image_result_dir = None
+                        if output_vector_path is None:
+                            output_image_result_dir = image_info[
+                                "output_image_pred_dir"
+                            ]
+
                         future = postprocess_pool.submit(
                             postp.postprocess_prediction_to_file,
                             image_pred_arr=batch_pred_arr[batch_image_id],
@@ -635,7 +642,7 @@ def _predict_layer(
                             image_transform=image_info["image_transform"],
                             classes=classes,
                             output_vector_path=prd_tmp_partial_output_file,
-                            output_image_dir=image_info["output_image_pred_dir"],
+                            output_image_dir=output_image_result_dir,
                             input_image_filepath=image_info["input_image_filepath"],
                             evaluate_mode=evaluate_mode,
                             input_image_dir=input_image_dir,
