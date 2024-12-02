@@ -132,7 +132,7 @@ def prepare_traindatasets(
     classes: dict,
     image_layers: dict,
     training_dir: Path,
-    labelname_column: str = "classname",
+    class_column: str = "classname",
     image_pixel_x_size: float = 0.25,
     image_pixel_y_size: float = 0.25,
     image_pixel_width: int = 512,
@@ -161,7 +161,7 @@ def prepare_traindatasets(
                 - burn_value:
         image_layers (dict): the image layers available with their properties.
         training_dir (Path): the directory to save the training data to.
-        labelname_column (str): the column where the label names are stored in
+        class_column (str): the column where the label names are stored in
             the polygon files. If the column name specified is not found, column
             "label_name" is used if it exists for backwards compatibility.
         image_pixel_x_size (float): pixel size in x direction. Defaults to 0.25.
@@ -224,6 +224,7 @@ def prepare_traindatasets(
             ):
                 reuse_traindata = False
                 break
+
         if reuse_traindata:
             dataversion_new = dataversion_mostrecent
             logger.info(
@@ -250,7 +251,7 @@ def prepare_traindatasets(
     labeldata = prepare_labeldata(
         label_infos=label_infos,
         classes=classes,
-        labelname_column=labelname_column,
+        class_column=class_column,
         image_pixel_x_size=image_pixel_x_size,
         image_pixel_y_size=image_pixel_y_size,
         image_pixel_width=image_pixel_width,
@@ -406,7 +407,7 @@ def prepare_traindatasets(
 def prepare_labeldata(
     label_infos: list[LabelInfo],
     classes: dict,
-    labelname_column: str,
+    class_column: str,
     image_pixel_x_size: float | None,
     image_pixel_y_size: float | None,
     image_pixel_width: int,
@@ -420,7 +421,7 @@ def prepare_labeldata(
         label_infos (list[LabelInfo]): the label files/data.
         classes (dict): dict with classes and their corresponding
             label class names + weights.
-        labelname_column (str): the column name in the label polygon files where the
+        class_column (str): the column name in the label polygon files where the
             label classname can be found. Defaults to "classname".
         image_pixel_x_size (float): pixel size in x direction.
         image_pixel_y_size (float): pixel size in y direction.
@@ -587,17 +588,23 @@ def prepare_labeldata(
         labels_to_burn_gdf = labelpolygons_gdf.copy()
         labels_to_burn_gdf["burn_value"] = None
 
-        if labelname_column not in labelpolygons_gdf.columns:
+        class_column_cur = class_column
+        if class_column_cur not in labelpolygons_gdf.columns:
             # For backwards compatibility, also support old default column name
-            labelname_column = "label_name"
+            if "label_name" in labelpolygons_gdf.columns:
+                warnings.warn(
+                    f"Column 'label_name' is deprecated, use '{class_column}' instead",
+                    stacklevel=1,
+                )
+                class_column_cur = "label_name"
 
-        if labelname_column in labelpolygons_gdf.columns:
-            # If there is a column labelname_column, use the burn values specified in
+        if class_column_cur in labelpolygons_gdf.columns:
+            # If there is a column class_column_cur, use the burn values specified in
             # the configuration
             for classname in classes:
                 labels_to_burn_gdf.loc[
                     (
-                        labels_to_burn_gdf[labelname_column].isin(
+                        labels_to_burn_gdf[class_column_cur].isin(
                             classes[classname]["labelnames"]
                         )
                     ),
@@ -611,7 +618,7 @@ def prepare_labeldata(
             for _, invalid_row in invalid_gdf.iterrows():
                 validation_errors.append(
                     f"Invalid classname in {Path(invalid_row['path']).name}: "
-                    f"{invalid_row[labelname_column]}"
+                    f"{invalid_row[class_column_cur]}"
                 )
 
             # Filter away rows that are going to burn 0, as this is useless...
@@ -620,19 +627,19 @@ def prepare_labeldata(
             ].copy()
 
         elif len(classes) == 2:
-            # There is no column with label names, but there are only 2 classes
+            # There is no column with class names, but there are only 2 classes
             # (background + subject), so no problem...
             logger.info(
-                f"Column ({labelname_column}) not found, so use all polygons in "
+                f"Column '{class_column}' not found, so use all polygons in "
                 f"{label_info.polygons_path.name}"
             )
             labels_to_burn_gdf.loc[:, "burn_value"] = 1
 
         else:
-            # There is no column with label names, but more than two classes, so stop.
+            # More than 2 classes, but no class column: stop.
             validation_errors.append(
-                f"Column {labelname_column} is mandatory in labeldata if multiple "
-                f"classes specified: {classes}"
+                f"Column '{class_column}' is mandatory with multiple classes, but "
+                f"not present in {label_info.polygons_path.name} ({classes=})"
             )
 
         # Filter away None and empty geometries... they cannot be burned

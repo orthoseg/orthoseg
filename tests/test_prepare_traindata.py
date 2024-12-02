@@ -111,7 +111,7 @@ def test_prepare_labeldata_locations(geometry, traindata_type, expected_len_loca
     labeldata = prep_traindata.prepare_labeldata(
         label_infos=[label_info],
         classes=TestData.classes,
-        labelname_column="classname",
+        class_column="classname",
         image_pixel_x_size=TestData.image_pixel_x_size,
         image_pixel_y_size=TestData.image_pixel_y_size,
         image_pixel_width=TestData.image_pixel_width,
@@ -173,7 +173,7 @@ def test_prepare_labeldata_locations_invalid(
         _ = prep_traindata.prepare_labeldata(
             label_infos=[label_info],
             classes=TestData.classes,
-            labelname_column="classname",
+            class_column="classname",
             image_pixel_x_size=TestData.image_pixel_x_size,
             image_pixel_y_size=TestData.image_pixel_y_size,
             image_pixel_width=TestData.image_pixel_width,
@@ -217,7 +217,7 @@ def test_prepare_labeldata_polygons(geometry, classname, expected_len_polygons):
     labeldata = prep_traindata.prepare_labeldata(
         label_infos=[label_info],
         classes=TestData.classes,
-        labelname_column="classname",
+        class_column="classname",
         image_pixel_x_size=TestData.image_pixel_x_size,
         image_pixel_y_size=TestData.image_pixel_y_size,
         image_pixel_width=TestData.image_pixel_width,
@@ -260,7 +260,7 @@ def test_prepare_labeldata_polygons_invalid(expected_error, geometry, classname)
         _ = prep_traindata.prepare_labeldata(
             label_infos=[label_info],
             classes=TestData.classes,
-            labelname_column="classname",
+            class_column="classname",
             image_pixel_x_size=TestData.image_pixel_x_size,
             image_pixel_y_size=TestData.image_pixel_y_size,
             image_pixel_width=TestData.image_pixel_width,
@@ -296,7 +296,7 @@ def test_prepare_labeldata_polygons_columnname_backw_compat():
     labeldata = prep_traindata.prepare_labeldata(
         label_infos=[label_info],
         classes=TestData.classes,
-        labelname_column="test_columnname",
+        class_column="test_columnname",
         image_pixel_x_size=TestData.image_pixel_x_size,
         image_pixel_y_size=TestData.image_pixel_y_size,
         image_pixel_width=TestData.image_pixel_width,
