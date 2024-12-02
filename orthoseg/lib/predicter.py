@@ -750,14 +750,14 @@ def _predict_layer(
 
                 # Wait till number below thresshold to avoid huge waiting list (and
                 # memory issues)
-                if len(write_queue) > nb_parallel_postprocess * 2:
+                if len(write_queue) > nb_parallel_postprocess * 2:  # pragma: no cover
                     if not write_sleep_logged:
                         logger.info("Writing takes longer than prediction, so wait")
                         write_sleep_logged = True
                     time.sleep(0.01)
                 else:
                     # No need to wait (anymore)...
-                    if write_sleep_logged:
+                    if write_sleep_logged:  # pragma: no cover
                         logger.info("Waited enough for writing to catch up...")
 
                     break
