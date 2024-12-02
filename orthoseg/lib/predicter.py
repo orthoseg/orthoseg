@@ -680,8 +680,17 @@ def _predict_layer(
                         result = future.result()
                         logger.debug(f"result for {image_path.name}: {result}")
 
-                        if output_vector_path is not None:
-                            # Save result of the polygonization
+                        if output_vector_path is None:
+                            # No vector output, so we are ready with this image
+                            with images_done_log_filepath.open(
+                                "a+"
+                            ) as image_donelog_file:
+                                image_donelog_file.write(f"{image_path.name}\n")
+
+                            nb_done += 1
+                        else:
+                            # Result of the vectorisation still needs to be moved to the
+                            # final output file: schedule write
                             name = f"{image_path.stem}.gpkg"
                             partial_vector_path = tmp_dir / name
                             write_future = write_pool.submit(
@@ -692,14 +701,6 @@ def _predict_layer(
                                 images_done_log_filepath=images_done_log_filepath,
                             )
                             write_queue[write_future] = image_path
-                        else:
-                            # Write filepath to file with files that are done
-                            with images_done_log_filepath.open(
-                                "a+"
-                            ) as image_donelog_file:
-                                image_donelog_file.write(f"{image_path.name}\n")
-
-                            nb_done += 1
 
                     except ImportError as ex:  # pragma: no cover
                         raise ex
