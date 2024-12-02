@@ -388,7 +388,7 @@ def _predict_layer(
     # Getting the list once is way faster than checking file per file later on!
     images_done_log_filepath = output_image_dir / "images_done.txt"
     image_done_filenames = set()
-    if force is False:
+    if not force:
         # First read the listing files if they exists
         if images_done_log_filepath.exists():
             with images_done_log_filepath.open() as f:
@@ -449,7 +449,7 @@ def _predict_layer(
         while True:
             # If we are ready, stop!
             if (
-                last_image_reached is True
+                last_image_reached
                 and len(read_queue) == 0
                 and len(postp_queue) == 0
                 and len(write_queue) == 0
@@ -477,11 +477,7 @@ def _predict_layer(
                 image_file = image_files[image_id]
 
                 # Check if the image has been processed already
-                if force is False and image_file["path"].name in image_done_filenames:
-                    logger.debug(
-                        "Predict for image has already been done before and force is "
-                        f"False, so skip: {image_file['path']}"
-                    )
+                if not force and image_file["path"].name in image_done_filenames:
                     nb_to_predict -= 1
                     continue
 
@@ -509,9 +505,7 @@ def _predict_layer(
             # --------------------------------------------------------------
             while len(read_queue) > 0 and len(predict_queue) < batch_size:
                 # Prepare the images that have been read for predicting
-                futures_done = [
-                    future for future in read_queue if future.done() is True
-                ]
+                futures_done = [future for future in read_queue if future.done()]
                 for future in futures_done:
                     # predict_queue should contain maximum batch_size images!
                     if len(predict_queue) >= batch_size:
@@ -579,7 +573,7 @@ def _predict_layer(
             # If sufficient images in predict queue -> predict
             # ------------------------------------------------
             if len(predict_queue) == batch_size or (
-                last_image_reached is True and len(predict_queue) > 0
+                last_image_reached and len(predict_queue) > 0
             ):
                 read_sleep_logged = False
                 perf_time_now = datetime.datetime.now()
@@ -669,9 +663,7 @@ def _predict_layer(
             while len(postp_queue) > 0:
                 # If not at last file, get results from all futures that are
                 # done, if at last file, wait till all are done
-                futures_done = [
-                    future for future in postp_queue if future.done() is True
-                ]
+                futures_done = [future for future in postp_queue if future.done()]
                 for future in futures_done:
                     # Get the result of the postprocessing
                     image_path = postp_queue[future]
@@ -716,7 +708,7 @@ def _predict_layer(
                 # Wait till number below thresshold to avoid huge waiting
                 # list (and memory issues)
                 if len(postp_queue) > nb_parallel_postprocess * 2:
-                    if postp_sleep_logged is False:
+                    if not postp_sleep_logged:
                         logger.info(
                             "Postprocessing takes longer than prediction, so wait"
                         )
@@ -724,7 +716,7 @@ def _predict_layer(
                     time.sleep(0.01)
                 else:
                     # No need to wait (anymore)...
-                    if postp_sleep_logged is True:
+                    if postp_sleep_logged:
                         logger.info("Waited enough for postprocessing to catch up...")
 
                     perf_time_now = datetime.datetime.now()
@@ -740,9 +732,7 @@ def _predict_layer(
             while len(write_queue) > 0:
                 # If not at last file, get results from all futures that are
                 # done, if at last file, wait till all are done
-                futures_done = [
-                    future for future in write_queue if future.done() is True
-                ]
+                futures_done = [future for future in write_queue if future.done()]
                 for future in futures_done:
                     # Get the result from the write
                     try:
@@ -761,13 +751,13 @@ def _predict_layer(
                 # Wait till number below thresshold to avoid huge waiting list (and
                 # memory issues)
                 if len(write_queue) > nb_parallel_postprocess * 2:
-                    if write_sleep_logged is False:
+                    if not write_sleep_logged:
                         logger.info("Writing takes longer than prediction, so wait")
                         write_sleep_logged = True
                     time.sleep(0.01)
                 else:
                     # No need to wait (anymore)...
-                    if write_sleep_logged is True:
+                    if write_sleep_logged:
                         logger.info("Waited enough for writing to catch up...")
 
                     break
@@ -801,7 +791,7 @@ def _predict_layer(
 
         # If all images were processed, rename to real output file + cleanup
         if (
-            last_image_reached is True
+            last_image_reached
             and output_vector_path is not None
             and pred_tmp_output_path is not None
             and pred_tmp_output_path.exists()
