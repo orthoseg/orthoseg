@@ -752,7 +752,7 @@ def polygonize_pred_multiclass_to_file(
 
     # Polygonize the result...
     result_gdf = polygonize_pred_multiclass(
-        image_pred_uint8=image_pred_arr,
+        image_pred_arr=image_pred_arr,
         image_crs=image_crs,
         image_transform=image_transform,
         classes=classes,
@@ -777,7 +777,7 @@ def polygonize_pred_multiclass_to_file(
 
 
 def polygonize_pred_multiclass(
-    image_pred_uint8: np.ndarray,
+    image_pred_arr: np.ndarray,
     image_crs: str,
     image_transform,
     classes: list,
@@ -788,7 +788,7 @@ def polygonize_pred_multiclass(
     """Polygonize a multiclass prediction.
 
     Args:
-        image_pred_uint8 (np.ndarray): _description_
+        image_pred_arr (np.ndarray): _description_
         image_crs (str): _description_
         image_transform (_type_): _description_
         classes (list): _description_
@@ -812,6 +812,11 @@ def polygonize_pred_multiclass(
                 image_pred_arr=image_pred_curr_arr,
                 border_pixels_to_ignore=border_pixels_to_ignore)
     """
+    # Convert prediction to uint8 if needed
+    if image_pred_arr.dtype == np.float32:
+        image_pred_uint8 = np.array((image_pred_arr * 255), dtype=np.uint8)
+    else:
+        image_pred_uint8 = image_pred_arr
 
     # Reverse the one-hot decoding so each class has it's own number in the array,
     # but ignore prediction probability < min_probability
@@ -1136,7 +1141,7 @@ def clean_prediction(
     if len(image_pred_shape) > 2:
         n_channels = image_pred_shape[2]
         if n_channels > 1:
-            raise Exception("Invalid input, should be one channel!")
+            raise ValueError("Invalid input, should be one channel!")
         # Reshape array from 3 dims (width, height, nb_channels) to 2.
         image_pred_uint8 = np.reshape(
             image_pred_arr, (image_pred_shape[0], image_pred_shape[1])
