@@ -17,6 +17,8 @@
 ### Bugs fixed
 
 - Avoid error if a training dataset contains 2 identical locations (#205)
+- Avoid error with mixed usage of label name and classname columns in polygon train
+  files (#237)
 
 ## 0.6.1 (2024-08-12)
 
