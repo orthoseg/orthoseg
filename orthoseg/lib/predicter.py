@@ -79,7 +79,7 @@ def predict_dir(
         classes (list): a list of the different class names. Mandatory
             if more than background + 1 class.
         min_probability (float): Minimum probability to consider a pixel being of a
-            certain class. Default to 0.5.
+            certain class. Defaults to 0.5.
         postprocess (dict, optional): specifies which postprocessing should be applied
             to the prediction. Default is {}, so no postprocessing.
         border_pixels_to_ignore: because the segmentation at the borders of the
@@ -222,7 +222,7 @@ def predict_layer(
         classes (list): a list of the different class names. Mandatory
             if more than background + 1 class.
         min_probability (float): Minimum probability to consider a pixel being of a
-            certain class. Default to 0.5.
+            certain class. Defaults to 0.5.
         postprocess (dict, optional): specifies which postprocessing should be applied
             to the prediction. Default is {}, so no postprocessing.
         border_pixels_to_ignore: because the segmentation at the borders of the
@@ -612,55 +612,40 @@ def _predict_layer(
                 logger.debug("Start post-processing")
                 for batch_image_id, image_info in enumerate(predict_queue):
                     try:
-                        # If not in evaluate mode... save to vector in background
-                        if (
-                            not evaluate_mode
-                            and output_vector_path is not None
-                            and pred_tmp_output_path is not None
-                        ):
-                            # Prepare prediction array...
-                            #   - convert to uint8 to reduce pickle size/time
+                        # Schedule postprocessing
+
+                        # Save vector data first to seperate temp file to avoid locking
+                        # issues. Result is copied to the final file via write_queue
+                        # later on.
+                        prd_tmp_partial_output_file = None
+                        if output_vector_path is not None:
+                            """
+                            # Convert to prediction to uint8 to reduce pickle size/time
                             image_pred_arr_uint8 = (
                                 (batch_pred_arr[batch_image_id, :, :, :]) * 255
                             ).astype(np.uint8)
-                            # Save to specific temp file to avoid locking issues.
+                            """
                             name = f"{image_info['input_image_filepath'].stem}.gpkg"
                             prd_tmp_partial_output_file = tmp_dir / name
-                            future = postprocess_pool.submit(
-                                postp.polygonize_pred_multiclass_to_file,
-                                image_pred_arr=image_pred_arr_uint8,
-                                image_crs=image_info["image_crs"],
-                                image_transform=image_info["image_transform"],
-                                classes=classes,
-                                output_vector_path=prd_tmp_partial_output_file,
-                                min_probability=min_probability,
-                                postprocess=postprocess,
-                                border_pixels_to_ignore=border_pixels_to_ignore,
-                                create_spatial_index=False,
-                            )
-                            postp_queue[future] = image_info["input_image_filepath"]
 
-                        else:
-                            # Saving the predictions as images at the moment only used
-                            # for evaluate mode...
-                            # TODO: would ideally be moved to the background
-                            # processing as well to simplify code here...
-                            future = postprocess_pool.submit(
-                                postp.clean_and_save_prediction,
-                                input_image_filepath=image_info["input_image_filepath"],
-                                image_crs=image_info["image_crs"],
-                                image_transform=image_info["image_transform"],
-                                image_pred_arr=batch_pred_arr[batch_image_id],
-                                output_dir=image_info["output_image_pred_dir"],
-                                input_image_dir=input_image_dir,
-                                input_mask_dir=input_mask_dir,
-                                border_pixels_to_ignore=border_pixels_to_ignore,
-                                min_probability=min_probability,
-                                evaluate_mode=evaluate_mode,
-                                classes=classes,
-                                force=force,
-                            )
-                            postp_queue[future] = image_info["input_image_filepath"]
+                        future = postprocess_pool.submit(
+                            postp.postprocess_prediction_to_file,
+                            image_pred_arr=batch_pred_arr[batch_image_id],
+                            image_crs=image_info["image_crs"],
+                            image_transform=image_info["image_transform"],
+                            classes=classes,
+                            output_vector_path=prd_tmp_partial_output_file,
+                            output_image_dir=image_info["output_image_pred_dir"],
+                            input_image_filepath=image_info["input_image_filepath"],
+                            evaluate_mode=evaluate_mode,
+                            input_image_dir=input_image_dir,
+                            input_mask_dir=input_mask_dir,
+                            border_pixels_to_ignore=border_pixels_to_ignore,
+                            min_probability=min_probability,
+                            postprocess=postprocess,
+                            force=force,
+                        )
+                        postp_queue[future] = image_info["input_image_filepath"]
 
                     except Exception as ex:  # pragma: no cover
                         nb_errors += 1

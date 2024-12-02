@@ -4,6 +4,7 @@ import logging
 import math
 import shutil
 from pathlib import Path
+from typing import Any
 
 import geofileops as gfo
 import geopandas as gpd
@@ -205,8 +206,8 @@ def read_prediction_file(
 
     Args:
         filepath (Path): path to the prediction file.
-        border_pixels_to_ignore (int, optional): border pixels the should be ignored.
-            Defaults to 0.
+        border_pixels_to_ignore (int, optional): number of pixels at all borders that
+            should be ignored. Defaults to 0.
 
     Returns:
         Optional[gpd.GeoDataFrame]: the vectorized and cleaned prediction.
@@ -218,6 +219,105 @@ def read_prediction_file(
         return polygonize_pred_from_file(filepath, border_pixels_to_ignore)
     else:
         raise ValueError(f"Unsupported extension: {ext_lower}")
+
+
+def postprocess_prediction_to_file(
+    image_pred_arr: np.ndarray,
+    image_crs: str,
+    image_transform,
+    classes: list,
+    output_vector_path: Path | None = None,
+    output_image_dir: Path | None = None,
+    input_image_filepath: Path | None = None,
+    evaluate_mode: bool = False,
+    input_image_dir: Path | None = None,
+    input_mask_dir: Path | None = None,
+    min_probability: float = 0.5,
+    border_pixels_to_ignore: int = 0,
+    postprocess: dict = {},
+    force: bool = False,
+) -> dict[str, Any]:
+    """Postprocess a prediction to file(s).
+
+    Args:
+        image_pred_arr (np.ndarray): The prediction as returned by keras.
+        image_crs (str): Crs of the prediction image.
+        image_transform (_type_): transform of the prediction image.
+        classes (list): _description_
+        output_vector_path (Path | None, optional): The path to write the polygonized
+            prediction to. If None, no polygonized result is written. Defaults to None.
+        output_image_dir (Path | None, optional): The directory to write the prediction
+            to as an image. If None, no image of tyhe prediction is written.
+            Defaults to None.
+        input_image_filepath (Path | None, optional): The path to the image that was
+            predicted image. Is mandatory if output_image_dir is not None.
+            Defaults to None.
+        evaluate_mode (bool, optional): True to write additional images to
+            `output_image_dir` that can help to evaluate the prediction quality. E.g.
+            the original image the the image mask (if available). Defaults to False.
+        input_image_dir (Path | None, optional): Only relevant if `evaluate_mode=True`.
+            The base directory where the input images for the prediction can be found.
+            Defaults to None.
+        input_mask_dir (Path | None, optional): Only relevant if `evaluate_mode=True`.
+            The base directory where mask images for the input images can be found.
+            Defaults to None.
+        min_probability (float): Minimum probability to consider a pixel being of a
+            certain class. Defaults to 0.5.
+        border_pixels_to_ignore (int, optional): number of pixels at all borders that
+            should be ignored. Defaults to 0.
+        postprocess (dict, optional): specifies which postprocessing should be applied
+            to the prediction for the vector output. Default is {}: no postprocessing.
+        force (bool, optional): True to force calculation even if output file(s) exist.
+            Defaults to False.
+
+    Raises:
+        ValueError: invalid input parameters specified.
+
+    Returns:
+        dict[str, Any]: Returns debugging information.
+    """
+    result: dict[str, Any] = {}
+
+    # If a vector output path is specified, polygonize the prediction to file
+    if output_vector_path is not None:
+        result["polygonize_pred_multiclass_to_file"] = (
+            polygonize_pred_multiclass_to_file(
+                image_pred_arr=image_pred_arr,
+                image_crs=image_crs,
+                image_transform=image_transform,
+                classes=classes,
+                output_vector_path=output_vector_path,
+                min_probability=min_probability,
+                postprocess=postprocess,
+                border_pixels_to_ignore=border_pixels_to_ignore,
+                force=force,
+            )
+        )
+
+    # If an image output path is specified, save the prediction as image
+    if output_image_dir is not None:
+        if input_image_filepath is None:
+            raise ValueError(
+                "if output_image_dir is not None, input_image_filepath becomes "
+                "mandatory"
+            )
+
+        result["clean_and_save_prediction"] = clean_and_save_prediction(
+            image_pred_arr=image_pred_arr,
+            image_crs=image_crs,
+            image_transform=image_transform,
+            output_dir=output_image_dir,
+            input_image_filepath=input_image_filepath,
+            input_image_dir=input_image_dir,
+            input_mask_dir=input_mask_dir,
+            border_pixels_to_ignore=border_pixels_to_ignore,
+            min_probability=min_probability,
+            evaluate_mode=evaluate_mode,
+            classes=classes,
+            force=force,
+        )
+
+    return result
 
 
 def to_binary_uint8(in_arr: np.ndarray, thresshold_ok: int = 128) -> np.ndarray:
@@ -285,7 +385,8 @@ def postprocess_for_evaluation(
         output_suffix (Optional[str], optional): _description_. Defaults to None.
         input_image_dir (Optional[Path], optional): _description_. Defaults to None.
         input_mask_dir (Optional[Path], optional): _description_. Defaults to None.
-        border_pixels_to_ignore (int, optional): _description_. Defaults to 0.
+        border_pixels_to_ignore (int, optional): number of pixels at all borders that
+            should be ignored. Defaults to 0.
         force (bool, optional): _description_. Defaults to False.
 
     Raises:
@@ -568,8 +669,8 @@ def polygonize_pred_from_file(
 
     Args:
         image_pred_filepath (Path): path to the file to be read.
-        border_pixels_to_ignore (int, optional): number of pixels around the input image
-            to ignore. Defaults to 0.
+        border_pixels_to_ignore (int, optional): number of pixels at all borders that
+            should be ignored. Defaults to 0.
         save_to_file (bool, optional): If True, save te result to a file.
             Defaults to False.
 
@@ -622,24 +723,33 @@ def polygonize_pred_multiclass_to_file(
     min_probability: float = 0.5,
     postprocess: dict = {},
     border_pixels_to_ignore: int = 0,
-    create_spatial_index: bool = True,
+    force: bool = False,
 ) -> dict:
     """Polygonize a multiclass prediction to a file.
 
     Args:
-        image_pred_arr (np.ndarray): _description_
-        image_crs (str): _description_
-        image_transform (_type_): _description_
+        image_pred_arr (np.ndarray): The prediction as returned by keras.
+        image_crs (str): Crs of the prediction image.
+        image_transform (_type_): transform of the prediction image.
         classes (list): _description_
         output_vector_path (Path): _description_
-        min_probability (float, optional): _description_. Defaults to 0.5.
-        postprocess (dict, optional): _description_. Defaults to {}.
-        border_pixels_to_ignore (int, optional): _description_. Defaults to 0.
-        create_spatial_index (bool, optional): _description_. Defaults to True.
+        min_probability (float): Minimum probability to consider a pixel being of a
+            certain class. Defaults to 0.5.
+        postprocess (dict, optional): specifies which postprocessing should be applied
+            to the prediction. Default is {}, so no postprocessing.
+        border_pixels_to_ignore (int, optional): number of pixels at all borders that
+            should be ignored. Defaults to 0.
+        force (bool, optional): _description_. Defaults to False.
 
     Returns:
         dict: _description_
     """
+    if output_vector_path.exists():
+        if not force:
+            return {"nb_features_witten": None}
+
+        gfo.remove(output_vector_path)
+
     # Polygonize the result...
     result_gdf = polygonize_pred_multiclass(
         image_pred_uint8=image_pred_arr,
@@ -659,7 +769,7 @@ def polygonize_pred_multiclass_to_file(
             append=True,
             index=False,
             force_multitype=True,
-            create_spatial_index=create_spatial_index,
+            create_spatial_index=False,
         )
         return {"nb_features_witten": len(result_gdf), "columns": result_gdf.columns}
     else:
@@ -682,9 +792,12 @@ def polygonize_pred_multiclass(
         image_crs (str): _description_
         image_transform (_type_): _description_
         classes (list): _description_
-        min_probability (float, optional): _description_. Defaults to 0.5.
-        postprocess (dict, optional): _description_. Defaults to {}.
-        border_pixels_to_ignore (int, optional): _description_. Defaults to 0.
+        min_probability (float): Minimum probability to consider a pixel being of a
+            certain class. Defaults to 0.5.
+        postprocess (dict, optional): specifies which postprocessing should be applied
+            to the prediction. Default is {}, so no postprocessing.
+        border_pixels_to_ignore (int, optional): number of pixels at all borders that
+            should be ignored. Defaults to 0.
 
     Returns:
         Optional[gpd.GeoDataFrame]: _description_
@@ -882,33 +995,35 @@ def polygonize_pred(
 
 
 def clean_and_save_prediction(
-    input_image_filepath: Path,
+    image_pred_arr: np.ndarray,
     image_crs: str,
     image_transform: str,
-    output_dir: Path,
-    image_pred_arr: np.ndarray,
     classes: list,
+    output_dir: Path,
+    input_image_filepath: Path,
+    evaluate_mode: bool = False,
     input_image_dir: Path | None = None,
     input_mask_dir: Path | None = None,
     border_pixels_to_ignore: int = 0,
     min_probability: float = 0.5,
-    evaluate_mode: bool = False,
     force: bool = False,
 ) -> bool:
     """Clean the prediction and save it.
 
     Args:
-        input_image_filepath (Path): _description_
+        image_pred_arr (np.ndarray): The prediction as returned by keras.
         image_crs (str): _description_
         image_transform (str): _description_
-        output_dir (Path): _description_
-        image_pred_arr (np.ndarray): _description_
         classes (list): _description_
+        output_dir (Path): _description_
+        input_image_filepath (Path): _description_
+        evaluate_mode (bool, optional): _description_. Defaults to False.
         input_image_dir (Optional[Path], optional): _description_. Defaults to None.
         input_mask_dir (Optional[Path], optional): _description_. Defaults to None.
-        border_pixels_to_ignore (int, optional): _description_. Defaults to 0.
-        min_probability (float, optional): _description_. Defaults to 0.5.
-        evaluate_mode (bool, optional): _description_. Defaults to False.
+        border_pixels_to_ignore (int, optional): number of pixels at all borders that
+            should be ignored. Defaults to 0.
+        min_probability (float): Minimum probability to consider a pixel being of a
+            certain class. Defaults to 0.5.
         force (bool, optional): _description_. Defaults to False.
 
     Raises:
@@ -953,18 +1068,18 @@ def clean_and_save_prediction(
 
             # Now save prediction
             output_suffix = f"_{class_name}"
-            image_pred_filepath = save_prediction_uint8(
-                image_filepath=input_image_filepath,
+            image_pred_filepath = (
+                output_dir / f"{input_image_filepath.stem}{output_suffix}_pred.tif"
+            )
+            save_prediction_uint8(
                 image_pred_uint8_cleaned=image_pred_uint8_cleaned_curr,
                 image_crs=image_crs,
                 image_transform=image_transform,
-                output_dir=output_dir,
-                output_suffix=output_suffix,
-                force=force,
+                output_path=image_pred_filepath,
             )
 
             # Postprocess for evaluation
-            if evaluate_mode is True:
+            if evaluate_mode:
                 # Create binary version and postprocess
                 image_pred_uint8_cleaned_bin = to_binary_uint8(
                     image_pred_uint8_cleaned_curr, 125
@@ -998,7 +1113,8 @@ def clean_prediction(
 
     Args:
         image_pred_arr (np.array): The prediction as returned by keras.
-        border_pixels_to_ignore (int, optional): Border pixels to ignore. Defaults to 0.
+        border_pixels_to_ignore (int, optional): number of pixels at all borders that
+            should be ignored. Defaults to 0.
         output_color_depth (str, optional): Color depth desired. Defaults to '2'.
             * binary: 0 or 255
             * full: 256 different values
@@ -1049,52 +1165,38 @@ def clean_prediction(
 
 
 def save_prediction_uint8(
-    image_filepath: Path,
     image_pred_uint8_cleaned: np.ndarray,
     image_crs: str,
     image_transform: str,
-    output_dir: Path,
-    output_suffix: str = "",
-    border_pixels_to_ignore: int | None = None,
-    force: bool = False,
-) -> Path:
+    output_path: Path,
+):
     """Save the prediction as UINT8.
 
     Args:
-        image_filepath (Path): _description_
-        image_pred_uint8_cleaned (np.ndarray): _description_
-        image_crs (str): _description_
-        image_transform (str): _description_
-        output_dir (Path): _description_
-        output_suffix (str, optional): _description_. Defaults to "".
-        border_pixels_to_ignore (Optional[int], optional): _description_.
-            Defaults to None.
-        force (bool, optional): _description_. Defaults to False.
+        image_pred_uint8_cleaned (np.ndarray): the prediction to save as uint8.
+        image_crs (str): the crs of the prediction.
+        image_transform (str): the transform of the prediction.
+        output_path (Path): the path to write the prediction to.
 
     Raises:
-        Exception: _description_
-
-    Returns:
-        Path: _description_
+        ValueError: an invalid image_transform was passed.
     """
-    # Init
-    # If no decent transform metadata, stop!
+    # If no decent transform passed, stop!
     if image_transform is None or image_transform[0] == 0:
-        message = f"No transform found for {image_filepath}: {image_transform}"
+        message = f"Invalid {image_transform=} for {output_path=}"
         logger.error(message)
-        raise Exception(message)
+        raise ValueError(message)
 
     # Make sure the output dir exists...
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Write prediction to file
-    output_filepath = output_dir / f"{image_filepath.stem}{output_suffix}_pred.tif"
     logger.debug("Save +- original prediction")
     image_shape = image_pred_uint8_cleaned.shape
     image_width = image_shape[0]
     image_height = image_shape[1]
     with rio.open(
-        str(output_filepath),
+        str(output_path),
         "w",
         driver="GTiff",
         tiled="no",
@@ -1109,8 +1211,6 @@ def save_prediction_uint8(
         transform=image_transform,
     ) as dst:
         dst.write(image_pred_uint8_cleaned, 1)
-
-    return output_filepath
 
 
 # -------------------------------------------------------------
