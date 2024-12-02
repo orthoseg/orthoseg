@@ -621,7 +621,7 @@ def prepare_labeldata(
                     else None
                 )
                 validation_errors.append(
-                    f"Invalid label name on {point} "
+                    f"Invalid class/label name at {point} "
                     f"in {Path(invalid_row['path']).name}: "
                     f"'{invalid_row[labelname_column_cur]}' (supported: {labelnames})"
                 )
