@@ -619,12 +619,6 @@ def _predict_layer(
                         # later on.
                         prd_tmp_partial_output_file = None
                         if output_vector_path is not None:
-                            """
-                            # Convert to prediction to uint8 to reduce pickle size/time
-                            image_pred_arr_uint8 = (
-                                (batch_pred_arr[batch_image_id, :, :, :]) * 255
-                            ).astype(np.uint8)
-                            """
                             name = f"{image_info['input_image_filepath'].stem}.gpkg"
                             prd_tmp_partial_output_file = tmp_dir / name
 
