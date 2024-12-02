@@ -477,7 +477,7 @@ def _predict_layer(
                 image_file = image_files[image_id]
 
                 # Check if the image has been processed already
-                if force is False and image_file["path"] in image_done_filenames:
+                if force is False and image_file["path"].name in image_done_filenames:
                     logger.debug(
                         "Predict for image has already been done before and force is "
                         f"False, so skip: {image_file['path']}"
@@ -689,8 +689,9 @@ def _predict_layer(
 
                             nb_done += 1
                         else:
-                            # Result of the vectorisation still needs to be moved to the
-                            # final output file: schedule write
+                            # Schedule `_write_vector_result` to move the result of the
+                            # vectorisation to the final output file + to append image
+                            # to the `image_donelog_file`
                             name = f"{image_path.stem}.gpkg"
                             partial_vector_path = tmp_dir / name
                             write_future = write_pool.submit(
@@ -832,7 +833,7 @@ def _write_vector_result(
 
     # Write filepath to file with files that are done
     with images_done_log_filepath.open("a+") as image_donelog_file:
-        image_donelog_file.write(image_path.name + "\n")
+        image_donelog_file.write(f"{image_path.name}\n")
 
 
 def _handle_error(image_path: Path, ex: Exception, log_path: Path):
