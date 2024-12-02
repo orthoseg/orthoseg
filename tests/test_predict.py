@@ -5,6 +5,7 @@ import shutil
 from contextlib import nullcontext
 from pathlib import Path
 
+import geopandas as gpd
 import pytest
 
 import orthoseg
@@ -60,10 +61,10 @@ def test_predict_error_handling():
     reason="crashes on github CI on windows",
 )
 @pytest.mark.parametrize(
-    "use_cache",
-    [True, False],
+    "use_cache, skip_images",
+    [(True, False), (True, True), (False, False)],
 )
-def test_predict_use_cache(tmp_path, use_cache):
+def test_predict_use_cache_skip(tmp_path, use_cache, skip_images):
     # Init
     testprojects_dir = tmp_path / "sample_projects"
     # Use footballfields sample project
@@ -82,7 +83,17 @@ def test_predict_use_cache(tmp_path, use_cache):
             shutil.rmtree(image_cache_dir)
             assert not image_cache_dir.exists()
         orthoseg.load_images(config_path=config_path)
+
+        if skip_images:
+            # With skip_images, skip all images so no results are written
+            output_image_dir = conf.dirs.getpath("predict_image_output_dir")
+            with open(output_image_dir / "images_done.txt", "w") as f:
+                for image_path in image_cache_dir.glob("*.jpg"):
+                    f.write(f"{image_path.name}\n")
     else:
+        if skip_images:
+            raise ValueError("skip_images should not be True if use_cache is False")
+
         if image_cache_dir.exists():
             image_cache_dir.rename(
                 image_cache_dir.with_name(f"{image_cache_dir.name}_old")
@@ -96,5 +107,24 @@ def test_predict_use_cache(tmp_path, use_cache):
     # Run predict
     predict(config_path=config_path)
 
+    # Depending on use_cache, the image_cache_dir should exist or not
     image_cache_dir = conf.dirs.getpath("predict_image_input_dir")
-    assert image_cache_dir.exists() if use_cache else not image_cache_dir.exists()
+    if use_cache:
+        assert image_cache_dir.exists()
+    else:
+        assert not image_cache_dir.exists()
+
+    # Check output results
+    result_vector_dir = conf.dirs.getpath("output_vector_dir")
+    result_vector_path = result_vector_dir / "footballfields_01_201_BEFL-2019.gpkg"
+
+    if skip_images:
+        # With skip_images, all images are skipped and no results are written
+        assert not result_vector_path.exists()
+    else:
+        assert result_vector_path.exists()
+        result_gdf = gpd.read_file(result_vector_path)
+        if os.name == "nt":
+            assert len(result_gdf) == 211
+        else:
+            assert len(result_gdf) == 211
