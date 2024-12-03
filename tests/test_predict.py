@@ -5,6 +5,7 @@ import shutil
 from contextlib import nullcontext
 from pathlib import Path
 
+import geopandas as gpd
 import pytest
 
 import orthoseg
@@ -60,10 +61,15 @@ def test_predict_error_handling():
     reason="crashes on github CI on windows",
 )
 @pytest.mark.parametrize(
-    "use_cache",
-    [True, False],
+    "use_cache, skip_images, exp_area",
+    [
+        (True, False, 30000),
+        (True, True, 12585),
+        (False, False, 30000),
+        (False, True, 12585),
+    ],
 )
-def test_predict_use_cache(tmp_path, use_cache):
+def test_predict_use_cache_skip(tmp_path, use_cache, skip_images, exp_area):
     # Init
     testprojects_dir = tmp_path / "sample_projects"
     # Use footballfields sample project
@@ -76,19 +82,33 @@ def test_predict_use_cache(tmp_path, use_cache):
     conf.read_orthoseg_config(config_path=config_path)
     image_cache_dir = conf.dirs.getpath("predict_image_input_dir")
 
-    # Load images
-    if use_cache:
-        if image_cache_dir.exists():
-            shutil.rmtree(image_cache_dir)
-            assert not image_cache_dir.exists()
+    # Load images if use cache or skip_images is True. Cache is always needed when
+    # skip_images is True to be able to determine which images to skip.
+    assert not image_cache_dir.exists()
+    if use_cache or skip_images:
         orthoseg.load_images(config_path=config_path)
-    else:
-        if image_cache_dir.exists():
-            image_cache_dir.rename(
-                image_cache_dir.with_name(f"{image_cache_dir.name}_old")
-            )
+        assert image_cache_dir.exists()
 
-    # Download the version 01 model
+    # With skip_images, create a done file in the image prediction output dir
+    # to skip all images but the last one. This will reduce the number of features in
+    # the output.
+    if skip_images:
+        predict_image_output_basedir = Path(
+            f"{conf.dirs['predict_image_output_basedir']}_footballfields_01_201"
+        )
+        predict_image_output_basedir.mkdir(parents=True, exist_ok=True)
+        images = [image_path.name for image_path in image_cache_dir.rglob("*.jpg")]
+        images_to_skip = sorted(images)[:-1]
+        with open(predict_image_output_basedir / "images_done.txt", "w") as f:
+            for image_name in images_to_skip:
+                f.write(f"{image_name}\n")
+
+        # If no cache should be used, remove the cache again
+        if not use_cache:
+            if image_cache_dir.exists():
+                shutil.rmtree(image_cache_dir)
+
+    # Download the model
     model_dir = conf.dirs.getpath("model_dir")
     model_dir.mkdir(parents=True, exist_ok=True)
     test_helper.SampleProjectFootball.download_model(model_dir)
@@ -96,5 +116,11 @@ def test_predict_use_cache(tmp_path, use_cache):
     # Run predict
     predict(config_path=config_path)
 
-    image_cache_dir = conf.dirs.getpath("predict_image_input_dir")
-    assert image_cache_dir.exists() if use_cache else not image_cache_dir.exists()
+    # Check output results
+    result_vector_dir = conf.dirs.getpath("output_vector_dir")
+    result_vector_path = result_vector_dir / "footballfields_01_201_BEFL-2019.gpkg"
+
+    # The area of the output should be within a 10% margin of the expected area.
+    assert result_vector_path.exists()
+    result_gdf = gpd.read_file(result_vector_path)
+    assert exp_area * 0.9 < sum(result_gdf.geometry.area) < exp_area * 1.1
