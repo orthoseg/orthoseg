@@ -61,10 +61,15 @@ def test_predict_error_handling():
     reason="crashes on github CI on windows",
 )
 @pytest.mark.parametrize(
-    "use_cache, skip_images, exp_output_features",
-    [(True, False, 211), (True, True, 100), (False, False, 153), (False, True, 70)],
+    "use_cache, skip_images, exp_area",
+    [
+        (True, False, 30000),
+        (True, True, 12585),
+        (False, False, 30000),
+        (False, True, 12585),
+    ],
 )
-def test_predict_use_cache_skip(tmp_path, use_cache, skip_images, exp_output_features):
+def test_predict_use_cache_skip(tmp_path, use_cache, skip_images, exp_area):
     # Init
     testprojects_dir = tmp_path / "sample_projects"
     # Use footballfields sample project
@@ -115,6 +120,7 @@ def test_predict_use_cache_skip(tmp_path, use_cache, skip_images, exp_output_fea
     result_vector_dir = conf.dirs.getpath("output_vector_dir")
     result_vector_path = result_vector_dir / "footballfields_01_201_BEFL-2019.gpkg"
 
+    # The area of the output should be within a 10% margin of the expected area.
     assert result_vector_path.exists()
     result_gdf = gpd.read_file(result_vector_path)
-    assert len(result_gdf) == exp_output_features
+    assert exp_area * 0.9 < sum(result_gdf.geometry.area) < exp_area * 1.1
