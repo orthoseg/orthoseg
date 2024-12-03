@@ -117,7 +117,7 @@ def predict_dir(
 
     logger.info("Start predict_dir")
 
-    # Get list of all image files to process and to skip
+    # Get list of all image files to process
     image_filepaths: list[Path] = []
     image_files: list[dict[str, Any]] = []
     input_ext = [".png", ".tif", ".jpg"]

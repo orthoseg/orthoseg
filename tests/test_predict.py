@@ -86,20 +86,21 @@ def test_predict_use_cache_skip(tmp_path, use_cache, skip_images):
 
         if skip_images:
             # With skip_images, skip all images so no results are written
-            output_image_dir = conf.dirs.getpath("predict_image_output_dir")
+            output_image_dir = Path(
+                f"{conf.dirs['predict_image_output_basedir']}_footballfields_01_201"
+            )
+            output_image_dir.mkdir(parents=True, exist_ok=True)
             with open(output_image_dir / "images_done.txt", "w") as f:
-                for image_path in image_cache_dir.glob("*.jpg"):
+                for image_path in image_cache_dir.rglob("*.jpg"):
                     f.write(f"{image_path.name}\n")
     else:
         if skip_images:
             raise ValueError("skip_images should not be True if use_cache is False")
 
-        if image_cache_dir.exists():
-            image_cache_dir.rename(
-                image_cache_dir.with_name(f"{image_cache_dir.name}_old")
-            )
+        # Make sure the cache dir does not exist
+        assert not image_cache_dir.exists()
 
-    # Download the version 01 model
+    # Download the model
     model_dir = conf.dirs.getpath("model_dir")
     model_dir.mkdir(parents=True, exist_ok=True)
     test_helper.SampleProjectFootball.download_model(model_dir)

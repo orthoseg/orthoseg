@@ -251,8 +251,7 @@ def predict(config_path: Path, config_overrules: list[str] = []):
 
         # Prepare the output dirs/paths
         predict_output_dir = Path(
-            f"{conf.dirs.getpath('predict_image_output_basedir')!s}_"
-            f"{predict_out_subdir}"
+            f"{conf.dirs['predict_image_output_basedir']}_{predict_out_subdir}"
         )
         output_vector_dir = conf.dirs.getpath("output_vector_dir")
         output_vector_name = (
