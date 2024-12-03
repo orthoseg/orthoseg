@@ -61,10 +61,10 @@ def test_predict_error_handling():
     reason="crashes on github CI on windows",
 )
 @pytest.mark.parametrize(
-    "use_cache, skip_images",
-    [(True, False), (True, True), (False, False), (False, True)],
+    "use_cache, skip_images, exp_output_features",
+    [(True, False, 211), (True, True, 100), (False, False, 153), (False, True, 70)],
 )
-def test_predict_use_cache_skip(tmp_path, use_cache, skip_images):
+def test_predict_use_cache_skip(tmp_path, use_cache, skip_images, exp_output_features):
     # Init
     testprojects_dir = tmp_path / "sample_projects"
     # Use footballfields sample project
@@ -77,7 +77,7 @@ def test_predict_use_cache_skip(tmp_path, use_cache, skip_images):
     conf.read_orthoseg_config(config_path=config_path)
     image_cache_dir = conf.dirs.getpath("predict_image_input_dir")
 
-    # Load images if use cache is True or if skip_images is True. Always needed when
+    # Load images if use cache or skip_images is True. Cache is always needed when
     # skip_images is True to be able to determine which images to skip.
     assert not image_cache_dir.exists()
     if use_cache or skip_images:
@@ -85,15 +85,18 @@ def test_predict_use_cache_skip(tmp_path, use_cache, skip_images):
         assert image_cache_dir.exists()
 
     # With skip_images, create a done file in the image prediction output dir
-    # to skip all images. This will lead to no prediction results being written.
+    # to skip all images but the last one. This will reduce the number of features in
+    # the output.
     if skip_images:
         predict_image_output_basedir = Path(
             f"{conf.dirs['predict_image_output_basedir']}_footballfields_01_201"
         )
         predict_image_output_basedir.mkdir(parents=True, exist_ok=True)
+        images = [image_path.name for image_path in image_cache_dir.rglob("*.jpg")]
+        images_to_skip = sorted(images)[:-1]
         with open(predict_image_output_basedir / "images_done.txt", "w") as f:
-            for image_path in image_cache_dir.rglob("*.jpg"):
-                f.write(f"{image_path.name}\n")
+            for image_name in images_to_skip:
+                f.write(f"{image_name}\n")
 
         # If no cache should be used, remove the cache again
         if not use_cache:
@@ -112,13 +115,6 @@ def test_predict_use_cache_skip(tmp_path, use_cache, skip_images):
     result_vector_dir = conf.dirs.getpath("output_vector_dir")
     result_vector_path = result_vector_dir / "footballfields_01_201_BEFL-2019.gpkg"
 
-    if skip_images:
-        # With skip_images, all images are skipped and no results are written
-        assert not result_vector_path.exists()
-    else:
-        assert result_vector_path.exists()
-        result_gdf = gpd.read_file(result_vector_path)
-        if os.name == "nt":
-            assert len(result_gdf) == 211
-        else:
-            assert len(result_gdf) == 211
+    assert result_vector_path.exists()
+    result_gdf = gpd.read_file(result_vector_path)
+    assert len(result_gdf) == exp_output_features
