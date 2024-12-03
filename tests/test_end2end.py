@@ -110,7 +110,7 @@ def test_4_predict():
     conf.read_orthoseg_config(config_path)
 
     # Cleanup result if it isn't empty yet
-    predict_image_output_dir = (
+    predict_image_output_dir = Path(
         f"{conf.dirs['predict_image_output_basedir']}_footballfields_02_0"
     )
     if predict_image_output_dir.exists():
