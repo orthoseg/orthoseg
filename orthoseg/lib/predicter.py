@@ -45,6 +45,7 @@ def predict_dir(
     batch_size: int = 16,
     evaluate_mode: bool = False,
     cancel_filepath: Path | None = None,
+    nb_parallel_read: int = -1,
     nb_parallel_postprocess: int = 1,
     max_prediction_errors: int = 100,
     force: bool = False,
@@ -93,6 +94,9 @@ def predict_dir(
             memory on you GPU.
         evaluate_mode: True to run in evaluate mode
         cancel_filepath: If the file in this path exists, processing stops asap
+        nb_parallel_read (int, optional): The number of parallel threads to read/load
+            images for prediction. If -1, a default value is used. At the time of
+            writing the default is 3 * `batch_size`. Defaults to -1.
         nb_parallel_postprocess (int, optional): The number of parallel
             processes used to vectorize,... the predictions. If -1, all
             available CPU's are used. Defaults to 1.
@@ -151,6 +155,7 @@ def predict_dir(
         batch_size=batch_size,
         evaluate_mode=evaluate_mode,
         cancel_filepath=cancel_filepath,
+        nb_parallel_read=nb_parallel_read,
         nb_parallel_postprocess=nb_parallel_postprocess,
         max_prediction_errors=max_prediction_errors,
         force=force,
@@ -175,6 +180,7 @@ def predict_layer(
     batch_size: int = 16,
     evaluate_mode: bool = False,
     cancel_filepath: Path | None = None,
+    nb_parallel_read: int = -1,
     nb_parallel_postprocess: int = 1,
     max_prediction_errors: int = 100,
     ssl_verify: bool | str = True,
@@ -236,6 +242,9 @@ def predict_layer(
             memory on you GPU.
         evaluate_mode: True to run in evaluate mode
         cancel_filepath: If the file in this path exists, processing stops asap
+        nb_parallel_read (int, optional): The number of parallel threads to read/load
+            images for prediction. If -1, a default value is used. At the time of
+            writing the default is 3 * `batch_size`. Defaults to -1.
         nb_parallel_postprocess (int, optional): The number of parallel
             processes used to postprocess, e.g. vectorize,... the predictions. If -1,
             all available CPU's are used. Defaults to 1.
@@ -328,6 +337,7 @@ def predict_layer(
         batch_size=batch_size,
         evaluate_mode=evaluate_mode,
         cancel_filepath=cancel_filepath,
+        nb_parallel_read=nb_parallel_read,
         nb_parallel_postprocess=nb_parallel_postprocess,
         max_prediction_errors=max_prediction_errors,
         ssl_verify=ssl_verify,
@@ -351,6 +361,7 @@ def _predict_layer(
     batch_size: int = 16,
     evaluate_mode: bool = False,
     cancel_filepath: Path | None = None,
+    nb_parallel_read: int = -1,
     nb_parallel_postprocess: int = 1,
     max_prediction_errors: int = 100,
     ssl_verify: bool | str = True,
@@ -416,7 +427,8 @@ def _predict_layer(
     # model.run_eagerly = False
 
     # Loop through all files to process them
-    nb_parallel_read = batch_size * 3
+    if nb_parallel_read == -1:
+        nb_parallel_read = batch_size * 3
     if nb_parallel_postprocess == -1:
         nb_parallel_postprocess = multiprocessing.cpu_count()
     predict_queue: list[dict] = []

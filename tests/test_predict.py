@@ -62,7 +62,7 @@ def test_predict_error_handling():
 )
 @pytest.mark.parametrize(
     "use_cache, skip_images",
-    [(True, False), (True, True), (False, False)],
+    [(True, False), (True, True), (False, False), (False, True)],
 )
 def test_predict_use_cache_skip(tmp_path, use_cache, skip_images):
     # Init
@@ -77,28 +77,28 @@ def test_predict_use_cache_skip(tmp_path, use_cache, skip_images):
     conf.read_orthoseg_config(config_path=config_path)
     image_cache_dir = conf.dirs.getpath("predict_image_input_dir")
 
-    # Load images
-    if use_cache:
-        if image_cache_dir.exists():
-            shutil.rmtree(image_cache_dir)
-            assert not image_cache_dir.exists()
+    # Load images if use cache is True or if skip_images is True. Always needed when
+    # skip_images is True to be able to determine which images to skip.
+    assert not image_cache_dir.exists()
+    if use_cache or skip_images:
         orthoseg.load_images(config_path=config_path)
+        assert image_cache_dir.exists()
 
-        if skip_images:
-            # With skip_images, skip all images so no results are written
-            output_image_dir = Path(
-                f"{conf.dirs['predict_image_output_basedir']}_footballfields_01_201"
-            )
-            output_image_dir.mkdir(parents=True, exist_ok=True)
-            with open(output_image_dir / "images_done.txt", "w") as f:
-                for image_path in image_cache_dir.rglob("*.jpg"):
-                    f.write(f"{image_path.name}\n")
-    else:
-        if skip_images:
-            raise ValueError("skip_images should not be True if use_cache is False")
+    # With skip_images, create a done file in the image prediction output dir
+    # to skip all images. This will lead to no prediction results being written.
+    if skip_images:
+        predict_image_output_basedir = Path(
+            f"{conf.dirs['predict_image_output_basedir']}_footballfields_01_201"
+        )
+        predict_image_output_basedir.mkdir(parents=True, exist_ok=True)
+        with open(predict_image_output_basedir / "images_done.txt", "w") as f:
+            for image_path in image_cache_dir.rglob("*.jpg"):
+                f.write(f"{image_path.name}\n")
 
-        # Make sure the cache dir does not exist
-        assert not image_cache_dir.exists()
+        # If no cache should be used, remove the cache again
+        if not use_cache:
+            if image_cache_dir.exists():
+                shutil.rmtree(image_cache_dir)
 
     # Download the model
     model_dir = conf.dirs.getpath("model_dir")
@@ -107,13 +107,6 @@ def test_predict_use_cache_skip(tmp_path, use_cache, skip_images):
 
     # Run predict
     predict(config_path=config_path)
-
-    # Depending on use_cache, the image_cache_dir should exist or not
-    image_cache_dir = conf.dirs.getpath("predict_image_input_dir")
-    if use_cache:
-        assert image_cache_dir.exists()
-    else:
-        assert not image_cache_dir.exists()
 
     # Check output results
     result_vector_dir = conf.dirs.getpath("output_vector_dir")

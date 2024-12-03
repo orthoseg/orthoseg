@@ -111,7 +111,7 @@ def test_4_predict():
 
     # Cleanup result if it isn't empty yet
     predict_image_output_dir = (
-        f"{conf.dirs["predict_image_output_basedir"]}_footballfields_02_0"
+        f"{conf.dirs['predict_image_output_basedir']}_footballfields_02_0"
     )
     if predict_image_output_dir.exists():
         shutil.rmtree(predict_image_output_dir)

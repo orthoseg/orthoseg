@@ -295,6 +295,7 @@ def predict(config_path: Path, config_overrules: list[str] = []):
                 batch_size=batch_size,
                 evaluate_mode=False,
                 cancel_filepath=conf.files.getpath("cancel_filepath"),
+                nb_parallel_read=conf.predict.getint("nb_parallel_read", -1),
                 nb_parallel_postprocess=conf.general.getint("nb_parallel"),
                 max_prediction_errors=conf.predict.getint("max_prediction_errors"),
             )
@@ -319,6 +320,7 @@ def predict(config_path: Path, config_overrules: list[str] = []):
                 evaluate_mode=False,
                 cancel_filepath=conf.files.getpath("cancel_filepath"),
                 ssl_verify=conf.general["ssl_verify"],
+                nb_parallel_read=conf.predict.getint("nb_parallel_read", -1),
                 nb_parallel_postprocess=conf.general.getint("nb_parallel"),
                 max_prediction_errors=conf.predict.getint("max_prediction_errors"),
             )
