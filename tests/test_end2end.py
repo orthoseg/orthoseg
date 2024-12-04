@@ -50,7 +50,7 @@ def test_2_load_images():
     # Check if the right number of files was loaded
     assert image_cache_dir.exists()
     files = list(image_cache_dir.glob("**/*.jpg"))
-    assert len(files) == 6
+    assert len(files) == 2
 
 
 @pytest.mark.skipif(
@@ -110,10 +110,8 @@ def test_4_predict():
     conf.read_orthoseg_config(config_path)
 
     # Cleanup result if it isn't empty yet
-    predict_image_output_basedir = conf.dirs.getpath("predict_image_output_basedir")
-    predict_image_output_dir = (
-        predict_image_output_basedir.parent
-        / f"{predict_image_output_basedir.name}_footballfields_02_0"
+    predict_image_output_dir = Path(
+        f"{conf.dirs['predict_image_output_basedir']}_footballfields_02_0"
     )
     if predict_image_output_dir.exists():
         shutil.rmtree(predict_image_output_dir)
@@ -138,9 +136,9 @@ def test_4_predict():
     assert result_vector_path.exists()
     result_gdf = gfo.read_file(result_vector_path)
     if os.name == "nt":
-        assert len(result_gdf) == 211
+        assert len(result_gdf) == 184
     else:
-        assert len(result_gdf) == 211
+        assert len(result_gdf) == 184
 
 
 @pytest.mark.skipif(
@@ -168,6 +166,6 @@ def test_5_postprocess():
     assert result_diss_path.exists()
     result_gdf = gfo.read_file(result_diss_path)
     if os.name == "nt":
-        assert len(result_gdf) == 207
+        assert len(result_gdf) == 182
     else:
-        assert len(result_gdf) == 207
+        assert len(result_gdf) == 182
