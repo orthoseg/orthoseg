@@ -9,7 +9,8 @@ on:
   pull_request:
     branches: [ main, 0.** ]
   schedule:
-    - cron: "0 0 * * *"
+    # Run every Tuesday at 2:40 UTC
+    - cron: "40 2 * * 2"
 
 concurrency: 
   group: ${{ github.workflow }}-${{ github.ref }}
