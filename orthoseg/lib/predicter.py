@@ -164,7 +164,7 @@ def predict_dir(
 
 def predict_layer(
     model: keras.models.Model,
-    image_layer: dict[str, Any],
+    image_layer_config: dict[str, Any],
     image_pixel_x_size: float,
     image_pixel_y_size: float,
     image_pixel_width: int,
@@ -210,7 +210,7 @@ def predict_layer(
 
     Args:
         model (Model): the model to use for the prediction
-        image_layer: configuration of the image layer to predict on.
+        image_layer_config: configuration of the image layer to predict on.
         image_pixel_x_size (float, optional): Pixel size of the image tiles to
             create in the `crs` specified. Defaults to 0.25.
         image_pixel_y_size (float, optional): Pixel size of the image tiles to
@@ -268,18 +268,18 @@ def predict_layer(
         return
     logger.info("Start predict_layer")
 
-    crs = pyproj.CRS.from_user_input(image_layer["projection"])
-    image_format = image_layer.get("image_format", image_util.FORMAT_JPEG)
+    crs = pyproj.CRS.from_user_input(image_layer_config["projection"])
+    image_format = image_layer_config.get("image_format", image_util.FORMAT_JPEG)
 
     # Determine the tiles to use to divide the prediction
     output_image_dir.mkdir(parents=True, exist_ok=True)
     tiles_to_download_gdf = image_util.get_images_for_grid(
         output_image_dir=output_image_dir,
         crs=crs,
-        image_gen_bbox=image_layer["bbox"],
-        image_gen_roi_filepath=image_layer["roi_filepath"],
-        grid_xmin=image_layer["grid_xmin"],
-        grid_ymin=image_layer["grid_ymin"],
+        image_gen_bbox=image_layer_config["bbox"],
+        image_gen_roi_filepath=image_layer_config["roi_filepath"],
+        grid_xmin=image_layer_config["grid_xmin"],
+        grid_ymin=image_layer_config["grid_ymin"],
         image_crs_pixel_x_size=image_pixel_x_size,
         image_crs_pixel_y_size=image_pixel_y_size,
         image_pixel_width=image_pixel_width,
@@ -295,7 +295,7 @@ def predict_layer(
             return
         else:
             raise ValueError(
-                f"No images to predict for layer {image_layer['layername']}"
+                f"No images to predict for layer {image_layer_config['layername']}"
             )
 
     logger.info(f"Found {nb_images} images to predict")
@@ -324,7 +324,7 @@ def predict_layer(
     _predict_layer(
         model=model,
         input_image_dir=None,
-        image_layer=image_layer,
+        image_layer=image_layer_config,
         output_image_dir=output_image_dir,
         output_vector_path=output_vector_path,
         classes=classes,

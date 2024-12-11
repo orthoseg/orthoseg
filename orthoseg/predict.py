@@ -81,11 +81,10 @@ def predict(config_path: Path, config_overrules: list[str] = []):
     try:
         # Read some config, and check if values are ok
         image_layer = conf.predict["image_layer"]
-        image_layer_info = conf.image_layers[image_layer]
-        if image_layer_info is None:
-            raise Exception(
-                f"image_layer to predict is not specified in config: {image_layer_info}"
-            )
+        image_layer_config = conf.image_layers.get(image_layer)
+        if image_layer_config is None:
+            raise ValueError(f"{image_layer=} is not configured in image_layers")
+
         input_image_dir = conf.dirs.getpath("predict_image_input_dir")
 
         # Create base filename of model to use
@@ -264,13 +263,8 @@ def predict(config_path: Path, config_overrules: list[str] = []):
         # Send email
         email_helper.sendmail(f"Start predict for {config_path.stem} on {image_layer}")
 
-        # Check if the layer to predict is configured in the image_layers
-        predict_layer = conf.predict["image_layer"]
-        if predict_layer not in conf.image_layers:
-            raise ValueError(f"{predict_layer=} is not configured in image_layers")
-        image_layer = conf.image_layers[predict_layer]
-
-        use_cache = image_layer.get("use_cache", "yes")
+        # Check if we should use an image cache
+        use_cache = image_layer_config.get("use_cache", "yes")
         if use_cache == "ifavailable":
             use_cache = (
                 "yes"
@@ -290,7 +284,7 @@ def predict(config_path: Path, config_overrules: list[str] = []):
                 min_probability=min_probability,
                 postprocess=postprocess,
                 border_pixels_to_ignore=conf.predict.getint("image_pixels_overlap"),
-                projection_if_missing=image_layer_info["projection"],
+                projection_if_missing=image_layer_config["projection"],
                 input_mask_dir=None,
                 batch_size=batch_size,
                 evaluate_mode=False,
@@ -303,7 +297,7 @@ def predict(config_path: Path, config_overrules: list[str] = []):
             # Predict directly from an image/layer
             predicter.predict_layer(
                 model=model_for_predict,
-                image_layer=image_layer,
+                image_layer_config=image_layer_config,
                 image_pixel_width=conf.predict.getint("image_pixel_width"),
                 image_pixel_height=conf.predict.getint("image_pixel_height"),
                 image_pixel_x_size=conf.predict.getfloat("image_pixel_x_size"),
@@ -314,7 +308,7 @@ def predict(config_path: Path, config_overrules: list[str] = []):
                 classes=hyperparams.architecture.classes,
                 min_probability=min_probability,
                 postprocess=postprocess,
-                projection_if_missing=image_layer_info["projection"],
+                projection_if_missing=image_layer_config["projection"],
                 input_mask_dir=None,
                 batch_size=batch_size,
                 evaluate_mode=False,
