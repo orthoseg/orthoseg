@@ -234,6 +234,7 @@ def test_prepare_labeldata_polygons(geometry, classname, expected_len_polygons):
     [
         ("Invalid geometry ", TestData.polygon_invalid, "testlabel1"),
         ("Invalid class/label name ", TestData.polygon, "unknown"),
+        ("Invalid class/label name ", TestData.polygon, None),
     ],
 )
 def test_prepare_labeldata_polygons_invalid(expected_error, geometry, classname):
