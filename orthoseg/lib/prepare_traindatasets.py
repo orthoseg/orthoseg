@@ -558,6 +558,8 @@ def prepare_labeldata(
                     f"based on train config expected {location_geom_aligned.area}) "
                     f"in file {Path(location.path).name}: {location.geometry.wkt}"
                 )
+
+            # Replace the original geometry in labellocations_gdf by the aligned one
             labellocations_gdf.at[location.Index, "geometry"] = location_geom_aligned
 
         # Remove locations with None or point/line geoms

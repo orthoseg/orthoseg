@@ -7,6 +7,7 @@
 - Support reading images directly from the datasource while predicting (#228, #231)
 - Make image format for downloaded images configurable (#204)
 - Add validations on the augmentation configuration (#214)
+- Add support to reuse one training dataset for multiple train resolutions (#244)
 - Improve performance of `predict_dir` for `evaluation_mode` (#236)
 - Make `load_images` more robust by ignoring some filesystem errors that occur sometimes
   but that don't seem to give actual issues (#216, #2019)
