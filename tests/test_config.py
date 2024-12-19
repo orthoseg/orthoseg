@@ -111,22 +111,20 @@ def test_prepare_train_label_infos():
             "pixel_y_size": 2,
             "image_layer": "BEFL-2021",
         },
-        "label_ds1_resolution2": {
+        "label_ds1_resolution2_None": {
             "locations_path": str(
                 TestData.dir / "footballfields_BEFL-2019_locations.gpkg"
             ),
             "data_path": str(TestData.dir / "footballfields_BEFL-2019_data.gpkg"),
-            "pixel_x_size": 4,
-            "pixel_y_size": 5,
         },
         "label_ds2": {
             "locations_path": str(
                 TestData.dir / "footballfields_BEFL-2022_locations.gpkg"
             ),
             "polygons_path": str(TestData.dir / "footballfields_BEFL-2022_data.gpkg"),
+            "image_layer": "BEFL-2022",
             "pixel_x_size": 5,
             "pixel_y_size": 6,
-            "image_layer": "BEFL-2022",
         },
     }
 
@@ -147,14 +145,14 @@ def test_prepare_train_label_infos():
             assert result.pixel_x_size == 1
             assert result.pixel_y_size == 2
         elif index == 1:
-            # label_ds1_resolution2
+            # label_ds1_resolution2_None
             # data_path should also work for backwards compatibility
-            exp = Path(label_datasources["label_ds1_resolution2"]["data_path"])
+            exp = Path(label_datasources["label_ds1_resolution2_None"]["data_path"])
             assert result.polygons_path.resolve().as_posix() == exp.resolve().as_posix()
             # image_layer was not specified, so is reused from the pattern version
             assert result.image_layer == "BEFL-2019"
-            assert result.pixel_x_size == 4
-            assert result.pixel_y_size == 5
+            assert result.pixel_x_size is None
+            assert result.pixel_y_size is None
         elif index == 2:
             # label_ds2
             exp = Path(label_datasources["label_ds2"]["polygons_path"])
@@ -168,6 +166,36 @@ def test_prepare_train_label_infos():
             assert result.polygons_path is not None
             assert result.pixel_x_size is None
             assert result.pixel_y_size is None
+
+
+@pytest.mark.parametrize(
+    "label_datasources, expected_error",
+    [
+        ({"label_ds1": {"pixel_x_size": 1}}, "locations_path is mandatory"),
+        ({"label_ds1": {"locations_path": None}}, "locations_path is mandatory"),
+        (
+            {"label_ds1": {"locations_path": "/tmp/tst.gpkg"}},
+            "polygons_path not specified for",
+        ),
+    ],
+)
+def test_prepare_train_label_infos_error(label_datasources, expected_error):
+    labelpolygons_pattern = TestData.dir / "footballfields_{image_layer}_data.gpkg"
+    labellocations_pattern = (
+        TestData.dir / "footballfields_{image_layer}_locations.gpkg"
+    )
+    image_layers = {"BEFL-2019": {}, "BEFL-2020": {}, "BEFL-2021": {}, "BEFL-2022": {}}
+
+    with pytest.raises(
+        ValueError,
+        match=expected_error,
+    ):
+        _ = conf._prepare_train_label_infos(
+            labelpolygons_pattern,
+            labellocations_pattern,
+            label_datasources=label_datasources,
+            image_layers=image_layers,
+        )
 
 
 def test_prepare_train_label_infos_invalid_layer():

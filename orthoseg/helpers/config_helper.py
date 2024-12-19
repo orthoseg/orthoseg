@@ -431,7 +431,10 @@ def _prepare_train_label_infos(
     if label_datasources is not None:
         for label_key, label_ds in label_datasources.items():
             if label_ds.get("locations_path") is None:
-                raise ValueError(f"locations_path not specified for {label_ds}")
+                raise ValueError(
+                    "locations_path is mandatory for each label_datasource and is "
+                    f"missing or None for {label_ds}"
+                )
 
             # Backwards compatibility for "data_path"
             if label_ds.get("polygons_path") is None:
