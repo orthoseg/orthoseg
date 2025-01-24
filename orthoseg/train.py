@@ -425,7 +425,7 @@ def train(config_path: Path, config_overrules: list[str] = []):
         else:
             message_body = f"Exception: {ex}<br/><br/>{traceback.format_exc()}"
         email_helper.sendmail(subject=message, body=message_body)
-        raise RuntimeError(message) from ex
+        raise RuntimeError(f"{message}: {ex}") from ex
     finally:
         conf.remove_run_tmp_dir()
 
