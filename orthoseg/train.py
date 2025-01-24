@@ -117,7 +117,7 @@ def train(config_path: Path, config_overrules: list[str] = []):
             )
 
         # Send mail that we are starting train
-        email_helper.sendmail(f"Start train for {config_path.stem}")
+        email_helper.sendmail(f"Start train for {config_path.stem} ({traindata_id=})")
         logger.info(
             f"Traindata dir to use is {training_dir}, with traindata_id: {traindata_id}"
         )
@@ -414,7 +414,7 @@ def train(config_path: Path, config_overrules: list[str] = []):
         gc.collect()
 
         # Log and send mail
-        message = f"Completed train for {config_path.stem}"
+        message = f"Completed train for {config_path.stem} ({traindata_id=})"
         logger.info(message)
         email_helper.sendmail(message)
     except Exception as ex:

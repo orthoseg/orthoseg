@@ -519,7 +519,8 @@ def get_best_model(
         trainparams_id (int, optional): only models with this hyperparams id
 
     Returns:
-        A dictionary with the info of the best model, or None if no model was found
+        A dictionary with the info of the best model as returned by
+        parse_model_filename, or None if no model was found
     """
     # Get list of existing models for this train dataset
     model_info_list = get_models(
