@@ -77,7 +77,7 @@ def predict(config_path: Path, config_overrules: list[str] = []):
     logger = log_util.main_log_init(conf.dirs.getpath("log_dir"), __name__)
     logger.info(f"Start predict for config {config_path.stem}")
     logger.debug(f"Config used: \n{conf.pformat_config()}")
-    detection_name = None
+    model_name = None
 
     try:
         # Read some config, and check if values are ok
@@ -117,7 +117,7 @@ def predict(config_path: Path, config_overrules: list[str] = []):
             model_weights_filepath = best_model["filepath"]
             logger.info(f"Best model found: {model_weights_filepath}")
 
-        detection_name = f"{best_model['segment_subject']}_{best_model['traindata_id']}"
+        model_name = f"{best_model['segment_subject']}_{best_model['traindata_id']}"
 
         # Load the hyperparams of the model
         # TODO: move the hyperparams filename formatting to get_models...
@@ -264,7 +264,7 @@ def predict(config_path: Path, config_overrules: list[str] = []):
         # Start predict for entire dataset
         # --------------------------------
         # Send email
-        email_helper.sendmail(f"Start prediction {detection_name} on {image_layer}")
+        email_helper.sendmail(f"Start predict for {model_name} on {image_layer}")
 
         # Check if we should use an image cache
         use_cache = image_layer_config.get("use_cache", "yes")
@@ -323,7 +323,7 @@ def predict(config_path: Path, config_overrules: list[str] = []):
             )
 
         # Log and send mail
-        message = f"Completed prediction {detection_name} on {image_layer}"
+        message = f"Completed predict for {model_name} on {image_layer}"
         logger.info(message)
         email_helper.sendmail(message)
 
@@ -344,9 +344,9 @@ def predict(config_path: Path, config_overrules: list[str] = []):
             simulate=conf.cleanup.getboolean("simulate"),
         )
     except Exception as ex:
-        if detection_name is None:
-            detection_name = config_path.stem
-        message = f"ERROR in prediction {detection_name}, on {image_layer}"
+        if model_name is None:
+            model_name = config_path.stem
+        message = f"ERROR in predict for {model_name} on {image_layer}"
         logger.exception(message)
         email_helper.sendmail(
             subject=message, body=f"Exception: {ex}\n\n {traceback.format_exc()}"
