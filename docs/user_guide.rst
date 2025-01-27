@@ -4,16 +4,18 @@
 User guide
 ==========
 
-The main objective of orthoseg is to provide a simple to use but powerful API to do
-fast spatial operations on large vector GIS files.
+The main objective of orthoseg is to make it accessible to automatically digitize
+features on orthophotos. This manual will guide you through the process of setting up a
+new project, creating a training dataset, training a neural network and running a
+prediction on an orthophoto.
 
 
 Run sample project  
 ------------------
 
 Once the installation of orthoseg and its dependencies is completed, you can run the
-sample project included. The project is an easy way to get started and should give a
-good idea on how you can start your own segmentation project. 
+sample project included. The sample project is an easy way to get started and should
+give a good idea on how you can start your own segmentation project. 
 
 It contains:
 
