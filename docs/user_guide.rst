@@ -11,9 +11,9 @@ fast spatial operations on large vector GIS files.
 Run sample project  
 ------------------
 
-Once the installation is completed, you can run the sample project included. The project
-is an easy way to get started and should give a good idea on how you can start your own
-segmentation project. 
+Once the installation of orthoseg and its dependencies is completed, you can run the
+sample project included. The project is an easy way to get started and should give a
+good idea on how you can start your own segmentation project. 
 
 It contains:
 
@@ -24,10 +24,10 @@ It contains:
   the neural network + to detect football fields on
 
 Remark: the training data included is meant to show how the process works, not to give
-perfect results.
+perfect, or even decent, results.
 
-Running the sample project is easy. If the orthoseg installation was successful, the
-following steps should do the trick: 
+Running the sample project is easy. If the installation was successful, the following
+steps should do the trick: 
 
 1. start a conda command prompt
 2. activate the orthoseg environment with::
@@ -36,24 +36,24 @@ following steps should do the trick:
 
 3. download the sample projects from orthoseg. You can specify the base location to
    download the sample projects to, but in this tutorial I'll assume "~" (= your home
-   directory) for simplicity.::
+   directory) for simplicity::
 
     orthoseg_load_sampleprojects ~
 
 4. preload the images so they are ready to detect the football fields on, using the
-   sample configurations file "footballfields.ini_BEFL-2019".::
+   sample configurations file "footballfields.ini_BEFL-2019"::
    
     orthoseg_load_images --config ~/orthoseg/sample_projects/footballfields/footballfields_BEFL-2019.ini
 
 5. for the footballfields sample project, a pretrained neural network was downloaded in
    step orthoseg_load_sampleprojects to avoid having to train it. But, normally you
-   would now train the neural network with the following command.::
+   would now train the neural network with the following command::
 
-   orthoseg_train --config ~/orthoseg/sample_projects/footballfields/footballfields_BEFL-2019.ini
+    orthoseg_train --config ~/orthoseg/sample_projects/footballfields/footballfields_BEFL-2019.ini
 
-6. detect the football fields.::
+6. detect the football fields::
 
-   orthoseg_predict --config ~/orthoseg/sample_projects/footballfields/footballfields_BEFL-2019.ini
+    orthoseg_predict --config ~/orthoseg/sample_projects/footballfields/footballfields_BEFL-2019.ini
 
 Now, the directory ~/orthoseg/sample_projects/footballfields/output_vector will contain
 a .gpkg file with the football fields found.
@@ -61,8 +61,8 @@ a .gpkg file with the football fields found.
 An interesting exercise might be to detect football fields on another layer (on another
 location). To get reasonable results, this should be a layer with 0.25 meter pixel size,
 as this was the pixel size the footballfields detection was trained on. It's best to
-first read `Prepare-new-project <https://github.com/orthoseg/orthoseg/wiki/Prepare-new-project>`_
-for some background information and then you could try the following steps:
+first read `Prepare a new project`_ for some background information and then you could
+try the following steps:
 
 1. add the layer you want to predict on to the imagelayer.ini config file 
 2. make a copy of footballfields_BEFL-2019.ini and change the "predict image_layer"
@@ -75,13 +75,13 @@ for some background information and then you could try the following steps:
 
    orthoseg_load_images --config ~/orthoseg/sample_projects/footballfields/footballfields_BEFL-2019.ini
 
-4. run the detection again.::
+4. run the detection again::
 
    orthoseg_predict --config ~/orthoseg/sample_projects/footballfields/footballfields_BEFL-2019.ini
 
 
-Prepare new project
--------------------
+Prepare a new project
+---------------------
 
 A few technical steps need to be taken to prepare a new segmentation project.
 

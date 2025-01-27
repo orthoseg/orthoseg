@@ -11,9 +11,15 @@ orthoseg |version|
 
 As the name implies, the purpose of the project is to help you to apply
 `image segmentation <https://en.wikipedia.org/wiki/Image_segmentation>`_ on
-`orthophotos <https://en.wikipedia.org/wiki/Orthophoto>`_. Image segmentation is quite a
-popular computer vision topic, eg. for use in self driving cars. The same technique can
-also be used on orthophotos: images in the viewpoint as available in eg. google maps.
+`orthophotos <https://en.wikipedia.org/wiki/Orthophoto>`_.
+
+You don't really need to have programming skills to use orthoseg, but you need to have
+some knowledge of GIS technology (e.g. QGIS) and you need to be able to install and run
+python scripts.
+
+Image segmentation is quite a popular computer vision topic, eg. for use in self driving
+cars. The same technique can also be used on orthophotos: images in the viewpoint as
+available in eg. google maps.
 
 The platform the photos were captured on (airplane, satellite, drone,...) obviously
 doesn't matter, but at the moment only 3 (possibly 4 but this is not tested)
@@ -33,6 +39,5 @@ you'll need to be patient.
 
    Installation <installation>
    User guide <user_guide>
-   API reference <reference>
    FAQ <faq>
    Development <development>
