@@ -247,7 +247,8 @@ show where the football field is in the "location". This training example will h
 neural network to learn how a (part of a) football field looks, but also that tennis
 fields are not to be detected...
 
-![Digitize training data, location and polygon](https://raw.githubusercontent.com/orthoseg/orthoseg/refs/heads/main/sample_projects/footballfields/img/screenshot_labels_footballfields.jpg)
+.. image:: https://raw.githubusercontent.com/orthoseg/orthoseg/refs/heads/main/docs/_static/images/screenshot_labels_footballfields.jpg
+   :alt: Digitize training data, location and polygon
 
 Creating training data is -in my experience- an iterative process. You add some samples
 to the training dataset, you evaluate the results, add some more,... This way you can
