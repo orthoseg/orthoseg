@@ -55,8 +55,8 @@ steps should do the trick:
 
     orthoseg_predict --config ~/orthoseg/sample_projects/footballfields/footballfields_BEFL-2019.ini
 
-Now, the directory ~/orthoseg/sample_projects/footballfields/output_vector will contain
-a .gpkg file with the football fields found.
+Now, the directory `~/orthoseg/sample_projects/footballfields/output_vector` will
+contain a .gpkg file with the football fields found.
 
 An interesting exercise might be to detect football fields on another layer (on another
 location). To get reasonable results, this should be a layer with 0.25 meter pixel size,
@@ -64,18 +64,18 @@ as this was the pixel size the footballfields detection was trained on. It's bes
 first read `Prepare a new project`_ for some background information and then you could
 try the following steps:
 
-1. add the layer you want to predict on to the imagelayer.ini config file 
-2. make a copy of footballfields_BEFL-2019.ini and change the "predict image_layer"
+1. add the layer you want to predict on to the `imagelayer.ini` config file 
+2. make a copy of `footballfields_BEFL-2019.ini` and change the `predict image_layer`
    parameter in the file to point to the new layer::
 
     [predict]
     image_layer = BEFL-2019
 
-3. run orthoseg_load_images to prepare the layer to predict on::
+3. run `orthoseg_load_images` to prepare the layer to predict on::
 
    orthoseg_load_images --config ~/orthoseg/sample_projects/footballfields/footballfields_BEFL-2019.ini
 
-4. run the detection again::
+4. run the detection again with `orthoseg_predict`::
 
    orthoseg_predict --config ~/orthoseg/sample_projects/footballfields/footballfields_BEFL-2019.ini
 
@@ -90,34 +90,34 @@ A few technical steps need to be taken to prepare a new segmentation project.
 
 If this is your very first orthoseg project, you need to prepare a directory where you
 want to put your orthoseg projects. In the rest of the documentation we'll refer to this
-directory as {projects_dir}.
+directory as `{projects_dir}`.
 
 It doesn't really matter where this directory is located, but these are examples that
 can give you some inspiration:
 
-* on linux: ~/orthoseg/projects 
-* on windows: c:/users/{username}/orthoseg/projects
+* on linux: `~/orthoseg/projects` 
+* on windows: `c:/users/{username}/orthoseg/projects`
 
 The easiest way to create it is by starting from a copy of the
 `sample_projects <https://github.com/orthoseg/orthoseg/tree/master/sample_projects>`_
-directory to eg. your personal "orthoseg" directory and rename it to "projects".
+directory to eg. your personal `orthoseg` directory and rename it to `projects`.
 
 This way your projects directory immediately contains:
 
-* an imagelayers.ini file (with sample content)
-* a project_defaults_overrule.ini file (with sample content)
-* the "project_template" directory: the template for a new segmentation project
+* an `imagelayers.ini` file (with sample content)
+* a `project_defaults_overrule.ini` file (with sample content)
+* the `project_template` directory: the template for a new segmentation project
 
 2. Add the layer(s) you want to segment on to the image layer configuration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The configuration for the image layers is located in {projects_dir}/imagelayers.ini.
+The configuration for the image layers is located in `{projects_dir}/imagelayers.ini`.
 
 Layers can be a local file, a WMS server, WMTS server or an XYZ server. The basic
 structure of this configuration file is as follows: every section in the .ini file
-(eg. [BEFL-2019]) contains the configuration of one "image layer". In later steps of
-this tutorial you well need to use the "image layer names" (for these examples BEFL-2019
-and BEFL-2020), they are referred to with {image_layer_name}.::
+(eg. `[BEFL-2019]`) contains the configuration of one `image layer`. In later steps of
+this tutorial you well need to use the "image layer names" (for these examples
+`BEFL-2019` and `BEFL-2020`), they are referred to with `{image_layer_name}`::
 
     # In this file, the image layers we can use in segmentations are configured. 
 
@@ -138,19 +138,19 @@ found here: `imagelayers.ini <https://github.com/orthoseg/orthoseg/blob/master/s
 
 Choose a new name for the segmentation project: par example 'greenhouses', 'trees',
 'buildings',... In the rest of the manual the project name will be refered to with
-{segment_subject}.
+`{segment_subject}`.
 
 4. Prepare "project" directory
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-For your new segmentation project, make a copy of the "project_template" directory to
-{projects_dir} and rename it to {segment_subject}.
+For your new segmentation project, make a copy of the `project_template` directory to
+`{projects_dir}` and rename it to `{segment_subject}`.
 
 5. Prepare project settings
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Rename the project file in the new project directory from "projectfile.ini" to
-"{segment_subject}.ini". In the file you should at least change the following
+Rename the project file in the new project directory from `projectfile.ini` to
+`{segment_subject}.ini`. In the file you should at least change the following
 parameter:::
 
     [general]
@@ -171,11 +171,11 @@ The configuration can be found + modified in the following files:
    overrule any setting, this is the perfect spot to find all existing sections +
    parameters and copy/paste the section + parameter to one of the next files and change
    the value there to overrule it for your project(s).
-1. If you want to **overrule** a parameter for all the projects in your project
-   directory, add the section + parameter to the project_defaults_overrule.ini file in
+2. If you want to **overrule** a parameter for all the projects in your project
+   directory, add the section + parameter to the `project_defaults_overrule.ini` file in
    your projects directory, eg:
    `{projects_dir}/project_defaults_overrule.ini <https://github.com/orthoseg/orthoseg/blob/master/sample_projects/project_defaults_overrule.ini>`_.
-1. If you want to **overrule** parameters for a specific project, you can do so in the
+3. If you want to **overrule** parameters for a specific project, you can do so in the
    project-specific config file: eg.
    `{projects_dir}/{segment_subject}/{segment_subject}.ini <https://github.com/orthoseg/orthoseg/blob/master/sample_projects/project_template/projectfile.ini>`_.
 
@@ -232,18 +232,18 @@ evolve based on examples you encounter and didn't think of at this stage, but as
 important that the training dataset is consequent, make sure the definition is/stays
 clear.
 
-The orthoseg training data is (by default) organized as follows. In your {project_dir}
-there is a directory called "labels". In this directory there should be 2 files per
+The orthoseg training data is (by default) organized as follows. In your `{project_dir}`
+there is a directory called `labels`. In this directory there should be 2 files per
 image layer that you want to use to base your training on:
 
 * {segment_subject}_{image_layer_name}_locations.gpkg
 * {segment_subject}_{image_layer_name}_polygons.gpkg
 
-In the "locations" file you need to draw the bounding boxes of the images that will be
-downloaded and used as the images to train the detection on. In the "polygons" file you
+In the `locations`` file you need to draw the bounding boxes of the images that will be
+downloaded and used as the images to train the detection on. In the `polygons`` file you
 need to digitize the things you want to detect as polygons as shown in the screenshot
-below. The green square is the "location", the red rectangle is the "polygon" drawn to
-show where the football field is in the "location". This training example will help the
+below. The green square is the `location`, the red rectangle is the `polygon` drawn to
+show where the football field is in the `location`. This training example will help the
 neural network to learn how a (part of a) football field looks, but also that tennis
 fields are not to be detected...
 
@@ -266,15 +266,22 @@ input:
 1. On random locations
 """"""""""""""""""""""
 
-For the initial examples, you can use an existing dataset to find relevant locations or just zoom to random locations distributed over the territory you want to segment. 
+For the initial examples, you can use an existing dataset to find relevant locations or
+just zoom to random locations distributed over the territory you want to segment. 
 
 2. Use the vectorized result of a prediction on the entire territory
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
-If a run has been done on the entire territory, a vectorized file of the segmentation will be available. Using this, there are several options to look for new examples using it:
+If a run has been done on the entire territory, a vectorized file of the segmentation
+will be available. Using this, there are several options to look for new examples using
+it:
+
 1. Do overlays with existing datasets that can help to find missing examples.
-1. Check locations in a random way distributed on the territory to find segmentation errors.
-1. In the vector file of the segmentation result, a column "nbcoords" will be available. Order this column descending to find the polygons with the most points: often these polygons with many points are bad segmentations.
+2. Check locations in a random way distributed on the territory to find segmentation
+   errors.
+3. In the vector file of the segmentation result, a column "nbcoords" will be available.
+   Order this column descending to find the polygons with the most points: often these
+   polygons with many points are bad segmentations.
 
 3. Use the result of a previous training run
 """"""""""""""""""""""""""""""""""""""""""""
@@ -296,13 +303,14 @@ Each of these directories is useful to look at in the following way:
   * The file names of the predictions are formatted this way:
     `<prediction_quality>_<x_min>_<y_min>_<x_max>_<y_max>_<nb_pix_x>_<nb_pix_y>_<image_type>.tif`
 
-      * <prediction_quality>: is the percentage overlap between the mask (as digitized
+      * `<prediction_quality>`: is the percentage overlap between the mask (as digitized
         in the training dataset) and the prediction, so examples with problems will have
         a small percentage overlap and will be shown first in the directory.
-      * <x_min>,...: these are the coordinates of the location of the image. So if you
+      * `<x_min>,...`: these are the coordinates of the location of the image. So if you
         want to correct a digitization of an image in eg. QGIS, you can:
 
-         1. copy/paste the <x_min>_<y_min> to the "coordinate" field the status bar (below) in QGIS
+         1. copy/paste the `<x_min>_<y_min>` to the "coordinate" field the status bar
+            (below) in QGIS
          2. replace the "_" by ","
          3. press the ENTER key, and you'll be in the right location.
 
@@ -336,16 +344,16 @@ the result significantly, so here is some advice:
 If you find good examples, you can add them to the training dataset as such:
 
 1. First, add the location that will be used to determine the extent of the image to the
-   {subject}_{image_layer_name}_locations file. The bounding box of the image generated
-   for the training process will be the minx and miny of the bounding box of the polygon
-   digitized. The width and height of the image are determined by the pixel width and
-   pixel height as defined in the configuration files. Par example, using the default
-   pixel width and height of 512 pixels, and a pixel size of 0.25 meter/pixel the image
-   width and height will be 128 meter (512 pixels * 0.25 meter/pixel). The location
-   polygon should be digitized at least the size the generated image will be, so it is
-   clear for which area you need to digitize the exact labeled polygons in the next
-   step. During the training step the locations will be validated and if (some of them)
-   are too small, an error will be given. The 
+   `{subject}_{image_layer_name}_locations` file. The bounding box of the image
+   generated for the training process will be the minx and miny of the bounding box of
+   the polygon digitized. The width and height of the image are determined by the pixel
+   width and pixel height as defined in the configuration files. Par example, using the
+   default pixel width and height of 512 pixels, and a pixel size of 0.25 meter/pixel
+   the image width and height will be 128 meter (512 pixels * 0.25 meter/pixel). The
+   location polygon should be digitized at least the size the generated image will be,
+   so it is clear for which area you need to digitize the exact labeled polygons in the
+   next step. During the training step the locations will be validated and if (some of
+   them) are too small, an error will be given. The 
    `Advanced digitizing panel <https://docs.qgis.org/3.4/en/docs/user_manual/working_with_vector/editing_geometry_attributes.html#the-advanced-digitizing-panel>`_
    in QGIS makes it quite trivial to digitize them with the correct size.
 
@@ -375,17 +383,16 @@ If you find good examples, you can add them to the training dataset as such:
    * description (text): optional: a description of the label location
 
 
-Remark:
-"""""""
+   Remark:
 
    * train images can't/won't overlap: when looping through the locations digitized, if
      an image location overlaps with an already generated image, it will be skipped.
 
-1. If you are adding a 'false positive', so a location where the segmentation thinks the
+2. If you are adding a 'false positive', so a location where the segmentation thinks the
    subject is present on this location, but it isn't, you are already ready and can look
    for another example.
-1. If you are adding a 'false negative', or any new example, now you need to digitize
-   the actual subject in the {subject}_labeldata file. It is important to digitize all
+3. If you are adding a 'false negative', or any new example, now you need to digitize
+   the actual subject in the `{subject}_labeldata` file. It is important to digitize all
    samples of the subject in the location area added in the previous step, as any
    surface that isn't digitized will be treated (and trained) as a 'false positive'. 
 
@@ -416,28 +423,28 @@ If you ran the sample project, these steps will look very familiar:
 
 1. start a conda command prompt
 
-2. activate the orthoseg environment with
+2. activate the orthoseg environment with::
    
    conda activate orthoseg
 
 
-1. preload the images so they are ready to detect your {segment_subject} on, using the
-   configuration file "{project_dir}{segment_subject}.ini".
+3. preload the images so they are ready to detect your `{segment_subject}` on, using the
+   configuration file `{project_dir}{segment_subject}.ini`::
    
    orthoseg_load_images --config {project_dir}{segment_subject}.ini
 
 
-1. train a neural network to detect football fields.
+4. train a neural network to detect football fields::
    
    orthoseg_train --config {project_dir}{segment_subject}.ini
 
 
-1. detect the football fields.
+5. detect the football fields::
 
    orthoseg_predict --config {project_dir}{segment_subject}.ini
 
 
-After this completes, the directory {project_dir}/output_vector will contain a .gpkg
+After this completes, the directory `{project_dir}/output_vector` will contain a .gpkg
 file with the features found.
 
 Of course it is also possible to script this in your scripting language of choice to
