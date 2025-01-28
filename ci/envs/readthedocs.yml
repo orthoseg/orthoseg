@@ -1,0 +1,28 @@
+name: geofileops-doc
+channels:
+  - conda-forge
+dependencies:
+  - python =3.11
+  - pip
+  # required
+  - gdown
+  - geofileops >=0.6,<0.10
+  - geopandas-base >=0.12,<1.1
+  - matplotlib-base
+  - numpy <2
+  - owslib
+  - pillow
+  - pycron
+  - pygeoops >=0.2,<0.5
+  - pyproj
+  - rasterio
+  - shapely >=2
+  - simplification
+  # docs
+  # Restrict sphinx version to < 6 to avoid logo error
+  - sphinx<6
+  - pydata-sphinx-theme
+  - pip:
+    - sphinx-automodapi ==0.13
+    - segmentation-models >=1.0,<1.1
+    - tensorflow-cpu >=2.8
