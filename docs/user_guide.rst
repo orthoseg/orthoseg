@@ -101,7 +101,7 @@ can give you some inspiration:
 * on windows: `c:/users/{username}/orthoseg/projects`
 
 The easiest way to create it is by starting from a copy of the
-`sample_projects <https://github.com/orthoseg/orthoseg/tree/master/sample_projects>`_
+`sample_projects <https://github.com/orthoseg/orthoseg/tree/main/sample_projects>`_
 directory to eg. your personal `orthoseg` directory and rename it to `projects`.
 
 This way your projects directory immediately contains:
@@ -133,7 +133,7 @@ this tutorial you well need to use the "image layer names" (for these examples
 
 
 A more elaborate example that can be used as a template for the configuration can be
-found here: `imagelayers.ini <https://github.com/orthoseg/orthoseg/blob/master/sample_projects/imagelayers.ini>`_.
+found here: `imagelayers.ini <https://github.com/orthoseg/orthoseg/blob/main/sample_projects/imagelayers.ini>`_.
 
 3. Project name
 ^^^^^^^^^^^^^^^
@@ -167,7 +167,7 @@ information about this file format can be found here:
 The configuration can be found + modified in the following files: 
 
 1. All existing sections and parameters + their **default values** can be found in the
-   following file: `orthoseg_install_dir/orthoseg/project_defaults.ini <https://github.com/orthoseg/orthoseg/blob/master/orthoseg/project_defaults.ini>`_.
+   following file: `orthoseg_install_dir/orthoseg/project_defaults.ini <https://github.com/orthoseg/orthoseg/blob/main/orthoseg/project_defaults.ini>`_.
    It is highly recommended not to change anything in this file, as it will be
    overwritten when installing a new version of orthoseg anyway. But if you want to
    overrule any setting, this is the perfect spot to find all existing sections +
@@ -176,16 +176,16 @@ The configuration can be found + modified in the following files:
 2. If you want to **overrule** a parameter for all the projects in your project
    directory, add the section + parameter to the `project_defaults_overrule.ini` file in
    your projects directory, eg:
-   `{projects_dir}/project_defaults_overrule.ini <https://github.com/orthoseg/orthoseg/blob/master/sample_projects/project_defaults_overrule.ini>`_.
+   `{projects_dir}/project_defaults_overrule.ini <https://github.com/orthoseg/orthoseg/blob/main/sample_projects/project_defaults_overrule.ini>`_.
 3. If you want to **overrule** parameters for a specific project, you can do so in the
    project-specific config file: eg.
-   `{projects_dir}/{segment_subject}/{segment_subject}.ini <https://github.com/orthoseg/orthoseg/blob/master/sample_projects/project_template/projectfile.ini>`_.
+   `{projects_dir}/{segment_subject}/{segment_subject}.ini <https://github.com/orthoseg/orthoseg/blob/main/sample_projects/project_template/projectfile.ini>`_.
 
 6. Configure image layer(s)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 If the image layers you want to train/predict on aren't configured yet, configure them
-in `{projects_dir}/imagelayers.ini <https://github.com/orthoseg/orthoseg/blob/master/sample_projects/imagelayers.ini>`_,
+in `{projects_dir}/imagelayers.ini <https://github.com/orthoseg/orthoseg/blob/main/sample_projects/imagelayers.ini>`_,
 the same way as the default layers provided.
 
 7. Prepare training data files
