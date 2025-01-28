@@ -12,6 +12,6 @@ if __name__ == "__main__":
     if not projects_dir.exists():
         print("Download sample projects")
         git_repo_dir = (
-            "https://github.com/theroggy/orthoseg/tree/master/sample_projects"
+            "https://github.com/theroggy/orthoseg/tree/main/sample_projects"
         )
         git_downloader.download(repo_url=git_repo_dir, output_dir=orthoseg_dir)

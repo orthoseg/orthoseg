@@ -8,6 +8,11 @@ on:
     branches: [ main, 0.** ]
   pull_request:
     branches: [ main, 0.** ]
+    paths-ignore:
+      - "docs/**"
+      - ".github/workflows/tests_installed.yml"
+      - "*.md"
+      - "*.yml"
   schedule:
     # Run every Tuesday at 2:40 UTC
     - cron: "40 2 * * 2"

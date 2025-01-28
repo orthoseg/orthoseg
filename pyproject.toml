@@ -11,7 +11,7 @@ ignore_missing_imports = true
 [tool.ruff]
 target-version = "py310"
 line-length = 88
-extend-exclude = ["helper_scripts/*", "local_ignore/*"]
+extend-exclude = ["docs/*", "helper_scripts/*", "local_ignore/*"]
 
 [tool.ruff.lint]
 select = [
