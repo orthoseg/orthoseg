@@ -170,20 +170,15 @@ def get_images_for_grid(
 
     # Read the region of interest file if provided
     grid_bbox = image_gen_bbox
-    roi_gdf = None
-    if image_gen_roi_filepath is not None:
-        # Read roi
-        logger.info(f"Read + optimize region of interest from {image_gen_roi_filepath}")
-        roi_gdf = gpd.read_file(str(image_gen_roi_filepath))
+    if grid_bbox is None and image_gen_roi_filepath is not None:
+        # Read roi from file
+        grid_bbox = gfo.get_layerinfo(image_gen_roi_filepath).total_bounds
 
-        # If the generate_window not specified, use bounds of the roi
-        if grid_bbox is None:
-            grid_bbox = roi_gdf.geometry.total_bounds
-
-    # If there is still no image_gen_bbox, stop.
+    # If there is still no grid_bbox, stop.
     if grid_bbox is None:
         raise ValueError(
-            "Either image_gen_bbox or an image_gen_roi_filepath should be specified."
+            "At least one of image_gen_bbox or image_gen_roi_filepath should be "
+            "specified."
         )
 
     # Make grid_bounds compatible with the grid
@@ -201,7 +196,6 @@ def get_images_for_grid(
         geometry=pygeoops.create_grid3(grid_bbox, width=crs_width, height=crs_height),
         crs=crs,
     )
-    # tiles_to_download_gdf["path"] = None
 
     # Loop through all tiles to apply pixels_overlap and add the output path
     for tile in tiles_to_download_gdf.geometry.bounds.itertuples():
@@ -218,11 +212,13 @@ def get_images_for_grid(
             tile_pixel_width += 2 * pixels_overlap
             tile_pixel_height += 2 * pixels_overlap
 
-        tiles_to_download_gdf.loc[tile.Index, "geometry"] = box(
+        tiles_to_download_gdf.at[tile.Index, "geometry"] = box(
             tile_xmin, tile_ymin, tile_xmax, tile_ymax
         )
 
         # Create output filepath
+        # Put images in a subdirectory based on the x-coordinate of the tile to avoid
+        # one directory with too many files
         if crs.is_projected:
             output_dir = output_image_dir / f"{tile_xmin:06.0f}"
         else:
@@ -237,25 +233,32 @@ def get_images_for_grid(
         output_filepath = output_dir / output_filename
 
         # Add the extra info to the gdf
-        tiles_to_download_gdf.loc[tile.Index, "path"] = output_filepath
-        tiles_to_download_gdf.loc[tile.Index, "pixel_width"] = tile_pixel_width
-        tiles_to_download_gdf.loc[tile.Index, "pixel_height"] = tile_pixel_height
+        tiles_to_download_gdf.at[tile.Index, "path"] = output_filepath
+        tiles_to_download_gdf.at[tile.Index, "pixel_width"] = tile_pixel_width
+        tiles_to_download_gdf.at[tile.Index, "pixel_height"] = tile_pixel_height
 
-    # If an roi is defined, filter the split it using a grid as large objects are small
-    if roi_gdf is not None:
-        # The tiles should intersect, but touching is not enough
-        tiles_intersects_roi_gdf = tiles_to_download_gdf.sjoin(
-            roi_gdf[["geometry"]], how="inner", predicate="intersects"
-        )
-        tiles_touches_roi_gdf = tiles_to_download_gdf.sjoin(
-            roi_gdf[["geometry"]], how="inner", predicate="touches"
-        )
-        tiles_to_download_gdf = tiles_intersects_roi_gdf.loc[
-            ~tiles_intersects_roi_gdf.index.isin(tiles_touches_roi_gdf.index)
-        ]
-
+    # Write the tiles to download to file for reference
     tiles_path = output_image_dir / "tiles_to_download.gpkg"
-    gfo.to_file(tiles_to_download_gdf, tiles_path)
+    if image_gen_roi_filepath is not None:
+        # If an roi is specified, filter the tiles to download with it
+        tiles_all_tmp_path = output_image_dir / "tiles_all_tmp.gpkg"
+        gfo.to_file(tiles_to_download_gdf, tiles_all_tmp_path)
+        gfo.export_by_location(
+            input_to_select_from_path=tiles_all_tmp_path,
+            input_to_compare_with_path=image_gen_roi_filepath,
+            output_path=tiles_path,
+            spatial_relations_query="intersects is True",
+            force=True,
+        )
+        gfo.remove(tiles_all_tmp_path)
+
+        # Read the filtered tiles to download to return them
+        tiles_to_download_gdf = gfo.read_file(tiles_path)
+        tiles_to_download_gdf["path"] = tiles_to_download_gdf["path"].apply(Path)
+
+    else:
+        # No roi specified, so just write the tiles to download
+        gfo.to_file(tiles_to_download_gdf, tiles_path)
 
     return tiles_to_download_gdf
 
@@ -376,16 +379,6 @@ def load_images_to_cache(
             _, tile_xmin, tile_ymin, tile_xmax, tile_ymax = tile
             tile_pixel_width = image_pixel_width
             tile_pixel_height = image_pixel_height
-            # If a cron_schedule is specified, check if we should be running
-            if cron_schedule is not None and cron_schedule != "":
-                # Sleep till the schedule becomes active
-                first_cron_check = True
-                while not pycron.is_now(cron_schedule):
-                    # The first time, log message that we are going to sleep...
-                    if first_cron_check is True:
-                        logger.info(f"Time schedule specified: sleep: {cron_schedule}")
-                        first_cron_check = False
-                    time.sleep(60)
 
             # Init progress
             if progress is None:
@@ -400,7 +393,7 @@ def load_images_to_cache(
                 )
 
             nb_processed += 1
-            output_filepath = tiles_to_download_gdf.loc[tile.Index, "path"]
+            output_filepath = tiles_to_download_gdf.at[tile.Index, "path"]
             output_dir = output_filepath.parent
             output_filename = output_filepath.name
 
@@ -418,6 +411,17 @@ def load_images_to_cache(
                 progress.step()
                 logger.debug("    -> image exists already, so skip")
                 continue
+
+            # If a cron_schedule is specified, check if we should be running
+            if cron_schedule is not None and cron_schedule not in ["", "* * * * *"]:
+                # Sleep till the schedule becomes active
+                first_cron_check = True
+                while not pycron.is_now(cron_schedule):
+                    # The first time, log message that we are going to sleep...
+                    if first_cron_check is True:
+                        logger.info(f"Time schedule specified: sleep: {cron_schedule}")
+                        first_cron_check = False
+                    time.sleep(60)
 
             # Submit the image to be downloaded
             output_dir.mkdir(parents=True, exist_ok=True)

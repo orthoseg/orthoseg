@@ -71,10 +71,9 @@ def postprocess(config_path: Path, config_overrules: list[str] = []):
 
     # Log start + send email
     image_layer = conf.predict["image_layer"]
-    message = f"Start postprocess for {config_path.stem} on {image_layer}"
-    logger.info(message)
+    logger.info(f"Start postprocess for {config_path.stem} on {image_layer}")
     logger.debug(f"Config used: \n{conf.pformat_config()}")
-    email_helper.sendmail(message)
+    model_name = None
 
     try:
         # Create base filename of model to use
@@ -97,6 +96,10 @@ def postprocess(config_path: Path, config_overrules: list[str] = []):
             raise RuntimeError(
                 f"No best model found in {conf.dirs.getpath('model_dir')}"
             )
+
+        model_name = f"{best_model['segment_subject']}_{best_model['traindata_id']}"
+        message = f"Start postprocess for {model_name} on {image_layer}"
+        email_helper.sendmail(message)
 
         # Input file  the "most recent" prediction result dir for this subject
         output_vector_dir = conf.dirs.getpath("output_vector_dir")
@@ -142,16 +145,18 @@ def postprocess(config_path: Path, config_overrules: list[str] = []):
         )
 
         # Log and send mail
-        message = f"Completed postprocess for {config_path.stem} on {image_layer}"
+        message = f"Completed postprocess for {model_name} on {image_layer}"
         logger.info(message)
         email_helper.sendmail(message)
     except Exception as ex:
-        message = f"ERROR in postprocess for {config_path.stem} on {image_layer}"
+        if model_name is None:
+            model_name = config_path.stem
+        message = f"ERROR in postprocess for {model_name} on {image_layer}"
         logger.exception(message)
         email_helper.sendmail(
             subject=message, body=f"Exception: {ex}\n\n {traceback.format_exc()}"
         )
-        raise RuntimeError(message) from ex
+        raise RuntimeError(f"{message}: {ex}") from ex
     finally:
         conf.remove_run_tmp_dir()
 

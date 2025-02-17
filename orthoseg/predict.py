@@ -77,15 +77,15 @@ def predict(config_path: Path, config_overrules: list[str] = []):
     logger = log_util.main_log_init(conf.dirs.getpath("log_dir"), __name__)
     logger.info(f"Start predict for config {config_path.stem}")
     logger.debug(f"Config used: \n{conf.pformat_config()}")
+    model_name = None
 
     try:
         # Read some config, and check if values are ok
         image_layer = conf.predict["image_layer"]
-        image_layer_info = conf.image_layers[image_layer]
-        if image_layer_info is None:
-            raise Exception(
-                f"image_layer to predict is not specified in config: {image_layer_info}"
-            )
+        image_layer_config = conf.image_layers.get(image_layer)
+        if image_layer_config is None:
+            raise ValueError(f"{image_layer=} is not configured in image_layers")
+
         input_image_dir = conf.dirs.getpath("predict_image_input_dir")
 
         # Create base filename of model to use
@@ -112,10 +112,12 @@ def predict(config_path: Path, config_overrules: list[str] = []):
                 f"traindata_id: {traindata_id}"
             )
             logger.critical(message)
-            raise Exception(message)
+            raise RuntimeError(message)
         else:
             model_weights_filepath = best_model["filepath"]
             logger.info(f"Best model found: {model_weights_filepath}")
+
+        model_name = f"{best_model['segment_subject']}_{best_model['traindata_id']}"
 
         # Load the hyperparams of the model
         # TODO: move the hyperparams filename formatting to get_models...
@@ -251,8 +253,7 @@ def predict(config_path: Path, config_overrules: list[str] = []):
 
         # Prepare the output dirs/paths
         predict_output_dir = Path(
-            f"{conf.dirs.getpath('predict_image_output_basedir')!s}_"
-            f"{predict_out_subdir}"
+            f"{conf.dirs['predict_image_output_basedir']}_{predict_out_subdir}"
         )
         output_vector_dir = conf.dirs.getpath("output_vector_dir")
         output_vector_name = (
@@ -263,15 +264,10 @@ def predict(config_path: Path, config_overrules: list[str] = []):
         # Start predict for entire dataset
         # --------------------------------
         # Send email
-        email_helper.sendmail(f"Start predict for {config_path.stem} on {image_layer}")
+        email_helper.sendmail(f"Start predict for {model_name} on {image_layer}")
 
-        # Check if the layer to predict is configured in the image_layers
-        predict_layer = conf.predict["image_layer"]
-        if predict_layer not in conf.image_layers:
-            raise ValueError(f"{predict_layer=} is not configured in image_layers")
-        image_layer = conf.image_layers[predict_layer]
-
-        use_cache = image_layer.get("use_cache", "yes")
+        # Check if we should use an image cache
+        use_cache = image_layer_config.get("use_cache", "yes")
         if use_cache == "ifavailable":
             use_cache = (
                 "yes"
@@ -291,11 +287,12 @@ def predict(config_path: Path, config_overrules: list[str] = []):
                 min_probability=min_probability,
                 postprocess=postprocess,
                 border_pixels_to_ignore=conf.predict.getint("image_pixels_overlap"),
-                projection_if_missing=image_layer_info["projection"],
+                projection_if_missing=image_layer_config["projection"],
                 input_mask_dir=None,
                 batch_size=batch_size,
                 evaluate_mode=False,
                 cancel_filepath=conf.files.getpath("cancel_filepath"),
+                nb_parallel_read=conf.predict.getint("nb_parallel_read", -1),
                 nb_parallel_postprocess=conf.general.getint("nb_parallel"),
                 max_prediction_errors=conf.predict.getint("max_prediction_errors"),
             )
@@ -303,7 +300,7 @@ def predict(config_path: Path, config_overrules: list[str] = []):
             # Predict directly from an image/layer
             predicter.predict_layer(
                 model=model_for_predict,
-                image_layer=image_layer,
+                image_layer_config=image_layer_config,
                 image_pixel_width=conf.predict.getint("image_pixel_width"),
                 image_pixel_height=conf.predict.getint("image_pixel_height"),
                 image_pixel_x_size=conf.predict.getfloat("image_pixel_x_size"),
@@ -314,18 +311,19 @@ def predict(config_path: Path, config_overrules: list[str] = []):
                 classes=hyperparams.architecture.classes,
                 min_probability=min_probability,
                 postprocess=postprocess,
-                projection_if_missing=image_layer_info["projection"],
+                projection_if_missing=image_layer_config["projection"],
                 input_mask_dir=None,
                 batch_size=batch_size,
                 evaluate_mode=False,
                 cancel_filepath=conf.files.getpath("cancel_filepath"),
                 ssl_verify=conf.general["ssl_verify"],
+                nb_parallel_read=conf.predict.getint("nb_parallel_read", -1),
                 nb_parallel_postprocess=conf.general.getint("nb_parallel"),
                 max_prediction_errors=conf.predict.getint("max_prediction_errors"),
             )
 
         # Log and send mail
-        message = f"Completed predict for {config_path.stem} on {image_layer}"
+        message = f"Completed predict for {model_name} on {image_layer}"
         logger.info(message)
         email_helper.sendmail(message)
 
@@ -346,12 +344,14 @@ def predict(config_path: Path, config_overrules: list[str] = []):
             simulate=conf.cleanup.getboolean("simulate"),
         )
     except Exception as ex:
-        message = f"ERROR in predict for {config_path.stem} on {image_layer}"
+        if model_name is None:
+            model_name = config_path.stem
+        message = f"ERROR in predict for {model_name} on {image_layer}"
         logger.exception(message)
         email_helper.sendmail(
             subject=message, body=f"Exception: {ex}\n\n {traceback.format_exc()}"
         )
-        raise RuntimeError(message) from ex
+        raise RuntimeError(f"{message}: {ex}") from ex
     finally:
         conf.remove_run_tmp_dir()
 
