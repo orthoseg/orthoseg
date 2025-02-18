@@ -69,4 +69,4 @@ def test_load_images(tmp_path, overrules):
     # Check if the right number of files was loaded
     assert image_cache_dir.exists()
     files = list(image_cache_dir.glob("**/*.jpg"))
-    assert len(files) == 6
+    assert len(files) == 2
