@@ -46,8 +46,12 @@ def create_model_files(dir: Path) -> list[tuple[Path, int]]:
         "footballfields_03": 2,
         "footballfields_04": 1,
     }
+
+    # Special case: a model that has been trained with 2 different epochs, should still
+    # count as a single when determining the versions to retain
     model_files = [
         "0.44293_0.hdf5",
+        "0.44293_5.hdf5",
         "hyperparams.json",
         "log.csv",
         "model.json",
@@ -105,15 +109,24 @@ def create_prediction_files(dir: Path, imagelayer: str) -> list[tuple[Path, int]
                 being retained when cleaning up the prediction files.
     """
     # File paths with the minimum number of versions to retain to keep them
+    # Special cases included:
+    #   - traindata versions that have been predicted with 2 model versions,
+    #     e.g. traindata version 02 with model epochs 201 and 99.
+    #       -> counts as one version to count the number of versions to retain
+    #   - predictions where only the postprocessed version exists: version 05
+    #       -> still counts as one version to count the number of versions to retain
+    #   - a "missing" traindata version: 03
+    #       -> is ignored when counting the number of versions to retain
     files = [
         (dir / f"footballfields_01_201_{imagelayer}.gpkg", 4),
-        (dir / f"footballfields_02_201_{imagelayer}.gpkg", 3),
-        (dir / f"footballfields_03_201_{imagelayer}.gpkg", 2),
-        (dir / f"footballfields_04_201_{imagelayer}.gpkg", 1),
         (dir / f"footballfields_01_201_{imagelayer}_dissolve.gpkg", 4),
+        (dir / f"footballfields_02_201_{imagelayer}.gpkg", 3),
         (dir / f"footballfields_02_201_{imagelayer}_dissolve.gpkg", 3),
-        (dir / f"footballfields_03_201_{imagelayer}_dissolve.gpkg", 2),
-        (dir / f"footballfields_04_201_{imagelayer}_dissolve.gpkg", 1),
+        (dir / f"footballfields_02_99_{imagelayer}.gpkg", 3),
+        (dir / f"footballfields_04_201_{imagelayer}.gpkg", 2),
+        (dir / f"footballfields_04_99_{imagelayer}.gpkg", 2),
+        (dir / f"footballfields_04_201_{imagelayer}_dissolve.gpkg", 2),
+        (dir / f"footballfields_05_201_{imagelayer}_dissolve.gpkg", 1),
     ]
 
     # Create the files
@@ -141,28 +154,29 @@ def load_project_config(path: Path):
 
 
 def test_cleanup_non_existing_dir(caplog: pytest.LogCaptureFixture):
+    """Test if an error message is logged if the directory doesn't exist."""
     caplog.set_level(logging.INFO)
     caplog.clear()
     path = Path("not_existing")
     cleanup.clean_models(model_dir=path, versions_to_retain=3, simulate=True)
-    assert f"Directory {path.name} doesn't exist" in caplog.text
+    assert f"Directory doesn't exist: {path!s}" in caplog.text
 
     caplog.clear()
     cleanup.clean_training_data_directories(
         training_dir=path, versions_to_retain=3, simulate=True
     )
-    assert f"Directory {path.name} doesn't exist" in caplog.text
+    assert f"Directory doesn't exist: {path!s}" in caplog.text
 
     caplog.clear()
     path = Path("not_existing/not_existing")
     cleanup.clean_predictions(
         output_vector_dir=path, versions_to_retain=3, simulate=True
     )
-    assert f"Directory {path.name} doesn't exist" in caplog.text
+    assert f"Directory doesn't exist: {path!s}" in caplog.text
 
 
 @pytest.mark.parametrize("simulate", [False, True])
-@pytest.mark.parametrize("versions_to_retain", [4, 2, 1, 0, -1])
+@pytest.mark.parametrize("versions_to_retain", [5, 4, 2, 1, 0, -1])
 def test_cleanup_models(
     tmp_path: Path,
     simulate: bool,
@@ -201,7 +215,7 @@ def test_cleanup_models(
 
 
 @pytest.mark.parametrize("simulate", [False, True])
-@pytest.mark.parametrize("versions_to_retain", [4, 2, 1, 0 - 1])
+@pytest.mark.parametrize("versions_to_retain", [5, 4, 2, 1, 0 - 1])
 def test_cleanup_training(
     tmp_path: Path,
     simulate: bool,
@@ -240,7 +254,7 @@ def test_cleanup_training(
 
 
 @pytest.mark.parametrize("simulate", [False, True])
-@pytest.mark.parametrize("versions_to_retain", [4, 2, 1, 0 - 1])
+@pytest.mark.parametrize("versions_to_retain", [5, 4, 2, 1, 0, -1])
 def test_cleanup_predictions(
     tmp_path: Path,
     simulate: bool,
@@ -280,15 +294,43 @@ def test_cleanup_predictions(
                 assert not path.exists()
 
 
+def test_cleanup_predictions_invalid_filename(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+):
+    """Test if an error message is logged if a prediction file has an invalid name."""
+    # Create test project
+    project_dir = create_projects_dir(tmp_path=tmp_path)
+    imagelayer = "BEFL-2019"
+    output_vector_dir = project_dir / "output_vector" / imagelayer
+    invalid_prediction_file = output_vector_dir / "vector_invalid_filename.gpkg"
+    output_vector_dir.mkdir(parents=True, exist_ok=True)
+    invalid_prediction_file.touch()
+
+    # Load project config to init some vars.
+    load_project_config(path=project_dir)
+
+    # Capture logging to make sure the error message is logged
+    caplog.set_level(logging.INFO)
+    caplog.clear()
+
+    cleaned_files = cleanup.clean_predictions(
+        output_vector_dir=conf.dirs.getpath("output_vector_dir"),
+        versions_to_retain=5,
+        simulate=True,
+    )
+    assert cleaned_files == []
+    assert "Prediction file with invalid name found, skip cleanup of dir" in caplog.text
+
+
 @pytest.mark.parametrize("simulate", [False])
 @pytest.mark.parametrize(
     "versions_to_retain, removed_model_files, removed_training_dirs, "
     "removed_prediction_files",
     [
         (4, 0, 0, 0),
-        (2, 2 * 5, 2, 8),
-        (1, 3 * 5, 3, 12),
-        (0, 4 * 5, 4, 16),
+        (2, 2 * 6, 2, 10),
+        (1, 3 * 6, 3, 16),
+        (0, 4 * 6, 4, 18),
         (-1, 0, 0, 0),
     ],
 )

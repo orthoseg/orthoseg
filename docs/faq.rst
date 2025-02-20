@@ -29,4 +29,4 @@ Interesting pages I found in this search are the following:
 
 Based on the tests I did, inceptionresnetv2 gave me the best combination of quality and
 performance as a backbone, so this is the default in orthoseg. The last time I did such
-tests were in 2024.
+tests was in 2024.
