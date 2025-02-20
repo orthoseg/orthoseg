@@ -190,7 +190,7 @@ def clean_predictions(
     prediction_files_to_remove = []
     for prediction_path in prediction_files_to_cleanup:
         prediction_files_to_remove.append(prediction_path)
-        logger.info(f"remove prediction file ({simulate=}): {prediction_path.name}")
+        logger.info(f"remove prediction file ({simulate=}): {prediction_path!s}")
         if simulate:
             continue
 
