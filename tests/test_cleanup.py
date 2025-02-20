@@ -141,24 +141,25 @@ def load_project_config(path: Path):
 
 
 def test_cleanup_non_existing_dir(caplog: pytest.LogCaptureFixture):
+    """Test if an error message is logged if the directory doesn't exist."""
     caplog.set_level(logging.INFO)
     caplog.clear()
     path = Path("not_existing")
     cleanup.clean_models(model_dir=path, versions_to_retain=3, simulate=True)
-    assert f"Directory {path.name} doesn't exist" in caplog.text
+    assert f"Directory doesn't exist: {path!s}" in caplog.text
 
     caplog.clear()
     cleanup.clean_training_data_directories(
         training_dir=path, versions_to_retain=3, simulate=True
     )
-    assert f"Directory {path.name} doesn't exist" in caplog.text
+    assert f"Directory doesn't exist: {path!s}" in caplog.text
 
     caplog.clear()
     path = Path("not_existing/not_existing")
     cleanup.clean_predictions(
         output_vector_dir=path, versions_to_retain=3, simulate=True
     )
-    assert f"Directory {path.name} doesn't exist" in caplog.text
+    assert f"Directory doesn't exist: {path!s}" in caplog.text
 
 
 @pytest.mark.parametrize("simulate", [False, True])

@@ -33,20 +33,18 @@ def clean_models(
     if versions_to_retain < 0:
         return []
     if not model_dir.exists():
-        logger.info(f"Directory {model_dir.name} doesn't exist")
+        logger.info(f"Directory doesn't exist: {model_dir!s}")
         return []
 
-    logger.info(f"clean_models with {model_dir=}, {versions_to_retain=}, {simulate=}")
-    models_to_cleanup = []
-    files_to_remove = []
+    logger.debug(f"clean_models in {model_dir!s}, {versions_to_retain=}, {simulate=}")
     models = model_helper.get_models(model_dir=model_dir)
     traindata_id = [model["traindata_id"] for model in models]
     traindata_id.sort()
-    traindata_id_to_cleanup = traindata_id[
-        : len(traindata_id) - versions_to_retain
-        if len(traindata_id) >= versions_to_retain
-        else 0
-    ]
+
+    if len(traindata_id) < versions_to_retain:
+        return []
+
+    traindata_id_to_cleanup = traindata_id[: len(traindata_id) - versions_to_retain]
     models_to_cleanup = [
         model["basefilename"]
         for model in models
@@ -54,13 +52,14 @@ def clean_models(
     ]
 
     # Find all files to remove and remove them
+    files_to_remove = []
     for model in models_to_cleanup:
         file_pattern = f"{model}*.*"
         files = list(model_dir.glob(pattern=file_pattern))
         files_to_remove.extend(files)
 
         for file_to_remove in files:
-            logger.info(f"remove prediction file ({simulate=}): {file_to_remove}")
+            logger.info(f"remove model file ({simulate=}): {file_to_remove}")
             if simulate:
                 continue
 
@@ -95,22 +94,20 @@ def clean_training_data_directories(
     if versions_to_retain < 0:
         return []
     if not training_dir.exists():
-        logger.info(f"Directory {training_dir.name} doesn't exist")
+        logger.info(f"Directory doesn't exist: {training_dir!s}")
         return []
 
-    logger.info(
-        f"clean_training_data_directories with {training_dir=}, {versions_to_retain=}, "
+    logger.debug(
+        f"clean_training_data_directories in {training_dir!s}, {versions_to_retain=}, "
         f"{simulate=}"
     )
     dirnames = [dir for dir in os.listdir(training_dir) if dir.isnumeric()]
     dirnames.sort()
-    dirnames_to_clean = []
-    dirnames_to_clean = dirnames[
-        : len(dirnames) - versions_to_retain
-        if len(dirnames) >= versions_to_retain
-        else 0
-    ]
 
+    if len(dirnames) < versions_to_retain:
+        return []
+
+    dirnames_to_clean = dirnames[: len(dirnames) - versions_to_retain]
     dirs_to_remove = []
     for dirname in dirnames_to_clean:
         dir = training_dir / dirname
@@ -152,58 +149,66 @@ def clean_predictions(
     if versions_to_retain < 0:
         return []
     if not output_vector_dir.exists():
-        logger.info(f"Directory {output_vector_dir.name} doesn't exist")
+        logger.info(f"Directory doesn't exist: {output_vector_dir!s}")
         return []
 
-    logger.info(
-        f"clean_predictions with {output_vector_dir=}, {versions_to_retain=}, "
-        f"{simulate=}"
+    logger.debug(
+        f"clean_predictions in {output_vector_dir!s}, "
+        f"{versions_to_retain=}, {simulate=}"
     )
-    predictions_to_cleanup: list[AiDetectionInfo] = []
-    prediction_files_to_remove = []
+
     files = output_vector_dir.glob(pattern="*.*")
-    try:
-        ai_detection_infos = [aidetection_info(path=file) for file in files]
-        postprocessing = [x.postprocessing for x in ai_detection_infos]
-        postprocessing = list(dict.fromkeys(postprocessing))
-        logger.info(f"{output_vector_dir=}, {versions_to_retain=}, {simulate=}")
-        for p in postprocessing:
-            traindata_versions = [
-                ai_detection_info.traindata_version
-                for ai_detection_info in ai_detection_infos
-                if p == ai_detection_info.postprocessing
-            ]
-            traindata_versions.sort()
-            traindata_versions_to_cleanup = traindata_versions[
-                : len(traindata_versions) - versions_to_retain
-                if len(traindata_versions) >= versions_to_retain
-                else 0
-            ]
-            predictions_to_cleanup.extend(
-                [
-                    ai_detection_info
-                    for ai_detection_info in ai_detection_infos
-                    if ai_detection_info.traindata_version
-                    in traindata_versions_to_cleanup
-                    and ai_detection_info.postprocessing == p
-                ]
+    ai_detection_infos = []
+    for file in files:
+        try:
+            ai_detection_infos.append(aidetection_info(path=file))
+        except ValueError as ex:
+            logger.exception(
+                f"Invalid prediction file found, skip cleanup of prediction dir: {ex}"
             )
-        for prediction in predictions_to_cleanup:
-            prediction_path = prediction.path
-            prediction_files_to_remove.append(prediction_path)
-            logger.info(f"remove prediction file ({simulate=}): {prediction_path.name}")
-            if simulate:
-                continue
+            return []
 
-            try:
-                prediction_path.unlink()
-            except Exception as ex:  # pragma: no cover
-                message = f"ERROR while deleting file {prediction_path}"
-                logger.exception(message)
-                raise RuntimeError(message) from ex
+    postprocessing = [x.postprocessing for x in ai_detection_infos]
+    postprocessing = list(dict.fromkeys(postprocessing))
 
-    except Exception as ex:  # pragma: no cover
-        logger.info(f"{ex}")
+    predictions_to_cleanup: list[AiDetectionInfo] = []
+    for p in postprocessing:
+        traindata_versions = [
+            ai_detection_info.traindata_version
+            for ai_detection_info in ai_detection_infos
+            if p == ai_detection_info.postprocessing
+        ]
+        traindata_versions.sort()
+
+        if len(traindata_versions) < versions_to_retain:
+            continue
+
+        traindata_versions_to_cleanup = traindata_versions[
+            : len(traindata_versions) - versions_to_retain
+        ]
+        predictions_to_cleanup.extend(
+            [
+                ai_detection_info
+                for ai_detection_info in ai_detection_infos
+                if ai_detection_info.traindata_version in traindata_versions_to_cleanup
+                and ai_detection_info.postprocessing == p
+            ]
+        )
+
+    prediction_files_to_remove = []
+    for prediction in predictions_to_cleanup:
+        prediction_path = prediction.path
+        prediction_files_to_remove.append(prediction_path)
+        logger.info(f"remove prediction file ({simulate=}): {prediction_path.name}")
+        if simulate:
+            continue
+
+        try:
+            prediction_path.unlink()
+        except Exception as ex:  # pragma: no cover
+            message = f"ERROR while deleting file {prediction_path}"
+            logger.exception(message)
+            raise RuntimeError(message) from ex
 
     return prediction_files_to_remove
 

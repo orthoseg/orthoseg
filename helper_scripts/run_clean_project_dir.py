@@ -10,7 +10,7 @@ from orthoseg.util import log_util
 logger = logging.getLogger(__name__)
 
 
-def cleanup_old_data(projects_dir: Path, simulate: bool = False):
+def run_clean_project_dir(projects_dir: Path, simulate: bool = False):
     # Exclude directories where name starts with '_'
     projects = [
         subdir for subdir in os.listdir(projects_dir)
@@ -23,7 +23,7 @@ def cleanup_old_data(projects_dir: Path, simulate: bool = False):
             global logger
             logger = log_util.main_log_init(
                 log_dir=conf.dirs.getpath("log_dir"),
-                log_basefilename=cleanup_old_data.__name__
+                log_basefilename=run_clean_project_dir.__name__
             )
             cleanup.clean_project_dir(
                 model_dir=conf.dirs.getpath("model_dir"),
@@ -41,13 +41,8 @@ def cleanup_old_data(projects_dir: Path, simulate: bool = False):
         else:
             # logger.info(f"Config_path ({config_path}) doesn't exist.")
             print(f"Config_path ({config_path}) doesn't exist.")
-                
-        
+
 
 # If the script is ran directly...
 if __name__ == "__main__":
-    # cleanup()
-    cleanup_old_data(
-        projects_dir=Path(r"X:\Monitoring\OrthoSeg"),
-        simulate=True
-    )
+    run_clean_project_dir(projects_dir=Path(r"X:\Monitoring\OrthoSeg"), simulate=True)
