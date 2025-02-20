@@ -9,6 +9,8 @@
 - Add validations on the augmentation configuration (#214)
 - Add support to reuse one training dataset for multiple train resolutions (#244)
 - Improve performance of `predict_dir` for `evaluation_mode` (#236)
+- In `clean_project_dir`, use the unique traindata versions of the files present to
+  determine the number of versions to remove (#254)
 - Make `load_images` more robust by ignoring some filesystem errors that occur sometimes
   but that don't seem to give actual issues (#216, #2019)
 - Small improvements to logging, error messages,... (#198, #218, #247)
