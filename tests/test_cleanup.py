@@ -176,7 +176,7 @@ def test_cleanup_non_existing_dir(caplog: pytest.LogCaptureFixture):
 
 
 @pytest.mark.parametrize("simulate", [False, True])
-@pytest.mark.parametrize("versions_to_retain", [4, 2, 1, 0, -1])
+@pytest.mark.parametrize("versions_to_retain", [5, 4, 2, 1, 0, -1])
 def test_cleanup_models(
     tmp_path: Path,
     simulate: bool,
@@ -215,7 +215,7 @@ def test_cleanup_models(
 
 
 @pytest.mark.parametrize("simulate", [False, True])
-@pytest.mark.parametrize("versions_to_retain", [4, 2, 1, 0 - 1])
+@pytest.mark.parametrize("versions_to_retain", [5, 4, 2, 1, 0 - 1])
 def test_cleanup_training(
     tmp_path: Path,
     simulate: bool,
@@ -254,7 +254,7 @@ def test_cleanup_training(
 
 
 @pytest.mark.parametrize("simulate", [False, True])
-@pytest.mark.parametrize("versions_to_retain", [4, 2, 1, 0, -1])
+@pytest.mark.parametrize("versions_to_retain", [5, 4, 2, 1, 0, -1])
 def test_cleanup_predictions(
     tmp_path: Path,
     simulate: bool,
