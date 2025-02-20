@@ -176,7 +176,7 @@ def clean_predictions(
 
     traindata_versions = sorted(set(traindata_versions))
     if len(traindata_versions) < versions_to_retain:
-        return
+        return []
 
     versions_to_cleanup = traindata_versions[
         : len(traindata_versions) - versions_to_retain
