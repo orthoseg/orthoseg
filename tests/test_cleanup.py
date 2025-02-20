@@ -46,8 +46,12 @@ def create_model_files(dir: Path) -> list[tuple[Path, int]]:
         "footballfields_03": 2,
         "footballfields_04": 1,
     }
+
+    # Special case: a model that has been trained with 2 different epochs, should still
+    # count as a single when determining the versions to retain
     model_files = [
         "0.44293_0.hdf5",
+        "0.44293_5.hdf5",
         "hyperparams.json",
         "log.csv",
         "model.json",
@@ -105,15 +109,24 @@ def create_prediction_files(dir: Path, imagelayer: str) -> list[tuple[Path, int]
                 being retained when cleaning up the prediction files.
     """
     # File paths with the minimum number of versions to retain to keep them
+    # Special cases included:
+    #   - traindata versions that have been predicted with 2 model versions,
+    #     e.g. traindata version 02 with model epochs 201 and 99.
+    #       -> counts as one version to count the number of versions to retain
+    #   - predictions where only the postprocessed version exists: version 05
+    #       -> still counts as one version to count the number of versions to retain
+    #   - a "missing" traindata version: 03
+    #       -> is ignored when counting the number of versions to retain
     files = [
         (dir / f"footballfields_01_201_{imagelayer}.gpkg", 4),
-        (dir / f"footballfields_02_201_{imagelayer}.gpkg", 3),
-        (dir / f"footballfields_03_201_{imagelayer}.gpkg", 2),
-        (dir / f"footballfields_04_201_{imagelayer}.gpkg", 1),
         (dir / f"footballfields_01_201_{imagelayer}_dissolve.gpkg", 4),
+        (dir / f"footballfields_02_201_{imagelayer}.gpkg", 3),
         (dir / f"footballfields_02_201_{imagelayer}_dissolve.gpkg", 3),
-        (dir / f"footballfields_03_201_{imagelayer}_dissolve.gpkg", 2),
-        (dir / f"footballfields_04_201_{imagelayer}_dissolve.gpkg", 1),
+        (dir / f"footballfields_02_99_{imagelayer}.gpkg", 3),
+        (dir / f"footballfields_04_201_{imagelayer}.gpkg", 2),
+        (dir / f"footballfields_04_99_{imagelayer}.gpkg", 2),
+        (dir / f"footballfields_04_201_{imagelayer}_dissolve.gpkg", 2),
+        (dir / f"footballfields_05_201_{imagelayer}_dissolve.gpkg", 1),
     ]
 
     # Create the files
@@ -241,7 +254,7 @@ def test_cleanup_training(
 
 
 @pytest.mark.parametrize("simulate", [False, True])
-@pytest.mark.parametrize("versions_to_retain", [4, 2, 1, 0 - 1])
+@pytest.mark.parametrize("versions_to_retain", [4, 2, 1, 0, -1])
 def test_cleanup_predictions(
     tmp_path: Path,
     simulate: bool,
