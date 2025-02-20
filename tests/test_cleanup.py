@@ -294,6 +294,34 @@ def test_cleanup_predictions(
                 assert not path.exists()
 
 
+def test_cleanup_predictions_invalid_filename(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+):
+    """Test if an error message is logged if a prediction file has an invalid name."""
+    # Create test project
+    project_dir = create_projects_dir(tmp_path=tmp_path)
+    imagelayer = "BEFL-2019"
+    output_vector_dir = project_dir / "output_vector" / imagelayer
+    invalid_prediction_file = output_vector_dir / "vector_invalid_filename.gpkg"
+    output_vector_dir.mkdir(parents=True, exist_ok=True)
+    invalid_prediction_file.touch()
+
+    # Load project config to init some vars.
+    load_project_config(path=project_dir)
+
+    # Capture logging to make sure the error message is logged
+    caplog.set_level(logging.INFO)
+    caplog.clear()
+
+    cleaned_files = cleanup.clean_predictions(
+        output_vector_dir=conf.dirs.getpath("output_vector_dir"),
+        versions_to_retain=5,
+        simulate=True,
+    )
+    assert cleaned_files == []
+    assert "Prediction file with invalid name found, skip cleanup of dir" in caplog.text
+
+
 @pytest.mark.parametrize("simulate", [False])
 @pytest.mark.parametrize(
     "versions_to_retain, removed_model_files, removed_training_dirs, "

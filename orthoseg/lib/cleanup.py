@@ -85,7 +85,7 @@ def clean_training_data_directories(
         simulate (bool): Simulate cleanup, directories are logged, no files are deleted
 
     Raises:
-        Exception: an error occcured while deleting a training directory
+        RuntimeError: an error occcured while deleting a training directory
 
     Returns:
         list[Path]: List of training directories to be removed
@@ -143,7 +143,7 @@ def clean_predictions(
         simulate (bool): Simulate cleanup, files are logged, no files are deleted
 
     Raises:
-        RuntimeError: ERROR while deleting file
+        RuntimeError: an error occcured while deleting a training directory
 
     Returns:
         list[Path]: List of prediction files to be removed
@@ -170,7 +170,7 @@ def clean_predictions(
             traindata_versions.append(ai_detection_info.traindata_version)
         except ValueError as ex:
             logger.error(
-                f"Invalid prediction file found, skip cleanup of prediction dir: {ex}"
+                f"Prediction file with invalid name found, skip cleanup of dir: {ex}"
             )
             return []
 
