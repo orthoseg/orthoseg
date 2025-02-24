@@ -617,7 +617,6 @@ def _gdal_virtual_file_path(path: Path, layersource) -> Path:
         f"&LAYER={layersource['wmts_layernames']}"
         f"&TILEMATRIXSET={layersource['wmts_tile_matrix_set']}"
     )
-    input = input + layersource["wmts_xyz"] if "wmts_xyz" in layersource else input
     input = (
         input
         + f",layer={layersource['wmts_layernames']}"

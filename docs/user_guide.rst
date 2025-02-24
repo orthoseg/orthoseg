@@ -115,7 +115,7 @@ This way your projects directory immediately contains:
 
 The configuration for the image layers is located in `{projects_dir}/imagelayers.ini`.
 
-Layers can be a local file, a WMS server, WMTS server or an XYZ server. The basic
+Layers can be a local file, a WMS server or a WMTS server. The basic
 structure of this configuration file is as follows: every section in the .ini file
 (eg. `[BEFL-2019]`) contains the configuration of one `image layer`. In later steps of
 this tutorial you well need to use the "image layer names" (for these examples
@@ -131,6 +131,8 @@ this tutorial you well need to use the "image layer names" (for these examples
     # Configuration info of this layer
     ...
 
+A local file can also represent a XYZ server, where the file is an xml file e.g 
+`osm_xyz.xml <https://github.com/orthoseg/orthoseg/tree/main/sample_projects/footballfields/osm_xyz.xml>`_.
 
 A more elaborate example that can be used as a template for the configuration can be
 found here: `imagelayers.ini <https://github.com/orthoseg/orthoseg/blob/main/sample_projects/imagelayers.ini>`_.

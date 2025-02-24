@@ -46,14 +46,14 @@ import orthoseg
 
 
 @pytest.mark.parametrize(
-    "overrules",
+    "overrules, exp_image_count",
     [
-        ["predict.image_layer=BEFL-2019-WMTS"],
-        ["predict.image_layer=BEFL-2019-XYZ"],
-        [],
+        (["predict.image_layer=BEFL-2019-WMTS"], 2),
+        (["predict.image_layer=OSM-XYZ"], 8),
+        ([], 2),
     ],
 )
-def test_load_images(tmp_path, overrules):
+def test_load_images(tmp_path, overrules, exp_image_count):
     # Use footballfields sample project for these end to end tests
     testprojects_dir = tmp_path / "sample_projects"
     footballfields_dir = testprojects_dir / "footballfields"
@@ -69,4 +69,4 @@ def test_load_images(tmp_path, overrules):
     # Check if the right number of files was loaded
     assert image_cache_dir.exists()
     files = list(image_cache_dir.glob("**/*.jpg"))
-    assert len(files) == 2
+    assert len(files) == exp_image_count
