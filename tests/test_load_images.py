@@ -1,7 +1,10 @@
 """Tests for the load_images module."""
 
+import shutil
+
 import pytest
 
+import orthoseg
 from orthoseg import load_images
 from orthoseg.load_images import _load_images_args
 from tests import test_helper
@@ -36,13 +39,6 @@ def test_load_images_error_handling():
             config_path=test_helper.SampleProjectFootball.predict_config_path,
             config_overrules=["predict.image_pixel_width=INVALID_TYPE"],
         )
-
-
-import shutil
-
-import pytest
-
-import orthoseg
 
 
 @pytest.mark.parametrize(
