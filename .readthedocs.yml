@@ -8,10 +8,23 @@ version: 2
 # Set the version of os and other tools you might need
 # Using mambaforge solves excessive memory use issues
 build:
-  os: "ubuntu-22.04"
+  os: "ubuntu-24.04"
   tools:
-    python: "mambaforge-4.10"
-    
+    python: "mambaforge-latest"
+  jobs:
+    post_install:
+      #- CONDA_BASE=$(conda info --base)
+      #- . $CONDA_BASE/etc/profile.d/conda.sh
+      #- conda activate base
+      - conda init
+      #- . /home/docs/.asdf/installs/python/mambaforge-23.11.0-0/etc/profile.d/conda.sh
+      #- /home/docs/.asdf/installs/python/miniconda3-3.12-24.9.2-0/etc/profile.d/conda.sh
+      #- /home/docs/.asdf/installs/python/miniconda3-3.12-24.9.2-0/bin/activate orthosegdoc
+      #- ls -ltr
+      #- . etc/profile.d/conda.sh
+      - . ~/.bashrc
+      - conda activate 257
+
 # Build documentation in the docs/ directory with Sphinx
 sphinx:
   configuration: docs/conf.py
