@@ -1,15 +1,17 @@
-name: geofileops-doc
+name: orthosegdoc
 channels:
   - conda-forge
+  - nodefaults
 dependencies:
-  - python =3.11
+  - python =3.12
   - pip
   # required
+  - gdal <3.11
   - gdown
-  - geofileops >=0.6,<0.10
+  - geofileops >=0.6,<0.11
   - geopandas-base >=0.12,<1.1
   - matplotlib-base
-  - numpy <2
+  - numpy
   - owslib
   - pillow
   - pycron
@@ -19,10 +21,9 @@ dependencies:
   - shapely >=2
   - simplification
   # docs
-  # Restrict sphinx version to < 6 to avoid logo error
-  - sphinx<6
   - pydata-sphinx-theme
+  - sphinx <6
+  - sphinx-automodapi
   - pip:
-    - sphinx-automodapi ==0.13
     - segmentation-models >=1.0,<1.1
     - tensorflow-cpu >=2.8
