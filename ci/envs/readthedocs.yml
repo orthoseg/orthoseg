@@ -22,6 +22,6 @@ dependencies:
   - sphinx <6
   - pydata-sphinx-theme
   - pip:
-    - sphinx-automodapi
+    - sphinx-automodapi ==0.13
     - segmentation-models >=1.0,<1.1
     - tensorflow-cpu >=2.8
