@@ -11,10 +11,9 @@ build:
   os: "ubuntu-24.04"
   tools:
     python: "miniconda-latest"
-    
-jobs:
-  post_install:
-    - conda activate orthosegdoc
+  jobs:
+    post_install:
+      - conda activate orthosegdoc
 
 # Build documentation in the docs/ directory with Sphinx
 sphinx:
