@@ -14,7 +14,8 @@ build:
   jobs:
     post_install:
       - CONDA_BASE=$(conda info --base)
-      - . $CONDA_BASE/etc/profile.d/conda.sh
+      #- . $CONDA_BASE/etc/profile.d/conda.sh
+      - conda activate base
       - conda activate orthosegdoc
 
 # Build documentation in the docs/ directory with Sphinx
