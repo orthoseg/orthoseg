@@ -2,7 +2,7 @@ name: geofileops-doc
 channels:
   - conda-forge
 dependencies:
-  - python =3.11
+  - python =3.12
   - pip
   # required
   - gdown
@@ -19,7 +19,7 @@ dependencies:
   - shapely >=2
   - simplification
   # docs
-  - sphinx
+  - sphinx <6
   - pydata-sphinx-theme
   - pip:
     - sphinx-automodapi
