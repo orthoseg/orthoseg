@@ -6,7 +6,7 @@ dependencies:
   - pip
   # required
   - gdown
-  - geofileops >=0.6,<0.10
+  - geofileops ==0.9.1  #>=0.6,<0.10
   - geopandas-base >=0.12,<1.1
   - matplotlib-base
   - numpy <2
