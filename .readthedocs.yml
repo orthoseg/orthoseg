@@ -13,7 +13,8 @@ build:
     python: "miniconda-latest"
   jobs:
     post_install:
-      - conda init
+      - CONDA_BASE=$(conda info --base)
+      - source $CONDA_BASE/etc/profile.d/conda.sh
       - conda activate orthosegdoc
 
 # Build documentation in the docs/ directory with Sphinx
