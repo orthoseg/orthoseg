@@ -2,12 +2,13 @@ name: geofileops-doc
 channels:
   - conda-forge
 dependencies:
-  - python =3.11
+  - python =3.12
   - pip
   # required
   - gdown
   - geofileops >=0.6,<0.10
   - geopandas-base >=0.12,<1.1
+  - geos ==3.13.0
   - matplotlib-base
   - numpy <2
   - owslib
