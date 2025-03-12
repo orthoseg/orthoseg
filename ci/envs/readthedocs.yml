@@ -1,4 +1,4 @@
-name: geofileops-doc
+name: orthosegdoc
 channels:
   - conda-forge
   - nodefaults
