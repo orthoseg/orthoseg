@@ -19,6 +19,7 @@ build:
       #- conda init
       #- . /home/docs/.asdf/installs/python/miniconda3-3.12-24.9.2-0/etc/profile.d/conda.sh
       #- . /home/docs/.asdf/installs/python/miniconda3-3.12-24.9.2-0/bin/activate orthosegdoc
+      - ls -ltr
       - . etc/profile.d/conda.sh
       - conda activate orthosegdoc
 
