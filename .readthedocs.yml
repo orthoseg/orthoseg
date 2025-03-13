@@ -17,7 +17,7 @@ build:
       #- . $CONDA_BASE/etc/profile.d/conda.sh
       #- conda activate base
       - conda init
-      - . .bashrc
+      - . /home/docs/.bashrc
       - conda activate orthosegdoc
 
 # Build documentation in the docs/ directory with Sphinx
