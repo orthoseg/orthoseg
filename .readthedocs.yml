@@ -21,7 +21,7 @@ build:
       - . /home/docs/.asdf/installs/python/miniconda3-3.12-24.9.2-0/bin/activate orthosegdoc
       - ls -ltr
       #- . etc/profile.d/conda.sh
-      - conda activate orthosegdoc
+      #- conda activate orthosegdoc
 
 # Build documentation in the docs/ directory with Sphinx
 sphinx:
