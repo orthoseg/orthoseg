@@ -22,7 +22,7 @@ dependencies:
   - simplification
   # docs
   - pydata-sphinx-theme
-  - sphinx
+  - sphinx <6
   - sphinx-automodapi
   - pip:
     - segmentation-models >=1.0,<1.1
