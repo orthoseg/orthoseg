@@ -416,60 +416,75 @@ def _prepare_train_label_infos(
     image_layers: dict[str, dict],
 ) -> list[LabelInfo]:
     # Search for the files based on the file name patterns...
-    label_infos: dict[str, LabelInfo] = {}
+    pattern_label_infos: dict[str, LabelInfo] = {}
     if labelpolygons_pattern is not None or labellocations_pattern is not None:
-        label_infos = {
+        pattern_label_infos = {
             info.locations_path.resolve().as_posix(): info
             for info in _search_label_files(
                 labelpolygons_pattern, labellocations_pattern
             )
         }
 
-    # If there are label datasources configured in the project, process them as well.
+    # Process the label datasources that are explicitly configured in the project.
+    label_infos: list[LabelInfo] = []
+    datasources_overruled = set()
     if label_datasources is not None:
-        for label_ds_key in label_datasources:
-            label_ds = label_datasources[label_ds_key]
+        for label_key, label_ds in label_datasources.items():
+            if label_ds.get("locations_path") is None:
+                raise ValueError(
+                    "locations_path is mandatory for each label_datasource and is "
+                    f"missing or None for {label_ds}"
+                )
 
-            # Prepare polygons_path with backwards compatibility for "data_path"
-            polygons_path = None
-            if "polygons_path" in label_ds:
-                polygons_path = label_ds["polygons_path"]
-            elif "data_path" in label_ds:
-                polygons_path = label_ds["data_path"]
+            # Backwards compatibility for "data_path"
+            if label_ds.get("polygons_path") is None:
+                label_ds["polygons_path"] = label_ds.get("data_path")
 
-            # If the label datasource was already found using pattern search, overrule
-            # extra info rather than adding one.
-            locations_path = Path(label_ds["locations_path"]).resolve().as_posix()
-            if locations_path in label_infos:
-                if polygons_path is not None:
-                    label_infos[locations_path].polygons_path = Path(polygons_path)
-                if label_ds.get("image_layer") is not None:
-                    label_infos[locations_path].image_layer = label_ds["image_layer"]
-                if label_ds.get("pixel_x_size") is not None:
-                    label_infos[locations_path].pixel_x_size = label_ds["pixel_x_size"]
-                if label_ds.get("pixel_y_size") is not None:
-                    label_infos[locations_path].pixel_y_size = label_ds["pixel_y_size"]
-            else:
-                if polygons_path is None:
-                    raise ValueError(f"polygons_path not specified for {label_ds}")
+            # If locations_path was also found via pattern matching, we can reuse info.
+            locations_key = Path(label_ds["locations_path"]).resolve().as_posix()
+            if locations_key in pattern_label_infos:
+                pattern_label_info = pattern_label_infos[locations_key]
+                if label_ds.get("polygons_path") is None:
+                    label_ds["polygons_path"] = pattern_label_info.polygons_path
+                if label_ds.get("image_layer") is None:
+                    label_ds["image_layer"] = pattern_label_info.image_layer
+                if label_ds.get("pixel_x_size") is None:
+                    label_ds["pixel_x_size"] = pattern_label_info.pixel_x_size
+                if label_ds.get("pixel_y_size") is None:
+                    label_ds["pixel_y_size"] = pattern_label_info.pixel_y_size
 
-                # Add as new LabelInfo
-                label_infos[locations_path] = LabelInfo(
+                # The explicit information overrules the pattern matched version, so set
+                # the pattern-matched LabelInfo as overruled.
+                datasources_overruled.add(locations_key)
+
+            if label_ds.get("polygons_path") is None:
+                raise ValueError(f"polygons_path not specified for {label_ds}")
+
+            # Add as new LabelInfo
+            label_infos.append(
+                LabelInfo(
                     locations_path=Path(label_ds["locations_path"]),
-                    polygons_path=Path(polygons_path),
+                    polygons_path=Path(label_ds["polygons_path"]),
                     image_layer=label_ds["image_layer"],
                     pixel_x_size=label_ds.get("pixel_x_size"),
                     pixel_y_size=label_ds.get("pixel_y_size"),
                 )
+            )
+
+    # Add all pattern matched LabelInfos that were not overruled by explicit datasources
+    for pattern_label_info in pattern_label_infos.values():
+        locations_key = pattern_label_info.locations_path.resolve().as_posix()
+        if locations_key not in datasources_overruled:
+            label_infos.append(pattern_label_info)
 
     # Check if the configured image_layer exists for all label_infos
-    for label_info in label_infos.values():
+    for label_info in pattern_label_infos.values():
         if label_info.image_layer not in image_layers:
             raise ValueError(
                 f"invalid image_layer in {label_info}: not in {list(image_layers)}"
             )
 
-    return list(label_infos.values())
+    return label_infos
 
 
 def _search_label_files(

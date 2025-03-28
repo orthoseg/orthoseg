@@ -23,7 +23,7 @@ def create_url(url: str) -> tuple[str, list[Path]]:
     Returns:
         (str, list[Path]): Github REST API compatible url + directories to download.
     """
-    # extract the branch name from the given url (e.g master)
+    # extract the branch name from the given url (e.g main)
     branch = re.findall(r"/tree/(.*?)/", url)
     api_url = url.replace("https://github.com", "https://api.github.com/repos")
     if len(branch) == 0:

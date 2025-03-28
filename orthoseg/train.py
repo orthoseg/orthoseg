@@ -117,7 +117,7 @@ def train(config_path: Path, config_overrules: list[str] = []):
             )
 
         # Send mail that we are starting train
-        email_helper.sendmail(f"Start train for {config_path.stem}")
+        email_helper.sendmail(f"Start train for {config_path.stem} ({traindata_id=})")
         logger.info(
             f"Traindata dir to use is {training_dir}, with traindata_id: {traindata_id}"
         )
@@ -199,6 +199,8 @@ def train(config_path: Path, config_overrules: list[str] = []):
 
         # Train!!!
         min_probability = conf.predict.getfloat("min_probability")
+        nb_parallel_postprocess = conf.general.getint("nb_parallel")
+
         if train_needed is True:
             # If a model already exists, use it to predict (possibly new) training and
             # validation dataset. This way it is possible to have a quick check on
@@ -245,6 +247,7 @@ def train(config_path: Path, config_overrules: list[str] = []):
                         classes=best_hyperparams.architecture.classes,
                         min_probability=min_probability,
                         cancel_filepath=conf.files.getpath("cancel_filepath"),
+                        nb_parallel_postprocess=nb_parallel_postprocess,
                         max_prediction_errors=conf.predict.getint(
                             "max_prediction_errors"
                         ),
@@ -263,6 +266,7 @@ def train(config_path: Path, config_overrules: list[str] = []):
                         classes=best_hyperparams.architecture.classes,
                         min_probability=min_probability,
                         cancel_filepath=conf.files.getpath("cancel_filepath"),
+                        nb_parallel_postprocess=nb_parallel_postprocess,
                         max_prediction_errors=conf.predict.getint(
                             "max_prediction_errors"
                         ),
@@ -342,6 +346,7 @@ def train(config_path: Path, config_overrules: list[str] = []):
             classes=classes,
             min_probability=min_probability,
             cancel_filepath=conf.files.getpath("cancel_filepath"),
+            nb_parallel_postprocess=nb_parallel_postprocess,
             max_prediction_errors=conf.predict.getint("max_prediction_errors"),
         )
 
@@ -358,6 +363,7 @@ def train(config_path: Path, config_overrules: list[str] = []):
             classes=classes,
             min_probability=min_probability,
             cancel_filepath=conf.files.getpath("cancel_filepath"),
+            nb_parallel_postprocess=nb_parallel_postprocess,
             max_prediction_errors=conf.predict.getint("max_prediction_errors"),
         )
 
@@ -375,6 +381,7 @@ def train(config_path: Path, config_overrules: list[str] = []):
                 classes=classes,
                 min_probability=min_probability,
                 cancel_filepath=conf.files.getpath("cancel_filepath"),
+                nb_parallel_postprocess=nb_parallel_postprocess,
                 max_prediction_errors=conf.predict.getint("max_prediction_errors"),
                 no_images_ok=True,
             )
@@ -395,6 +402,7 @@ def train(config_path: Path, config_overrules: list[str] = []):
                 classes=classes,
                 min_probability=min_probability,
                 cancel_filepath=conf.files.getpath("cancel_filepath"),
+                nb_parallel_postprocess=nb_parallel_postprocess,
                 max_prediction_errors=conf.predict.getint("max_prediction_errors"),
             )
 
@@ -406,7 +414,7 @@ def train(config_path: Path, config_overrules: list[str] = []):
         gc.collect()
 
         # Log and send mail
-        message = f"Completed train for {config_path.stem}"
+        message = f"Completed train for {config_path.stem} ({traindata_id=})"
         logger.info(message)
         email_helper.sendmail(message)
     except Exception as ex:
@@ -417,7 +425,7 @@ def train(config_path: Path, config_overrules: list[str] = []):
         else:
             message_body = f"Exception: {ex}<br/><br/>{traceback.format_exc()}"
         email_helper.sendmail(subject=message, body=message_body)
-        raise RuntimeError(message) from ex
+        raise RuntimeError(f"{message}: {ex}") from ex
     finally:
         conf.remove_run_tmp_dir()
 
