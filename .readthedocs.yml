@@ -23,6 +23,11 @@ build:
       #- ls -ltr
       #- . etc/profile.d/conda.sh
       - . ~/.bashrc
+      - ls -ltr /home/docs/.asdf/installs/python/mambaforge-23.11.0-0
+      - ls -ltr /home/docs/.asdf/installs/python/mambaforge-23.11.0-0/envs
+      - ls -ltr /home/docs/.asdf/installs/python/mambaforge-23.11.0-0/envs/259
+      - ls -ltr /home/docs/.asdf/installs/python/mambaforge-23.11.0-0/envs/259/Library
+      - ls -ltr /home/docs/.asdf/installs/python/mambaforge-23.11.0-0/envs/259/Library/bin
       - export PATH="/home/docs/.asdf/installs/python/mambaforge-23.11.0-0/envs/259/Library/bin:$PATH"
       # - conda activate 259
 
