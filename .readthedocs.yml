@@ -23,7 +23,8 @@ build:
       #- ls -ltr
       #- . etc/profile.d/conda.sh
       - . ~/.bashrc
-      - conda activate 259
+      - export PATH="/home/docs/.asdf/installs/python/mambaforge-23.11.0-0/envs/259/Library/bin:$PATH"
+      # - conda activate 259
 
 # Build documentation in the docs/ directory with Sphinx
 sphinx:
