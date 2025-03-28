@@ -23,7 +23,7 @@ build:
       #- ls -ltr
       #- . etc/profile.d/conda.sh
       - . ~/.bashrc
-      - conda activate 257
+      - conda activate 259
 
 # Build documentation in the docs/ directory with Sphinx
 sphinx:
