@@ -26,9 +26,10 @@ build:
       - ls -altr ~/.conda
       - cat ~/.conda/environments.txt
       - ls -altr ~/checkouts/readthedocs.org/user_builds/orthoseg/conda/259
-      - ls -altr ~/checkouts/readthedocs.org/user_builds/orthoseg/conda/259/Library
-      - ls -altr ~/checkouts/readthedocs.org/user_builds/orthoseg/conda/259/Library/bin
-      - export PATH="/home/docs/checkouts/readthedocs.org/user_builds/orthoseg/conda/259/Library/bin:$PATH"
+      - ls -altr ~/checkouts/readthedocs.org/user_builds/orthoseg/conda/259/bin
+      - ls -altr ~/checkouts/readthedocs.org/user_builds/orthoseg/conda/259/etc
+      - ls -altr ~/checkouts/readthedocs.org/user_builds/orthoseg/conda/259/lib
+      - export PATH="/home/docs/checkouts/readthedocs.org/user_builds/orthoseg/conda/259/bin:$PATH"
       # - conda activate 259
 
 # Build documentation in the docs/ directory with Sphinx
