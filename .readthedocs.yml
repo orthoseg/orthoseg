@@ -24,6 +24,7 @@ build:
       #- . etc/profile.d/conda.sh
       - . ~/.bashrc
       - ls -altr ~/.conda
+      - cat ~/.conda/environments.txt
       - ls -altr ~/.conda/envs
       - ls -altr ~/.conda/envs/259
       - ls -altr ~/.conda/envs/259/Library
