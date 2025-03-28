@@ -28,8 +28,10 @@ build:
       - ls -al ~/checkouts/readthedocs.org/user_builds/orthoseg/conda/259/bin
       - ls -al ~/checkouts/readthedocs.org/user_builds/orthoseg/conda/259/etc
       - ls -al ~/checkouts/readthedocs.org/user_builds/orthoseg/conda/259/lib
+      - export CONDA_ENV_LIB=$(cat ~/.conda/environments.txt)
+      - echo $CONDA_ENV_LIB
       - echo $PATH
-      - export PATH="$(cat ~/.conda/environments.txt)/lib:$PATH"
+      - export PATH=$CONDA_ENV_LIB:$PATH
       - echo $PATH
       #- export PATH="/home/docs/checkouts/readthedocs.org/user_builds/orthoseg/conda/259/lib:$PATH"
       # - conda activate 259
