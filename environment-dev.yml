@@ -5,30 +5,34 @@ dependencies:
   - python =3.10
   - pip
   # required
-  - cudatoolkit >=11.2,<11.3
-  - cudnn
   - gdown
-  - geofileops >=0.6,<0.8
-  - geopandas >=0.12
-  - numpy
+  - geofileops >=0.6,<0.11
+  - geopandas-base >=0.12,<1.1
+  - matplotlib-base
+  - numpy <2
   - owslib
   - pillow
   - pycron
-  - pygeoops >=0.2,<0.3
+  - pygeoops >=0.2,<0.5
   - pyproj
   - rasterio
   - shapely >=2
-  # dependencies of tensorflow that need to be conda versions to avoid binary compatibility issues
-  - h5py
+  - simplification
+  # optional, for CUDA support
+  #- cudatoolkit ==12.3
+  #- cudnn
   # linting
-  - flake8
-  - black
+  - mypy ==1.10.1
+  - pandas-stubs
+  - pre-commit
+  - ruff ==0.7.4
+  - types-pillow
   # testing
   - pytest
   - pytest-cov
   - pytest-order
-  # pip
   - pip:
     - segmentation-models >=1.0,<1.1
-    - simplification
-    - tensorflow >=2.7,<2.11
+    - tensorflow >=2.8
+    - types-shapely
+    - types-tensorflow

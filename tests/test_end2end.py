@@ -2,20 +2,19 @@
 Tests for functionalities in orthoseg.train.
 """
 
-from datetime import datetime
 import os
-from pathlib import Path
 import shutil
 import tempfile
+from datetime import datetime
+from pathlib import Path
 
-import gdown
 import geofileops as gfo
-import orthoseg
-from orthoseg.helpers import config_helper as conf
-import orthoseg.model.model_helper as mh
 import pytest
 
-from tests.test_helper import TestData
+import orthoseg
+import orthoseg.model.model_helper as mh
+from orthoseg.helpers import config_helper as conf
+from tests import test_helper
 
 testprojects_dir = Path(tempfile.gettempdir()) / "orthoseg_test_end2end/sample_projects"
 footballfields_dir = testprojects_dir / "footballfields"
@@ -29,7 +28,7 @@ def get_testdata_dir() -> Path:
 def test_1_init_testproject():
     # Use footballfields sample project for these end to end tests
     shutil.rmtree(testprojects_dir, ignore_errors=True)
-    shutil.copytree(TestData.sampleprojects_dir, testprojects_dir)
+    shutil.copytree(test_helper.sampleprojects_dir, testprojects_dir)
 
 
 @pytest.mark.order(after="test_1_init_testproject")
@@ -51,7 +50,7 @@ def test_2_load_images():
     # Check if the right number of files was loaded
     assert image_cache_dir.exists()
     files = list(image_cache_dir.glob("**/*.jpg"))
-    assert len(files) == 6
+    assert len(files) == 2
 
 
 @pytest.mark.skipif(
@@ -111,10 +110,8 @@ def test_4_predict():
     conf.read_orthoseg_config(config_path)
 
     # Cleanup result if it isn't empty yet
-    predict_image_output_basedir = conf.dirs.getpath("predict_image_output_basedir")
-    predict_image_output_dir = (
-        predict_image_output_basedir.parent
-        / f"{predict_image_output_basedir.name}_footballfields_02_0"
+    predict_image_output_dir = Path(
+        f"{conf.dirs['predict_image_output_basedir']}_footballfields_02_0"
     )
     if predict_image_output_dir.exists():
         shutil.rmtree(predict_image_output_dir)
@@ -129,21 +126,7 @@ def test_4_predict():
     # Download the version 01 model
     model_dir = conf.dirs.getpath("model_dir")
     model_dir.mkdir(parents=True, exist_ok=True)
-    model_hdf5_path = model_dir / "footballfields_01_0.97392_201.hdf5"
-    if not model_hdf5_path.exists():
-        gdown.download(
-            id="1UlNorZ74ADCr3pL4MCJ_tnKRNoeZX79g", output=str(model_hdf5_path)
-        )
-    model_hyperparams_path = model_dir / "footballfields_01_hyperparams.json"
-    if not model_hyperparams_path.exists():
-        gdown.download(
-            id="1NwrVVjx9IsjvaioQ4-bkPMrq7S6HeWIo", output=str(model_hyperparams_path)
-        )
-    model_modeljson_path = model_dir / "footballfields_01_model.json"
-    if not model_modeljson_path.exists():
-        gdown.download(
-            id="1LNPLypM5in3aZngBKK_U4Si47Oe97ZWN", output=str(model_modeljson_path)
-        )
+    test_helper.SampleProjectFootball.download_model(model_dir)
 
     # Run task to predict
     orthoseg.predict(config_path)
@@ -153,9 +136,9 @@ def test_4_predict():
     assert result_vector_path.exists()
     result_gdf = gfo.read_file(result_vector_path)
     if os.name == "nt":
-        assert len(result_gdf) == 211
+        assert len(result_gdf) == 184
     else:
-        assert len(result_gdf) == 211
+        assert len(result_gdf) == 184
 
 
 @pytest.mark.skipif(
@@ -183,6 +166,6 @@ def test_5_postprocess():
     assert result_diss_path.exists()
     result_gdf = gfo.read_file(result_diss_path)
     if os.name == "nt":
-        assert len(result_gdf) == 207
+        assert len(result_gdf) == 182
     else:
-        assert len(result_gdf) == 207
+        assert len(result_gdf) == 182

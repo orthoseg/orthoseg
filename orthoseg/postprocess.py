@@ -1,32 +1,21 @@
-# -*- coding: utf-8 -*-
-"""
-Module with functions for post-processing prediction masks towards polygons.
-"""
+"""Module with functions for post-processing prediction masks towards polygons."""
 
 import argparse
 import logging
-from pathlib import Path
-import shlex
 import sys
 import traceback
+from pathlib import Path
 
-from orthoseg.helpers import config_helper as conf
-from orthoseg.helpers import email_helper
-from orthoseg.lib import postprocess_predictions as postp
 import orthoseg.model.model_helper as mh
+from orthoseg.helpers import config_helper as conf, email_helper
+from orthoseg.lib import postprocess_predictions as postp
 from orthoseg.util import log_util
 
 # Get a logger...
 logger = logging.getLogger(__name__)
 
 
-def postprocess_argstr(argstr):
-    args = shlex.split(argstr)
-    postprocess_args(args)
-
-
-def postprocess_args(args):
-
+def _postprocess_args(args) -> argparse.Namespace:
     # Interprete arguments
     parser = argparse.ArgumentParser(add_help=False)
 
@@ -46,43 +35,47 @@ def postprocess_args(args):
         default=argparse.SUPPRESS,
         help="Show this help message and exit",
     )
+    optional.add_argument(
+        "config_overrules",
+        nargs="*",
+        help=(
+            "Supply any number of config overrules like this: "
+            "<section>.<parameter>=<value>"
+        ),
+    )
 
-    # Interprete arguments
-    args = parser.parse_args(args)
-
-    # Run!
-    postprocess(config_path=Path(args.config))
+    return parser.parse_args(args)
 
 
-def postprocess(config_path: Path):
-    """
-    Postprocess the output of a prediction for the config specified.
+def postprocess(config_path: Path, config_overrules: list[str] = []):
+    """Postprocess the output of a prediction for the config specified.
 
     Args:
         config_path (Path): Path to the config file.
+        config_overrules (list[str], optional): list of config options that will
+            overrule other ways to supply configuration. They should be specified in the
+            form of "<section>.<parameter>=<value>". Defaults to [].
     """
-
     # Init
     # Load the config and save in a bunch of global variables zo it
     # is accessible everywhere
-    conf.read_orthoseg_config(config_path)
+    conf.read_orthoseg_config(config_path, overrules=config_overrules)
 
     # Init logging
     log_util.clean_log_dir(
         log_dir=conf.dirs.getpath("log_dir"),
-        nb_logfiles_tokeep=conf.logging.getint("nb_logfiles_tokeep"),
+        nb_logfiles_tokeep=conf.logging_conf.getint("nb_logfiles_tokeep"),
     )
     global logger
     logger = log_util.main_log_init(conf.dirs.getpath("log_dir"), __name__)
 
     # Log start + send email
-    message = f"Start postprocess for config {config_path.stem}"
-    logger.info(message)
+    image_layer = conf.predict["image_layer"]
+    logger.info(f"Start postprocess for {config_path.stem} on {image_layer}")
     logger.debug(f"Config used: \n{conf.pformat_config()}")
-    email_helper.sendmail(message)
+    model_name = None
 
     try:
-
         # Create base filename of model to use
         # TODO: is force data version the most logical, or rather implement
         #       force weights file or ?
@@ -100,7 +93,13 @@ def postprocess(config_path: Path):
             trainparams_id=trainparams_id,
         )
         if best_model is None:
-            raise Exception(f"No best model found in {conf.dirs.getpath('model_dir')}")
+            raise RuntimeError(
+                f"No best model found in {conf.dirs.getpath('model_dir')}"
+            )
+
+        model_name = f"{best_model['segment_subject']}_{best_model['traindata_id']}"
+        message = f"Start postprocess for {model_name} on {image_layer}"
+        email_helper.sendmail(message)
 
         # Input file  the "most recent" prediction result dir for this subject
         output_vector_dir = conf.dirs.getpath("output_vector_dir")
@@ -111,9 +110,13 @@ def postprocess(config_path: Path):
         output_vector_path = output_vector_dir / f"{output_vector_name}.gpkg"
 
         # Prepare some parameters for the postprocessing
-        nb_parallel = conf.general.getint("nb_parallel")
+        nb_parallel = conf.general.getint("nb_parallel", -1)
 
-        dissolve = conf.postprocess.getboolean("dissolve")
+        keep_original_file = conf.postprocess.getboolean("keep_original_file", True)
+        keep_intermediary_files = conf.postprocess.getboolean(
+            "keep_intermediary_files", True
+        )
+        dissolve = conf.postprocess.getboolean("dissolve", True)
         dissolve_tiles_path = conf.postprocess.getpath("dissolve_tiles_path")
         reclassify_query = conf.postprocess.get("reclassify_to_neighbour_query")
         if reclassify_query is not None:
@@ -129,6 +132,8 @@ def postprocess(config_path: Path):
         postp.postprocess_predictions(
             input_path=output_vector_path,
             output_path=output_vector_path,
+            keep_original_file=keep_original_file,
+            keep_intermediary_files=keep_intermediary_files,
             dissolve=dissolve,
             dissolve_tiles_path=dissolve_tiles_path,
             reclassify_to_neighbour_query=reclassify_query,
@@ -140,21 +145,33 @@ def postprocess(config_path: Path):
         )
 
         # Log and send mail
-        message = f"Completed postprocess for config {config_path.stem}"
+        message = f"Completed postprocess for {model_name} on {image_layer}"
         logger.info(message)
         email_helper.sendmail(message)
     except Exception as ex:
-        message = f"ERROR while running postprocess for task {config_path.stem}"
+        if model_name is None:
+            model_name = config_path.stem
+        message = f"ERROR in postprocess for {model_name} on {image_layer}"
         logger.exception(message)
         email_helper.sendmail(
             subject=message, body=f"Exception: {ex}\n\n {traceback.format_exc()}"
         )
-        raise Exception(message) from ex
+        raise RuntimeError(f"{message}: {ex}") from ex
+    finally:
+        conf.remove_run_tmp_dir()
 
 
 def main():
+    """Run postprocess."""
     try:
-        postprocess_args(sys.argv[1:])
+        # Interprete arguments
+        args = _postprocess_args(sys.argv[1:])
+
+        # Run!
+        postprocess(
+            config_path=Path(args.config), config_overrules=args.config_overrules
+        )
+
     except Exception as ex:
         logger.exception(f"Error: {ex}")
         raise

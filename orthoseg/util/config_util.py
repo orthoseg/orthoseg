@@ -1,39 +1,44 @@
-# -*- coding: utf-8 -*-
-"""
-Module with specific helper functions to manage the configuration of orthoseg.
-"""
+"""Module with specific helper functions to manage the configuration of orthoseg."""
 
 import configparser
 import json
 import logging
-from pathlib import Path
 import tempfile
-from typing import List, Optional
+from pathlib import Path
 
-# -------------------------------------------------------------
-# First define/init some general variables/constants
-# -------------------------------------------------------------
 # Get a logger...
 logger = logging.getLogger(__name__)
-# logger.setLevel(logging.DEBUG)
 
 # Define the chars that cannot be used in codes that are use in filenames.
 # Remark: '_' cannot be used because '_' is used as devider to parse filenames, and if
 # it is used in codes as well the parsing becomes a lot more difficult.
 illegal_chars_in_codes = ["_", ",", ".", "?", ":"]
 
-# -------------------------------------------------------------
-# The real work
-# -------------------------------------------------------------
 
+def get_config_files(config_path: Path) -> list[Path]:
+    """Get a list of all relevant config files.
 
-def get_config_files(config_path: Path) -> List[Path]:
+    The list of files returned is of importance:
+    - first the general "project_defaults.ini" file packaged in orthoseg
+    - then all configuration files in property [general].extra_config_files_to_load of
+      ``config_path``, in the order they are listed there
+    - finally ``config_path`` itself
 
+    The main principle is that the configuration files are ordered by importance.
+    Configuration in the files later in the list will overrule configuration in the
+    prior ones.
+
+    Args:
+        config_path (Path): base config file.
+
+    Returns:
+        list[Path]: all relevant config files.
+    """
     # Init
     # First check input param
     config_path = config_path.expanduser()
     if not config_path.exists():
-        raise Exception(f"Config file specified does not exist: {config_path}")
+        raise ValueError(f"Config file specified does not exist: {config_path}")
 
     # Collect the config files to use. The "hardcoded" defaults should always
     # be loaded.
@@ -48,11 +53,14 @@ def get_config_files(config_path: Path) -> List[Path]:
     )
     basic_projectconfig.read(config_path)
 
-    default_basedir = config_path.parent
-    extra_config_files_to_load = basic_projectconfig["general"].getlist(
-        "extra_config_files_to_load"
-    )
+    extra_config_files_to_load = None
+    if "general" in basic_projectconfig:
+        extra_config_files_to_load = basic_projectconfig["general"].getlist(
+            "extra_config_files_to_load"
+        )
+
     if extra_config_files_to_load is not None:
+        default_basedir = config_path.parent
         for config_file in extra_config_files_to_load:
             config_file_formatted = Path(
                 config_file.format(
@@ -71,15 +79,22 @@ def get_config_files(config_path: Path) -> List[Path]:
     return config_filepaths
 
 
-def read_config_ext(config_paths: List[Path]) -> configparser.ConfigParser:
+def read_config_ext(config_paths: list[Path]) -> configparser.ConfigParser:
+    """Read configuration with extended functionalities.
 
+    Args:
+        config_paths (list[Path]): the configuration files to load.
+
+    Returns:
+        configparser.ConfigParser: _description_
+    """
     # Log config filepaths that don't exist...
     for config_filepath in config_paths:
         if not config_filepath.exists():
             logger.warning(f"config_filepath does not exist: {config_filepath}")
 
     # Now we are ready to read the entire configuration
-    def parse_boolean_ext(input) -> Optional[bool]:
+    def parse_boolean_ext(input) -> bool | None:
         if input is None:
             return None
 
@@ -87,24 +102,22 @@ def read_config_ext(config_paths: List[Path]) -> configparser.ConfigParser:
             return True
         elif input in ("False", "false", "0", 0):
             return False
-        elif input in ("False", "false", "0", 0):
+        else:
             return None
 
     def safe_math_eval(string):
-        """
-        Function to evaluate a mathematical expression safely.
-        """
+        """Function to evaluate a mathematical expression safely."""
         if string is None:
             return None
 
         allowed_chars = "0123456789+-*(). /"
         for char in string:
             if char not in allowed_chars:
-                raise Exception("Unsafe eval")
+                raise ValueError("Error: Unsafe eval")
 
         return eval(string)
 
-    def to_path(pathlike: str) -> Optional[Path]:
+    def to_path(pathlike: str) -> Path | None:
         if pathlike is None:
             return None
         else:
@@ -132,13 +145,12 @@ def read_config_ext(config_paths: List[Path]) -> configparser.ConfigParser:
 
 
 def as_dict(config: configparser.ConfigParser):
-    """
-    Converts a ConfigParser object into a dictionary.
+    """Converts a ConfigParser object into a dictionary.
 
     The resulting dictionary has sections as keys which point to a dict of the
     sections options as key => value pairs.
     """
-    the_dict = {}
+    the_dict: dict = {}
     for section in config.sections():
         the_dict[section] = {}
         for key, val in config.items(section):

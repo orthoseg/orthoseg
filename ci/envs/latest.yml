@@ -1,0 +1,27 @@
+name: orthoseg-latest
+channels:
+  - conda-forge
+dependencies:
+  - python
+  - pip
+  # required
+  - gdown
+  - geofileops >=0.6,<0.11
+  - geopandas-base >=0.12,<1.1
+  - matplotlib-base
+  - numpy <2
+  - owslib
+  - pillow
+  - pycron
+  - pygeoops >=0.2,<0.5
+  - pyproj
+  - rasterio
+  - shapely >=2
+  - simplification
+  # testing
+  - pytest
+  - pytest-cov
+  - pytest-order
+  - pip:
+    - segmentation-models >=1.0,<1.1
+    - tensorflow >=2.7

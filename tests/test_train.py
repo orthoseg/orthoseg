@@ -1,24 +1,51 @@
-# -*- coding: utf-8 -*-
-"""
-Tests for functionalities in orthoseg.train.
-"""
+"""Tests for module train."""
 
+from contextlib import nullcontext
 from pathlib import Path
-import sys
 
-# Add path so the local orthoseg packages are found
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-import orthoseg
-from tests.test_helper import TestData
+import pytest
+
+from orthoseg import train
+from orthoseg.train import _train_args
+from tests import test_helper
 
 
-def test_search_label_files():
-    labeldata_template = (
-        TestData.testdata_dir / "footballfields_{image_layer}_data.gpkg"
-    )
-    labellocation_template = (
-        TestData.testdata_dir / "footballfields_{image_layer}_locations.gpkg"
-    )
-    result = orthoseg._search_label_files(labeldata_template, labellocation_template)
+@pytest.mark.parametrize(
+    "args",
+    [
+        (
+            [
+                "--config",
+                "X:/Monitoring/OrthoSeg/test/test.ini",
+                "predict.image_layer=LT-2023",
+            ]
+        )
+    ],
+)
+def test_train_args(args):
+    valid_args = _train_args(args=args)
+    assert valid_args is not None
+    assert valid_args.config is not None
+    assert valid_args.config_overrules is not None
 
-    assert len(result) == 2
+
+@pytest.mark.parametrize("config_path, exp_error", [("INVALID", True)])
+def test_train(config_path, exp_error):
+    if exp_error:
+        handler = pytest.raises(ValueError)
+    else:
+        handler = nullcontext()
+    with handler:
+        train(config_path=Path("INVALID"))
+
+
+def test_train_error_handling():
+    """Force an error so the general error handler in train is tested."""
+    with pytest.raises(
+        RuntimeError,
+        match="ERROR in train for footballfields_train_test",
+    ):
+        train(
+            config_path=test_helper.SampleProjectFootball.train_config_path,
+            config_overrules=["train.force_model_traindata_id=INVALID_TYPE"],
+        )

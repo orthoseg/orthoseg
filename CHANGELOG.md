@@ -1,5 +1,64 @@
 # CHANGELOG
 
+## 0.7.0 (????-??-??)
+
+### Improvements
+
+- Support reading images directly from the datasource while predicting (#228, #231)
+- Make image format for downloaded images configurable (#204)
+- Add validations on the augmentation configuration (#214)
+- Add support to reuse one training dataset for multiple train resolutions (#244)
+- Improve performance of `predict_dir` for `evaluation_mode` (#236)
+- In `clean_project_dir`, use the unique traindata versions of the files present to
+  determine the number of versions to remove (#254)
+- Make `load_images` more robust by ignoring some filesystem errors that occur sometimes
+  but that don't seem to give actual issues (#216, #2019)
+- Small improvements to logging, error messages,... (#198, #218, #247)
+- Add support + tests for latest tensorflow version (#217)
+- Update minimal dependencies: drop support of python 3.9, geopandas 1.x,...
+  (#229, #230)
+
+### Bugs fixed
+
+- Avoid error if a training dataset contains 2 identical locations (#205)
+- Avoid error with mixed usage of label name and classname columns in polygon train
+  files (#237)
+
+## 0.6.1 (2024-08-12)
+
+### Bugs fixed
+
+- Fix error in `prepare_traindatasets` when a polygons training dataset is empty
+  (#192, #193)
+- Fix error in `train` when a model was saved and the next epoch should not be retained
+  (#195)
+
+## 0.6.0 (2024-07-26)
+
+### Deprecations and compatibility notes
+
+- Change default nb_concurrent_calls when downloading layer to 1 instead of 6 (##149)
+
+### Improvements
+
+- Add command to (only) validate a training dataset (#133)
+- Add options to improve control of output of postprocess (#167)
+- Add support to train subject on different pixel sizes (#143, #174)
+- Add support to overrule configuration parameters via command line arguments (#152)
+- Add option(s) to do automatic cleanup of "old" models, predictions and training data
+  directories (#52)
+- In prepare_trainingdata, reuse images already available in previous version (#170)
+- Several small improvements to logging, documentation,... (#128, #180, #185)
+- Apply pyupgrade (python >= 3.9), pydocstyle, isort and mypy (#181, #182, #184, #187)
+- Update dependencies: geopandas, ruff,... + drop support for pygeos (#179)
+
+### Bugs fixed
+
+- Fix check that traindataset has validation samples should not be per file (#131)
+- Fix support for WMS username/password (#146)
+- Fix train gives an error after training if there are no "test" locations defined (#165)
+- Ignore occassional irrelevant errors thrown during `load_images` (#186)
+
 ## 0.5.0 (2023-07-27)
 
 ### Improvements

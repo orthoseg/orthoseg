@@ -1,40 +1,30 @@
-# -*- coding: utf-8 -*-
-"""
-Module with helper functions regarding (keras) models.
-"""
+"""Module with helper functions regarding (keras) models."""
 
 import json
 import logging
-from pathlib import Path
 import shutil
-from typing import List, Optional
+from pathlib import Path
+from typing import Any
 
 import pandas as pd
 from keras import callbacks
 
-# -------------------------------------------------------------
-# First define/init some general variables/constants
-# -------------------------------------------------------------
 # Get a logger...
 logger = logging.getLogger(__name__)
-# logger.setLevel(logging.INFO)
-
-# -------------------------------------------------------------
-# The real work
-# -------------------------------------------------------------
 
 
 class ArchitectureParams:
+    """Parameters regarding the neural network architecture to use."""
+
     def __init__(
         self,
         architecture: str,
-        classes: Optional[list] = None,
+        classes: list | None = None,
         nb_channels: int = 3,
         activation_function: str = "softmax",
         architecture_id: int = 0,
     ):
-        """
-        Class containing the hyper parameters needed to create the model.
+        """Class containing the hyper parameters needed to create the model.
 
         Args:
             architecture (str): the model architecture to use.
@@ -57,22 +47,29 @@ class ArchitectureParams:
         self.activation_function = activation_function
         self.architecture_id = architecture_id
 
-    def toJSON(self):
+    def toJSON(self) -> str:
+        """Serialize to JSON string.
+
+        Returns:
+            str: JSON string
+        """
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
 
 
 class TrainParams:
+    """Hyperparameter on how to train the neural network."""
+
     def __init__(
         self,
         image_augmentations: dict,
         mask_augmentations: dict,
         trainparams_id: int = 0,
-        class_weights: Optional[list] = None,
+        class_weights: list | None = None,
         batch_size: int = 4,
         optimizer: str = "adam",
-        optimizer_params: Optional[dict] = None,
-        loss_function: Optional[str] = None,
-        monitor_metric: Optional[str] = None,
+        optimizer_params: dict | None = None,
+        loss_function: str | None = None,
+        monitor_metric: str | None = None,
         monitor_metric_mode: str = "auto",
         save_format: str = "h5",
         save_best_only: bool = True,
@@ -80,13 +77,12 @@ class TrainParams:
         nb_epoch: int = 1000,
         nb_epoch_with_freeze: int = 100,
         earlystop_patience: int = 100,
-        earlystop_monitor_metric: Optional[str] = None,
+        earlystop_monitor_metric: str | None = None,
         earlystop_monitor_metric_mode: str = "auto",
         log_tensorboard: bool = False,
         log_csv: bool = True,
     ):
-        """
-        Class containing the hyper parameters needed to perform a training.
+        """Class containing the hyper parameters needed to perform a training.
 
         Args:
             image_augmentations (dict): The augmentations to use on the input image
@@ -129,9 +125,13 @@ class TrainParams:
         Raises:
             Exception: [description]
         """
+        # Validate if the augmentations specified are OK
+        _validate_augmentations(image_augmentations, mask_augmentations)
+
         self.trainparams_id = trainparams_id
         self.image_augmentations = image_augmentations
         self.mask_augmentations = mask_augmentations
+
         self.class_weights = class_weights
         self.batch_size = batch_size
 
@@ -175,19 +175,25 @@ class TrainParams:
         self.log_tensorboard = log_tensorboard
         self.log_csv = log_csv
 
-    def toJSON(self):
+    def toJSON(self) -> str:
+        """Serializes object to a JSON string.
+
+        Returns:
+            str: JSON string
+        """
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
 
 
 class HyperParams:
+    """Groups all hyper parameters to use for creating a neural network model."""
+
     def __init__(
         self,
-        architecture: Optional[ArchitectureParams] = None,
-        train: Optional[TrainParams] = None,
-        path: Optional[Path] = None,
+        architecture: ArchitectureParams | None = None,
+        train: TrainParams | None = None,
+        path: Path | None = None,
     ):
-        """
-        Class to store the hyper parameters to use for the machine learning algorythm.
+        """Class to store the hyperparameters to use for the machine learning algorythm.
 
         Args:
             architecture (ArchitectureParams): the fixed parameters that define the
@@ -196,6 +202,7 @@ class HyperParams:
                 are the same.
             train (TrainParams): these are the parameters that can be changed with each
                 training.
+            path (Optional[Path]): file path to read the hyper parameters from.
         """
         self.fileversion = 1.1
         if architecture is not None:
@@ -203,7 +210,7 @@ class HyperParams:
         if train is not None:
             self.train = train
         if path is not None:
-            with open(path, "r") as jsonfile:
+            with open(path) as jsonfile:
                 jsonstr = jsonfile.read()
                 data = json.loads(jsonstr)
 
@@ -219,8 +226,74 @@ class HyperParams:
                 self.architecture = ArchitectureParams(**data["architecture"])
                 self.train = TrainParams(**data["train"])
 
-    def toJSON(self):
+    def toJSON(self) -> str:
+        """Serialize the data to a JSON string.
+
+        Returns:
+            str: the object serialized as JSON string.
+        """
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
+
+
+def _validate_augmentations(
+    image_augmentations: dict[str, Any], mask_augmentations: dict[str, Any]
+):
+    errors = []
+
+    # The same augmentations should be specified for images and masks
+    if not list(image_augmentations) == list(mask_augmentations):
+        raise ValueError(
+            "the same augmentations should be specified in the same order for images "
+            "and masks to avoid possible issues with random augmentation factors "
+            "getting mixed up. Values can be different for some augmentations."
+        )
+
+    # These augmentations should be the same for the mask and the image
+    should_be_same = [
+        "rotation_range",
+        "width_shift_range",
+        "height_shift_range",
+        "zoom_range",
+    ]
+    for key in should_be_same:
+        error_message = (
+            f"when {key} is used, it should be in image_augmentations and "
+            "mask_augmentations with the same value"
+        )
+        if key in image_augmentations:
+            if key not in mask_augmentations:
+                # Key is only in image augmentation -> error
+                errors.append(error_message)
+            elif mask_augmentations[key] != image_augmentations[key]:
+                # Augmentation parameter is not the same -> error
+                errors.append(error_message)
+        elif key in mask_augmentations:
+            # Key is only in mask augmentation -> error
+            errors.append(error_message)
+
+    # Check augmentations that should have specific values for mask_augmentations
+    mask_specifics = [
+        ("fill_mode", "constant", True),
+        ("cval", 0, True),
+        ("rescale", 1, True),
+        ("brightness_range", [1.0, 1.0], False),
+    ]
+    for key, value, mandatory in mask_specifics:
+        if key not in mask_augmentations:
+            if mandatory:
+                errors.append(
+                    f"{key} is a mandatory augmentation that should be {value} for "
+                    "mask_augmentations"
+                )
+        else:
+            if mask_augmentations[key] != value:
+                errors.append(
+                    f"{key} for mask_augmentations should be {value}, not "
+                    f"{mask_augmentations[key]}"
+                )
+
+    if len(errors) > 0:
+        raise ValueError(f"issues found in augmentation parameters: {errors}")
 
 
 def format_model_basefilename(
@@ -229,10 +302,9 @@ def format_model_basefilename(
     architecture_id: int = 0,
     trainparams_id: int = 0,
 ) -> str:
-    """
-    Format the parameters into a model_filename.
+    """Format the parameters into a model_filename.
 
-    Args
+    Args;
         segment_subject: the segment subject
         traindata_id: the id of the data used to train the model
         architecture_id: the id of the model architecture used
@@ -256,10 +328,9 @@ def format_model_filename(
     epoch: int,
     save_format: str,
 ) -> str:
-    """
-    Format the parameters into a model_filename.
+    """Format the parameters into a model_filename.
 
-    Args
+    Args:
         segment_subject: the segment subject
         traindata_id: the version of the data used to train the model
         architecture_id: the id of the model architecture used
@@ -288,9 +359,10 @@ def format_model_filename(
     return filename
 
 
-def parse_model_filename(filepath: Path) -> Optional[dict]:
-    """
-    Parse a model_filename to a dict containing the properties of the model:
+def parse_model_filename(filepath: Path) -> dict | None:
+    """Parse a model_filename to a dict with the properties of the model.
+
+    These are the properties:
         * segment_subject: the segment subject
         * traindata_id: the version of the data used to train the model
         * monitor_metric_accuracy: the monitored metric accuracy
@@ -300,10 +372,9 @@ def parse_model_filename(filepath: Path) -> Optional[dict]:
             * keras format: 'h5'
             * tensorflow savedmodel: 'tf'
 
-    Args
+    Args:
         filepath: the filepath to the model file
     """
-
     # Prepare filepath to extract info
     if filepath.is_dir():
         # If it is a dir, it should end on _tf
@@ -367,25 +438,24 @@ def parse_model_filename(filepath: Path) -> Optional[dict]:
 
 def get_models(
     model_dir: Path,
-    segment_subject: Optional[str] = None,
-    traindata_id: Optional[int] = None,
-    architecture_id: Optional[int] = None,
-    trainparams_id: Optional[int] = None,
-) -> List[dict]:
-    """
-    Return the list of models in the model_dir passed. It is returned as a
-    dataframe with the columns as returned in parse_model_filename()
+    segment_subject: str | None = None,
+    traindata_id: int | None = None,
+    architecture_id: int | None = None,
+    trainparams_id: int | None = None,
+) -> list[dict]:
+    """Return the list of models in the model_dir passed.
 
-    Args
+    It is returned as a dataframe with the columns as returned in parse_model_filename.
+
+    Args:
         model_dir (Path): dir containing the models
         segment_subject (str, optional): only models with this the segment subject
         traindata_id (int, optional): only models with this traindata version
         architecture_id (int, optional): only models with this this architecture_id
         trainparams_id (int, optional): only models with this hyperparams version
     """
-
     # List models
-    model_paths = []
+    model_paths: list[Path] = []
     model_paths.extend(model_dir.glob("*.hdf5"))
     model_paths.extend(model_dir.glob("*.h5"))
     model_paths.extend(model_dir.glob("*_tf"))
@@ -429,27 +499,28 @@ def get_models(
 
 def get_best_model(
     model_dir: Path,
-    segment_subject: Optional[str] = None,
-    traindata_id: Optional[int] = None,
-    architecture_id: Optional[int] = None,
-    trainparams_id: Optional[int] = None,
-) -> Optional[dict]:
-    """
-    Get the properties of the model with the highest combined accuracy for the highest
-    traindata version in the dir.
+    segment_subject: str | None = None,
+    traindata_id: int | None = None,
+    architecture_id: int | None = None,
+    trainparams_id: int | None = None,
+) -> dict | None:
+    """Get the properties of the model with the highest combined accuracy.
+
+    Only models with the highest traindata version in the dir are considered.
 
     Remark: regardless of the monitor function used when training, the accuracies
     are always better if higher!
 
-    Args
+    Args:
         model_dir: dir containing the models
         segment_subject (str, optional): only models with this the segment subject
         traindata_id (int, optional): only models with this train data id
         architecture_id (int, optional): only models with this the architecture_id
         trainparams_id (int, optional): only models with this hyperparams id
 
-    Returns
-        A dictionary with the info of the best model, or None if no model was found
+    Returns:
+        A dictionary with the info of the best model as returned by
+        parse_model_filename, or None if no model was found
     """
     # Get list of existing models for this train dataset
     model_info_list = get_models(
@@ -467,8 +538,7 @@ def get_best_model(
     # If no traindata_id provided, find highest traindata id
     max_traindata_id = -1
     for model_info in model_info_list:
-        if model_info["traindata_id"] > max_traindata_id:
-            max_traindata_id = model_info["traindata_id"]
+        max_traindata_id = max(model_info["traindata_id"], max_traindata_id)
 
     # Get the list of newest model
     newest_model_info_list = [
@@ -492,6 +562,12 @@ def get_best_model(
 
 
 class ModelCheckpointExt(callbacks.Callback):
+    """Class to checkpoint a model while training it with extended options.
+
+    Args:
+        callbacks (_type_): _description_
+    """
+
     def __init__(
         self,
         model_save_dir: Path,
@@ -510,8 +586,7 @@ class ModelCheckpointExt(callbacks.Callback):
         verbose: bool = True,
         only_report: bool = False,
     ):
-        """
-        Constructor
+        """Constructor.
 
         Args:
             model_save_dir (Path): [description]
@@ -569,6 +644,12 @@ class ModelCheckpointExt(callbacks.Callback):
         self.only_report = only_report
 
     def on_epoch_end(self, epoch, logs={}):
+        """on_epoch_end method.
+
+        Args:
+            epoch (_type_): _description_
+            logs (dict, optional): _description_. Defaults to {}.
+        """
         logger.debug(f"Start in callback on_epoch_begin, logs contains: {logs}")
 
         # First determine the values of the monitor metric for train and validation
@@ -610,8 +691,8 @@ def save_and_clean_models(
     trainparams_id: int,
     monitor_metric_mode: str,
     new_model=None,
-    new_model_monitor_value: Optional[float] = None,
-    new_model_epoch: Optional[int] = None,
+    new_model_monitor_value: float | None = None,
+    new_model_epoch: int | None = None,
     save_format: str = "h5",
     save_best_only: bool = False,
     save_min_accuracy: float = 0.9,
@@ -622,17 +703,18 @@ def save_and_clean_models(
     debug: bool = False,
     only_report: bool = False,
 ):
-    """
-    Save the new model if it is good enough... and cleanup existing models
+    """Save the new model.
+
+    The model is only saved if it is good enough... and existing models are cleaned up
     if they are worse than the new or other existing models.
 
-    Args
+    Args:
         model_save_dir (Path): dir containing the models
         segment_subject (str): segment subject
         traindata_id (int): train data id
         architecture_id (int): model architecture id
         trainparams_id (int): id of the train params
-        model_monitor_metric_mode (MetricMode): use 'min' if the monitored
+        monitor_metric_mode (MetricMode): use 'min' if the monitored
             metrics should be as low as possible, 'max' if a higher values
             is better.
         new_model (optional): the keras model object that will be saved
@@ -682,7 +764,6 @@ def save_and_clean_models(
     new_model_path = None
     new_model_monitor_accuracy = None
     if new_model is not None:
-
         if new_model_monitor_value is None or new_model_epoch is None:
             raise Exception(
                 "If new_model is not None, new_model_monitor_... parameters cannot be "
@@ -732,7 +813,6 @@ def save_and_clean_models(
         by="monitor_metric_accuracy", ascending=False
     )
     for model_info in model_info_sorted_df.itertuples(index=False):
-
         # If only the best needs to be kept, check only on monitor_metric_accuracy...
         keep_model = True
         better_ones_df = None
@@ -760,6 +840,7 @@ def save_and_clean_models(
                 and model_info.filepath == str(new_model_path)
                 and not new_model_path.exists()
             ):
+                assert isinstance(model_info.monitor_metric_accuracy, float)
                 if (
                     new_model_epoch > save_min_accuracy_ignored_epoch
                     or model_info.monitor_metric_accuracy > save_min_accuracy
@@ -767,14 +848,20 @@ def save_and_clean_models(
                     logger.debug("Save model start")
                     if save_weights_only:
                         if model_template_for_save is not None:
-                            model_template_for_save.save_weights(str(new_model_path))
+                            model_template_for_save.save_weights(
+                                str(new_model_path), save_format=save_format
+                            )
                         else:
-                            new_model.save_weights(str(new_model_path))
+                            new_model.save_weights(
+                                str(new_model_path), save_format=save_format
+                            )
                     else:
                         if model_template_for_save is not None:
-                            model_template_for_save.save(str(new_model_path))
+                            model_template_for_save.save(
+                                str(new_model_path), save_format=save_format
+                            )
                         else:
-                            new_model.save(str(new_model_path))
+                            new_model.save(str(new_model_path), save_format=save_format)
                     logger.debug("Save model ready")
                 else:
                     print(
@@ -783,6 +870,7 @@ def save_and_clean_models(
                     )
         else:
             # Bad model... can be removed (or not saved)
+            assert isinstance(model_info.filepath, str | Path)
             if only_report is True:
                 logger.debug(f"DELETE {model_info.filename}")
             elif Path(model_info.filepath).exists() is True:

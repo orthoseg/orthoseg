@@ -1,50 +1,25 @@
-# -*- coding: utf-8 -*-
-"""
-Module to make it easy to start a training session.
-"""
+"""Module to make it easy to start a training session."""
 
 import argparse
 import gc
 import logging
 import os
-from pathlib import Path
-import re
-import shlex
 import sys
 import traceback
-from typing import List
+from pathlib import Path
 
 from tensorflow import keras as kr
 
-# orthoseg is higher in dir hierarchy, add root to sys.path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from orthoseg.helpers import config_helper as conf
-from orthoseg.helpers import email_helper
-from orthoseg.lib import prepare_traindatasets as prep
-from orthoseg.lib import predicter
-from orthoseg.lib import trainer
-from orthoseg.model import model_factory as mf
-from orthoseg.model import model_helper as mh
+from orthoseg.helpers import config_helper as conf, email_helper
+from orthoseg.lib import predicter, prepare_traindatasets as prep, trainer
+from orthoseg.model import model_factory as mf, model_helper as mh
 from orthoseg.util import log_util
 
-# -------------------------------------------------------------
-# First define/init general variables/constants
-# -------------------------------------------------------------
 # Get a logger...
 logger = logging.getLogger(__name__)
 
-# -------------------------------------------------------------
-# The real work
-# -------------------------------------------------------------
 
-
-def _train_argstr(argstr):
-    args = shlex.split(argstr)
-    _train_args(args)
-
-
-def _train_args(args):
-
+def _train_args(args) -> argparse.Namespace:
     # Interprete arguments
     parser = argparse.ArgumentParser(add_help=False)
 
@@ -64,30 +39,36 @@ def _train_args(args):
         default=argparse.SUPPRESS,
         help="Show this help message and exit",
     )
+    optional.add_argument(
+        "config_overrules",
+        nargs="*",
+        help=(
+            "Supply any number of config overrules like this: "
+            "<section>.<parameter>=<value>"
+        ),
+    )
 
-    # Interprete arguments
-    args = parser.parse_args(args)
-
-    # Run!
-    train(config_path=Path(args.config))
+    return parser.parse_args(args)
 
 
-def train(config_path: Path):
-    """
-    Run a training session for the config specified.
+def train(config_path: Path, config_overrules: list[str] = []):
+    """Run a training session for the config specified.
 
     Args:
         config_path (Path): Path to the config file to use.
+        config_overrules (list[str], optional): list of config options that will
+            overrule other ways to supply configuration. They should be specified in the
+            form of "<section>.<parameter>=<value>". Defaults to [].
     """
     # Init
     # Load the config and save in a bunch of global variables zo it
     # is accessible everywhere
-    conf.read_orthoseg_config(config_path)
+    conf.read_orthoseg_config(config_path, overrules=config_overrules)
 
     # Init logging
     log_util.clean_log_dir(
         log_dir=conf.dirs.getpath("log_dir"),
-        nb_logfiles_tokeep=conf.logging.getint("nb_logfiles_tokeep"),
+        nb_logfiles_tokeep=conf.logging_conf.getint("nb_logfiles_tokeep"),
     )
     global logger
     logger = log_util.main_log_init(conf.dirs.getpath("log_dir"), __name__)
@@ -97,16 +78,6 @@ def train(config_path: Path):
     logger.debug(f"Config used: \n{conf.pformat_config()}")
 
     try:
-
-        # First check if the segment_subject has a valid name
-        segment_subject = conf.general["segment_subject"]
-        if segment_subject == "MUST_OVERRIDE":
-            raise Exception(
-                "segment_subject must be overridden in the subject specific config file"
-            )
-        elif "_" in segment_subject:
-            raise Exception(f"segment_subject cannot contain '_': {segment_subject}")
-
         # Create the output dir's if they don't exist yet...
         for dir in [
             conf.dirs.getpath("project_dir"),
@@ -115,54 +86,13 @@ def train(config_path: Path):
             if dir and not dir.exists():
                 dir.mkdir()
 
-        # If the training data doesn't exist yet, create it
-        # Get the label input info
-        label_files_dict = conf.train.getdict("label_datasources", None)
-        label_infos = []
-        if label_files_dict is not None:
-            for label_file_key in label_files_dict:
-                label_file = label_files_dict[label_file_key]
-                # Add as LabelInfo objects to list
-                label_infos.append(
-                    prep.LabelInfo(
-                        locations_path=Path(label_file["locations_path"]),
-                        polygons_path=Path(label_file["data_path"]),
-                        image_layer=label_file["image_layer"],
-                    )
-                )
-            if label_infos is None or len(label_infos) == 0:
-                raise Exception(
-                    "label_datasources is defined in config but contains invalid info!"
-                )
-        else:
-            # Search for the files based on the file name patterns...
-            labelpolygons_pattern = conf.train.getpath("labelpolygons_pattern")
-            labellocations_pattern = conf.train.getpath("labellocations_pattern")
-            label_infos = _search_label_files(
-                labelpolygons_pattern, labellocations_pattern
-            )
-            if label_infos is None or len(label_infos) == 0:
-                raise Exception(
-                    f"No label files found with patterns {labellocations_pattern} and "
-                    f"{labelpolygons_pattern}"
-                )
+        train_label_infos = conf.get_train_label_infos()
 
         # Determine the projection of (the first) train layer... it will be used for all
-        train_image_layer = label_infos[0].image_layer
+        train_image_layer = train_label_infos[0].image_layer
         train_projection = conf.image_layers[train_image_layer]["projection"]
 
-        # Determine classes
-        try:
-            classes = conf.train.getdict("classes")
-
-            # If the burn_value property isn't supplied for the classes, add them
-            for class_id, (classname) in enumerate(classes):
-                if "burn_value" not in classes[classname]:
-                    classes[classname]["burn_value"] = class_id
-        except Exception as ex:
-            raise Exception(
-                f"Error reading classes: {conf.train.get('classes')}"
-            ) from ex
+        classes = conf.determine_classes()
 
         # Now create the train datasets (train, validation, test)
         force_model_traindata_id = conf.train.getint("force_model_traindata_id")
@@ -174,7 +104,7 @@ def train(config_path: Path):
         else:
             logger.info("Prepare train, validation and test data")
             training_dir, traindata_id = prep.prepare_traindatasets(
-                label_infos=label_infos,
+                label_infos=train_label_infos,
                 classes=classes,
                 image_layers=conf.image_layers,
                 training_dir=conf.dirs.getpath("training_dir"),
@@ -187,7 +117,7 @@ def train(config_path: Path):
             )
 
         # Send mail that we are starting train
-        email_helper.sendmail(f"Start train for config {config_path.stem}")
+        email_helper.sendmail(f"Start train for {config_path.stem} ({traindata_id=})")
         logger.info(
             f"Traindata dir to use is {training_dir}, with traindata_id: {traindata_id}"
         )
@@ -200,7 +130,7 @@ def train(config_path: Path):
         # TODO: activation_function should probably not be specified!!!!!!
         architectureparams = mh.ArchitectureParams(
             architecture=conf.model["architecture"],
-            classes=[classname for classname in classes],
+            classes=list(classes),
             nb_channels=conf.model.getint("nb_channels"),
             architecture_id=conf.model.getint("architecture_id"),
             activation_function="softmax",
@@ -269,8 +199,9 @@ def train(config_path: Path):
 
         # Train!!!
         min_probability = conf.predict.getfloat("min_probability")
-        if train_needed is True:
+        nb_parallel_postprocess = conf.general.getint("nb_parallel")
 
+        if train_needed is True:
             # If a model already exists, use it to predict (possibly new) training and
             # validation dataset. This way it is possible to have a quick check on
             # errors in (new) added labels in the datasets.
@@ -316,6 +247,7 @@ def train(config_path: Path):
                         classes=best_hyperparams.architecture.classes,
                         min_probability=min_probability,
                         cancel_filepath=conf.files.getpath("cancel_filepath"),
+                        nb_parallel_postprocess=nb_parallel_postprocess,
                         max_prediction_errors=conf.predict.getint(
                             "max_prediction_errors"
                         ),
@@ -334,13 +266,14 @@ def train(config_path: Path):
                         classes=best_hyperparams.architecture.classes,
                         min_probability=min_probability,
                         cancel_filepath=conf.files.getpath("cancel_filepath"),
+                        nb_parallel_postprocess=nb_parallel_postprocess,
                         max_prediction_errors=conf.predict.getint(
                             "max_prediction_errors"
                         ),
                     )
                     del best_model
                 except Exception as ex:
-                    logger.warn(f"Exception trying to predict with old model: {ex}")
+                    logger.warning(f"Exception trying to predict with old model: {ex}")
 
             # Now we can really start training
             logger.info("Start training")
@@ -413,6 +346,7 @@ def train(config_path: Path):
             classes=classes,
             min_probability=min_probability,
             cancel_filepath=conf.files.getpath("cancel_filepath"),
+            nb_parallel_postprocess=nb_parallel_postprocess,
             max_prediction_errors=conf.predict.getint("max_prediction_errors"),
         )
 
@@ -429,6 +363,7 @@ def train(config_path: Path):
             classes=classes,
             min_probability=min_probability,
             cancel_filepath=conf.files.getpath("cancel_filepath"),
+            nb_parallel_postprocess=nb_parallel_postprocess,
             max_prediction_errors=conf.predict.getint("max_prediction_errors"),
         )
 
@@ -446,7 +381,9 @@ def train(config_path: Path):
                 classes=classes,
                 min_probability=min_probability,
                 cancel_filepath=conf.files.getpath("cancel_filepath"),
+                nb_parallel_postprocess=nb_parallel_postprocess,
                 max_prediction_errors=conf.predict.getint("max_prediction_errors"),
+                no_images_ok=True,
             )
 
         # Predict extra test dataset with random images in the roi, to add to
@@ -465,6 +402,7 @@ def train(config_path: Path):
                 classes=classes,
                 min_probability=min_probability,
                 cancel_filepath=conf.files.getpath("cancel_filepath"),
+                nb_parallel_postprocess=nb_parallel_postprocess,
                 max_prediction_errors=conf.predict.getint("max_prediction_errors"),
             )
 
@@ -476,97 +414,30 @@ def train(config_path: Path):
         gc.collect()
 
         # Log and send mail
-        message = f"Completed train for config {config_path.stem}"
+        message = f"Completed train for {config_path.stem} ({traindata_id=})"
         logger.info(message)
         email_helper.sendmail(message)
     except Exception as ex:
-        message = f"ERROR while running train for task {config_path.stem}"
+        message = f"ERROR in train for {config_path.stem}"
         logger.exception(message)
         if isinstance(ex, prep.ValidationError):
             message_body = f"Validation error: {ex.to_html()}"
         else:
             message_body = f"Exception: {ex}<br/><br/>{traceback.format_exc()}"
         email_helper.sendmail(subject=message, body=message_body)
-        raise Exception(message) from ex
-
-
-def _search_label_files(
-    labelpolygons_pattern: Path, labellocations_pattern: Path
-) -> List[prep.LabelInfo]:
-
-    if not labelpolygons_pattern.parent.exists():
-        raise ValueError(f"Label dir {labelpolygons_pattern.parent} doesn't exist")
-    if not labellocations_pattern.parent.exists():
-        raise ValueError(f"Label dir {labellocations_pattern.parent} doesn't exist")
-
-    label_infos = []
-    labelpolygons_pattern_searchpath = Path(
-        str(labelpolygons_pattern).format(image_layer="*")
-    )
-    labelpolygons_paths = list(
-        labelpolygons_pattern_searchpath.parent.glob(
-            labelpolygons_pattern_searchpath.name
-        )
-    )
-    labellocations_pattern_searchpath = Path(
-        str(labellocations_pattern).format(image_layer="*")
-    )
-    labellocations_paths = list(
-        labellocations_pattern_searchpath.parent.glob(
-            labellocations_pattern_searchpath.name
-        )
-    )
-
-    # Loop through all labellocation files
-    for labellocations_path in labellocations_paths:
-        tokens = _unformat(labellocations_path.stem, labellocations_pattern.stem)
-        if "image_layer" not in tokens:
-            raise ValueError(
-                f"image_layer token not found in {labellocations_path} using pattern "
-                f"{labellocations_pattern}"
-            )
-        image_layer = tokens["image_layer"]
-
-        # Look for the matching (= same image_layer) data file
-        found = False
-        for labelpolygons_path in labelpolygons_paths:
-            tokens = _unformat(labelpolygons_path.stem, labelpolygons_pattern.stem)
-            if "image_layer" not in tokens:
-                raise ValueError(
-                    f"image_layer token not found in {labelpolygons_path} using "
-                    f"pattern {labelpolygons_pattern}"
-                )
-
-            if tokens["image_layer"] == image_layer:
-                found = True
-                label_infos.append(
-                    prep.LabelInfo(
-                        locations_path=labellocations_path,
-                        polygons_path=labelpolygons_path,
-                        image_layer=image_layer,
-                    )
-                )
-        if found is False:
-            raise ValueError(f"No matching data file found for {labellocations_path}")
-
-    return label_infos
-
-
-def _unformat(string: str, pattern: str) -> dict:
-    regex = re.sub(r"{(.+?)}", r"(?P<_\1>.+)", pattern)
-    regex_result = re.search(regex, string)
-    if regex_result is not None:
-        values = list(regex_result.groups())
-        keys = re.findall(r"{(.+?)}", pattern)
-        _dict = dict(zip(keys, values))
-        return _dict
-    else:
-        raise Exception(f"Error: pattern {pattern} not found in {string}")
+        raise RuntimeError(f"{message}: {ex}") from ex
+    finally:
+        conf.remove_run_tmp_dir()
 
 
 def main():
+    """Run train."""
     try:
-        _train_args(sys.argv[1:])
+        # Interprete arguments
+        args = _train_args(sys.argv[1:])
+
+        # Run!
+        train(config_path=Path(args.config), config_overrules=args.config_overrules)
     except Exception as ex:
         logger.exception(f"Error: {ex}")
         raise

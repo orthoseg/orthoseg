@@ -1,31 +1,27 @@
-# -*- coding: utf-8 -*-
-"""
-Module containing some general utilities.
-"""
+"""Module containing some general utilities."""
 
 import datetime
 import logging
 import os
-from typing import Optional
 
 import psutil
-
-################################################################################
-# Some init
-################################################################################
 
 logger = logging.getLogger(__name__)
 
 
 class MissingRuntimeDependencyError(Exception):
-    """
-    Exception raised when an unsupported SQL statement is passed.
+    """Exception raised when an unsupported SQL statement is passed.
 
     Attributes:
         message (str): Exception message
     """
 
     def __init__(self, message):
+        """Constructor of MissingRuntimeDependencyError.
+
+        Args:
+            message (str): message.
+        """
         self.message = message
         super().__init__(self.message)
 
@@ -39,9 +35,19 @@ def report_progress(
     start_time: datetime.datetime,
     nb_done: int,
     nb_todo: int,
-    operation: Optional[str] = None,
+    operation: str | None = None,
     nb_parallel: int = 1,
 ):
+    """Function to report progress to the output.
+
+    Args:
+        start_time (datetime): time when the processing started.
+        nb_done (int): number of steps done.
+        nb_todo (int): total number of steps to do.
+        operation (Optional[str], optional): operation being done. Defaults to None.
+        nb_parallel (int, optional): number of parallel workers doing the processing.
+            Defaults to 1.
+    """
     # Init
     time_passed = (datetime.datetime.now() - start_time).total_seconds()
     pct_progress = 100.0 - (nb_todo - nb_done) * 100 / nb_todo
@@ -75,11 +81,15 @@ def report_progress(
         print(message, end="", flush=True)
 
 
-def formatbytes(bytes: float):
-    """
-    Return the given bytes as a human friendly KB, MB, GB, or TB string
-    """
+def formatbytes(bytes: float) -> str:
+    """Return the given bytes as a human friendly KB, MB, GB, or TB string.
 
+    Args:
+        bytes (float): number of bytes to format.
+
+    Returns:
+        str: number of bytes as a readable sting.
+    """
     bytes_float = float(bytes)
     KB = float(1024)
     MB = float(KB**2)  # 1,048,576
@@ -87,18 +97,28 @@ def formatbytes(bytes: float):
     TB = float(KB**4)  # 1,099,511,627,776
 
     if bytes_float < KB:
-        return "{0} {1}".format(bytes_float, "Bytes" if bytes_float > 1 else "Byte")
+        return "{} {}".format(bytes_float, "Bytes" if bytes_float > 1 else "Byte")
     elif KB <= bytes_float < MB:
-        return "{0:.2f} KB".format(bytes_float / KB)
+        return f"{bytes_float / KB:.2f} KB"
     elif MB <= bytes_float < GB:
-        return "{0:.2f} MB".format(bytes_float / MB)
+        return f"{bytes_float / MB:.2f} MB"
     elif GB <= bytes_float < TB:
-        return "{0:.2f} GB".format(bytes_float / GB)
+        return f"{bytes_float / GB:.2f} GB"
     elif TB <= bytes_float:
-        return "{0:.2f} TB".format(bytes_float / TB)
+        return f"{bytes_float / TB:.2f} TB"
+    else:
+        return ""
 
 
 def process_nice_to_priority_class(nice_value: int) -> int:
+    """Convert a linux nice value to a windows priority class.
+
+    Args:
+        nice_value (int): nice value between -20 and 20.
+
+    Returns:
+        int: windows priority class.
+    """
     if nice_value <= -15:
         return psutil.REALTIME_PRIORITY_CLASS
     elif nice_value <= -10:
@@ -114,8 +134,7 @@ def process_nice_to_priority_class(nice_value: int) -> int:
 
 
 def setprocessnice(nice_value: int):
-    """
-    Make the process nicer to other processes.
+    """Make the process nicer to other processes.
 
     Args:
         nice_value (int): Value between -20 (highest priority) and 20 (lowest priority)
@@ -128,8 +147,7 @@ def setprocessnice(nice_value: int):
 
 
 def getprocessnice() -> int:
-    """
-    Get the niceness of the process.
+    """Get the niceness of the process.
 
     Returns:
         int: Value between -20 (highest priority) and 20 (lowest priority)

@@ -1,0 +1,17 @@
+ci:
+    autofix_prs: false
+    autoupdate_schedule: quarterly
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: "v0.7.4"
+    hooks:
+      # Format the code
+      - id: ruff-format
+      # Lint the code
+      - id: ruff
+        args: [ --fix ] #, --unsafe-fixes ]
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: "v1.10.1"
+    hooks:
+      - id: mypy

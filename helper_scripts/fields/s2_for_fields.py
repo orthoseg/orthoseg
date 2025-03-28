@@ -1,3 +1,5 @@
+# mypy: ignore-errors
+
 from datetime import datetime
 import logging
 from pathlib import Path
@@ -80,7 +82,7 @@ def get_s2_for_fields(output_dir: Path):
     cube = conn.load_collection(
         collection,
         spatial_extent=roi,
-        temporal_extent=[start_date_str, end_date_str],  # type: ignore
+        temporal_extent=[start_date_str, end_date_str],
         bands=bands_to_load,
         max_cloud_cover=max_cloud_cover,
     )
@@ -121,7 +123,7 @@ def get_s2_for_fields(output_dir: Path):
 
             # Add (rescaled) band to new cube
             cube_tmp = band_tmp if cube_tmp is None else cube_tmp.merge_cubes(band_tmp)
-        
+
         # Rescaling finished
         cube = cube_tmp
         assert cube is not None

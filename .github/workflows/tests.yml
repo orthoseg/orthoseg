@@ -5,20 +5,26 @@ name: Tests
 
 on:
   push:
-    branches: [ master, 0.** ]
+    branches: [ main, 0.** ]
   pull_request:
-    branches: [ master, 0.** ]
+    branches: [ main, 0.** ]
+    paths-ignore:
+      - "docs/**"
+      - ".github/workflows/tests_installed.yml"
+      - "*.md"
+      - "*.yml"
   schedule:
-    - cron: "0 0 * * *"
+    # Run every Tuesday at 2:40 UTC
+    - cron: "40 2 * * 2"
 
 concurrency: 
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-
   Test:
-    name: ${{ matrix.os }}, ${{ matrix.env }}
+    name: ${{ matrix.env }} - python ${{ matrix.python }} - ${{ matrix.os }}
+    timeout-minutes: 30
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -28,32 +34,39 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         dev: [false]
-        env:
-          - ci/envs/38-latest.yaml
-          - ci/envs/39-latest.yaml
-          - ci/envs/310-latest.yaml
+        python: ["3.10", "3.11", "3.12"]
+        env: ["latest"]
         include:
-          - env: ci/envs/310-latest.yaml
-            os: macos-latest
+          - env: latest
+            os: macos-13
             dev: false
-          - env: ci/envs/310-latest.yaml
+            python: "3.12"
+          - env: latest
             os: windows-latest
             dev: false
-            
-    steps:
-      - uses: actions/checkout@v2
+            python: "3.10"
+          - env: minimal
+            os: ubuntu-latest
+            dev: false
+            python: "3.10"
 
-      - name: Setup Conda
-        uses: conda-incubator/setup-miniconda@v2
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Conda environment with Micromamba
+        uses: mamba-org/setup-micromamba@v2
         with:
-          environment-file: ${{ matrix.env }}
-          miniforge-version: latest
-          miniforge-variant: Mambaforge
-          use-mamba: true
+          micromamba-version: '1.5.1-0'
+          environment-file: ci/envs/${{ matrix.env }}.yml
+          create-args: >-
+            python=${{ matrix.python }}
+            ${{ matrix.extra }}
 
       - name: Test
         run: |
           pytest --color=yes --cov=orthoseg --cov-append --cov-report term-missing --cov-report xml tests/
 
-      - uses: codecov/codecov-action@v2
-      
+      - name: Upload coverage reports to Codecov with GitHub Action
+        uses: codecov/codecov-action@v5
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

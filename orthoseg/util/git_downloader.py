@@ -1,23 +1,29 @@
-#!/usr/bin/python3
-# Based on https://github.com/sdushantha/gitdir/blob/master/gitdir/gitdir.py
+"""Module to download files from a github repo.
 
+Based on https://github.com/sdushantha/gitdir/blob/master/gitdir/gitdir.py
+"""
+# mypy: ignore-errors
+
+import json
 import re
-import os
 import ssl
 import time
-from typing import Union
 import urllib.request
-import json
 from pathlib import Path
 
 
-def create_url(url):
-    """
-    From the given url, produce a URL that is compatible with Github's REST API.
-    Can handle blob or tree paths.
-    """
+def create_url(url: str) -> tuple[str, list[Path]]:
+    """From the given url, produce a URL that is compatible with Github's REST API.
 
-    # extract the branch name from the given url (e.g master)
+    Can handle blob or tree paths.
+
+    Args:
+        url (str): the base url.
+
+    Returns:
+        (str, list[Path]): Github REST API compatible url + directories to download.
+    """
+    # extract the branch name from the given url (e.g main)
     branch = re.findall(r"/tree/(.*?)/", url)
     api_url = url.replace("https://github.com", "https://api.github.com/repos")
     if len(branch) == 0:
@@ -36,13 +42,12 @@ def create_url(url):
 def download(
     repo_url: str,
     output_dir: Path,
-    ssl_verify: Union[bool, str, None] = None,
+    ssl_verify: bool | str | None = None,
     limit_rate: bool = True,
-):
-    """
-    Downloads the files and directories in repo_url.
+) -> int | None:
+    """Downloads the files and directories in repo_url.
 
-    Args
+    Args:
         repo_url (str): url to the repository to download.
         output_dir (Path): directory to download the repository to.
         ssl_verify (bool or str, optional): True or None to use the default
@@ -55,6 +60,7 @@ def download(
             github to the maximum level allowed for unauthenticated users.
             Defaults to True.
     """
+    total_files = None
     context = None
     if ssl_verify is not None:
         # If it is a string, make sure it isn't actually a bool
@@ -84,45 +90,61 @@ def download(
     # If limit_rate enabled, always sleep 1 second before doing a request!
     if limit_rate:
         time.sleep(1)
-    with urllib.request.urlopen(api_url, context=context) as u:
-        # Make a directory with the name which is taken from
-        # the actual repo
-        dir_out.mkdir(parents=True, exist_ok=True)
 
-        # Total files count
-        total_files = 0
-        raw_data = u.read()
-        data = json.loads(raw_data)
+    url = api_url
+    try:
+        with urllib.request.urlopen(url, context=context) as u:
+            # Make a directory with the name which is taken from
+            # the actual repo
+            dir_out.mkdir(parents=True, exist_ok=True)
 
-        # Get the total number of files
-        total_files += len(data)
+            # Total files count
+            total_files = 0
+            raw_data = u.read()
+            data = json.loads(raw_data)
 
-        # If the data is a file, download it as one.
-        if isinstance(data, dict) and data["type"] == "file":
-            # Download the file
-            if limit_rate:
-                time.sleep(1)
-            with urllib.request.urlopen(
-                data["download_url"], context=context
-            ) as u, open(dir_out / data["name"], "wb") as f:
-                f.write(u.read())
-            return total_files
+            # Get the total number of files
+            total_files += len(data)
 
-        # Loop over all files/dirs found
-        for file in data:
-            file_url = file["download_url"]
-            path = output_dir / file["path"]
-            os.makedirs(path.parent, exist_ok=True)
-
-            # If it is a file, download it, if dir, start recursively
-            if file_url is not None:
+            # If the data is a file, download it as one.
+            if isinstance(data, dict) and data["type"] == "file":
+                # Download the file
                 if limit_rate:
                     time.sleep(1)
-                with urllib.request.urlopen(file_url, context=context) as u, open(
-                    path, "wb"
-                ) as f:
+                url = data["download_url"]
+                with (
+                    urllib.request.urlopen(url, context=context) as u,
+                    open(dir_out / data["name"], "wb") as f,
+                ):
                     f.write(u.read())
-            else:
-                download(file["html_url"], output_dir)
+
+                return total_files
+
+            # Loop over all files/dirs found
+            for file in data:
+                url = file["download_url"]
+                path = output_dir / file["path"]
+                path.parent.mkdir(parents=True, exist_ok=True)
+
+                # If it is a file, download it, if dir, start recursively
+                if url is not None:
+                    if limit_rate:
+                        time.sleep(1)
+                    with (
+                        urllib.request.urlopen(url, context=context) as u,
+                        open(path, "wb") as f,
+                    ):
+                        f.write(u.read())
+                else:
+                    download(file["html_url"], output_dir)
+
+    except urllib.error.HTTPError as ex:  # pragma: no cover
+        if ex.code == 403:
+            message = f"Error: API Rate limit exceeded for url {url}"
+        else:
+            message = f"Error with url: {url}: {ex}"
+        raise RuntimeError(message) from ex
+    except Exception as ex:
+        raise RuntimeError(f"Error with url: {url}: {ex}") from ex
 
     return total_files

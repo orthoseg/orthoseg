@@ -1,32 +1,29 @@
-# -*- coding: utf-8 -*-
-"""
-Module with specific helper functions to manage the logging of orthoseg.
+"""Module with specific helper functions to manage the logging of orthoseg.
 
 TODO: maybe it is cleaner to replace most code here by a config dict?
 """
 
-from email.message import EmailMessage
 import logging
 import smtplib
-from typing import Optional
+from email.message import EmailMessage
 
 from orthoseg.helpers import config_helper as conf
 
-# -------------------------------------------------------------
-# First define/init general variables/constants
-# -------------------------------------------------------------
 # Get a logger...
 logger = logging.getLogger(__name__)
 
-# -------------------------------------------------------------
-# The real work
-# -------------------------------------------------------------
 
+def sendmail(subject: str, body: str | None = None, stop_on_error: bool = False):
+    """Send an email.
 
-def sendmail(subject: str, body: Optional[str] = None, stop_on_error: bool = False):
-
+    Args:
+        subject (str): subject of the email
+        body (Optional[str], optional): body of the email. Defaults to None.
+        stop_on_error (bool, optional): True to stop when an error occurs sending the
+            email. Defaults to False.
+    """
     if conf is None:
-        raise Exception("Config is not initialized")
+        raise ValueError("Config is not initialized")
 
     if not conf.email.getboolean("enabled", fallback=False):
         return
@@ -63,4 +60,4 @@ def sendmail(subject: str, body: Optional[str] = None, stop_on_error: bool = Fal
         if stop_on_error is False:
             logger.exception("Error sending email")
         else:
-            raise Exception("Error sending email") from ex
+            raise RuntimeError("Error sending email") from ex

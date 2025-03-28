@@ -1,54 +1,62 @@
-# -*- coding: utf-8 -*-
 """
 Tests for functionalities in orthoseg.lib.postprocess_predictions.
 """
-import os
-from pathlib import Path
-import sys
-from typing import List, Optional, Union
 
+import filecmp
+import math
+import os
+import shutil
+from pathlib import Path
+
+import geofileops as gfo
+import geopandas as gpd
 import pytest
+from PIL import Image
 from shapely import geometry as sh_geom
+
+from tests import test_helper
 
 # Make hdf5 version warning non-blocking
 os.environ["HDF5_DISABLE_VERSION_CHECK"] = "1"
 
-import geopandas as gpd
-import geofileops as gfo
-
-# Add path so the local orthoseg packages are found
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from orthoseg.helpers import config_helper
 from orthoseg.lib import prepare_traindatasets as prep_traindata
 from orthoseg.lib.prepare_traindatasets import ValidationError
 from tests.test_helper import TestData
 
-# ----------------------------------------------------
-# Helper functions to prepare test data
-# ----------------------------------------------------
+
+@pytest.fixture
+def empty_image(tmp_path):
+    path = tmp_path / "empty_image.png"
+    if not path.exists():
+        img = Image.new(
+            mode="RGB",
+            size=(TestData.image_pixel_width, TestData.image_pixel_height),
+        )
+        img.save(path, "png")
+
+    return path
 
 
 def _prepare_locations_file(
-    tmp_path, locations: Optional[Union[dict, gpd.GeoDataFrame]]
+    tmp_path, locations: dict | gpd.GeoDataFrame | None
 ) -> Path:
     locations_path = tmp_path / "locations.gpkg"
     if locations is None:
         locations = TestData.locations_gdf
     if isinstance(locations, dict):
-        locations = gpd.GeoDataFrame(locations, crs="EPSG:31370")  # type: ignore
+        locations = gpd.GeoDataFrame(locations, crs="EPSG:31370")
 
     gfo.to_file(locations, locations_path)
     return locations_path
 
 
-def _prepare_polygons_file(
-    tmp_path, polygons: Optional[Union[dict, gpd.GeoDataFrame]]
-) -> Path:
+def _prepare_polygons_file(tmp_path, polygons: dict | gpd.GeoDataFrame | None) -> Path:
     polygons_path = tmp_path / "polygons.gpkg"
     if polygons is None:
         polygons = TestData.polygons_gdf
     if isinstance(polygons, dict):
-        polygons = gpd.GeoDataFrame(polygons, crs="EPSG:31370")  # type: ignore
+        polygons = gpd.GeoDataFrame(polygons, crs="EPSG:31370")
 
     gfo.to_file(polygons, polygons_path)
     return polygons_path
@@ -56,9 +64,9 @@ def _prepare_polygons_file(
 
 def _prepare_labelinfos(
     tmp_path,
-    locations: Optional[Union[dict, gpd.GeoDataFrame]] = None,
-    polygons: Optional[Union[dict, gpd.GeoDataFrame]] = None,
-) -> List[prep_traindata.LabelInfo]:
+    locations: dict | gpd.GeoDataFrame | None = None,
+    polygons: dict | gpd.GeoDataFrame | None = None,
+) -> list[prep_traindata.LabelInfo]:
     locations_path = _prepare_locations_file(tmp_path, locations)
     polygons_path = _prepare_polygons_file(tmp_path, polygons)
 
@@ -70,16 +78,12 @@ def _prepare_labelinfos(
     return [label_info]
 
 
-# Actual tests
-# ------------
-
-
 @pytest.mark.parametrize(
     "geometry, traindata_type, expected_len_locations",
     [
-        [TestData.location, "train", 4],
-        [None, "validation", 2],
-        [sh_geom.Polygon(), "validation", 2],
+        (TestData.location, "train", 4),
+        (None, "validation", 2),
+        (sh_geom.Polygon(), "validation", 2),
     ],
 )
 def test_prepare_labeldata_locations(geometry, traindata_type, expected_len_locations):
@@ -93,7 +97,7 @@ def test_prepare_labeldata_locations(geometry, traindata_type, expected_len_loca
             "traindata_type": ["train", traindata_type, traindata_type, "validation"],
             "path": "/tmp/locations.gdf",
         },
-        crs="EPSG:31370",  # type: ignore
+        crs="EPSG:31370",
     )
     label_info = prep_traindata.LabelInfo(
         locations_path=Path("locations"),
@@ -154,7 +158,7 @@ def test_prepare_labeldata_locations_invalid(
             "traindata_type": traindata_types,
             "path": "/tmp/locations.gdf",
         },
-        crs="EPSG:31370",  # type: ignore
+        crs="EPSG:31370",
     )
     label_info = prep_traindata.LabelInfo(
         locations_path=Path("locations"),
@@ -199,7 +203,7 @@ def test_prepare_labeldata_polygons(geometry, classname, expected_len_polygons):
             "classname": ["testlabel1", classname, classname, "testlabel2"],
             "path": "/tmp/polygons.gdf",
         },
-        crs="EPSG:31370",  # type: ignore
+        crs="EPSG:31370",
     )
     label_info = prep_traindata.LabelInfo(
         locations_path=Path("locations"),
@@ -228,8 +232,9 @@ def test_prepare_labeldata_polygons(geometry, classname, expected_len_polygons):
 @pytest.mark.parametrize(
     "expected_error, geometry, classname",
     [
-        ["Invalid geometry ", TestData.polygon_invalid, "testlabel1"],
-        ["Invalid classname ", TestData.polygon, "unknown"],
+        ("Invalid geometry ", TestData.polygon_invalid, "testlabel1"),
+        ("Invalid class/label name ", TestData.polygon, "unknown"),
+        ("Invalid class/label name ", TestData.polygon, None),
     ],
 )
 def test_prepare_labeldata_polygons_invalid(expected_error, geometry, classname):
@@ -241,7 +246,7 @@ def test_prepare_labeldata_polygons_invalid(expected_error, geometry, classname)
             "classname": ["testlabel1", classname, classname, "testlabel2"],
             "path": "/tmp/polygons.gdf",
         },
-        crs="EPSG:31370",  # type: ignore
+        crs="EPSG:31370",
     )
     label_info = prep_traindata.LabelInfo(
         locations_path=Path("locations"),
@@ -269,7 +274,7 @@ def test_prepare_labeldata_polygons_invalid(expected_error, geometry, classname)
     assert ex.value.errors[1].startswith(expected_error)
 
 
-def test_prepare_labeldata_polygons_columnname_backw_compat(tmp_path):
+def test_prepare_labeldata_polygons_columnname_backw_compat():
     # Test bacwards compatibility for old label column name
     # Prepare test data
     polygons_gdf = gpd.GeoDataFrame(
@@ -278,7 +283,7 @@ def test_prepare_labeldata_polygons_columnname_backw_compat(tmp_path):
             "label_name": ["testlabel1", "testlabel2"],
             "path": "/tmp/polygons.gdf",
         },
-        crs="EPSG:31370",  # type: ignore
+        crs="EPSG:31370",
     )
     label_info = prep_traindata.LabelInfo(
         locations_path=Path("locations"),
@@ -303,24 +308,93 @@ def test_prepare_labeldata_polygons_columnname_backw_compat(tmp_path):
     assert len(polygons_to_burn_gdf) == 2
 
 
-def test_prepare_traindata_full(tmp_path):
+locations = {
+    "loc1": (150100, 150100, "150100_150100_150228_150228_512_512_OMWRGB19VL.png"),
+    "loc2": (150200, 150200, "150200_150200_150328_150328_512_512_OMWRGB19VL.png"),
+    "loc3": (150300, 150300, "150300_150300_150428_150428_512_512_OMWRGB19VL.png"),
+}
+
+
+@pytest.mark.skipif(os.name == "nt", reason="crashes on windows")
+@pytest.mark.parametrize(
+    "descr, prev_locations, new_locations",
+    [
+        ("reuse1_new1", ["loc1"], ["loc1", "loc2"]),
+        ("remove1", ["loc1", "loc2", "loc3"], ["loc1", "loc2"]),
+        ("reuse_all", ["loc1", "loc2"], ["loc1", "loc2"]),
+        ("reuse_none", ["loc3"], ["loc1", "loc2"]),
+    ],
+)
+def test_prepare_traindatasets_reuse_prev_images(
+    tmp_path, empty_image, descr, prev_locations, new_locations
+):
+    """Test if images of previous training versions are reused properly."""
     # Prepare test data
     classes = TestData.classes
-    image_layers_config_path = TestData.sampleprojects_dir / "imagelayers.ini"
-    image_layers = config_helper.read_layer_config(image_layers_config_path)
+    image_layers_config_path = test_helper.sampleprojects_dir / "imagelayers.ini"
+    image_layers = config_helper._read_layer_config(image_layers_config_path)
     label_infos = _prepare_labelinfos(tmp_path)
+    training_dir = tmp_path / "training"
 
-    # Test with the default data...
-    training_dir = tmp_path / "training_dir"
-    training_dir, _ = prep_traindata.prepare_traindatasets(
+    # Prepare images to be reused from previous training version
+    prev_training_dir = training_dir / "01"
+    traindata_types = ["train", "validation", "test"]
+
+    for traindata_type in traindata_types:
+        dir = prev_training_dir / traindata_type
+        (dir / "image").mkdir(parents=True, exist_ok=True)
+        (dir / "mask").mkdir(parents=True, exist_ok=True)
+        for previous_location in prev_locations:
+            _, _, image = locations[previous_location]
+            image_path = dir / "image" / image
+            shutil.copy(empty_image, image_path)
+            image_path.with_suffix(".pgw").touch()
+
+    # Prepare gdf with new locations
+    new_locations_list = []
+    crs_width = TestData.image_pixel_width * TestData.image_pixel_x_size
+    crs_height = TestData.image_pixel_height * TestData.image_pixel_y_size
+    for new_location in new_locations:
+        xmin, ymin, _ = locations[new_location]
+        geometry = sh_geom.box(xmin, ymin, xmin + crs_width, ymin + crs_height)
+        for traindata_type in traindata_types:
+            new_locations_list.append(
+                {
+                    "geometry": geometry,
+                    "traindata_type": traindata_type,
+                    "path": "/tmp/locations.gdf",
+                }
+            )
+
+    new_locations_gdf = gpd.GeoDataFrame(new_locations_list, crs=31370)
+
+    # Run prepare traindatasets
+    label_infos = _prepare_labelinfos(tmp_path=tmp_path, locations=new_locations_gdf)
+
+    new_training_dir, _ = prep_traindata.prepare_traindatasets(
         label_infos=label_infos,
         classes=classes,
         image_layers=image_layers,
         training_dir=training_dir,
-        image_pixel_x_size=TestData.image_pixel_x_size,
-        image_pixel_y_size=TestData.image_pixel_y_size,
-        image_pixel_width=TestData.image_pixel_width,
-        image_pixel_height=TestData.image_pixel_height,
     )
 
-    assert training_dir.exists()
+    # Check if files exist in new output folder and if they have the correct size
+    # if size = 1kb then copied else if size = 2kb downloaded
+    for traindata_type in traindata_types:
+        for loc in ["loc1", "loc2", "loc3"]:
+            filename = locations[loc][2]
+            prev_path = prev_training_dir / traindata_type / "image" / filename
+            new_path = new_training_dir / traindata_type / "image" / filename
+
+            if loc in new_locations and loc in prev_locations:
+                # File is reused, so should be the same and small
+                assert filecmp.cmp(prev_path, new_path, shallow=False) is True
+                assert math.ceil(new_path.stat().st_size) <= 1024
+            elif loc in new_locations:
+                # File is new, so should exist and be larger than 1 kb
+                assert new_path.exists()
+                assert math.ceil(new_path.stat().st_size) > 1024
+            elif loc in prev_locations:
+                # File is only supposed to be in previous locations, not in new
+                assert not new_path.exists()
+                assert prev_path.exists()

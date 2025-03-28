@@ -1,25 +1,16 @@
-# -*- coding: utf-8 -*-
-"""
-Run the scripts in a directory.
-"""
+"""Run the scripts in a directory."""
 
 import argparse
 import configparser
-from pathlib import Path
 import subprocess
-import sys
 import time
+from pathlib import Path
 
-# orthoseg is higher in dir hierarchy, add root to sys.path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from orthoseg.util import log_util
-from orthoseg.util import config_util
-
-runner_config = None
+from orthoseg.util import config_util, log_util
 
 
 def main():
-
+    """Main."""
     # Interprete arguments
     parser = argparse.ArgumentParser(add_help=False)
 
@@ -78,7 +69,6 @@ def main():
     # Loop over scripts to be ran
     wait_message_printed = False
     while True:
-
         # List the scripts in the dir
         script_paths = []
         script_patterns = conf["general"].getlist("script_patterns")
@@ -161,7 +151,15 @@ def main():
 def load_scriptrunner_config(
     config_path: str, script_dir: Path
 ) -> configparser.ConfigParser:
+    """Load the configuration of scriptrunner.
 
+    Args:
+        config_path (str): config file to load.
+        script_dir (Path): _description_
+
+    Returns:
+        configparser.ConfigParser: _description_
+    """
     # Load defaults first
     scriptrunner_py_dir = Path(__file__).resolve().parent
     config_paths = [scriptrunner_py_dir / "scriptrunner_defaults.ini"]
