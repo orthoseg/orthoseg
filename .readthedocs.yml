@@ -30,7 +30,7 @@ build:
       - ls -al ~/checkouts/readthedocs.org/user_builds/orthoseg/conda/259/lib
       - export CONDA_ENV_LIB1=`cat ~/.conda/environments.txt`
       - echo $CONDA_ENV_LIB1
-      - CONDAENVLIB=`~/checkouts/readthedocs.org/user_builds/orthoseg/conda/259/lib`
+      - CONDAENVLIB=~/checkouts/readthedocs.org/user_builds/orthoseg/conda/259/lib
       - echo $CONDAENVLIB
       - echo $PATH
       - export PATH='$CONDAENVLIB/lib:$PATH'
