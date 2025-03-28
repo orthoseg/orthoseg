@@ -23,7 +23,11 @@ build:
       #- ls -ltr
       #- . etc/profile.d/conda.sh
       - . ~/.bashrc
-      - ls -altr ~
+      - ls -altr ~/.conda
+      - ls -altr ~/.conda/envs
+      - ls -altr ~/.conda/envs/259
+      - ls -altr ~/.conda/envs/259/Library
+      - ls -altr ~/.conda/envs/259/Library/bin
       - ls -altr /home/docs
       - ls -altr /home/docs/envs
       - ls -altr /home/docs/envs/259
