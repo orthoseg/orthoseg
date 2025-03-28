@@ -25,21 +25,10 @@ build:
       - . ~/.bashrc
       - ls -altr ~/.conda
       - cat ~/.conda/environments.txt
-      - ls -altr ~/.conda/envs
-      - ls -altr ~/.conda/envs/259
-      - ls -altr ~/.conda/envs/259/Library
-      - ls -altr ~/.conda/envs/259/Library/bin
-      - ls -altr /home/docs
-      - ls -altr /home/docs/envs
-      - ls -altr /home/docs/envs/259
-      - ls -altr /home/docs/envs/259/Library
-      - ls -altr /home/docs/envs/259/Library/bin
-      - ls -altr /home/docs/.asdf/installs/python/mambaforge-23.11.0-0
-      - ls -altr /home/docs/.asdf/installs/python/mambaforge-23.11.0-0/envs
-      - ls -altr /home/docs/.asdf/installs/python/mambaforge-23.11.0-0/envs/259
-      - ls -altr /home/docs/.asdf/installs/python/mambaforge-23.11.0-0/envs/259/Library
-      - ls -altr /home/docs/.asdf/installs/python/mambaforge-23.11.0-0/envs/259/Library/bin
-      - export PATH="/home/docs/.asdf/installs/python/mambaforge-23.11.0-0/envs/259/Library/bin:$PATH"
+      - ls -altr ~/checkouts/readthedocs.org/user_builds/orthoseg/conda/259
+      - ls -altr ~/checkouts/readthedocs.org/user_builds/orthoseg/conda/259/Library
+      - ls -altr ~/checkouts/readthedocs.org/user_builds/orthoseg/conda/259/Library/bin
+      - export PATH="/home/docs/checkouts/readthedocs.org/user_builds/orthoseg/conda/259/Library/bin:$PATH"
       # - conda activate 259
 
 # Build documentation in the docs/ directory with Sphinx
