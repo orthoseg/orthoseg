@@ -16,6 +16,7 @@ build:
       #- CONDA_BASE=$(conda info --base)
       #- . $CONDA_BASE/etc/profile.d/conda.sh
       #- conda activate base
+      - mamba list
       - conda init
       #- . /home/docs/.asdf/installs/python/mambaforge-23.11.0-0/etc/profile.d/conda.sh
       #- /home/docs/.asdf/installs/python/miniconda3-3.12-24.9.2-0/etc/profile.d/conda.sh
