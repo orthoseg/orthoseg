@@ -33,7 +33,7 @@ build:
       - CONDAENVLIB=~/checkouts/readthedocs.org/user_builds/orthoseg/conda/259/lib
       - echo $CONDAENVLIB
       - echo $PATH
-      - export PATH=/home/docs/checkouts/readthedocs.org/user_builds/orthoseg/conda/259/lib:$PATH
+      - export PATH="/home/docs/checkouts/readthedocs.org/user_builds/orthoseg/conda/259/lib:$PATH"
       - echo $PATH
       #- export PATH="/home/docs/checkouts/readthedocs.org/user_builds/orthoseg/conda/259/lib:$PATH"
       # - conda activate 259
