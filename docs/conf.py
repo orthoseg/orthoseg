@@ -38,7 +38,8 @@ author = "Pieter Roggemans"
 # built documents.
 script_dir = Path(__name__).resolve()
 print(script_dir)
-lib_dir = "/home/docs/checkouts/readthedocs.org/user_builds/orthoseg/conda/259/lib"
+lib_dir = "/home/docs/checkouts/readthedocs.org/user_builds/orthoseg/conda/259/lib/"
+#lib_dir = "/home/docs/checkouts/readthedocs.org/user_builds/orthoseg/conda/259/lib"
 os.environ["PATH"] = f'{os.environ["PATH"]}:{lib_dir}'
 import orthoseg  # noqa: E402
 

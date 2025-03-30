@@ -14,7 +14,7 @@ build:
   jobs:
     post_install:
       - mamba list
-      - find / -name "mod_spatialite.so"
+      #- find / -name "mod_spatialite.so"
       #- . /home/docs/.asdf/installs/python/mambaforge-23.11.0-0/etc/profile.d/conda.sh
       #- /home/docs/.asdf/installs/python/miniconda3-3.12-24.9.2-0/etc/profile.d/conda.sh
       #- /home/docs/.asdf/installs/python/miniconda3-3.12-24.9.2-0/bin/activate orthosegdoc
