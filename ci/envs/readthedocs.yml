@@ -20,10 +20,10 @@ dependencies:
   - rasterio
   - shapely >=2
   - simplification
+  - tensorflow-cpu >=2.8
   # docs
   - pydata-sphinx-theme
   - sphinx <6
   - sphinx-automodapi
   - pip:
     - segmentation-models >=1.0,<1.1
-    - tensorflow-cpu >=2.8
