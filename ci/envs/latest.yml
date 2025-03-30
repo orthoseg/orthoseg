@@ -7,7 +7,7 @@ dependencies:
   # required
   - gdal
   - gdown
-  - geofileops >=0.6,<0.10
+  - geofileops >=0.6,<0.11
   - geopandas-base >=0.12,<1.1
   - matplotlib-base
   - numpy <2
