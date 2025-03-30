@@ -12,7 +12,6 @@
 #
 import os
 import sys
-from pathlib import Path
 
 sys.path.insert(0, os.path.abspath(".."))
 
@@ -36,11 +35,6 @@ author = "Pieter Roggemans"
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
 # built documents.
-script_dir = Path(__name__).resolve()
-print(script_dir)
-lib_dir = "/home/docs/checkouts/readthedocs.org/user_builds/orthoseg/conda/259/lib/"
-#lib_dir = "/home/docs/checkouts/readthedocs.org/user_builds/orthoseg/conda/259/lib"
-os.environ["PATH"] = f'{os.environ["PATH"]}:{lib_dir}'
 import orthoseg  # noqa: E402
 
 version = release = orthoseg.__version__
