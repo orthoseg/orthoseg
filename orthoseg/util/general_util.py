@@ -55,7 +55,7 @@ def report_progress(
     # If we haven't really started yet, don't report time estimate yet
     if nb_done == 0:
         message = (
-            f"\r  ?: ? left to do {operation} on {(nb_todo-nb_done):8d} "
+            f"\r  ?: ? left to do {operation} on {(nb_todo - nb_done):8d} "
             f"of {nb_todo:8d} ({pct_progress:3.2f}%)    "
         )
         print(message, end="", flush=True)
@@ -71,12 +71,12 @@ def report_progress(
         if pct_progress < 100:
             message = (
                 f"\r{hours_to_go:3d}:{min_to_go:2d} left to do {operation} on "
-                f"{(nb_todo-nb_done):8d} of {nb_todo:8d} ({pct_progress:3.2f}%)    "
+                f"{(nb_todo - nb_done):8d} of {nb_todo:8d} ({pct_progress:3.2f}%)    "
             )
         else:
             message = (
                 f"\r{hours_to_go:3d}:{min_to_go:2d} left to do {operation} on "
-                f"{(nb_todo-nb_done):8d} of {nb_todo:8d} ({pct_progress:3.2f}%)    \n"
+                f"{(nb_todo - nb_done):8d} of {nb_todo:8d} ({pct_progress:3.2f}%)    \n"
             )
         print(message, end="", flush=True)
 

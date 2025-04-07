@@ -589,7 +589,7 @@ def _predict_layer(
             ):
                 read_sleep_logged = False
                 perf_time_now = datetime.datetime.now()
-                perfinfo += f"waiting for read took {perf_time_now-perf_time_start}"
+                perfinfo += f"waiting for read took {perf_time_now - perf_time_start}"
                 perf_time_start = perf_time_now
 
                 # Predict!
@@ -603,7 +603,7 @@ def _predict_layer(
                 batch_pred_arr = model.predict_on_batch(batch_image_arr)
 
                 perf_time_now = datetime.datetime.now()
-                perfinfo += f", predict took {perf_time_now-perf_time_start}"
+                perfinfo += f", predict took {perf_time_now - perf_time_start}"
                 perf_time_start = perf_time_now
 
                 # In tf > 2.1 a tf.tensor object is returned, but we want an ndarray
@@ -664,9 +664,7 @@ def _predict_layer(
 
                 # Collect performance debugging info
                 perf_time_now = datetime.datetime.now()
-                perfinfo += (
-                    f", scheduling postprocessings took {perf_time_now-perf_time_start}"
-                )
+                perfinfo += f", scheduling postprocessings took {perf_time_now - perf_time_start}"
                 perf_time_start = perf_time_now
 
             # Check postp_queue for completed postprocessings
@@ -733,7 +731,7 @@ def _predict_layer(
 
                     perf_time_now = datetime.datetime.now()
                     perfinfo += (
-                        f", after postproces: took {perf_time_now-perf_time_start}"
+                        f", after postproces: took {perf_time_now - perf_time_start}"
                     )
                     perf_time_start = perf_time_now
                     break
