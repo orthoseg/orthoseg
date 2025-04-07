@@ -523,8 +523,7 @@ def prepare_labeldata(
             )
             if is_valid_reason != "Valid Geometry":
                 validation_errors.append(
-                    f"Invalid geometry in {Path(location.path).name}: "
-                    f"{is_valid_reason}"
+                    f"Invalid geometry in {Path(location.path).name}: {is_valid_reason}"
                 )
                 continue
 
