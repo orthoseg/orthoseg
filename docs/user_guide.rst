@@ -133,9 +133,9 @@ this tutorial you well need to use the "image layer names" (for these examples
 
 A file layer can be any local file in one of the many raster file types supported
 by `GDAL <https://gdal.org/en/stable/drivers/raster>`_ , but it also offers
-other options. You can par example access an XYZ server layer by creating an
+other options. You can par example access a TMS or XYZ tile server layer by creating an
 xml file with the necessary configuration information. An example file: 
-`osm_xyz.xml <https://github.com/orthoseg/orthoseg/tree/main/sample_projects/footballfields/osm_xyz.xml>`_.
+`imagelayer_osm.xml <https://github.com/orthoseg/orthoseg/tree/main/sample_projects/imagelayer_osm.xml>`_.
 
 A more elaborate example that can be used as a template for the configuration can be
 found here: `imagelayers.ini <https://github.com/orthoseg/orthoseg/blob/main/sample_projects/imagelayers.ini>`_.
