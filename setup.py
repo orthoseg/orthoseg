@@ -24,7 +24,7 @@ setuptools.setup(
         "geofileops>=0.9,<0.11",
         "geopandas>=1.0,<1.1",
         "matplotlib",
-        "numpy<2",
+        "numpy",
         "owslib",
         "pillow",
         "pycron",
