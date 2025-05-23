@@ -2,6 +2,7 @@
 
 import logging
 import math
+import os
 import random
 import time
 import warnings
@@ -1059,6 +1060,12 @@ def load_image(
                     image_file = memfile.open()
 
             elif isinstance(layersource, FileLayerSource):
+                if (isinstance(ssl_verify, bool) and not ssl_verify) or (
+                    isinstance(ssl_verify, str) and ssl_verify.lower() == "false"
+                ):
+                    # Set the GDAL_HTTP_UNSAFESSL environment variable
+                    os.environ["GDAL_HTTP_UNSAFESSL"] = "YES"
+
                 image_file = rio.open(str(layersource.path))
                 if layersource.bands is not None:
                     nb_bands = len(layersource.bands)

@@ -1,0 +1,24 @@
+<GDAL_WMS>
+    <!-- The TMS mini-driver supports both TMS and XYZ tiling variants. -->
+    <Service name="TMS">
+        <ServerUrl>https://tile.openstreetmap.org/${z}/${x}/${y}.png</ServerUrl>
+    </Service>
+    <DataWindow>
+        <UpperLeftX>-20037508.34</UpperLeftX>
+        <UpperLeftY>20037508.34</UpperLeftY>
+        <LowerRightX>20037508.34</LowerRightX>
+        <LowerRightY>-20037508.34</LowerRightY>
+        <TileLevel>18</TileLevel>
+        <TileCountX>1</TileCountX>
+        <TileCountY>1</TileCountY>
+        <!-- for TMS set YOrigin to bottom, for XYZ set YOrigin to top. -->
+        <YOrigin>top</YOrigin>  <!-- OSM uses the XYZ tiling variant. -->
+    </DataWindow>
+    <Projection>EPSG:3857</Projection>
+    <BlockSizeX>256</BlockSizeX>
+    <BlockSizeY>256</BlockSizeY>
+    <BandsCount>3</BandsCount>
+    <!-- Add a specific user agent text, to avoid the default one being used, and potentially blocked by OSM servers in case a too big usage of it would be seen. -->
+	<UserAgent>gfo</UserAgent>
+    <Cache />
+</GDAL_WMS>

@@ -5,7 +5,7 @@ ignore = ["*"]
 exclude = ["local_ignore"]
 
 [[tool.mypy.overrides]]
-module = "gdown.*,geopandas.*,h5py.*,keras.*,matplotlib.*,owslib.*,psutil.*,pycron.*,rasterio.*,segmentation_models.*,setuptools.*,openeo.*"
+module = "gdown.*,geopandas.*,h5py.*,keras.*,matplotlib.*,owslib.*,psutil.*,pycron.*,rasterio.*,segmentation_models.*,setuptools.*,openeo.*,osgeo.*"
 ignore_missing_imports = true
 
 [tool.ruff]

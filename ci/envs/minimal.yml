@@ -5,11 +5,12 @@ dependencies:
   - python
   - pip
   # required
+  - gdal =3.7.0
   - gdown
   - geofileops =0.9
   - geopandas-base =1.0
   - matplotlib-base
-  - numpy =1.26
+  - numpy =1.26  # <2 is needed for tf < 2.18
   - owslib
   - pillow
   - pycron
