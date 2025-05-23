@@ -663,8 +663,8 @@ def _predict_layer(
                 predict_queue = []
 
                 # Collect performance debugging info
-                perf_time_now = datetime.datetime.now()
-                perfinfo += f", scheduling postprocessings took {perf_time_now - perf_time_start}"
+                time_taken = datetime.datetime.now() - perf_time_start
+                perfinfo += f", scheduling postprocessings took {time_taken}"
                 perf_time_start = perf_time_now
 
             # Check postp_queue for completed postprocessings

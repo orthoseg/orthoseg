@@ -473,10 +473,8 @@ def load_images_to_cache(
 
                 # If all image tiles have been processed or if the max number of
                 # images to download is reached...
-                if (
-                    nb_processed >= nb_total
-                    or max_nb_images > -1
-                    and nb_downloaded >= max_nb_images
+                if nb_processed >= nb_total or (
+                    max_nb_images > -1 and nb_downloaded >= max_nb_images
                 ):
                     if len(download_queue) == 0:
                         return

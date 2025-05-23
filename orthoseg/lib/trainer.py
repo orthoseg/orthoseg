@@ -393,11 +393,8 @@ def create_train_generator(
     # Init
     # Do some checks on the augmentations specified, as it is easy to
     # introduce illogical values
-    if (
-        image_augment_dict is not None
-        and mask_augment_dict is None
-        or image_augment_dict is not None
-        and mask_augment_dict is None
+    if (image_augment_dict is not None and mask_augment_dict is None) or (
+        image_augment_dict is not None and mask_augment_dict is None
     ):
         logger.warning(
             "Only augmentations specified for either image or mask: "
