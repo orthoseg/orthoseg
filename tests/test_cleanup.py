@@ -60,11 +60,11 @@ def create_model_files(dir: Path) -> list[tuple[Path, int]]:
 
     files = []
     dir.mkdir(parents=True, exist_ok=True)
-    for model in models:
+    for model, value in models.items():
         for file_type in model_files:
             filepath = dir / f"{model}_{file_type}"
             filepath.touch()
-            files.append((filepath, models[model]))
+            files.append((filepath, value))
 
     return files
 
