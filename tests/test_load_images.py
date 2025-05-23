@@ -46,7 +46,7 @@ def test_load_images_error_handling():
     [
         (["predict.image_layer=BEFL-2019-WMTS"], 2),
         (["predict.image_layer=OSM-XYZ"], 8),
-        ([], 2),
+        (["predict.image_layer=BEFL-2019"], 2),
     ],
 )
 def test_load_images(tmp_path, overrules, exp_image_count):
