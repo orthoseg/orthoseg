@@ -5,6 +5,9 @@
 ### Improvements
 
 - Support reading images directly from the datasource while predicting (#228, #231)
+- Add support to load images from a WMTS service and document the option to use the
+  [GDAL WMS driver](https://gdal.org/en/stable/drivers/raster/wms.html) to use several
+  other service types like TMS, XYZ,... (#207)
 - Make image format for downloaded images configurable (#204)
 - Add validations on the augmentation configuration (#214)
 - Add support to reuse one training dataset for multiple train resolutions (#244)

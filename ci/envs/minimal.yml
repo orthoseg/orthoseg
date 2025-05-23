@@ -5,6 +5,7 @@ dependencies:
   - python
   - pip
   # required
+  - gdal =3.7.0
   - gdown
   - geofileops =0.9
   - geopandas-base =1.0

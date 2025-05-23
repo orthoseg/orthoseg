@@ -115,8 +115,8 @@ This way your projects directory immediately contains:
 
 The configuration for the image layers is located in `{projects_dir}/imagelayers.ini`.
 
-Layers can be a local file, a WMS server, WMTS server or an XYZ server. The basic
-structure of this configuration file is as follows: every section in the .ini file
+Layers can be accessed from a WMS server, a WMTS server or via a file (= a `GDAL raster dataset <https://gdal.org/en/stable/drivers/raster>`_).
+The basic structure of this configuration file is as follows: every section in the .ini file
 (eg. `[BEFL-2019]`) contains the configuration of one `image layer`. In later steps of
 this tutorial you well need to use the "image layer names" (for these examples
 `BEFL-2019` and `BEFL-2020`), they are referred to with `{image_layer_name}`::
@@ -131,6 +131,12 @@ this tutorial you well need to use the "image layer names" (for these examples
     # Configuration info of this layer
     ...
 
+A "file layer" can be any local file in one of the many raster file types supported
+by `GDAL <https://gdal.org/en/stable/drivers/raster>`_. Via the "file layer", you can 
+also use the `GDAL WMS driver <https://gdal.org/en/stable/drivers/raster/wms.html>`_ by
+creating an xml file with the necessary configuration. An example file to use a XYZ tile
+server (eg. OpenStreetMap) can be found here: 
+`imagelayer_osm.xml <https://github.com/orthoseg/orthoseg/tree/main/sample_projects/imagelayer_osm.xml>`_.
 
 A more elaborate example that can be used as a template for the configuration can be
 found here: `imagelayers.ini <https://github.com/orthoseg/orthoseg/blob/main/sample_projects/imagelayers.ini>`_.
