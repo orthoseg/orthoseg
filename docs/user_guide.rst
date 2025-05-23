@@ -131,10 +131,11 @@ this tutorial you well need to use the "image layer names" (for these examples
     # Configuration info of this layer
     ...
 
-A file layer can be any local file in one of the many raster file types supported
-by `GDAL <https://gdal.org/en/stable/drivers/raster>`_ , but it also offers
-other options. You can par example access a TMS or XYZ tile server layer by creating an
-xml file with the necessary configuration information. An example file: 
+A "file layer" can be any local file in one of the many raster file types supported
+by `GDAL <https://gdal.org/en/stable/drivers/raster>`_. Via the "file layer", you can 
+also use the `GDAL WMS driver <https://gdal.org/en/stable/drivers/raster/wms.html>`_ by
+creating an xml file with the necessary configuration. An example file to use a XYZ tile
+server (eg. OpenStreetMap) can be found here: 
 `imagelayer_osm.xml <https://github.com/orthoseg/orthoseg/tree/main/sample_projects/imagelayer_osm.xml>`_.
 
 A more elaborate example that can be used as a template for the configuration can be
