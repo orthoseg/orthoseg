@@ -39,12 +39,12 @@ and all its dependencies: ::
     pip install orthoseg
 
 
-If you want to run orthoseg on a GPU, and you haven't run (python) application using
-CUDA GPU accelleration before, it is useful to also have a look at the tensorflow
-installation instructions on https://www.tensorflow.org/install
-
-Once you have installed the necessary NVIDIA drivers, you can use the following
+If you want to run orthoseg on a GPU, first make sure you have installed the necessary
+drivers, and the CUDA support is working. Once this is the case, you can continue the
 instructions to install orthoseg and its dependencies in the conda environment.
+
+If you run into problems, it is useful to also have a look at the tensorflow
+installation instructions on https://www.tensorflow.org/install
 
 When NOT using native windows, these commands install the necessary dependencies + 
 orthoseg in your new environment: ::
