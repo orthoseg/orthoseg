@@ -32,9 +32,34 @@ sooner or later: ::
     conda config --env --set channel_priority strict
 
 
-Finally, you can install orthoseg: ::
+If you want to run orthoseg on CPU, the following command installs orthoseg
+and all its dependencies: ::
 
-    conda install -y python=3.10 pip "cudatoolkit>=11.2,<11.3" cudnn gdown "geofileops>=0.6,<0.10" "geopandas-base>=0.12,<1.1" matplotlib-base "numpy<2" owslib pillow pycron "pygeoops>=0.2,<0.5" pyproj rasterio "shapely>=2" simplification "h5py<3.11"
+    conda install -y python=3.12 pip gdal gdown "geofileops>=0.6,<0.11" "geopandas-base>=0.12,<1.1" matplotlib-base numpy owslib pillow pycron "pygeoops>=0.2,<0.5" pyproj rasterio "shapely>=2" simplification
+    pip install orthoseg
+
+
+If you want to run orthoseg on a GPU, and you haven't run (python) application using
+CUDA GPU accelleration before, it is useful to also have a look at the tensorflow
+installation instructions on https://www.tensorflow.org/install
+
+When NOT using native windows, these commands install the necessary dependencies + 
+orthoseg in your new environment: ::
+
+    conda install -y python=3.12 pip cudatoolkit=12.3 cudnn gdal gdown "geofileops>=0.6,<0.11" "geopandas-base>=0.12,<1.1" matplotlib-base numpy owslib pillow pycron "pygeoops>=0.2,<0.5" pyproj rasterio "shapely>=2" simplification
+    pip install orthoseg
+
+
+If you want to run orthoseg on native Windows while using a GPU, things are a bit more
+complicated because builds of recent versions of tensorflow don't support this.
+Notheless, it is possible to get it working, e.g. by using an older version of
+tensorflow (2.10) and some older versions of other dependencies. The combinations of
+(older) versions are a bit sensitive, and using old versions of software is never
+recommended, so another setup (linux or WSL2) is recommended, but these commands created
+a working environment at the time of writing: ::
+
+    conda install -y python=3.10 pip "cudatoolkit>=11.2,<11.3" cudnn gdal gdown "geofileops>=0.6,<0.11" "geopandas-base>=0.12,<1.1" matplotlib-base "numpy<2" owslib pillow pycron "pygeoops>=0.2,<0.5" pyproj rasterio "shapely>=2" simplification "h5py<3.11"
+    pip install "tensorflow<2.11"
     pip install orthoseg
 
 
