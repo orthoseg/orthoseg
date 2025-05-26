@@ -61,9 +61,8 @@ tensorflow (2.10) and some older versions of other dependencies. The combination
 recommended, so another setup (linux or WSL2) is recommended, but these commands created
 a working environment at the time of writing: ::
 
-    conda install -y python=3.10 pip "cudatoolkit>=11.2,<11.3" cudnn gdal gdown "geofileops>=0.6,<0.11" "geopandas-base>=0.12,<1.1" matplotlib-base "numpy<2" owslib pillow pycron "pygeoops>=0.2,<0.5" pyproj rasterio "shapely>=2" simplification "h5py<3.11"
-    pip install "tensorflow<2.11"
-    pip install orthoseg
+    conda install -y python=3.10 pip "cudatoolkit>=11.2,<11.3" "cudnn=8" gdal gdown "geofileops>=0.6,<0.11" "geopandas-base>=0.12,<1.1" matplotlib-base "numpy<2" owslib pillow pycron "pygeoops>=0.2,<0.5" pyproj rasterio "shapely>=2" simplification "h5py<3.11"
+    pip install "tensorflow<2.11" "numpy<2" orthoseg
 
 
 .. _miniforge installer : https://github.com/conda-forge/miniforge#miniforge3
