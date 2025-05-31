@@ -6,16 +6,16 @@ dependencies:
   - python =3.12
   - pip
   # required
-  - gdal <3.11
+  - gdal
   - gdown
-  - geofileops >=0.6,<0.11
-  - geopandas-base >=0.12,<1.1
+  - geofileops >=0.6
+  - geopandas-base >=0.12
   - matplotlib-base
   - numpy
   - owslib
   - pillow
   - pycron
-  - pygeoops >=0.2,<0.5
+  - pygeoops >=0.2
   - pyproj
   - rasterio
   - shapely >=2

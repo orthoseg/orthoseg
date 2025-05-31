@@ -2,7 +2,7 @@ name: orthoseg
 channels:
   - conda-forge
 dependencies:
-  - python =3.10
+  - python =3.12
   - pip
   # required
   - gdal
@@ -10,7 +10,7 @@ dependencies:
   - geofileops >=0.6,<0.11
   - geopandas-base >=0.12,<1.1
   - matplotlib-base
-  - numpy <2
+  - numpy
   - owslib
   - pillow
   - pycron
@@ -20,7 +20,7 @@ dependencies:
   - shapely >=2
   - simplification
   # optional, for CUDA support
-  #- cudatoolkit ==12.3
+  #- cudatoolkit =12.3
   #- cudnn
   - pip:
     - orthoseg
