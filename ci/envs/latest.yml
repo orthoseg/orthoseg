@@ -9,7 +9,6 @@ dependencies:
   - gdown
   - geofileops >=0.6
   - geopandas-base >=0.12
-  - libclang
   - matplotlib-base
   - ml-dtypes
   - numpy =2.1
