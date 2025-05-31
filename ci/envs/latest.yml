@@ -10,7 +10,6 @@ dependencies:
   - geofileops >=0.6
   - geopandas-base >=0.12
   - matplotlib-base
-  - ml-dtypes
   - numpy =2.1
   - owslib
   - pillow
