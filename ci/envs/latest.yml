@@ -13,10 +13,13 @@ dependencies:
   - numpy =2.1
   - owslib
   - pillow
+  - protobuf
   - pycron
   - pygeoops >=0.2
   - pyproj
   - rasterio
+  - scipy
+  - scikit-image
   - shapely >=2
   - simplification
   # dependencies of tensorflow that need to be conda versions to evade binary compatibility issues
