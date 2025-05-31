@@ -30,4 +30,4 @@ dependencies:
   - pytest-order
   - pip:
     - segmentation-models >=1.0
-    - tensorflow >=2.10
+    - tensorflow >=2.10,<2.19
