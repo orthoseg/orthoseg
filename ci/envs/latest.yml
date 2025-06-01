@@ -10,7 +10,7 @@ dependencies:
   - geofileops >=0.6
   - geopandas-base >=0.12
   - matplotlib-base
-  - numpy =2.1
+  - numpy =2.0
   - owslib
   - pillow
   - protobuf
