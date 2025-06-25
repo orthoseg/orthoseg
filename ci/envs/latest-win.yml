@@ -1,4 +1,4 @@
-name: orthoseg-latest
+name: orthoseg-latest-win
 channels:
   - conda-forge
 dependencies:
@@ -10,7 +10,7 @@ dependencies:
   - geofileops >=0.6
   - geopandas-base >=0.12
   - matplotlib-base
-  - numpy
+  - numpy <2
   - owslib
   - pillow
   - protobuf
@@ -22,7 +22,6 @@ dependencies:
   - scikit-image
   - shapely >=2
   - simplification
-  - tensorflow
   # dependencies of tensorflow that need to be conda versions to avoid binary compatibility issues
   - h5py
   # testing
@@ -31,3 +30,4 @@ dependencies:
   - pytest-order
   - pip:
     - segmentation-models >=1.0
+    - tensorflow >=2.10,<2.18
