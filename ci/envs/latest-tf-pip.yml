@@ -1,9 +1,10 @@
-# This is the environment to test recent versions of dependencies on windows an MacOS.
+# This is an environment to test recent versions of dependencies while tensorflow is
+# installed using pip.
 #
-# Tensorflow is being installed via pip here because:
-#   - conda-forge does not provide packages for windows
-#   - the conda-forge package give an error for some tests on MacOS
-name: orthoseg-latest-win-mac
+# Notes:
+#   - necessary for windows, as conda-forge does not provide a tf package for windows
+#   - the conda-forge tf package give an error for some tests on MacOS
+name: orthoseg-latest-tf-pip
 channels:
   - conda-forge
 dependencies:
