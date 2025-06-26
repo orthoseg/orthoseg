@@ -37,15 +37,11 @@ jobs:
         python: ["3.10", "3.11", "3.12"]
         env: ["latest"]
         include:
-          - env: latest
+          - env: latest-win-mac
             os: macos-latest
             dev: false
             python: "3.12"
-          - env: latest-win
-            os: windows-latest
-            dev: false
-            python: "3.10"
-          - env: latest-win
+          - env: latest-win-mac
             os: windows-latest
             dev: false
             python: "3.12"

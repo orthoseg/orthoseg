@@ -1,4 +1,9 @@
-name: orthoseg-latest-win
+# This is the environment to test recent versions of dependencies on windows an MacOS.
+#
+# Tensorflow is being installed via pip here because:
+#   - conda-forge does not provide packages for windows
+#   - the conda-forge package give an error for some tests on MacOS
+name: orthoseg-latest-win-mac
 channels:
   - conda-forge
 dependencies:
@@ -31,4 +36,4 @@ dependencies:
   - pytest-order
   - pip:
     - segmentation-models >=1.0
-    - tensorflow >=2.10,<2.19
+    - tensorflow-cpu >=2.10,<2.20  

@@ -1,3 +1,10 @@
+# This is an environment with minimal versions of most dependencies.
+#
+# Notes:
+#   - tensorflow is installed via pip as conda-forge does not provide packages for
+#     windows.
+#   - the minimal version of tensorflow is 2.10, as this is the last version with GPU
+#     support on windows.
 name: orthoseg-minimal
 channels:
   - conda-forge
@@ -27,4 +34,4 @@ dependencies:
   - pytest-order
   - pip:
     - segmentation-models >=1.0,<1.1
-    - tensorflow ==2.10
+    - tensorflow ==2.10  # On windows, tf 2.10 is the last version with GPU support
