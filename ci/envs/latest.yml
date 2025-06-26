@@ -13,7 +13,6 @@ dependencies:
   - numpy
   - owslib
   - pillow
-  - protobuf
   - pycron
   - pygeoops >=0.2
   - pyproj
