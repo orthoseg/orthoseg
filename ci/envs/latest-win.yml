@@ -10,7 +10,7 @@ dependencies:
   - geofileops >=0.6
   - geopandas-base >=0.12
   - matplotlib-base
-  - numpy <2  # numpy 2 is not compatible with tensorflow <2.18
+  - numpy
   - owslib
   - pillow
   - pycron
