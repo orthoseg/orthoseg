@@ -41,7 +41,7 @@ jobs:
             os: macos-latest
             dev: false
             python: "3.12"
-          - env: latest
+          - env: latest-win
             os: windows-latest
             dev: false
             python: "3.10"
