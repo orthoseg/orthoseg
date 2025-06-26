@@ -5,7 +5,7 @@ dependencies:
   - python
   - pip
   # required
-  - gdal
+  - gdal <3.11  # gdal 3.11 triggers issues with tensorflow
   - gdown
   - geofileops >=0.6
   - geopandas-base >=0.12
