@@ -15,7 +15,7 @@ dependencies:
   - geofileops >=0.6
   - geopandas-base >=0.12
   - matplotlib-base
-  - numpy
+  - numpy <2.2  # Tensorflow 2.19 needs a limit on the numpy version
   - owslib
   - pillow
   - pycron
@@ -36,4 +36,4 @@ dependencies:
   - pytest-order
   - pip:
     - segmentation-models >=1.0
-    - tensorflow >=2.10,<2.20  
+    - tensorflow >=2.10,<2.20
