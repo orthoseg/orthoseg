@@ -25,11 +25,11 @@ dependencies:
   - shapely >=2
   - simplification
   # dependencies of tensorflow that need to be conda versions to avoid binary compatibility issues
-  - flatbuffers
-  - h5py
-  - protobuf
-  - scipy
-  - scikit-image
+  #- flatbuffers
+  #- h5py
+  #- protobuf
+  #- scipy
+  #- scikit-image
   # testing
   - pytest
   - pytest-cov
