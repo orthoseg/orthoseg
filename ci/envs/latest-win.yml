@@ -10,24 +10,25 @@ dependencies:
   - geofileops >=0.6
   - geopandas-base >=0.12
   - matplotlib-base
-  - numpy <2
+  - numpy <2  # numpy 2 is not compatible with tensorflow <2.18
   - owslib
   - pillow
-  - protobuf
   - pycron
   - pygeoops >=0.2
   - pyproj
   - rasterio
-  - scipy
-  - scikit-image
   - shapely >=2
   - simplification
   # dependencies of tensorflow that need to be conda versions to avoid binary compatibility issues
+  - flatbuffers
   - h5py
+  - protobuf
+  - scipy
+  - scikit-image
   # testing
   - pytest
   - pytest-cov
   - pytest-order
   - pip:
     - segmentation-models >=1.0
-    - tensorflow >=2.10,<2.18
+    - tensorflow >=2.10,<2.19
