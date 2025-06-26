@@ -36,4 +36,4 @@ dependencies:
   - pytest-order
   - pip:
     - segmentation-models >=1.0
-    - tensorflow-cpu >=2.10,<2.20  
+    - tensorflow >=2.10,<2.20  
