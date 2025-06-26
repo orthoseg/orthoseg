@@ -18,13 +18,9 @@ dependencies:
   - pygeoops >=0.2
   - pyproj
   - rasterio
-  - scipy
-  - scikit-image
   - shapely >=2
   - simplification
   - tensorflow
-  # dependencies of tensorflow that need to be conda versions to avoid binary compatibility issues
-  - h5py
   # testing
   - pytest
   - pytest-cov
