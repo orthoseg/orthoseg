@@ -37,9 +37,9 @@ sooner or later: ::
     conda config --env --add channels conda-forge
     conda config --env --set channel_priority strict
 
-Use this conda environment file to install: `environment-gpu-win`_.
+Use this conda environment file to install: `environment gpu win`_.
 
-    conda env create -f `environment-gpu-win </>`_
+    conda env create -f `environment gpu win </>`_
 
 
 On Linux or WSL2
@@ -96,4 +96,4 @@ To use the GPU, also install the necessary CUDA packages in the environment: ::
 
 
 .. _miniforge installer : https://github.com/conda-forge/miniforge#miniforge3
-.. _environment-gpu-win : docs/_static/conda_envs/_environment-gpu-win.yml
+.. _environment gpu win : docs/_static/conda_envs/_environment-gpu-win.yml
