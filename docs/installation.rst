@@ -39,7 +39,7 @@ sooner or later: ::
 
 Use this conda environment file to install: `environment gpu win`_.
 
-This is the full link: `environment gpu win </ >`__
+This is the full link: :samp:`environment gpu win`
 
     conda env create -f
 
