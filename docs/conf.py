@@ -107,4 +107,4 @@ html_sidebars: dict[str, list[str]] = {
 html_static_path = ["_static"]
 
 # Get the base URL for the HTML documentation.
-html_baseurl = os.environ.get("READTHEDOCS_CANONICAL_URL", "/")
+html_canonical_url = os.environ.get("READTHEDOCS_CANONICAL_URL", "/")
