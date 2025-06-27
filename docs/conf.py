@@ -106,5 +106,7 @@ html_sidebars: dict[str, list[str]] = {
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
 
-# Get the base URL for the HTML documentation.
-html_canonical_url = os.environ.get("READTHEDOCS_CANONICAL_URL", "/")
+# Add substitutions to be available in any page in the documentation
+rst_epilog = f"""
+.. |baseurl| replace:: {os.environ.get("READTHEDOCS_CANONICAL_URL", "/")}
+"""
