@@ -1,3 +1,4 @@
+.. currentmodule:: orthoseg
 
 ============
 Installation
@@ -39,7 +40,7 @@ sooner or later: ::
 
 Use this conda environment file to install: `environment gpu win`_.
 
-This is the full link: |html_baseurl|/_static/conda_envs/environment-gpu-win.yml
+This is the full link: |html_baseurl| /_static/conda_envs/environment-gpu-win.yml
 
     conda env create -f
 
