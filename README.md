@@ -21,7 +21,6 @@ Only open source software is needed, eg. QGIS and tensorflow.
 
 Installation and usage instructions can be found in the [orthoseg docs](https://orthoseg.readthedocs.io)
 
-As an example, this is an example of how the output of a tree detection on aerial images
-could look:
+This is an example of how the output of a tree detection on aerial images can look:
 
 ![Result of a tree detection on aerial images](docs/_static/images/trees.jpg)
