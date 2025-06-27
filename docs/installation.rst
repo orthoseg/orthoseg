@@ -37,9 +37,9 @@ sooner or later: ::
     conda config --env --add channels conda-forge
     conda config --env --set channel_priority strict
 
-Or, use the following:
+Use this conda environment file to install: `environment-gpu-win`_.
 
-    conda env create -f `_environment-gpu-win`_
+    conda env create -f `environment-gpu-win`_
 
 
 On Linux or WSL2
