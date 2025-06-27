@@ -11,6 +11,9 @@ build:
   os: "ubuntu-24.04"
   tools:
     python: "mambaforge-latest"
+  commands:
+        - mkdir --parents docs/_static/conda_envs
+    		- cp environment*.yml docs/_static/conda_envs/
   jobs:
     post_install:
       - mamba list
