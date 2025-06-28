@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   TestsOnInstalled:    
-    name: ${{ matrix.checkout_ref }} - python ${{ matrix.python }} - ${{ matrix.os }}
+    name: ${{ matrix.env }} - python ${{ matrix.python }} - ${{ matrix.os }}
     timeout-minutes: 30
     runs-on: "ubuntu-latest"
     defaults:
@@ -40,14 +40,17 @@ jobs:
             os: macos-latest
             dev: false
             python: "3.12"
+            checkout_ref: "v0.6.1"
           - env: environment-tf-pip
             os: windows-latest
             dev: false
             python: "3.12"
+            checkout_ref: "v0.6.1"
           - env: environment-win-gpu
             os: windows-latest
             dev: false
             python: "3.10"
+            checkout_ref: "v0.6.1"
 
     steps:
       - uses: actions/checkout@v4

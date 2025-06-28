@@ -4,7 +4,7 @@
 # Notes:
 #   - necessary for windows, as conda-forge does not provide a tf package for windows
 #   - the conda-forge tf package give an error for some tests on MacOS
-name: orthoseg-latest-tf-pip
+name: orthoseg-tf-pip
 channels:
   - conda-forge
 dependencies:

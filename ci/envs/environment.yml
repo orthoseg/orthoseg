@@ -1,5 +1,5 @@
 # This is the standard environment with recent version of all dependencies.
-name: orthoseg-latest
+name: orthoseg
 channels:
   - conda-forge
 dependencies:
