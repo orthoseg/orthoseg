@@ -34,8 +34,8 @@ jobs:
         dev: [false]
         python: ["3.12"]
         env: ["environment"]
+        checkout_ref: ["v0.6.1"]
         include:
-          - checkout_ref: "v0.6.1"
           - env: environment-tf-pip
             os: macos-latest
             dev: false
