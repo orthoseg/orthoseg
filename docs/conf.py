@@ -107,6 +107,9 @@ html_sidebars: dict[str, list[str]] = {
 html_static_path = ["_static"]
 
 # Add substitutions to be available in any page in the documentation
+base_url = os.environ.get("READTHEDOCS_CANONICAL_URL", "/")
+url_conda_envs = f"{base_url}_static/conda_envs"
+
 rst_epilog = f"""
-.. |baseurl| replace:: {os.environ.get("READTHEDOCS_CANONICAL_URL", "/")}
+.. |environment-gpu-win| replace:: {url_conda_envs}/environment-gpu-win.yml
 """

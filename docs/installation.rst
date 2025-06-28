@@ -40,7 +40,7 @@ Use this conda environment file to install: `environment gpu win`_.
 
 .. parsed-literal::
 
-    conda env create -f |baseurl| _static/conda_envs/environment-gpu-win.yml
+    conda env create -f |environment-gpu-win|
 
 
 On Linux or WSL2
