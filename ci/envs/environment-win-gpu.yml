@@ -14,14 +14,14 @@ dependencies:
   # required
   - gdal <3.11  # gdal 3.11 triggers issues with tensorflow
   - gdown
-  - geofileops >=0.6,<0.11
-  - geopandas-base >=0.12,<1.2
+  - geofileops >=0.9,<0.11
+  - geopandas-base >=1.0,<1.2
   - matplotlib-base
   - numpy <2  # <2 is needed for tf < 2.18
   - owslib
   - pillow
   - pycron
-  - pygeoops >=0.2
+  - pygeoops >=0.4
   - pyproj
   - rasterio
   - shapely >=2.0
@@ -35,4 +35,4 @@ dependencies:
   - pip:
     - segmentation-models >=1.0,<1.1
     - tensorflow ==2.10  # On windows, tf 2.10 is the last version with GPU support
-    - orthoseg
+    - orthoseg >=0.6
