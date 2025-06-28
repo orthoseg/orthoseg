@@ -26,6 +26,6 @@ dependencies:
   - pydata-sphinx-theme
   - sphinx
   - sphinx-automodapi
-  - sphinx_copybutton
+  - sphinx-copybutton
   - pip:
     - segmentation-models >=1.0,<1.1
