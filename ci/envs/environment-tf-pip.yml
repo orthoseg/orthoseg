@@ -32,3 +32,4 @@ dependencies:
   - pip:
     - segmentation-models >=1.0
     - tensorflow >=2.10,<2.20
+    - orthoseg

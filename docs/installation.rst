@@ -21,27 +21,6 @@ necessary drivers, and that the CUDA support is working.
 If you run into problems anywhere in this procedure, it can be useful to also have a
 look at the tensorflow installation instructions on https://www.tensorflow.org/install
 
-Now start the conda prompt and create a new conda environment with the following
-commands: ::
-
-    conda create -n orthoseg
-    conda activate orthoseg
-
-
-If you use e.g. anaconda or miniconda instead of a miniforge installation, also run
-following commands to specify that all depencencies should be installed from the
-conda-forge channel. Mixing packages from multiple channels is bound to give problems
-sooner or later: ::
-
-    conda config --env --add channels conda-forge
-    conda config --env --set channel_priority strict
-
-Use this conda environment file to install: `environment gpu win`_.
-
-.. parsed-literal::
-
-    conda env create -f \|environment-gpu-win|
-
 
 On Linux or WSL2
 ================
@@ -49,12 +28,15 @@ On Linux or WSL2
 On Linux or WSL2, all dependencies can be installed from conda-forge, which should lead
 to the most reliable setup.
 
-Use the following commands to install geofileops with its depencencies: ::
+You can create a new environment with orthoseg and its dependencies installed with the
+following command:
 
-    conda install -y python=3.12 pip gdal gdown "geofileops>=0.6" "geopandas-base>=0.12" matplotlib-base numpy owslib pillow pycron "pygeoops>=0.2" pyproj rasterio "shapely>=2" simplification "tensorflow=2.19"
-    pip install orthoseg
+.. parsed-literal::
 
-To use the GPU, also install the necessary CUDA packages in the environment: ::
+    conda env create -n orthoseg -f |environment|
+    conda activate orthoseg
+
+To use a CUDA GPU, also install the necessary CUDA packages in the environment: ::
 
     conda install -y cudatoolkit=12.3 cudnn
 
@@ -65,10 +47,13 @@ On native Windows
 For native Windows, no tensorflow packages are published on conda-forge. Hence, we need
 to install tensorflow using pip.
 
-If you want to run orthoseg on CPU, use the following commands to install: ::
+If you want to run orthoseg on CPU, you can create a new environment with orthoseg and
+its dependencies installed with the following command:
 
-    conda install -y python=3.12 pip "gdal<3.11" gdown "geofileops>=0.6" "geopandas-base>=0.12" matplotlib-base "numpy<2.2" owslib pillow pycron "pygeoops>=0.2" pyproj rasterio "shapely>=2" simplification
-    pip install orthoseg
+.. parsed-literal::
+
+    conda env create -n orthoseg -f |environment-tf-pip|
+    conda activate orthoseg
 
 
 If you want to run orthoseg on native Windows while using a GPU, things are a bit more
@@ -79,22 +64,32 @@ tensorflow (2.10) and some older versions of other dependencies. The combination
 recommended, so another setup (linux or WSL2) is recommended, but these commands created
 a working environment at the time of writing: ::
 
-    conda install -y python=3.10 pip "cudatoolkit>=11.2,<11.3" "cudnn=8" "gdal<3.11" gdown "geofileops>=0.6" "geopandas-base>=0.12" matplotlib-base "numpy<2" owslib pillow pycron "pygeoops>=0.2" pyproj rasterio "shapely>=2" simplification "h5py<3.11"
-    pip install "tensorflow<2.11" "numpy<2" orthoseg
+You can create a new environment with orthoseg and its dependencies to run on a CUDA GPU
+installed with the following command:
+
+.. parsed-literal::
+
+    conda env create -n orthoseg -f |environment-win-gpu|
+    conda activate orthoseg
 
 
 On MacOS
 ========
 
-Use the following commands to install orthoseg: ::
+On MacOS, conda-forge packages exist for tensorflow, but they can lead to crashes in
+orthoseg, so installing tensorflow with pip is recommended.
 
-    conda install -y python=3.12 pip "gdal<3.11" gdown "geofileops>=0.6" "geopandas-base>=0.12" matplotlib-base "numpy<2.2" owslib pillow pycron "pygeoops>=0.2" pyproj rasterio "shapely>=2" simplification
-    pip install orthoseg
+You can create a new environment with orthoseg and its dependencies installed with the
+following command:
 
-To use the GPU, also install the necessary CUDA packages in the environment: ::
+.. parsed-literal::
+
+    conda env create -n orthoseg -f |environment-tf-pip|
+    conda activate orthoseg
+
+To use a CUDA GPU, also install the necessary CUDA packages in the environment: ::
 
     conda install -y cudatoolkit=12.3 cudnn
 
 
 .. _miniforge installer : https://github.com/conda-forge/miniforge#miniforge3
-.. _environment gpu win : _static/conda_envs/environment-gpu-win.yml

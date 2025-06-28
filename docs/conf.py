@@ -112,5 +112,7 @@ base_url = os.environ.get("READTHEDOCS_CANONICAL_URL", "/")
 url_conda_envs = f"{base_url}_static/conda_envs"
 
 rst_epilog = f"""
-.. |environment-gpu-win| replace:: {url_conda_envs}/environment-gpu-win.yml
+.. |environment| replace:: {url_conda_envs}/environment.yml
+.. |environment-tf-pip| replace:: {url_conda_envs}/environment-tf-pip.yml
+.. |environment-win-gpu| replace:: {url_conda_envs}/environment-win-gpu.yml
 """
