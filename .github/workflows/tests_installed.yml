@@ -59,6 +59,7 @@ jobs:
           sparse-checkout: |
             ci
             tests
+            sample_projects
       - name: Install Conda environment with Micromamba
         uses: mamba-org/setup-micromamba@v2
         with:
