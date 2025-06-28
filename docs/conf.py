@@ -48,6 +48,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx_automodapi.automodapi",
     "sphinx.ext.autosummary",
+    "sphinx_copybutton",
 ]
 
 autosummary_generate = True
