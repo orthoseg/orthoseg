@@ -34,23 +34,23 @@ jobs:
         dev: [false]
         python: ["3.12"]
         env: ["environment"]
-        checkout_ref: ["v0.6.1"]
+        checkout_ref: ["v0.6.1.post1"]
         include:
           - env: environment-tf-pip
             os: macos-latest
             dev: false
             python: "3.12"
-            checkout_ref: "v0.6.1"
+            checkout_ref: "v0.6.1.post1"
           - env: environment-tf-pip
             os: windows-latest
             dev: false
             python: "3.12"
-            checkout_ref: "v0.6.1"
+            checkout_ref: "v0.6.1.post1"
           - env: environment-win-gpu
             os: windows-latest
             dev: false
             python: "3.10"
-            checkout_ref: "v0.6.1"
+            checkout_ref: "v0.6.1.post1"
 
     steps:
       - uses: actions/checkout@v4
