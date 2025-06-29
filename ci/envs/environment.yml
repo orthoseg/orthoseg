@@ -3,7 +3,7 @@ name: orthoseg
 channels:
   - conda-forge
 dependencies:
-  - python <3.13
+  - python =3.11  # python 3.11 is the last version tf 2.15 supports
   - pip
   # required
   - gdal
