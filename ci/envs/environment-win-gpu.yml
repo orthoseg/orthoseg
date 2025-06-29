@@ -5,29 +5,29 @@
 #     windows.
 #   - the minimal version of tensorflow is 2.10, as this is the last version with GPU
 #     support on windows.
-name: orthoseg-minimal
+name: orthoseg-win-gpu
 channels:
   - conda-forge
 dependencies:
-  - python
+  - python =3.10  # python 3.10 is the last version tf 2.10 supports
   - pip
   # required
-  - gdal =3.7.0
+  - gdal <3.11  # gdal 3.11 triggers issues with tensorflow
   - gdown
-  - geofileops =0.9
-  - geopandas-base =1.0
+  - geofileops >=0.9,<0.11
+  - geopandas-base >=1.0,<1.2
   - matplotlib-base
-  - numpy =1.26  # <2 is needed for tf < 2.18
+  - numpy <2  # <2 is needed for tf < 2.18
   - owslib
   - pillow
   - pycron
-  - pygeoops =0.4
+  - pygeoops >=0.4
   - pyproj
   - rasterio
-  - shapely =2.0
+  - shapely >=2.0
   - simplification
   # dependencies of tensorflow that need to be conda versions to avoid binary compatibility issues
-  - h5py =3.9  # When a version > 3.10 is used with tf 2.10: segmentation fault
+  - h5py <3.11  # When a version > 3.10 is used with tf 2.10: segmentation fault
   # testing
   - pytest
   - pytest-cov
@@ -35,3 +35,4 @@ dependencies:
   - pip:
     - segmentation-models >=1.0,<1.1
     - tensorflow ==2.10  # On windows, tf 2.10 is the last version with GPU support
+    - orthoseg >=0.6
