@@ -31,5 +31,6 @@ dependencies:
   - pytest-order
   - pip:
     - segmentation-models >=1.0
-    - tensorflow >=2.10,<2.20
+    # From tf 2.16, keras 3 is installed which is not supported by orthoseg 0.6
+    - tensorflow >=2.10,<2.16
     - orthoseg >=0.6
