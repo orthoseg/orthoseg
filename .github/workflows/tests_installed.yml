@@ -1,0 +1,74 @@
+# This workflow will install the latest version of geofileops and run will run its tests
+# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
+
+name: TestsOnInstalled
+
+on:
+  workflow_dispatch:
+  schedule:
+    # every Monday at 5:40 AM
+    - cron: "40 5 * * 1"
+  push:
+    paths:
+      - ".github/workflows/tests_installed.yml"
+  pull_request:
+    paths: 
+      - ".github/workflows/tests_installed.yml"
+
+concurrency: 
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  TestsOnInstalled:    
+    name: ${{ matrix.env }} - python ${{ matrix.python }} - ${{ matrix.os }}
+    timeout-minutes: 30
+    runs-on: "ubuntu-latest"
+    defaults:
+      run:
+        shell: bash -l {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-latest"]
+        dev: [false]
+        python: ["3.11"]
+        env: ["environment"]
+        checkout_ref: ["v0.6.1.post1"]
+        include:
+          - env: environment-tf-pip
+            os: macos-latest
+            dev: false
+            python: "3.11"
+            checkout_ref: "v0.6.1.post1"
+          - env: environment-tf-pip
+            os: windows-latest
+            dev: false
+            python: "3.11"
+            checkout_ref: "v0.6.1.post1"
+          - env: environment-win-gpu
+            os: windows-latest
+            dev: false
+            python: "3.10"
+            checkout_ref: "v0.6.1.post1"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.checkout_ref }}
+          sparse-checkout: |
+            ci
+            tests
+            sample_projects
+      - name: Install Conda environment with Micromamba
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          micromamba-version: "1.5.1-0"
+          environment-file: ci/envs/${{ matrix.env }}.yml
+          create-args: >-
+            python=${{ matrix.python }}
+            ${{ matrix.install_extra_args }}
+
+      - name: Test
+        run: |
+          pytest --color=yes tests/

@@ -1,10 +1,9 @@
-# This is the environment used for building the documentation on ReadTheDocs.
-name: orthosegdoc
+# This is the standard environment with recent version of all dependencies.
+name: orthoseg
 channels:
   - conda-forge
-  - nodefaults
 dependencies:
-  - python =3.12
+  - python <3.13
   - pip
   # required
   - gdal
@@ -22,10 +21,10 @@ dependencies:
   - shapely >=2
   - simplification
   - tensorflow-cpu >=2.8
-  # docs
-  - pydata-sphinx-theme
-  - sphinx
-  - sphinx-automodapi
-  - sphinx-copybutton
+  # testing
+  - pytest
+  - pytest-cov
+  - pytest-order
   - pip:
-    - segmentation-models >=1.0,<1.1
+    - segmentation-models >=1.0
+    - orthoseg >=0.6

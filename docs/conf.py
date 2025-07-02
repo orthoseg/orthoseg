@@ -48,6 +48,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx_automodapi.automodapi",
     "sphinx.ext.autosummary",
+    "sphinx_copybutton",
 ]
 
 autosummary_generate = True
@@ -105,3 +106,13 @@ html_sidebars: dict[str, list[str]] = {
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
+
+# Add substitutions to be available in any page in the documentation
+base_url = os.environ.get("READTHEDOCS_CANONICAL_URL", "/")
+url_conda_envs = f"{base_url}_static/conda_envs"
+
+rst_epilog = f"""
+.. |environment| replace:: {url_conda_envs}/environment.yml
+.. |environment-tf-pip| replace:: {url_conda_envs}/environment-tf-pip.yml
+.. |environment-win-gpu| replace:: {url_conda_envs}/environment-win-gpu.yml
+"""
