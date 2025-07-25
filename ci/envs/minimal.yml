@@ -26,7 +26,7 @@ dependencies:
   - rasterio
   - shapely =2.0  # released 2022-12-12
   - simplification
-  - vs2015_runtime <14.44.35208  # Try to avoid segmentation faults
+  - vs2015_runtime <14.42  # Try to avoid segmentation faults
   # dependencies of tensorflow that need to be conda versions to avoid binary compatibility issues
   - h5py =3.9  # When a version > 3.10 is used with tf 2.10: segmentation fault
   # testing
