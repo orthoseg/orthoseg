@@ -22,7 +22,6 @@ import keras.models
 # Set the framework to use by segmentation_models to keras
 os.environ["SM_FRAMEWORK"] = "tf.keras"
 import segmentation_models
-from segmentation_models import Linknet, PSPNet, Unet
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -74,6 +73,8 @@ def get_model(
 
     if decoder.lower() == "unet":
         # Architecture implemented using the segmentation_models library
+        from segmentation_models import Unet  # noqa: PLC0415
+
         model = Unet(
             backbone_name=encoder.lower(),
             input_shape=(input_width, input_height, nb_channels),
@@ -86,6 +87,8 @@ def get_model(
 
     elif decoder.lower() == "pspnet":
         # Architecture implemented using the segmentation_models library
+        from segmentation_models import PSPNet  # noqa: PLC0415
+
         model = PSPNet(
             backbone_name=encoder.lower(),
             input_shape=(input_width, input_height, nb_channels),
@@ -101,6 +104,8 @@ def get_model(
         # First check if input size is compatible with linknet
         if input_width is not None and input_height is not None:
             check_image_size(architecture, input_width, input_height)
+
+        from segmentation_models import Linknet  # noqa: PLC0415
 
         model = Linknet(
             backbone_name=encoder.lower(),
