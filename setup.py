@@ -24,7 +24,7 @@ setuptools.setup(
     install_requires=[
         "gdal",
         "gdown",
-        "geofileops>=0.9",
+        "geofileops>=0.10",
         "geopandas>=1.0",
         "matplotlib",
         "numpy",

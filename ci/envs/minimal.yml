@@ -14,7 +14,7 @@ dependencies:
   # required
   - gdal =3.7.0
   - gdown
-  - geofileops =0.9
+  - geofileops =0.10
   - geopandas-base =1.0
   - matplotlib-base
   - numpy =1.26  # <2 is needed for tf < 2.18
