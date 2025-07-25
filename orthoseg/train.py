@@ -3,7 +3,6 @@
 import argparse
 import gc
 import logging
-import os
 import sys
 import traceback
 from pathlib import Path
@@ -230,9 +229,7 @@ def train(config_path: Path, config_overrules: list[str] = []):
                     logger.info("Loaded model, weights and params")
 
                     # Prepare output subdir to be used for predictions
-                    predict_out_subdir, _ = os.path.splitext(
-                        best_recent_model["filename"]
-                    )
+                    predict_out_subdir = best_recent_model["filepath"].stem
 
                     # Predict training dataset
                     predicter.predict_dir(
@@ -329,9 +326,7 @@ def train(config_path: Path, config_overrules: list[str] = []):
         logger.info("Loaded model + weights")
 
         # Prepare output subdir to be used for predictions
-        predict_out_subdir, _ = os.path.splitext(
-            best_model_curr_train_version["filename"]
-        )
+        predict_out_subdir = best_model_curr_train_version["filepath"].stem
 
         # Predict training dataset
         predicter.predict_dir(

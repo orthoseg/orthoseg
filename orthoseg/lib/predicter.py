@@ -389,7 +389,7 @@ def _predict_layer(
 
     # Write prediction config used, so it can be used for postprocessing
     prediction_config_path = output_image_dir / "prediction_config.json"
-    with open(prediction_config_path, "w") as pred_conf_file:
+    with prediction_config_path.open("w") as pred_conf_file:
         pred_conf: dict[str, Any] = {}
         pred_conf["border_pixels_to_ignore"] = border_pixels_to_ignore
         pred_conf["classes"] = classes

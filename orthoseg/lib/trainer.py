@@ -2,7 +2,6 @@
 
 import logging
 import math
-import os
 from pathlib import Path
 
 import numpy as np
@@ -115,7 +114,7 @@ def train(
         trainparams_id=hyperparams.train.trainparams_id,
     )
     csv_log_filepath = model_save_dir / (model_save_base_filename + "_log.csv")
-    if csv_log_filepath.exists() and os.path.getsize(csv_log_filepath) > 0:
+    if csv_log_filepath.exists() and csv_log_filepath.stat().st_size > 0:
         if not model_preload_filepath:
             message = (
                 "log file exists but preload model file not specified: "
