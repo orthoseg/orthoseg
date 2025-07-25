@@ -24,6 +24,7 @@ dependencies:
   - pillow
   - pycron
   - pygeoops >=0.4
+  - pyproj
   - rasterio
   - shapely >=2.0
   - simplification
