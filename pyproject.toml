@@ -20,7 +20,7 @@ select = [
     "W",
     "UP",  # pyupgrade
     "B",  # flake8-bugbear
-    # "PTH",  # flake8-pathlib
+    "PTH",  # flake8-pathlib
     "T10",  # flake8-debugger
     # "SIM",  # flake8-simplify
     "PLC",  # pylint

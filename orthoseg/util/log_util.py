@@ -80,7 +80,7 @@ def init_logging_dictConfig(
     if logconfig_dict is None:
         if logconfig_path is not None and logconfig_path.exists():
             # Load from json file
-            with open(logconfig_path) as logconfig_file:
+            with logconfig_path.open() as logconfig_file:
                 logconfig_dict = json.load(logconfig_file)
         else:
             raise ValueError(
