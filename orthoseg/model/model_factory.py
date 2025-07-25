@@ -14,9 +14,13 @@ import os
 from pathlib import Path
 from typing import Any, TYPE_CHECKING
 
+import h5py
 import numpy as np
+import segmentation_models
 import tensorflow as tf
 import keras.models
+from segmentation_models import Linknet, PSPNet, Unet
+
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -70,8 +74,6 @@ def get_model(
 
     if decoder.lower() == "unet":
         # Architecture implemented using the segmentation_models library
-        from segmentation_models import Unet
-
         model = Unet(
             backbone_name=encoder.lower(),
             input_shape=(input_width, input_height, nb_channels),
@@ -84,8 +86,6 @@ def get_model(
 
     elif decoder.lower() == "pspnet":
         # Architecture implemented using the segmentation_models library
-        from segmentation_models import PSPNet
-
         model = PSPNet(
             backbone_name=encoder.lower(),
             input_shape=(input_width, input_height, nb_channels),
@@ -98,8 +98,6 @@ def get_model(
 
     elif decoder.lower() == "linknet":
         # Architecture implemented using the segmentation_models library
-        from segmentation_models import Linknet
-
         # First check if input size is compatible with linknet
         if input_width is not None and input_height is not None:
             check_image_size(architecture, input_width, input_height)
@@ -140,8 +138,6 @@ def compile_model(
             implemented... so should be None. Defaults to None.
         class_weights (list, optional): class weigths to use. Defaults to None.
     """
-    import segmentation_models
-
     # Get number classes of model
     nb_classes = model.output[-1].shape[-1]
 
@@ -216,8 +212,6 @@ def load_model(model_to_use_filepath: Path, compile: bool = True) -> keras.model
     Returns:
         tf.keras.models.Model: The loaded model.
     """
-    import segmentation_models
-
     errors = []
     model = None
     model_basestem = f"{'_'.join(model_to_use_filepath.stem.split('_')[0:2])}"
@@ -269,8 +263,6 @@ def load_model(model_to_use_filepath: Path, compile: bool = True) -> keras.model
 
                     # Ref: https://github.com/keras-team/keras/issues/19441
                     # Hack to change model config from keras 2->3 compliant
-                    import h5py
-
                     f = h5py.File(str(model_to_use_filepath), mode="r+")
                     model_config_string = f.attrs.get("model_config")
                     if model_config_string.find('"groups": 1,') != -1:
@@ -377,8 +369,6 @@ def set_trainable(model, recompile: bool = True):
         recompile (bool, optional): True to recompile the model so it is ready to train.
             Defaults to True.
     """
-    import segmentation_models
-
     # doesn't seem to work, so save and load model
     segmentation_models.utils.set_trainable(model=model, recompile=recompile)
 
