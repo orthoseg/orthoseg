@@ -823,10 +823,11 @@ def _write_vector_result(
     # Copy the result to the main vector output file
     if vector_output_path is not None:
         if partial_vector_path.exists():
-            gfo.append_to(
+            gfo.copy_layer(
                 src=partial_vector_path,
                 dst=vector_output_path,
                 dst_layer=vector_output_path.stem,
+                write_mode="append",
                 create_spatial_index=False,
             )
             gfo.remove(partial_vector_path)
