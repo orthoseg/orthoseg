@@ -14,17 +14,17 @@ dependencies:
   # required
   - gdal =3.7  # 3.7.0 released 2023-05-03
   - gdown
-  - geofileops =0.10
-  - geopandas-base =1.0
+  - geofileops =0.10  # 0.10.0 released 2025-03-26
+  - geopandas-base =1.0  # 1.0.0 released 2024-06-24
   - matplotlib-base
   - numpy =1.26  # <2 is needed for tf < 2.18
   - owslib
   - pillow
   - pycron
-  - pygeoops =0.4
+  - pygeoops =0.4  # released 2023-11-24
   - pyproj
   - rasterio
-  - shapely =2.0
+  - shapely =2.0  # released 2022-12-12
   - simplification
   # dependencies of tensorflow that need to be conda versions to avoid binary compatibility issues
   - h5py =3.9  # When a version > 3.10 is used with tf 2.10: segmentation fault
