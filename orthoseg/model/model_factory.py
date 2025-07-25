@@ -16,11 +16,10 @@ from typing import Any, TYPE_CHECKING
 
 import h5py
 import numpy as np
-import segmentation_models
 import tensorflow as tf
 import keras.models
+import segmentation_models
 from segmentation_models import Linknet, PSPNet, Unet
-
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -28,6 +27,7 @@ if TYPE_CHECKING:
 # Get a logger...
 logger = logging.getLogger(__name__)
 os.environ["SM_FRAMEWORK"] = "tf.keras"
+
 
 """
 preprocessing_fn = get_preprocessing('resnet34')
