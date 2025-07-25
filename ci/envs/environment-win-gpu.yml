@@ -1,4 +1,4 @@
-# This is an environment with minimal versions of most dependencies.
+# This is an environment to install orthoseg on native windows with GPU support.
 #
 # Notes:
 #   - tensorflow is installed via pip as conda-forge does not provide packages for
@@ -9,10 +9,12 @@ name: orthoseg-win-gpu
 channels:
   - conda-forge
 dependencies:
-  - python =3.10  # python 3.10 is the last version tf 2.10 supports
+  - python =3.10  # tf 2.10 supports max python 3.10
   - pip
   # required
-  - gdal <3.11  # gdal 3.11 triggers issues with tensorflow
+  - cudatoolkit <12  # tf 2.10 requires cudatoolkit 11
+  - cudnn <9  # tf 2.10 requires cudnn 8
+  - gdal
   - gdown
   - geofileops >=0.9,<0.11
   - geopandas-base >=1.0,<1.2
@@ -34,5 +36,6 @@ dependencies:
   - pytest-order
   - pip:
     - segmentation-models >=1.0,<1.1
-    - tensorflow ==2.10  # On windows, tf 2.10 is the last version with GPU support
+    - tensorflow <2.11  # On native windows, tf 2.10 is the last version with GPU support
     - orthoseg >=0.6
+    - numpy <2  # numpy <2 is needed for tf < 2.18
