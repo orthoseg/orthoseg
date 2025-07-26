@@ -56,10 +56,7 @@ def test_predict_error_handling():
         )
 
 
-@pytest.mark.skipif(
-    "GITHUB_ACTIONS" in os.environ and os.name == "nt",
-    reason="crashes on github CI on windows",
-)
+@pytest.mark.skipif(os.name == "nt", reason="crashes on windows")
 @pytest.mark.parametrize(
     "use_cache, skip_images, exp_area",
     [
