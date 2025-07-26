@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## 0.7.0 (????-??-??)
+## 0.7.0 (2025-05-24)
 
 ### Deprecations and compatibility notes
 
