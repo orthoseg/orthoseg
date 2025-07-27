@@ -42,10 +42,10 @@ def test_load_images_error_handling():
         )
 
 
-@pytest.mark.skipif(
-    "GITHUB_ACTIONS" in os.environ and os.name == "nt",
-    reason="crashes on github CI on windows",
-)
+#@pytest.mark.skipif(
+#    "GITHUB_ACTIONS" in os.environ and os.name == "nt",
+#    reason="crashes on github CI on windows",
+#)
 @pytest.mark.parametrize(
     "overrules, exp_image_count",
     [
