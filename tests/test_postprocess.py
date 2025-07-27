@@ -1,7 +1,5 @@
 """Tests for module postprocess."""
 
-import os
-
 import pytest
 
 from orthoseg import postprocess
@@ -28,10 +26,6 @@ def test_postprocess_args(args):
     assert valid_args.config_overrules is not None
 
 
-#@pytest.mark.skipif(
-#    "GITHUB_ACTIONS" in os.environ and os.name == "nt",
-#    reason="crashes on github CI on windows",
-#)
 def test_postprocess_error_handling():
     """Force an error so the general error handler in postprocess is tested."""
     with pytest.raises(

@@ -3,7 +3,7 @@
 from pathlib import Path
 
 # ruff: noqa: F401
-import tensorflow as tf
+import tensorflow as tf  # Import tensorflow first to avoid CI segmentation faults on Windows.
 from orthoseg.load_images import load_images
 from orthoseg.postprocess import postprocess
 from orthoseg.predict import predict

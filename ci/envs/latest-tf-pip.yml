@@ -11,12 +11,12 @@ dependencies:
   - python <3.13
   - pip
   # required
-  - gdal # <3.11  # gdal 3.11 triggers issues with tensorflow
+  - gdal
   - gdown
   - geofileops >=0.10
   - geopandas-base >=1.0
   - matplotlib-base
-  - numpy <2.1  # Tensorflow 2.19 needs a limit on the numpy version
+  - numpy <2.2  # Tensorflow 2.19 needs a limit on the numpy version
   - owslib
   - pillow
   - pycron
