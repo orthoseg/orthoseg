@@ -1,4 +1,3 @@
-
 ============
 Installation
 ============
@@ -16,26 +15,81 @@ If you don't have conda installed yet, you can install it using the
 Install orthoseg and depencencies
 ---------------------------------
 
-Now start the conda prompt and create a new conda environment with the following
-commands: ::
+If you want to run orthoseg on a GPU (optional), make sure you have installed the
+necessary drivers, and that the CUDA support is working.
 
-    conda create -n orthoseg
+If you run into problems anywhere in this procedure, it can be useful to also have a
+look at the tensorflow installation instructions on https://www.tensorflow.org/install
+
+
+On Linux or WSL2
+================
+
+On Linux or WSL2, all dependencies can be installed from conda-forge, which should lead
+to the most reliable setup.
+
+You can create a new environment with orthoseg and its dependencies installed with the
+following command:
+
+.. parsed-literal::
+
+    conda env create -n orthoseg -f |environment|
+    conda activate orthoseg
+
+To use a CUDA GPU, also install the necessary CUDA packages in the environment: ::
+
+    conda install -y cudatoolkit=12.3 cudnn
+
+
+On native Windows
+=================
+
+For native Windows, no tensorflow packages are published on conda-forge. Hence, we need
+to install tensorflow using pip.
+
+If you want to run orthoseg on CPU, you can create a new environment with orthoseg and
+its dependencies installed with the following command:
+
+.. parsed-literal::
+
+    conda env create -n orthoseg -f |environment-tf-pip|
     conda activate orthoseg
 
 
-If you use e.g. anaconda or miniconda instead of a miniforge installation, also run
-following commands to specify that all depencencies should be installed from the
-conda-forge channel. Mixing packages from multiple channels is bound to give problems
-sooner or later: ::
+If you want to run orthoseg on native Windows while using a GPU, things are a bit more
+complicated because builds of recent versions of tensorflow don't support this.
+Notheless, it is possible to get it working, e.g. by using an older version of
+tensorflow (2.10) and some older versions of other dependencies. The combinations of
+(older) versions are a bit sensitive, and using old versions of software is never
+recommended, so another setup (linux or WSL2) is recommended, but these commands created
+a working environment at the time of writing: ::
 
-    conda config --env --add channels conda-forge
-    conda config --env --set channel_priority strict
+You can create a new environment with orthoseg and its dependencies to run on a CUDA GPU
+installed with the following command:
+
+.. parsed-literal::
+
+    conda env create -n orthoseg -f |environment-win-gpu|
+    conda activate orthoseg
 
 
-Finally, you can install orthoseg: ::
+On MacOS
+========
 
-    conda install -y python=3.10 pip "cudatoolkit>=11.2,<11.3" cudnn gdown "geofileops>=0.6,<0.10" "geopandas-base>=0.12,<1.1" matplotlib-base "numpy<2" owslib pillow pycron "pygeoops>=0.2,<0.5" pyproj rasterio "shapely>=2" simplification "h5py<3.11"
-    pip install orthoseg
+On MacOS, conda-forge packages exist for tensorflow, but they can lead to crashes in
+orthoseg, so installing tensorflow with pip is recommended.
+
+You can create a new environment with orthoseg and its dependencies installed with the
+following command:
+
+.. parsed-literal::
+
+    conda env create -n orthoseg -f |environment-tf-pip|
+    conda activate orthoseg
+
+To use a CUDA GPU, also install the necessary CUDA packages in the environment: ::
+
+    conda install -y cudatoolkit=12.3 cudnn
 
 
 .. _miniforge installer : https://github.com/conda-forge/miniforge#miniforge3

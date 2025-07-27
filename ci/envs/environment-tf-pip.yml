@@ -1,0 +1,35 @@
+# This is an environment to test recent versions of dependencies while tensorflow is
+# installed using pip.
+#
+# Notes:
+#   - necessary for windows, as conda-forge does not provide a tf package for windows
+#   - the conda-forge tf package give an error for some tests on MacOS
+name: orthoseg-tf-pip
+channels:
+  - conda-forge
+dependencies:
+  - python <3.13
+  - pip
+  # required
+  - gdal
+  - gdown
+  - geofileops >=0.10
+  - geopandas-base >=1.0
+  - matplotlib-base
+  - numpy <2.2  # Tensorflow 2.19 needs a limit on the numpy version
+  - owslib
+  - pillow
+  - pycron
+  - pygeoops >=0.4
+  - pyproj
+  - rasterio
+  - shapely >=2
+  - simplification
+  # testing
+  - pytest
+  - pytest-cov
+  - pytest-order
+  - pip:
+    - segmentation-models >=1.0
+    - tensorflow >=2.10,<2.20
+    - orthoseg >=0.6

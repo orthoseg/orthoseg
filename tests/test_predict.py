@@ -56,10 +56,7 @@ def test_predict_error_handling():
         )
 
 
-@pytest.mark.skipif(
-    "GITHUB_ACTIONS" in os.environ and os.name == "nt",
-    reason="crashes on github CI on windows",
-)
+@pytest.mark.skipif(os.name == "nt", reason="crashes on windows")
 @pytest.mark.parametrize(
     "use_cache, skip_images, exp_area",
     [
@@ -99,7 +96,8 @@ def test_predict_use_cache_skip(tmp_path, use_cache, skip_images, exp_area):
         predict_image_output_basedir.mkdir(parents=True, exist_ok=True)
         images = [image_path.name for image_path in image_cache_dir.rglob("*.jpg")]
         images_to_skip = sorted(images)[:-1]
-        with open(predict_image_output_basedir / "images_done.txt", "w") as f:
+        done_path = predict_image_output_basedir / "images_done.txt"
+        with done_path.open("w") as f:
             for image_name in images_to_skip:
                 f.write(f"{image_name}\n")
 

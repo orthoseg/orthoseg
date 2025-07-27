@@ -7,6 +7,12 @@
 - Update minimal dependencies: drop support of python 3.9, geopandas 1.x,...
   (#229, #230)
 
+### Deprecations and compatibility notes
+
+- Add support + tests for recent tensorflow versions (2.19 at time of writing) (#217)
+- Update minimal dependencies. Most notable ones: drop support of python 3.9,
+  geopandas >=1.0, geofileops >= 0.10. (#229, #230, #271)
+
 ### Improvements
 
 - Support reading images directly from the datasource while predicting (#228, #231)
@@ -22,7 +28,6 @@
 - Make `load_images` more robust by ignoring some filesystem errors that occur sometimes
   but that don't seem to give actual issues (#216, #2019)
 - Small improvements to logging, error messages,... (#198, #218, #247)
-- Add support + tests for latest tensorflow version (#217)
 
 ### Bugs fixed
 
@@ -44,6 +49,7 @@
 ### Deprecations and compatibility notes
 
 - Change default nb_concurrent_calls when downloading layer to 1 instead of 6 (##149)
+- Update dependencies: geopandas, ruff,... + drop support for pygeos (#179)
 
 ### Improvements
 
@@ -56,7 +62,6 @@
 - In prepare_trainingdata, reuse images already available in previous version (#170)
 - Several small improvements to logging, documentation,... (#128, #180, #185)
 - Apply pyupgrade (python >= 3.9), pydocstyle, isort and mypy (#181, #182, #184, #187)
-- Update dependencies: geopandas, ruff,... + drop support for pygeos (#179)
 
 ### Bugs fixed
 
@@ -67,11 +72,14 @@
 
 ## 0.5.0 (2023-07-27)
 
+### Deprecations and compatibility notes
+
+- Support geopandas 0.13 + remove dependency on pygeos (#121)
+
 ### Improvements
 
 - Add support to train and detect on local image file layer (#111)
 - Add check that train and validation data is mandatory (#118)
-- Support geopandas 0.13 + remove dependency on pygeos (#121)
 - Improve performance of prepare_traindatasets for large label files (#116)
 - Use [pygeoops](https://github.com/pygeoops/pygeoops) for inline simplification during
   predict (#123):
@@ -96,6 +104,11 @@
 
 ## 0.4.1 (2023-01-20)
 
+### Deprecations and compatibility notes
+
+- Remove old model architectures: standard+unet and ternaus+unet (#82)
+- Add support for shapely 2 (#92)
+
 ### Improvements
 
 - Avoid warning blockysize is not supported for jpeg when downloading images (#77)
@@ -103,7 +116,6 @@
 - Add option to specify reclassify to neighbour query as postprocessing (#86, #88)
 - Reuse sample_project for tests so it is tested as well (#81)
 - Improve test coverage (#79, #82, #83)
-- Add support for shapely 2 (#92)
 
 ### Bugs fixed
 
@@ -113,11 +125,13 @@
 - Fix error when prediction output dir doesn't exist yet (#75)
 - Fix reclassify_to_neighbours giving undetermined result when 2+ neighbours are reclassification candidates (#84)
 
+## 0.4.0 (2022-11-14)
+
 ### Deprecations and compatibility notes
 
-- Remove old model architectures: standard+unet and ternaus+unet (#82)
-
-## 0.4.0 (2022-11-14)
+- Support newer versions of used packages (#59, #61, #62)
+- Disable default simplify in postprocess (#32)
+- Command 'scriptrunner' renamed to 'osscriptrunner' (#59)
 
 ### Improvements
 
@@ -137,16 +151,14 @@
 - Add option to disable ssl verification when downloading sample projects (#64)
 - Apply black formatting to comply with pep8 (#27)
 - Enable running CI tests using github actions (#42, #67)
-- Support newer versions of used packages (#59, #61, #62)
-
-### Deprecations and compatibility notes
-
-- Disable default simplify in postprocess (#32)
-- Command 'scriptrunner' renamed to 'osscriptrunner' (#59)
 
 ## 0.3.0 (2022-02-10)
 
 Highlights for this release are a feature to be able to combine bands from different WMS layers to one (3 band) input layer, performance improvements,...
+
+### Deprecations and compatibility notes
+
+- Update dependencies, eg. tensorflow 2.8, geofileops 0.3, geopandas 0.10,...
 
 ### Improvements
 
@@ -158,7 +170,6 @@ Highlights for this release are a feature to be able to combine bands from diffe
 - Improve/update documentation + sample project
 - Improve prediction performance (#5)
 - Improve logging
-- Update dependencies, eg. tensorflow 2.8, geofileops 0.3, geopandas 0.10,...
 
 ### Bugs fixed
 
@@ -172,6 +183,10 @@ For typical segmentation projects the changes should be backwards compatible. If
 
 train.image_augmentations, train.mask_augmentations
 train.classes
+
+### Deprecations and compatibility notes
+
+- Update tensorflow dependency to 2.4
 
 ### Improvements
 
@@ -189,7 +204,6 @@ train.classes
   the train.save_augmented_subdir parameter in project_defaults.ini
 - Cleanup support for uninteresting models
 - Improve logging, progress reporting, type annotations
-- Update tensorflow dependency to 2.4
 
 ### Bugs fixed
 
