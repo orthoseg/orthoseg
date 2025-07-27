@@ -20,7 +20,7 @@ dependencies:
   - rasterio
   - shapely >=2
   - simplification
-  - tensorflow-cpu >=2.8
+  - tensorflow >=2.8
   # testing
   - pytest
   - pytest-cov
