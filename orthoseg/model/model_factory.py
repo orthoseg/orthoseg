@@ -14,7 +14,6 @@ import os
 from pathlib import Path
 from typing import Any, TYPE_CHECKING
 
-import h5py
 import numpy as np
 import tensorflow as tf
 import keras.models
@@ -264,6 +263,8 @@ def load_model(model_to_use_filepath: Path, compile: bool = True) -> keras.model
 
                     # Ref: https://github.com/keras-team/keras/issues/19441
                     # Hack to change model config from keras 2->3 compliant
+                    import h5py
+
                     f = h5py.File(str(model_to_use_filepath), mode="r+")
                     model_config_string = f.attrs.get("model_config")
                     if model_config_string.find('"groups": 1,') != -1:
