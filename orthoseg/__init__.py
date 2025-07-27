@@ -3,6 +3,7 @@
 from pathlib import Path
 
 # ruff: noqa: F401
+import tensorflow as tf
 from orthoseg.load_images import load_images
 from orthoseg.postprocess import postprocess
 from orthoseg.predict import predict
