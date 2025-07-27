@@ -37,6 +37,10 @@ jobs:
         python: ["3.10", "3.11", "3.12"]
         env: ["latest"]
         include:
+          - env: latest
+            os: windows-latest
+            dev: false
+            python: "3.12"
           - env: latest-tf-pip
             os: macos-latest
             dev: false
