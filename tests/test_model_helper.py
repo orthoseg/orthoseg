@@ -1,5 +1,6 @@
 """Tests for the model_helper module."""
 
+import os
 import re
 
 import pytest
