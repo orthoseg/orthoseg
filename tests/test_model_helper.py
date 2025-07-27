@@ -39,10 +39,10 @@ def test_validate_augmentations_defaults(tmp_path):
     model_helper._validate_augmentations(image_augmentations, mask_augmentations)
 
 
-@pytest.mark.skipif(
-    "GITHUB_ACTIONS" in os.environ and os.name == "nt",
-    reason="crashes on github CI on windows",
-)
+#@pytest.mark.skipif(
+#    "GITHUB_ACTIONS" in os.environ and os.name == "nt",
+#    reason="crashes on github CI on windows",
+#)
 @pytest.mark.parametrize(
     "image_augmentations, mask_augmentations, expected_error",
     [
