@@ -389,7 +389,7 @@ def _predict_layer(
 
     # Write prediction config used, so it can be used for postprocessing
     prediction_config_path = output_image_dir / "prediction_config.json"
-    with open(prediction_config_path, "w") as pred_conf_file:
+    with prediction_config_path.open("w") as pred_conf_file:
         pred_conf: dict[str, Any] = {}
         pred_conf["border_pixels_to_ignore"] = border_pixels_to_ignore
         pred_conf["classes"] = classes
@@ -823,10 +823,11 @@ def _write_vector_result(
     # Copy the result to the main vector output file
     if vector_output_path is not None:
         if partial_vector_path.exists():
-            gfo.append_to(
+            gfo.copy_layer(
                 src=partial_vector_path,
                 dst=vector_output_path,
                 dst_layer=vector_output_path.stem,
+                write_mode="append",
                 create_spatial_index=False,
             )
             gfo.remove(partial_vector_path)

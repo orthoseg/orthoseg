@@ -2,33 +2,33 @@ name: orthoseg-gpu-dev
 channels:
   - conda-forge
 dependencies:
-  - python =3.10
+  - python =3.10  # Python 3.10 is required for TensorFlow 2.10
   - pip
   # required
   - gdal
   - gdown
-  - geofileops >=0.6,<0.11
-  - geopandas-base >=0.12,<1.1
+  - geofileops >=0.10
+  - geopandas-base >=0.12
   - matplotlib-base
   - numpy <2  # <2 is needed for tf < 2.18
   - owslib
   - pillow
   - pycron
-  - pygeoops >=0.2,<0.5
+  - pygeoops >=0.2
   - pyproj
   - rasterio
   - shapely >=2
   - simplification
   # optional, for CUDA support
-  - cudatoolkit >=11.2,<11.3  # cudatoolkit needed for tf 2.10
-  - cudnn
+  - cudatoolkit <12  # cudatoolkit 11 needed for tf 2.10
+  - cudnn <9  # cudnn 8 needed for tf 2.10
   # dependencies of tensorflow that need to be conda versions to evade binary compatibility issues
   - h5py <3.11  # When a version > 3.10 is used with tf 2.10: segmentation fault
   # linting
-  - mypy ==1.10.1
+  - mypy ==1.16.1
   - pandas-stubs
   - pre-commit
-  - ruff ==0.7.4
+  - ruff ==0.12.2
   - types-pillow
   # testing
   - pytest

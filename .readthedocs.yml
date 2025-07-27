@@ -12,6 +12,9 @@ build:
   tools:
     python: "mambaforge-latest"
   jobs:
+    pre_install:
+      - mkdir --parents docs/_static/conda_envs
+      - cp ci/envs/*.yml docs/_static/conda_envs/
     post_install:
       - mamba list
 

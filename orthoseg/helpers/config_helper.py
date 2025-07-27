@@ -102,7 +102,7 @@ def read_orthoseg_config(config_path: Path, overrules: list[str] = []):
             overrules_parser[section][parameter] = value
 
         # Write to temp file and add file to config_paths
-        with open(config_overrules_path, "w") as overrules_file:
+        with config_overrules_path.open("w") as overrules_file:
             overrules_parser.write(overrules_file)
         config_paths.append(config_overrules_path)
 

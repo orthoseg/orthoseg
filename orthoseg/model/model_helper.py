@@ -210,7 +210,7 @@ class HyperParams:
         if train is not None:
             self.train = train
         if path is not None:
-            with open(path) as jsonfile:
+            with path.open() as jsonfile:
                 jsonstr = jsonfile.read()
                 data = json.loads(jsonstr)
 

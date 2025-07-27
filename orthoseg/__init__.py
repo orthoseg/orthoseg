@@ -2,6 +2,9 @@
 
 from pathlib import Path
 
+# Import tensorflow first to avoid CI segmentation faults on Windows.
+import tensorflow as tf
+
 # ruff: noqa: F401
 from orthoseg.load_images import load_images
 from orthoseg.postprocess import postprocess
@@ -12,7 +15,7 @@ from orthoseg.validate import validate
 
 def _get_version():
     version_path = Path(__file__).resolve().parent / "version.txt"
-    with open(version_path) as file:
+    with version_path.open() as file:
         return file.readline()
 
 

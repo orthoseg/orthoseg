@@ -159,19 +159,19 @@ def test_postprocess_predictions(
 
     # Check results
     if not keep_original_file and not keep_intermediary_files:
-        assert len(os.listdir(output_vector_path.parent)) == 1
+        assert len(list(output_vector_path.parent.iterdir())) == 1
         assert output_vector_path.exists()
     if keep_original_file and not keep_intermediary_files:
-        assert len(os.listdir(output_vector_path.parent)) == 2
+        assert len(list(output_vector_path.parent.iterdir())) == 2
         assert output_vector_path.exists()
         assert output_orig_path.exists()
     if not keep_original_file and keep_intermediary_files:
-        assert len(os.listdir(output_vector_path.parent)) == 3
+        assert len(list(output_vector_path.parent.iterdir())) == 3
         assert output_vector_path.exists()
         assert output_dissolve_path.exists()
         assert output_reclass_path.exists()
     if keep_original_file and keep_intermediary_files:
-        assert len(os.listdir(output_vector_path.parent)) == 4
+        assert len(list(output_vector_path.parent.iterdir())) == 4
         assert output_vector_path.exists()
         assert output_orig_path.exists()
         assert output_dissolve_path.exists()

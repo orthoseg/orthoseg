@@ -1,7 +1,6 @@
 """Module with functions to clean up old project data."""
 
 import logging
-import os
 import shutil
 from pathlib import Path
 
@@ -102,7 +101,7 @@ def clean_training_data_directories(
         f"{simulate=}"
     )
 
-    dirnames = [dir for dir in os.listdir(training_dir) if dir.isnumeric()]
+    dirnames = [dir.name for dir in training_dir.iterdir() if dir.name.isnumeric()]
     dirnames.sort()
     if len(dirnames) < versions_to_retain:
         return []
@@ -248,8 +247,7 @@ def clean_project_dir(
     output_vector_parent_dir = output_vector_dir.parent
     removed["predictions"] = []
     if output_vector_parent_dir.exists():
-        prediction_dirs = os.listdir(output_vector_parent_dir)
-        for prediction_dir in prediction_dirs:
+        for prediction_dir in output_vector_parent_dir.iterdir():
             removed["predictions"].extend(
                 clean_predictions(
                     output_vector_dir=output_vector_parent_dir / prediction_dir,

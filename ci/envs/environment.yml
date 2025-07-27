@@ -1,5 +1,5 @@
 # This is the standard environment with recent version of all dependencies.
-name: orthoseg-latest
+name: orthoseg
 channels:
   - conda-forge
 dependencies:
@@ -27,3 +27,4 @@ dependencies:
   - pytest-order
   - pip:
     - segmentation-models >=1.0
+    - orthoseg >=0.6

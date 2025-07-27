@@ -114,7 +114,7 @@ def download(
                 url = data["download_url"]
                 with (
                     urllib.request.urlopen(url, context=context) as u,
-                    open(dir_out / data["name"], "wb") as f,
+                    (dir_out / data["name"]).open("wb") as f,
                 ):
                     f.write(u.read())
 
@@ -132,7 +132,7 @@ def download(
                         time.sleep(1)
                     with (
                         urllib.request.urlopen(url, context=context) as u,
-                        open(path, "wb") as f,
+                        path.open("wb") as f,
                     ):
                         f.write(u.read())
                 else:
