@@ -49,8 +49,8 @@ jobs:
             os: ubuntu-latest
             dev: false
             python: "3.12"
-          - env: windows-2025
-            os: windows-latest
+          - env: latest-tf-pip
+            os: windows-2025
             dev: false
             python: "3.10"
           - env: minimal
