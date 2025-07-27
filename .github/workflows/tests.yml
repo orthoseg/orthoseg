@@ -41,7 +41,15 @@ jobs:
             os: macos-13
             dev: false
             python: "3.12"
-          - env: latest
+          - env: latest-tf-pip
+            os: windows-latest
+            dev: false
+            python: "3.12"
+          - env: latest-tf-pip
+            os: ubuntu-latest
+            dev: false
+            python: "3.12"
+          - env: minimal
             os: windows-latest
             dev: false
             python: "3.10"
