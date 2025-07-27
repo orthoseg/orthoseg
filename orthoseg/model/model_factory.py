@@ -14,9 +14,9 @@ import os
 from pathlib import Path
 from typing import Any, TYPE_CHECKING
 
+import numpy as np
 import tensorflow as tf
 import keras.models
-import numpy as np
 
 # Set the framework to use by segmentation_models to keras
 os.environ["SM_FRAMEWORK"] = "tf.keras"
