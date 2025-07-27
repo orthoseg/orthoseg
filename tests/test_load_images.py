@@ -1,5 +1,6 @@
 """Tests for the load_images module."""
 
+import os
 import shutil
 
 import pytest
