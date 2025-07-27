@@ -2,6 +2,9 @@
 
 from pathlib import Path
 
+# Import tensorflow first to avoid CI segmentation faults on Windows.
+import tensorflow as tf
+
 # ruff: noqa: F401
 from orthoseg.load_images import load_images
 from orthoseg.postprocess import postprocess

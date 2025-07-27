@@ -11,7 +11,7 @@ dependencies:
   - python <3.13
   - pip
   # required
-  - gdal # <3.11  # gdal 3.11 triggers issues with tensorflow
+  - gdal
   - gdown
   - geofileops >=0.10
   - geopandas-base >=1.0
@@ -31,5 +31,5 @@ dependencies:
   - pytest-order
   - pip:
     - segmentation-models >=1.0
-    - tensorflow >=2.10,<2.16
+    - tensorflow >=2.10,<2.20
     - orthoseg >=0.6
