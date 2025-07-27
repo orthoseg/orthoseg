@@ -42,15 +42,15 @@ jobs:
             dev: false
             python: "3.12"
           - env: latest-tf-pip
-            os: windows-2025
+            os: windows-latest
             dev: false
             python: "3.12"
           - env: latest-tf-pip
             os: ubuntu-latest
             dev: false
             python: "3.12"
-          - env: latest-tf-pip
-            os: windows-2025
+          - env: minimal
+            os: windows-latest
             dev: false
             python: "3.10"
           - env: minimal
