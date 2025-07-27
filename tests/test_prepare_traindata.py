@@ -315,6 +315,10 @@ locations = {
 }
 
 
+@pytest.mark.skipif(
+    "GITHUB_ACTIONS" in os.environ and os.name == "nt",
+    reason="crashes on github CI on windows",
+)
 @pytest.mark.parametrize(
     "descr, prev_locations, new_locations",
     [
