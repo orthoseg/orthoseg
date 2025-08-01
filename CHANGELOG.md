@@ -1,12 +1,6 @@
 # CHANGELOG
 
-## 0.7.0 (2025-07-28)
-
-### Deprecations and compatibility notes
-
-- Update minimal dependencies: drop support of python 3.9, geopandas 1.x,...
-  (#229, #230)
-- Add support + tests for latest tensorflow version (#217)
+## 0.7.0 (2025-08-01)
 
 ### Deprecations and compatibility notes
 
