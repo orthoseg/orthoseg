@@ -36,7 +36,7 @@ you'll need to be patient.
 An example of the output for a detection of tree crowns on a high resolution orthophoto
 (0.25 m/pixel) is shown below.
 
-.. image:: docs/_static/images/trees.jpg
+.. image:: ../_static/images/trees.jpg
    :alt: Result of a tree detection on aerial images
    
 
