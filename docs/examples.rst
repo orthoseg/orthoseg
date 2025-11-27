@@ -57,7 +57,8 @@ A segmentation of historic land use. About 15 different uses are detected as sep
 classes (e.g. arable land, grassland, forest, roads, buildings, water bodies, etc.).
 The map used is the Ferraris map created from 1771-1778.
 
-The data is publicly available [here](https://www.vlaanderen.be/datavindplaats/catalogus/digitalisatie-historisch-landgebruik-en-landgebruiksveranderingen-in-vlaanderen-1778-2022).
+The data is publicly available
+`here <https://www.vlaanderen.be/datavindplaats/catalogus/digitalisatie-historisch-landgebruik-en-landgebruiksveranderingen-in-vlaanderen-1778-2022>`_.
 
 .. image:: _static/images/historic_landuse_ferraris.jpg
    :alt: Segmentation of historic land use
@@ -68,7 +69,8 @@ Historic linear features (Ferraris map, ~1778)
 A segmentation of historic linear features (e.g. rows of trees, hedgerows, rivers).
 The map used is the Ferraris map created from 1771-1778.
 
-A derivative of this segmentation can be found [here](https://www.vlaanderen.be/datavindplaats/catalogus/bomenrijen-ferraris-1771-1778).
+A derivative of this segmentation can be found
+`here <https://www.vlaanderen.be/datavindplaats/catalogus/bomenrijen-ferraris-1771-1778>`_.
 
 .. image:: _static/images/historic_linear_ferraris.jpg
    :alt: Segmentation of historic linear features
@@ -114,11 +116,16 @@ A segmentation of recreation fields (e.g. soccer fields, tennis courts, etc.) on
 orthophotos with 0.25 m/pixel resolution. The data is not available publicly at the
 moment.
 
-.. image:: _static/images/recreation_sport_fields.jpg
+Here some examples of sport fields being detected:
+
+.. image:: _static/images/recreationfields_sport_fields.jpg
    :alt: Segmentation of recreation fields
 
-.. image:: _static/images/recreation_golf.jpg
+This is an example of a golf course being detected:
+
+.. image:: _static/images/recreationfields_golf.jpg
    :alt: Segmentation of recreation fields
+
 
 Sealed surfaces
 ---------------
