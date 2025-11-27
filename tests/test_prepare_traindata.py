@@ -303,7 +303,7 @@ def test_prepare_labeldata_polygons_columnname_backw_compat():
         image_pixel_width=TestData.image_pixel_width,
         image_pixel_height=TestData.image_pixel_height,
     )
-    locations_gdf, polygons_to_burn_gdf = labeldata[0]
+    _locations_gdf, polygons_to_burn_gdf = labeldata[0]
 
     assert len(polygons_to_burn_gdf) == 2
 

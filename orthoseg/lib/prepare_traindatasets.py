@@ -336,9 +336,11 @@ def prepare_traindatasets(
                     dataversion_mostrecent is not None
                     and (previous_imagedata_image_dir / output_filename).exists()
                 ):
-                    image_filepath = shutil.copy(
-                        src=previous_imagedata_image_dir / output_filename,
-                        dst=output_imagedata_image_dir / output_filename,
+                    image_filepath: Path | None = Path(
+                        shutil.copy(
+                            src=previous_imagedata_image_dir / output_filename,
+                            dst=output_imagedata_image_dir / output_filename,
+                        )
                     )
                     pgw_filename = output_filename.replace(".png", ".pgw")
                     if (previous_imagedata_image_dir / pgw_filename).exists():
@@ -364,6 +366,10 @@ def prepare_traindatasets(
                         layername_in_filename=True,
                         output_filename=output_filename,
                     )
+
+                if image_filepath is None:
+                    logger.warning(f"Could not get image at {img_bbox.wkt}")
+                    continue
 
                 # Create a mask corresponding with the image file
                 # Mask should never be in a lossy format -> png!

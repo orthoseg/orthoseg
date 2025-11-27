@@ -249,7 +249,7 @@ def test_unformat():
 
 def test_unformat_error():
     with pytest.raises(
-        ValueError, match="pattern fields_{image_layer}_data.gpkg not found"
+        ValueError, match=re.escape("pattern fields_{image_layer}_data.gpkg not found")
     ):
         _ = conf._unformat(
             "fields_BEFL-2018_polygons.gpkg",
