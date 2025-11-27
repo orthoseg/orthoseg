@@ -99,6 +99,7 @@ html_sidebars: dict[str, list[str]] = {
     "faq": [],
     "installation": [],
     "user_guide": [],
+    "examples": [],
     "reference": [],
 }
 
