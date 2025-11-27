@@ -23,6 +23,7 @@
 - Make `load_images` more robust by ignoring some filesystem errors that occur sometimes
   but that don't seem to give actual issues (#216, #2019)
 - Small improvements to logging, error messages,... (#198, #218, #247)
+- Add some examples of existing segmentation results to docs (#283)
 
 ### Bugs fixed
 
