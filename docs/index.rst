@@ -39,5 +39,7 @@ you'll need to be patient.
 
    Installation <installation>
    User guide <user_guide>
+   Examples <examples>
    FAQ <faq>
    Development <development>
+   
