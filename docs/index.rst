@@ -33,6 +33,12 @@ Orthoseg uses deep neural networks, so if you want to process larger areas of hi
 resolution (e.g. 0.25 m/pixel) imagery, access to a CUDA GPU is recommended, otherwise
 you'll need to be patient.
 
+This is an example of what the result of a segmentation looks like, in this case the
+detection of tree crowns on a 0.25 m/pixel aerial image:
+
+.. image:: _static/images/trees.jpg
+   :alt: Segmentation of tree crowns
+
 
 .. toctree::
    :maxdepth: 1
