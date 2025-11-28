@@ -268,9 +268,6 @@ def predict_layer(
         return
     logger.info("Start predict_layer")
 
-    if postprocess is None:
-        postprocess = {}
-
     crs = pyproj.CRS.from_user_input(image_layer_config["projection"])
     image_format = image_layer_config.get("image_format", image_util.FORMAT_JPEG)
 
@@ -371,8 +368,6 @@ def _predict_layer(
     force: bool = False,
 ):
     # Check inputs
-    if postprocess is None:
-        postprocess = {}
     if input_image_dir is None and image_layer is None:
         raise ValueError("input_image_dir or image_layer should be provided")
     elif input_image_dir is not None and image_layer is not None:
