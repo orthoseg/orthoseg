@@ -25,9 +25,7 @@ from tests.test_helper import TestData
 def test_read_prediction_file():
     # Read + polygonize raster prediction file
     pred_raster_path = TestData.dir / "129568_185248_130592_186272_4096_4096_1_pred.tif"
-    pred_raster_gdf = post_pred.read_prediction_file(
-        pred_raster_path, border_pixels_to_ignore=128
-    )
+    pred_raster_gdf = post_pred.read_prediction_file(pred_raster_path)
     # gfo.to_file(pred_raster_gdf, get_testdata_dir() / f"{pred_raster_path.stem}.gpkg")
 
     # Read the comparison file, that contains the result of the polygonize

@@ -192,7 +192,7 @@ def reclassify_neighbours(
                     result_gdf.loc[[max_length_index], [reclassify_column]] = class_curr
 
         # Remove temp columns + dissolve
-        result_gdf = result_gdf[columns_orig + ["no_neighbours"]]
+        result_gdf = result_gdf[[*columns_orig, "no_neighbours"]]
         dissolve_columns = [reclassify_column, "no_neighbours"]
 
         # If there are extra columns, use aggfunc join to concatenate values

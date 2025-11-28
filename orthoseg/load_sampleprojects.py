@@ -17,13 +17,13 @@ def _parse_load_sampleprojects_args(args) -> dict:
     # Define supported arguments
     parser = argparse.ArgumentParser(add_help=False)
 
-    help = (
+    help_str = (
         "The directory to create the sample_projects dir in. "
         "Eg. ~/orthoseg will create orthoseg/sample_projects in your home directory."
     )
-    parser.add_argument("dest_dir", help=help)
+    parser.add_argument("dest_dir", help=help_str)
 
-    help = (
+    help_str = (
         "True to use the default certificate bundle as installed on your system. "
         "False disables certificate validation (NOT recommended!). In corporate "
         "networks using a proxy server it is often needed to specify a customized "
@@ -32,7 +32,7 @@ def _parse_load_sampleprojects_args(args) -> dict:
         "using the REQUESTS_CA_BUNDLE environment variable, but it can also passed "
         "using this switch. Parameter defaults to True."
     )
-    parser.add_argument("--ssl_verify", default=True, help=help)
+    parser.add_argument("--ssl_verify", default=True, help=help_str)
 
     # Interprete arguments
     args = parser.parse_args(args)

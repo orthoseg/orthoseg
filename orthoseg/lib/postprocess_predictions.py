@@ -199,15 +199,11 @@ def postprocess_predictions(
     return output_paths
 
 
-def read_prediction_file(
-    filepath: Path, border_pixels_to_ignore: int = 0
-) -> gpd.GeoDataFrame | None:
+def read_prediction_file(filepath: Path) -> gpd.GeoDataFrame | None:
     """Read the prediction file specified.
 
     Args:
         filepath (Path): path to the prediction file.
-        border_pixels_to_ignore (int, optional): number of pixels at all borders that
-            should be ignored. Defaults to 0.
 
     Returns:
         Optional[gpd.GeoDataFrame]: the vectorized and cleaned prediction.
@@ -216,7 +212,7 @@ def read_prediction_file(
     if ext_lower == ".geojson":
         return gfo.read_file(filepath)
     elif ext_lower == ".tif":
-        return polygonize_pred_from_file(filepath, border_pixels_to_ignore)
+        return polygonize_pred_from_file(filepath)
     else:
         raise ValueError(f"Unsupported extension: {ext_lower}")
 
@@ -234,7 +230,7 @@ def postprocess_prediction_to_file(
     input_mask_dir: Path | None = None,
     min_probability: float = 0.5,
     border_pixels_to_ignore: int = 0,
-    postprocess: dict = {},
+    postprocess: dict | None = None,
     force: bool = False,
 ) -> dict[str, Any]:
     """Postprocess a prediction to file(s).
@@ -265,8 +261,9 @@ def postprocess_prediction_to_file(
             certain class. Defaults to 0.5.
         border_pixels_to_ignore (int, optional): number of pixels at all borders that
             should be ignored. Defaults to 0.
-        postprocess (dict, optional): specifies which postprocessing should be applied
-            to the prediction for the vector output. Default is {}: no postprocessing.
+        postprocess (dict | None, optional): specifies which postprocessing should be
+            applied to the prediction for the vector output.
+            Default is None: no postprocessing.
         force (bool, optional): True to force calculation even if output file(s) exist.
             Defaults to False.
 
@@ -314,7 +311,6 @@ def postprocess_prediction_to_file(
             min_probability=min_probability,
             evaluate_mode=evaluate_mode,
             classes=classes,
-            force=force,
         )
 
     return result
@@ -356,7 +352,6 @@ def postprocess_for_evaluation(
     input_image_dir: Path | None = None,
     input_mask_dir: Path | None = None,
     border_pixels_to_ignore: int = 0,
-    force: bool = False,
 ):
     """This function postprocesses a prediction for manual evaluation.
 
@@ -387,7 +382,6 @@ def postprocess_for_evaluation(
         input_mask_dir (Optional[Path], optional): _description_. Defaults to None.
         border_pixels_to_ignore (int, optional): number of pixels at all borders that
             should be ignored. Defaults to 0.
-        force (bool, optional): _description_. Defaults to False.
 
     Raises:
         ValueError: _description_
@@ -661,16 +655,12 @@ def polygonize_pred_for_evaluation(
 
 
 def polygonize_pred_from_file(
-    image_pred_filepath: Path,
-    border_pixels_to_ignore: int = 0,
-    save_to_file: bool = False,
+    image_pred_filepath: Path, save_to_file: bool = False
 ) -> gpd.GeoDataFrame | None:
     """Polygonize a prediction from a file.
 
     Args:
         image_pred_filepath (Path): path to the file to be read.
-        border_pixels_to_ignore (int, optional): number of pixels at all borders that
-            should be ignored. Defaults to 0.
         save_to_file (bool, optional): If True, save te result to a file.
             Defaults to False.
 
@@ -721,7 +711,7 @@ def polygonize_pred_multiclass_to_file(
     classes: list,
     output_vector_path: Path,
     min_probability: float = 0.5,
-    postprocess: dict = {},
+    postprocess: dict | None = None,
     border_pixels_to_ignore: int = 0,
     force: bool = False,
 ) -> dict:
@@ -735,8 +725,8 @@ def polygonize_pred_multiclass_to_file(
         output_vector_path (Path): _description_
         min_probability (float): Minimum probability to consider a pixel being of a
             certain class. Defaults to 0.5.
-        postprocess (dict, optional): specifies which postprocessing should be applied
-            to the prediction. Default is {}, so no postprocessing.
+        postprocess (dict | None, optional): specifies which postprocessing should be
+            applied to the prediction. Default is None, so no postprocessing.
         border_pixels_to_ignore (int, optional): number of pixels at all borders that
             should be ignored. Defaults to 0.
         force (bool, optional): _description_. Defaults to False.
@@ -782,7 +772,7 @@ def polygonize_pred_multiclass(
     image_transform,
     classes: list,
     min_probability: float = 0.5,
-    postprocess: dict = {},
+    postprocess: dict | None = None,
     border_pixels_to_ignore: int = 0,
 ) -> gpd.GeoDataFrame | None:
     """Polygonize a multiclass prediction.
@@ -794,8 +784,8 @@ def polygonize_pred_multiclass(
         classes (list): _description_
         min_probability (float): Minimum probability to consider a pixel being of a
             certain class. Defaults to 0.5.
-        postprocess (dict, optional): specifies which postprocessing should be applied
-            to the prediction. Default is {}, so no postprocessing.
+        postprocess (dict | None, optional): specifies which postprocessing should be
+            applied to the prediction. Default is None, so no postprocessing.
         border_pixels_to_ignore (int, optional): number of pixels at all borders that
             should be ignored. Defaults to 0.
 
@@ -831,6 +821,8 @@ def polygonize_pred_multiclass(
         image_pred_decoded_arr[:, -border_pixels_to_ignore:] = 0  # Bottom border
 
     # Postprocessing on the raster output
+    if postprocess is None:
+        postprocess = {}
     if len(postprocess) > 0:
         # If fill_gaps_modal_size is asked...
         if (
@@ -1011,7 +1003,6 @@ def clean_and_save_prediction(
     input_mask_dir: Path | None = None,
     border_pixels_to_ignore: int = 0,
     min_probability: float = 0.5,
-    force: bool = False,
 ) -> bool:
     """Clean the prediction and save it.
 
@@ -1103,7 +1094,6 @@ def clean_and_save_prediction(
                     class_name=class_name,
                     nb_classes=nb_channels,
                     border_pixels_to_ignore=border_pixels_to_ignore,
-                    force=force,
                 )
 
     return True

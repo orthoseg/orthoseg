@@ -50,14 +50,14 @@ def _train_args(args) -> argparse.Namespace:
     return parser.parse_args(args)
 
 
-def train(config_path: Path, config_overrules: list[str] = []):
+def train(config_path: Path, config_overrules: list[str] | None = None):
     """Run a training session for the config specified.
 
     Args:
         config_path (Path): Path to the config file to use.
         config_overrules (list[str], optional): list of config options that will
             overrule other ways to supply configuration. They should be specified in the
-            form of "<section>.<parameter>=<value>". Defaults to [].
+            form of "<section>.<parameter>=<value>". Defaults to None.
     """
     # Init
     # Load the config and save in a bunch of global variables zo it
@@ -69,7 +69,7 @@ def train(config_path: Path, config_overrules: list[str] = []):
         log_dir=conf.dirs.getpath("log_dir"),
         nb_logfiles_tokeep=conf.logging_conf.getint("nb_logfiles_tokeep"),
     )
-    global logger
+    global logger  # noqa: PLW0603
     logger = log_util.main_log_init(conf.dirs.getpath("log_dir"), __name__)
 
     # Log start
@@ -78,12 +78,12 @@ def train(config_path: Path, config_overrules: list[str] = []):
 
     try:
         # Create the output dir's if they don't exist yet...
-        for dir in [
+        for output_dir in [
             conf.dirs.getpath("project_dir"),
             conf.dirs.getpath("training_dir"),
         ]:
-            if dir and not dir.exists():
-                dir.mkdir()
+            if output_dir and not output_dir.exists():
+                output_dir.mkdir()
 
         train_label_infos = conf.get_train_label_infos()
 
@@ -183,7 +183,7 @@ def train(config_path: Path, config_overrules: list[str] = []):
                     "JUST PREDICT, no training: resume_train is false + model found"
                 )
                 train_needed = False
-        else:
+        else:  # noqa: PLR5501
             # We want to preload an existing model and models were found
             if best_model_curr_train_version is not None:
                 logger.info(
@@ -219,7 +219,7 @@ def train(config_path: Path, config_overrules: list[str] = []):
                         f"Load model + weights from {best_recent_model['filepath']}"
                     )
                     best_model = mf.load_model(
-                        best_recent_model["filepath"], compile=False
+                        best_recent_model["filepath"], compile_model=False
                     )
                     best_hyperparams_path = (
                         best_recent_model["filepath"].parent
@@ -322,7 +322,9 @@ def train(config_path: Path, config_overrules: list[str] = []):
         logger.info(
             f"Load model + weights from {best_model_curr_train_version['filepath']}"
         )
-        model = mf.load_model(best_model_curr_train_version["filepath"], compile=False)
+        model = mf.load_model(
+            best_model_curr_train_version["filepath"], compile_model=False
+        )
         logger.info("Loaded model + weights")
 
         # Prepare output subdir to be used for predictions

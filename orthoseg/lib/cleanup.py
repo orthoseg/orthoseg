@@ -101,7 +101,7 @@ def clean_training_data_directories(
         f"{simulate=}"
     )
 
-    dirnames = [dir.name for dir in training_dir.iterdir() if dir.name.isnumeric()]
+    dirnames = [d.name for d in training_dir.iterdir() if d.name.isnumeric()]
     dirnames.sort()
     if len(dirnames) < versions_to_retain:
         return []
@@ -109,17 +109,17 @@ def clean_training_data_directories(
     dirnames_to_clean = dirnames[: len(dirnames) - versions_to_retain]
     dirs_to_remove = []
     for dirname in dirnames_to_clean:
-        dir = training_dir / dirname
-        dirs_to_remove.append(dir)
-        logger.info(f"remove training dir ({simulate=}): {dir}")
+        clean_dir = training_dir / dirname
+        dirs_to_remove.append(clean_dir)
+        logger.info(f"remove training dir ({simulate=}): {clean_dir}")
 
         if simulate:
             continue
 
         try:
-            shutil.rmtree(dir)
+            shutil.rmtree(clean_dir)
         except Exception as ex:  # pragma: no cover
-            message = f"ERROR deleting directory {dir}"
+            message = f"ERROR deleting directory {clean_dir}"
             logger.exception(message)
             raise RuntimeError(message) from ex
 

@@ -26,12 +26,12 @@ def create_projects_dir(tmp_path: Path) -> Path:
     return project_dir
 
 
-def create_model_files(dir: Path) -> list[tuple[Path, int]]:
+def create_model_files(dst_dir: Path) -> list[tuple[Path, int]]:
     """
     Creates test model files and returns information about them.
 
     Args:
-        dir (Path): the directory where the files should be created
+        dst_dir (Path): the directory where the files should be created
 
     Returns:
         list[tuple[Path, int]]: the list of files created. Each item of the list is a
@@ -59,17 +59,17 @@ def create_model_files(dir: Path) -> list[tuple[Path, int]]:
     ]
 
     files = []
-    dir.mkdir(parents=True, exist_ok=True)
+    dst_dir.mkdir(parents=True, exist_ok=True)
     for model, value in models.items():
         for file_type in model_files:
-            filepath = dir / f"{model}_{file_type}"
+            filepath = dst_dir / f"{model}_{file_type}"
             filepath.touch()
             files.append((filepath, value))
 
     return files
 
 
-def create_training_dirs(dir: Path) -> list[tuple[Path, int]]:
+def create_training_dirs(dst_dir: Path) -> list[tuple[Path, int]]:
     """
     Creates test training directories and returns information about them.
 
@@ -84,22 +84,27 @@ def create_training_dirs(dir: Path) -> list[tuple[Path, int]]:
                 being retained when cleaning up the training directories.
     """
     # Directory paths with the minimum number of versions to retain to keep them
-    dirs = [(dir / "01", 4), (dir / "02", 3), (dir / "03", 2), (dir / "04", 1)]
+    dirs = [
+        (dst_dir / "01", 4),
+        (dst_dir / "02", 3),
+        (dst_dir / "03", 2),
+        (dst_dir / "04", 1),
+    ]
 
     # Create directories
-    dir.mkdir(parents=True, exist_ok=True)
+    dst_dir.mkdir(parents=True, exist_ok=True)
     for training_dir, _ in dirs:
         training_dir.mkdir(parents=True, exist_ok=True)
 
     return dirs
 
 
-def create_prediction_files(dir: Path, imagelayer: str) -> list[tuple[Path, int]]:
+def create_prediction_files(dst_dir: Path, imagelayer: str) -> list[tuple[Path, int]]:
     """
     Creates test prediction files and returns information about them.
 
     Args:
-        dir (Path): the directory where the directories should be created
+        dst_dir (Path): the directory where the directories should be created
 
     Returns:
         list[tuple[Path, int]]: the list of files created. Each item of the list
@@ -118,19 +123,19 @@ def create_prediction_files(dir: Path, imagelayer: str) -> list[tuple[Path, int]
     #   - a "missing" traindata version: 03
     #       -> is ignored when counting the number of versions to retain
     files = [
-        (dir / f"footballfields_01_201_{imagelayer}.gpkg", 4),
-        (dir / f"footballfields_01_201_{imagelayer}_dissolve.gpkg", 4),
-        (dir / f"footballfields_02_201_{imagelayer}.gpkg", 3),
-        (dir / f"footballfields_02_201_{imagelayer}_dissolve.gpkg", 3),
-        (dir / f"footballfields_02_99_{imagelayer}.gpkg", 3),
-        (dir / f"footballfields_04_201_{imagelayer}.gpkg", 2),
-        (dir / f"footballfields_04_99_{imagelayer}.gpkg", 2),
-        (dir / f"footballfields_04_201_{imagelayer}_dissolve.gpkg", 2),
-        (dir / f"footballfields_05_201_{imagelayer}_dissolve.gpkg", 1),
+        (dst_dir / f"footballfields_01_201_{imagelayer}.gpkg", 4),
+        (dst_dir / f"footballfields_01_201_{imagelayer}_dissolve.gpkg", 4),
+        (dst_dir / f"footballfields_02_201_{imagelayer}.gpkg", 3),
+        (dst_dir / f"footballfields_02_201_{imagelayer}_dissolve.gpkg", 3),
+        (dst_dir / f"footballfields_02_99_{imagelayer}.gpkg", 3),
+        (dst_dir / f"footballfields_04_201_{imagelayer}.gpkg", 2),
+        (dst_dir / f"footballfields_04_99_{imagelayer}.gpkg", 2),
+        (dst_dir / f"footballfields_04_201_{imagelayer}_dissolve.gpkg", 2),
+        (dst_dir / f"footballfields_05_201_{imagelayer}_dissolve.gpkg", 1),
     ]
 
     # Create the files
-    dir.mkdir(parents=True, exist_ok=True)
+    dst_dir.mkdir(parents=True, exist_ok=True)
     for file, _ in files:
         file.touch()
 
@@ -187,7 +192,7 @@ def test_cleanup_models(
 
     # Creating dummy files
     models_dir = project_dir / "models"
-    model_files = create_model_files(dir=models_dir)
+    model_files = create_model_files(dst_dir=models_dir)
 
     # Load project config to init some vars.
     load_project_config(path=project_dir)
@@ -226,7 +231,7 @@ def test_cleanup_training(
 
     # Creating dummy files
     training_dir = project_dir / "training"
-    dirs = create_training_dirs(dir=training_dir)
+    dirs = create_training_dirs(dst_dir=training_dir)
 
     # Load project config to init some vars.
     load_project_config(path=project_dir)
@@ -239,18 +244,18 @@ def test_cleanup_training(
     )
 
     # Asserts
-    for dir, min_version_to_retain in dirs:
+    for training_dir, min_version_to_retain in dirs:
         if versions_to_retain < 0 or min_version_to_retain <= versions_to_retain:
             # Directory should be kept
-            assert dir not in cleanedup_trainingdata_dirs
-            assert dir.exists()
+            assert training_dir not in cleanedup_trainingdata_dirs
+            assert training_dir.exists()
         else:
             # Directory should be removed
-            assert dir in cleanedup_trainingdata_dirs
+            assert training_dir in cleanedup_trainingdata_dirs
             if simulate:
-                assert dir.exists()
+                assert training_dir.exists()
             else:
-                assert not dir.exists()
+                assert not training_dir.exists()
 
 
 @pytest.mark.parametrize("simulate", [False, True])
@@ -266,7 +271,7 @@ def test_cleanup_predictions(
     # Creating dummy files
     imagelayer = "BEFL-2019"
     output_vector_dir = project_dir / "output_vector" / imagelayer
-    files = create_prediction_files(dir=output_vector_dir, imagelayer=imagelayer)
+    files = create_prediction_files(dst_dir=output_vector_dir, imagelayer=imagelayer)
 
     # Load project config to init some vars.
     load_project_config(path=project_dir)
@@ -347,15 +352,15 @@ def test_cleanup_project_dir(
 
     # Creating dummy files
     model_dir = project_dir / "models"
-    create_model_files(dir=model_dir)
+    create_model_files(dst_dir=model_dir)
     training_dir = project_dir / "training"
-    create_training_dirs(dir=training_dir)
+    create_training_dirs(dst_dir=training_dir)
     imagelayer = "BEFL-2019"
     output_vector_dir = project_dir / "output_vector" / imagelayer
-    create_prediction_files(dir=output_vector_dir, imagelayer=imagelayer)
+    create_prediction_files(dst_dir=output_vector_dir, imagelayer=imagelayer)
     imagelayer = "BEFL-2020"
     output_vector_dir = project_dir / "output_vector" / imagelayer
-    create_prediction_files(dir=output_vector_dir, imagelayer=imagelayer)
+    create_prediction_files(dst_dir=output_vector_dir, imagelayer=imagelayer)
 
     # Load project config to init some vars.
     load_project_config(path=project_dir)

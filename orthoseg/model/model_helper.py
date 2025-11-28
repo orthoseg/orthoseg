@@ -4,7 +4,7 @@ import json
 import logging
 import shutil
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import pandas as pd
 from keras import callbacks
@@ -68,7 +68,7 @@ class TrainParams:
         batch_size: int = 4,
         optimizer: str = "adam",
         optimizer_params: dict | None = None,
-        loss_function: str | None = None,
+        loss_function: str | None = None,  # noqa: ARG002
         monitor_metric: str | None = None,
         monitor_metric_mode: str = "auto",
         save_format: str = "h5",
@@ -78,7 +78,7 @@ class TrainParams:
         nb_epoch_with_freeze: int = 100,
         earlystop_patience: int = 100,
         earlystop_monitor_metric: str | None = None,
-        earlystop_monitor_metric_mode: str = "auto",
+        earlystop_monitor_metric_mode: Literal["auto", "min", "max"] = "auto",
         log_tensorboard: bool = False,
         log_csv: bool = True,
     ):
@@ -114,9 +114,13 @@ class TrainParams:
                     part of the layers frozen. Defaults to 20.
             earlystop_patience (int, optional): [description]. Defaults to 100.
             earlystop_monitor_metric (str, optional): [description]. Defaults to None.
-            earlystop_monitor_metric_mode (str, optional): Mode to monitor the
-                metric: 'max' if the metric should be as high as possible,
-                'min' if it should be low. Defaults to 'auto'.
+            earlystop_monitor_metric_mode (Literal["auto", "min", "max"], optional):
+                Mode to monitor the metric. Defaults to 'auto'. Options are:
+
+                - **"max"**: if the metric should be as high as possible,
+                - **"min"**: if it should be low.
+                - **"auto"**: to determine automatically.
+
             log_tensorboard (bool, optional): True to activate tensorboard
                 logging. Defaults to False.
             log_csv (bool, optional): True to activate logging to a csv.
@@ -285,12 +289,11 @@ def _validate_augmentations(
                     f"{key} is a mandatory augmentation that should be {value} for "
                     "mask_augmentations"
                 )
-        else:
-            if mask_augmentations[key] != value:
-                errors.append(
-                    f"{key} for mask_augmentations should be {value}, not "
-                    f"{mask_augmentations[key]}"
-                )
+        elif mask_augmentations[key] != value:
+            errors.append(
+                f"{key} for mask_augmentations should be {value}, not "
+                f"{mask_augmentations[key]}"
+            )
 
     if len(errors) > 0:
         raise ValueError(f"issues found in augmentation parameters: {errors}")
@@ -643,13 +646,15 @@ class ModelCheckpointExt(callbacks.Callback):
         self.verbose = verbose
         self.only_report = only_report
 
-    def on_epoch_end(self, epoch, logs={}):
+    def on_epoch_end(self, epoch, logs=None):
         """on_epoch_end method.
 
         Args:
             epoch (_type_): _description_
-            logs (dict, optional): _description_. Defaults to {}.
+            logs (dict, optional): _description_. Defaults to None.
         """
+        if logs is None:
+            logs = {}
         logger.debug(f"Start in callback on_epoch_begin, logs contains: {logs}")
 
         # First determine the values of the monitor metric for train and validation
@@ -855,7 +860,7 @@ def save_and_clean_models(
                             new_model.save_weights(
                                 str(new_model_path), save_format=save_format
                             )
-                    else:
+                    else:  # noqa: PLR5501
                         if model_template_for_save is not None:
                             model_template_for_save.save(
                                 str(new_model_path), save_format=save_format

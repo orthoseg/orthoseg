@@ -38,7 +38,7 @@ def predict_dir(
     output_vector_path: Path | None,
     classes: list,
     min_probability: float = 0.5,
-    postprocess: dict = {},
+    postprocess: dict | None = None,
     border_pixels_to_ignore: int = 0,
     projection_if_missing: str | None = None,
     input_mask_dir: Path | None = None,
@@ -81,8 +81,8 @@ def predict_dir(
             if more than background + 1 class.
         min_probability (float): Minimum probability to consider a pixel being of a
             certain class. Defaults to 0.5.
-        postprocess (dict, optional): specifies which postprocessing should be applied
-            to the prediction. Default is {}, so no postprocessing.
+        postprocess (dict | None, optional): specifies which postprocessing should be
+            applied to the prediction. Default is None, so no postprocessing.
         border_pixels_to_ignore: because the segmentation at the borders of the
             input images images is not as good, you can specify that x
             pixels need to be ignored
@@ -174,7 +174,7 @@ def predict_layer(
     output_vector_path: Path | None,
     classes: list,
     min_probability: float = 0.5,
-    postprocess: dict = {},
+    postprocess: dict | None = None,
     projection_if_missing: str | None = None,
     input_mask_dir: Path | None = None,
     batch_size: int = 16,
@@ -229,8 +229,8 @@ def predict_layer(
             if more than background + 1 class.
         min_probability (float): Minimum probability to consider a pixel being of a
             certain class. Defaults to 0.5.
-        postprocess (dict, optional): specifies which postprocessing should be applied
-            to the prediction. Default is {}, so no postprocessing.
+        postprocess (dict | None, optional): specifies which postprocessing should be
+            applied to the prediction. Default is None, so no postprocessing.
         border_pixels_to_ignore: because the segmentation at the borders of the
             input images images is not as good, you can specify that x
             pixels need to be ignored
@@ -354,7 +354,7 @@ def _predict_layer(
     classes: list,
     image_files: list[dict[str, Any]],
     min_probability: float = 0.5,
-    postprocess: dict = {},
+    postprocess: dict | None = None,
     border_pixels_to_ignore: int = 0,
     projection_if_missing: str | None = None,
     input_mask_dir: Path | None = None,
@@ -893,7 +893,7 @@ def read_image(image_path: Path, projection_if_missing: str | None = None) -> di
             if retry_count >= 3:
                 message = f"Read failed {retry_count} times for {image_path}: {ex}"
                 logger.error(message)
-                raise RuntimeError(message)
+                raise RuntimeError(message) from ex
 
     # The read was successfull, now check if there was a projection in the
     # file and/or if one was provided
