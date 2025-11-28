@@ -4,7 +4,7 @@ import json
 import logging
 import shutil
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import pandas as pd
 from keras import callbacks
@@ -78,7 +78,7 @@ class TrainParams:
         nb_epoch_with_freeze: int = 100,
         earlystop_patience: int = 100,
         earlystop_monitor_metric: str | None = None,
-        earlystop_monitor_metric_mode: str = "auto",
+        earlystop_monitor_metric_mode: Literal["auto", "min", "max"] = "auto",
         log_tensorboard: bool = False,
         log_csv: bool = True,
     ):
@@ -114,9 +114,13 @@ class TrainParams:
                     part of the layers frozen. Defaults to 20.
             earlystop_patience (int, optional): [description]. Defaults to 100.
             earlystop_monitor_metric (str, optional): [description]. Defaults to None.
-            earlystop_monitor_metric_mode (str, optional): Mode to monitor the
-                metric: 'max' if the metric should be as high as possible,
-                'min' if it should be low. Defaults to 'auto'.
+            earlystop_monitor_metric_mode (Literal["auto", "min", "max"], optional):
+                Mode to monitor the metric. Defaults to 'auto'. Options are:
+
+                - **"max"**: if the metric should be as high as possible,
+                - **"min"**: if it should be low.
+                - **"auto"**: to determine automatically.
+
             log_tensorboard (bool, optional): True to activate tensorboard
                 logging. Defaults to False.
             log_csv (bool, optional): True to activate logging to a csv.

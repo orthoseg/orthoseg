@@ -3,6 +3,7 @@
 import logging
 import math
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -203,14 +204,14 @@ def train(
             )
 
     # Define some callbacks for the training
-    train_callbacks = []
+    train_callbacks: list[Any] = []
     # Reduce the learning rate if the loss doesn't improve anymore
     reduce_lr = kr.callbacks.ReduceLROnPlateau(
         monitor="loss",
         factor=0.2,
         patience=20,
         min_lr=1e-20,
-        verbose=True,
+        verbose=1,
     )
     train_callbacks.append(reduce_lr)
 
