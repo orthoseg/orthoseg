@@ -41,7 +41,7 @@ def test_predict_invalid_config(config_path, exp_error):
     else:
         handler = nullcontext()
     with handler:
-        predict(config_path=Path("INVALID"))
+        predict(config_path=config_path)
 
 
 def test_predict_error_handling():

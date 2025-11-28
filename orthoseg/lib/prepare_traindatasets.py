@@ -65,11 +65,11 @@ class LabelInfo:
         Returns:
             str: readable string representation of object.
         """
-        repr = (
+        repr_str = (
             f"LabelInfo(image_layer={self.image_layer}, locations_path="
             f"{self.locations_path}, polygons_path={self.polygons_path},...)"
         )
-        return repr
+        return repr_str
 
 
 class ValidationError(ValueError):
@@ -98,10 +98,12 @@ class ValidationError(ValueError):
         Returns:
             str: returns the validation errors as string.
         """
-        repr = super().__repr__()
+        repr_str = super().__repr__()
         if self.errors is not None and len(self.errors) > 0:
-            repr += f"\n  -> Errors: {pprint.pformat(self.errors, indent=4, width=100)}"
-        return repr
+            repr_str += (
+                f"\n  -> Errors: {pprint.pformat(self.errors, indent=4, width=100)}"
+            )
+        return repr_str
 
     def __str__(self) -> str:
         """Formats validation errors to string.
@@ -109,10 +111,12 @@ class ValidationError(ValueError):
         Returns:
             str: returns the validation errors as string.
         """
-        repr = super().__str__()
+        repr_str = super().__str__()
         if self.errors is not None and len(self.errors) > 0:
-            repr += f"\n  -> Errors: {pprint.pformat(self.errors, indent=4, width=100)}"
-        return repr
+            repr_str += (
+                f"\n  -> Errors: {pprint.pformat(self.errors, indent=4, width=100)}"
+            )
+        return repr_str
 
     def to_html(self) -> str:
         """Formats validation errors to html.
@@ -120,11 +124,11 @@ class ValidationError(ValueError):
         Returns:
             str: the validation errors as html.
         """
-        repr = super().__str__()
+        repr_str = super().__str__()
         if self.errors is not None and len(self.errors) > 0:
             errors_df = pd.DataFrame(self.errors, columns=["error"])
-            repr += f"{errors_df.to_html()}"
-        return repr
+            repr_str += f"{errors_df.to_html()}"
+        return repr_str
 
 
 def prepare_traindatasets(
@@ -300,13 +304,13 @@ def prepare_traindatasets(
         output_imagedatatype_dir = output_tmp_dir / traindata_type
         output_imagedata_image_dir = output_imagedatatype_dir / "image"
         output_imagedata_mask_dir = output_imagedatatype_dir / "mask"
-        for dir in [
+        for output_dir in [
             output_imagedatatype_dir,
             output_imagedata_mask_dir,
             output_imagedata_image_dir,
         ]:
-            if dir and not dir.exists():
-                dir.mkdir(parents=True, exist_ok=True)
+            if output_dir and not output_dir.exists():
+                output_dir.mkdir(parents=True, exist_ok=True)
 
         for labellocations_gdf, labels_to_burn_gdf in labeldata:
             # Get the label locations for this traindata type
@@ -315,9 +319,9 @@ def prepare_traindatasets(
             ]
 
             # Loop trough all locations labels to get an image for each of them
-            for i, label_tuple in enumerate(labellocations_curr_gdf.itertuples()):
+            for label_tuple in labellocations_curr_gdf.itertuples():
                 img_bbox = label_tuple.geometry
-                image_layer = getattr(label_tuple, "image_layer")
+                image_layer = label_tuple.image_layer
 
                 # Prepare file name for the image
                 assert labellocations_gdf.crs is not None
@@ -381,7 +385,6 @@ def prepare_traindatasets(
                     )
                     .replace(".jpg", ".png")
                 )
-                nb_classes = len(classes)
 
                 # Only keep the labels that are meant for this image layer
                 if "image_layer" not in labels_to_burn_gdf.columns:
@@ -397,7 +400,6 @@ def prepare_traindatasets(
                     input_image_filepath=image_filepath,
                     output_mask_filepath=mask_filepath,
                     labels_to_burn_gdf=labels_for_layer_gdf,
-                    nb_classes=nb_classes,
                     force=force,
                 )
 
@@ -772,8 +774,6 @@ def _create_mask(
     input_image_filepath: Path,
     output_mask_filepath: Path,
     labels_to_burn_gdf: gpd.GeoDataFrame,
-    nb_classes: int = 1,
-    output_imagecopy_filepath: Path | None = None,
     minimum_pct_labeled: float = 0.0,
     force: bool = False,
 ) -> bool | None:
@@ -821,7 +821,7 @@ def _create_mask(
     burn_shapes = [
         (geom, value)
         for geom, value in zip(
-            labels_to_burn_gdf.geometry, labels_to_burn_gdf.burn_value
+            labels_to_burn_gdf.geometry, labels_to_burn_gdf.burn_value, strict=True
         )
         if geom is not None and geom.is_empty is False
     ]

@@ -1,7 +1,6 @@
 """Tests for module train."""
 
 from contextlib import nullcontext
-from pathlib import Path
 
 import pytest
 
@@ -36,7 +35,7 @@ def test_train(config_path, exp_error):
     else:
         handler = nullcontext()
     with handler:
-        train(config_path=Path("INVALID"))
+        train(config_path=config_path)
 
 
 def test_train_error_handling():

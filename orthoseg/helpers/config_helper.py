@@ -1,5 +1,7 @@
 """Module with specific helper functions to manage the configuration of orthoseg."""
 
+# ruff: noqa: PLW0603
+
 import configparser
 import json
 import logging
@@ -63,14 +65,14 @@ def pformat_config() -> str:
     return message
 
 
-def read_orthoseg_config(config_path: Path, overrules: list[str] = []):
+def read_orthoseg_config(config_path: Path, overrules: list[str] | None = None):
     """Read an orthoseg configuration file.
 
     Args:
         config_path (Path): path to the configuration file to read.
         overrules (list[str], optional): list of config options that will overrule other
             ways to supply configuration. They should be specified as a list of
-            "<section>.<parameter>=<value>" strings. Defaults to [].
+            "<section>.<parameter>=<value>" strings. Defaults to None.
     """
     # Set the temporary directory
     _set_tmp_dir()
@@ -79,6 +81,8 @@ def read_orthoseg_config(config_path: Path, overrules: list[str] = []):
     config_paths = config_util.get_config_files(config_path)
 
     # If there are overrules, write them to a temporary configuration file.
+    if overrules is None:
+        overrules = []
     global config_overrules
     config_overrules = overrules
     global config_overrules_path
@@ -174,14 +178,14 @@ def read_orthoseg_config(config_path: Path, overrules: list[str] = []):
     image_layers = _read_layer_config(layer_config_filepath=layer_config_filepath)
 
 
-def _set_tmp_dir(dir: str = "orthoseg") -> Path:
+def _set_tmp_dir(dir_name: str = "orthoseg") -> Path:
     # Check if TMPDIR exists in environment
     tmpdir = os.getenv("TMPDIR")
     tmp_dir = Path(tempfile.gettempdir() if tmpdir is None else tmpdir)
 
     # Check if the TMPDIR is not already set to a orthoseg directory
-    if tmp_dir.name.lower() != dir.lower():
-        tmp_dir /= dir
+    if tmp_dir.name.lower() != dir_name.lower():
+        tmp_dir /= dir_name
         # Set the TMPDIR in the environment
         os.environ["TMPDIR"] = tmp_dir.as_posix()
         tempfile.tempdir = tmp_dir.as_posix()
@@ -351,9 +355,7 @@ def _read_layer_config(layer_config_filepath: Path) -> dict:
                         ),
                     )
                 elif "wmts_server_url" in layersource:
-                    path = _gdal_virtual_file_path(
-                        path=layer_config_filepath.parent, layersource=layersource
-                    )
+                    path = _gdal_virtual_file_path(layersource)
                     layersource_object = FileLayerSource(
                         path=path,
                         layernames=_str2list(layersource["layername"]),
@@ -446,7 +448,7 @@ def _prepare_train_label_infos(
     label_infos: list[LabelInfo] = []
     datasources_overruled = set()
     if label_datasources is not None:
-        for label_key, label_ds in label_datasources.items():
+        for _label_key, label_ds in label_datasources.items():
             if label_ds.get("locations_path") is None:
                 raise ValueError(
                     "locations_path is mandatory for each label_datasource and is "
@@ -575,50 +577,54 @@ def _unformat(string: str, pattern: str) -> dict:
     if regex_result is not None:
         values = list(regex_result.groups())
         keys = re.findall(r"{(.+?)}", pattern)
-        _dict = dict(zip(keys, values))
+        _dict = dict(zip(keys, values, strict=True))
         return _dict
     else:
         raise ValueError(f"pattern {pattern} not found in {string}")
 
 
-def _str2list(input: str | None):
-    if input is None:
+def _str2list(string: str | None):
+    if string is None:
         return None
-    if isinstance(input, list):
-        return input
-    return [part.strip() for part in input.split(",")]
+    if isinstance(string, list):
+        return string
+    return [part.strip() for part in string.split(",")]
 
 
-def _str2intlist(input: str | None):
-    if input is None:
+def _str2intlist(string: str | None):
+    if string is None:
         return None
-    if isinstance(input, list):
-        return input
-    return [int(i.strip()) for i in input.split(",")]
+    if isinstance(string, list):
+        return string
+    return [int(i.strip()) for i in string.split(",")]
 
 
-def _str2bool(input: str | None):
-    if input is None:
+def _str2bool(string: str | None):
+    if string is None:
         return None
-    if isinstance(input, bool):
-        return input
-    return input.lower() in ("yes", "true", "false", "1")
+    if isinstance(string, bool):
+        return string
+    return string.lower() in ("yes", "true", "false", "1")
 
 
-def _gdal_virtual_file_path(path: Path, layersource) -> Path:
+def _gdal_virtual_file_path(layersource) -> Path:
     """Create a virtual file path for GDAL.
 
-    Returns:    Path: the path to the virtual file.
+    Args:
+        layersource (dict): the layersource information.
+
+    Returns:
+        Path: the path to the virtual file.
     """
     output_path = get_run_tmp_dir() / f"{layersource['layername']}.vrt"
-    input = (
+    input_url = (
         f"WMTS:{layersource['wmts_server_url']}SERVICE=WMTS"
         f"&VERSION={layersource['wmts_version']}&REQUEST=GetCapabilities"
         f"&LAYER={layersource['wmts_layernames']}"
         f"&TILEMATRIXSET={layersource['wmts_tile_matrix_set']}"
     )
-    input = (
-        input
+    input_url = (
+        input_url
         + f",layer={layersource['wmts_layernames']}"
         + f",tilematrixset={layersource['wmts_tile_matrix_set']}"
     )
@@ -626,7 +632,7 @@ def _gdal_virtual_file_path(path: Path, layersource) -> Path:
 
     gdal.Translate(
         str(output_path),
-        input,
+        input_url,
         options=gdal_options,
     )
 

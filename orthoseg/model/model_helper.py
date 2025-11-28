@@ -68,7 +68,7 @@ class TrainParams:
         batch_size: int = 4,
         optimizer: str = "adam",
         optimizer_params: dict | None = None,
-        loss_function: str | None = None,
+        loss_function: str | None = None,  # noqa: ARG002
         monitor_metric: str | None = None,
         monitor_metric_mode: str = "auto",
         save_format: str = "h5",
@@ -285,12 +285,11 @@ def _validate_augmentations(
                     f"{key} is a mandatory augmentation that should be {value} for "
                     "mask_augmentations"
                 )
-        else:
-            if mask_augmentations[key] != value:
-                errors.append(
-                    f"{key} for mask_augmentations should be {value}, not "
-                    f"{mask_augmentations[key]}"
-                )
+        elif mask_augmentations[key] != value:
+            errors.append(
+                f"{key} for mask_augmentations should be {value}, not "
+                f"{mask_augmentations[key]}"
+            )
 
     if len(errors) > 0:
         raise ValueError(f"issues found in augmentation parameters: {errors}")
@@ -643,13 +642,15 @@ class ModelCheckpointExt(callbacks.Callback):
         self.verbose = verbose
         self.only_report = only_report
 
-    def on_epoch_end(self, epoch, logs={}):
+    def on_epoch_end(self, epoch, logs=None):
         """on_epoch_end method.
 
         Args:
             epoch (_type_): _description_
-            logs (dict, optional): _description_. Defaults to {}.
+            logs (dict, optional): _description_. Defaults to None.
         """
+        if logs is None:
+            logs = {}
         logger.debug(f"Start in callback on_epoch_begin, logs contains: {logs}")
 
         # First determine the values of the monitor metric for train and validation
@@ -855,7 +856,7 @@ def save_and_clean_models(
                             new_model.save_weights(
                                 str(new_model_path), save_format=save_format
                             )
-                    else:
+                    else:  # noqa: PLR5501
                         if model_template_for_save is not None:
                             model_template_for_save.save(
                                 str(new_model_path), save_format=save_format

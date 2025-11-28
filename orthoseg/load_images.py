@@ -51,7 +51,7 @@ def _load_images_args(args) -> argparse.Namespace:
 def load_images(
     config_path: Path,
     load_testsample_images: bool = False,
-    config_overrules: list[str] = [],
+    config_overrules: list[str] | None = None,
 ):
     """Load and cache images for a segmentation project.
 
@@ -61,7 +61,7 @@ def load_images(
             images. Defaults to False.
         config_overrules (list[str], optional): list of config options that will
             overrule other ways to supply configuration. They should be specified in the
-            form of "<section>.<parameter>=<value>". Defaults to [].
+            form of "<section>.<parameter>=<value>". Defaults to None.
     """
     # Init
     # Load the config and save in a bunch of global variables zo it
@@ -73,7 +73,7 @@ def load_images(
         log_dir=conf.dirs.getpath("log_dir"),
         nb_logfiles_tokeep=conf.logging_conf.getint("nb_logfiles_tokeep"),
     )
-    global logger
+    global logger  # noqa: PLW0603
     logger = log_util.main_log_init(conf.dirs.getpath("log_dir"), __name__)
 
     # Log + send email

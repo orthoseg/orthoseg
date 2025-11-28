@@ -26,12 +26,10 @@ def main():
         default=False,
         help="Watch the directory forever for files getting in it.",
     )
-    help = "Path to a config file with parameters that need to overrule the defaults."
-    optional.add_argument(
-        "-c",
-        "--config",
-        help=help,
+    help_str = (
+        "Path to a config file with parameters that need to overrule the defaults."
     )
+    optional.add_argument("-c", "--config", help=help_str)
 
     # Add back help
     optional.add_argument(

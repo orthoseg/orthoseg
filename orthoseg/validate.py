@@ -46,14 +46,14 @@ def _validate_args(args) -> argparse.Namespace:
     return parser.parse_args(args)
 
 
-def validate(config_path: Path, config_overrules: list[str] = []):
+def validate(config_path: Path, config_overrules: list[str] | None = None):
     """Run a validating session for the config specified.
 
     Args:
         config_path (Path): Path to the config file to use.
         config_overrules (list[str], optional): list of config options that will
             overrule other ways to supply configuration. They should be specified in the
-            form of "<section>.<parameter>=<value>". Defaults to [].
+            form of "<section>.<parameter>=<value>". Defaults to None.
     """
     # Init
     # Load the config and save in a bunch of global variables so it
@@ -65,7 +65,7 @@ def validate(config_path: Path, config_overrules: list[str] = []):
         log_dir=conf.dirs.getpath("log_dir"),
         nb_logfiles_tokeep=conf.logging_conf.getint("nb_logfiles_tokeep"),
     )
-    global logger
+    global logger  # noqa: PLW0603
     logger = log_util.main_log_init(conf.dirs.getpath("log_dir"), __name__)
 
     # Log start
@@ -74,12 +74,12 @@ def validate(config_path: Path, config_overrules: list[str] = []):
 
     try:
         # Create the output dir's if they don't exist yet...
-        for dir in [
+        for output_dir in [
             conf.dirs.getpath("project_dir"),
             conf.dirs.getpath("training_dir"),
         ]:
-            if dir and not dir.exists():
-                dir.mkdir()
+            if output_dir and not output_dir.exists():
+                output_dir.mkdir()
 
         train_label_infos = conf.get_train_label_infos()
         classes = conf.determine_classes()

@@ -94,13 +94,13 @@ def read_config_ext(config_paths: list[Path]) -> configparser.ConfigParser:
             logger.warning(f"config_filepath does not exist: {config_filepath}")
 
     # Now we are ready to read the entire configuration
-    def parse_boolean_ext(input) -> bool | None:
-        if input is None:
+    def parse_boolean_ext(string: str | None) -> bool | None:
+        if string is None:
             return None
 
-        if input in ("True", "true", "1", 1):
+        if string in ("True", "true", "1", 1):
             return True
-        elif input in ("False", "false", "0", 0):
+        elif string in ("False", "false", "0", 0):
             return False
         else:
             return None
@@ -120,11 +120,10 @@ def read_config_ext(config_paths: list[Path]) -> configparser.ConfigParser:
     def to_path(pathlike: str) -> Path | None:
         if pathlike is None:
             return None
+        elif "{tempdir}" in pathlike:
+            return Path(pathlike.format(tempdir=tempfile.gettempdir()))
         else:
-            if "{tempdir}" in pathlike:
-                return Path(pathlike.format(tempdir=tempfile.gettempdir()))
-            else:
-                return Path(pathlike)
+            return Path(pathlike)
 
     config = configparser.ConfigParser(
         interpolation=configparser.ExtendedInterpolation(),
