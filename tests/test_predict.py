@@ -34,14 +34,14 @@ def test_predict_args(args):
     assert valid_args.config_overrules is not None
 
 
-@pytest.mark.parametrize("config_path, exp_error", [("INVALID", True)])
+@pytest.mark.parametrize("config_path, exp_error", [(Path("INVALID"), True)])
 def test_predict_invalid_config(config_path, exp_error):
     if exp_error:
         handler = pytest.raises(ValueError)
     else:
         handler = nullcontext()
     with handler:
-        predict(config_path=Path("INVALID"))
+        predict(config_path=config_path)
 
 
 def test_predict_error_handling():

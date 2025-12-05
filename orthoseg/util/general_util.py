@@ -81,16 +81,16 @@ def report_progress(
         print(message, end="", flush=True)
 
 
-def formatbytes(bytes: float) -> str:
+def formatbytes(nb_bytes: float) -> str:
     """Return the given bytes as a human friendly KB, MB, GB, or TB string.
 
     Args:
-        bytes (float): number of bytes to format.
+        nb_bytes (float): number of bytes to format.
 
     Returns:
         str: number of bytes as a readable sting.
     """
-    bytes_float = float(bytes)
+    bytes_float = float(nb_bytes)
     KB = float(1024)
     MB = float(KB**2)  # 1,048,576
     GB = float(KB**3)  # 1,073,741,824
@@ -104,10 +104,8 @@ def formatbytes(bytes: float) -> str:
         return f"{bytes_float / MB:.2f} MB"
     elif GB <= bytes_float < TB:
         return f"{bytes_float / GB:.2f} GB"
-    elif TB <= bytes_float:
-        return f"{bytes_float / TB:.2f} TB"
     else:
-        return ""
+        return f"{bytes_float / TB:.2f} TB"
 
 
 def process_nice_to_priority_class(nice_value: int) -> int:

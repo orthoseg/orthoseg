@@ -3,6 +3,7 @@
 import logging
 import math
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -171,7 +172,7 @@ def train(
         # Load the existing model
         # Remark: compiling during load crashes, so compile 'manually'
         logger.info(f"Load model from {model_preload_filepath}")
-        model = mf.load_model(model_preload_filepath, compile=False)
+        model = mf.load_model(model_preload_filepath, compile_model=False)
 
     # Now prepare the model for training
     nb_gpu = len(tf.config.experimental.list_physical_devices("GPU"))
@@ -203,14 +204,14 @@ def train(
             )
 
     # Define some callbacks for the training
-    train_callbacks = []
+    train_callbacks: list[Any] = []
     # Reduce the learning rate if the loss doesn't improve anymore
     reduce_lr = kr.callbacks.ReduceLROnPlateau(
         monitor="loss",
         factor=0.2,
         patience=20,
         min_lr=1e-20,
-        verbose=True,
+        verbose=1,
     )
     train_callbacks.append(reduce_lr)
 
@@ -521,7 +522,7 @@ def create_train_generator(
         seed=seed,
     )
 
-    train_generator = zip(image_generator, mask_generator)
+    train_generator = zip(image_generator, mask_generator, strict=True)
 
     for batch_id, (image, mask) in enumerate(train_generator):
         # Cast to arrays to evade type errors
@@ -539,7 +540,7 @@ def create_train_generator(
             )
         ):
             # Random brightness shift to apply to all images in batch
-            brightness_shift = np.random.uniform(
+            brightness_shift = np.random.uniform(  # noqa: NPY002
                 image_augment_dict["brightness_range"][0],
                 image_augment_dict["brightness_range"][1],
             )

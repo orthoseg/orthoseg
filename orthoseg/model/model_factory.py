@@ -192,7 +192,9 @@ def compile_model(
     return model
 
 
-def load_model(model_to_use_filepath: Path, compile: bool = True) -> keras.models.Model:
+def load_model(
+    model_to_use_filepath: Path, compile_model: bool = True
+) -> keras.models.Model:
     """Load an existing model from a file.
 
     If loading the architecture + model from the file doesn't work, tries
@@ -204,7 +206,7 @@ def load_model(model_to_use_filepath: Path, compile: bool = True) -> keras.model
 
     Args:
         model_to_use_filepath (Path): The file to load the model from.
-        compile (bool, optional): True to get a compiled version back that is
+        compile_model (bool, optional): True to get a compiled version back that is
             ready to train. Defaults to True.
 
     Raises:
@@ -250,7 +252,7 @@ def load_model(model_to_use_filepath: Path, compile: bool = True) -> keras.model
                         "one_hot_mean_iou": onehot_mean_iou,
                         "weighted_categorical_crossentropy": weighted_categorical_crossentropy,  # noqa: E501
                     },
-                    compile=compile,
+                    compile=compile_model,
                 )
                 break
 

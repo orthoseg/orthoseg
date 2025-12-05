@@ -478,11 +478,10 @@ def load_images_to_cache(
                 ):
                     if len(download_queue) == 0:
                         return
-                else:
+                elif len(download_queue) < nb_concurrent_calls * 2:
                     # Not all tiles have been processed yet, and the queue isn't too
                     # full, so process some more
-                    if len(download_queue) < nb_concurrent_calls * 2:
-                        break
+                    break
 
                 # Sleep a bit before checking again if there are downloads ready
                 time.sleep(0.1)

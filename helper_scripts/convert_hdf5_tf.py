@@ -20,7 +20,7 @@ def convert_model(model_path: Path):
     keras_path = model_path.parent / f"{model_path.stem}.keras"
     if not keras_path.exists():
         # If base model not yet in .keras format
-        model = mf.load_model(model_path, compile=False)
+        model = mf.load_model(model_path, compile_model=False)
         model.save(keras_path)
         del model
 

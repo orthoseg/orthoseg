@@ -54,14 +54,14 @@ def _predict_args(args) -> argparse.Namespace:
     return parser.parse_args(args)
 
 
-def predict(config_path: Path, config_overrules: list[str] = []):
+def predict(config_path: Path, config_overrules: list[str] | None = None):
     """Run a prediction for the config specified.
 
     Args:
         config_path (Path): Path to the config file to use.
         config_overrules (list[str], optional): list of config options that will
             overrule other ways to supply configuration. They should be specified in the
-            form of "<section>.<parameter>=<value>". Defaults to [].
+            form of "<section>.<parameter>=<value>". Defaults to None.
     """
     # Init
     # Load the config and save in a bunch of global variables zo it
@@ -73,7 +73,7 @@ def predict(config_path: Path, config_overrules: list[str] = []):
         log_dir=conf.dirs.getpath("log_dir"),
         nb_logfiles_tokeep=conf.logging_conf.getint("nb_logfiles_tokeep"),
     )
-    global logger
+    global logger  # noqa: PLW0603
     logger = log_util.main_log_init(conf.dirs.getpath("log_dir"), __name__)
     logger.info(f"Start predict for config {config_path.stem}")
     logger.debug(f"Config used: \n{conf.pformat_config()}")
@@ -203,7 +203,7 @@ def predict(config_path: Path, config_overrules: list[str] = []):
 
         # If model isn't loaded yet... load!
         if model is None:
-            model = mf.load_model(best_model["filepath"], compile=False)
+            model = mf.load_model(best_model["filepath"], compile_model=False)
 
         # Prepare the model for predicting
         nb_gpu = len(tf.config.experimental.list_physical_devices("GPU"))
