@@ -4,6 +4,7 @@ import logging
 import math
 import os
 import random
+import tempfile
 import time
 import warnings
 from concurrent import futures
@@ -23,9 +24,11 @@ import rasterio as rio
 import rasterio.enums
 import rasterio.errors as rio_errors
 import urllib3
+from osgeo import gdal
 from rasterio import (
     profiles as rio_profiles,
     transform as rio_transform,
+    warp as rio_warp,
     windows as rio_windows,
 )
 from rasterio._err import CPLE_AppDefinedError
@@ -963,6 +966,7 @@ def load_image(
         memfile = None
         image_file = None
         rio_read_kwargs = {}
+        tmp_reprojected_path = None
         try:
             # If it is a WMS layer source
             if isinstance(layersource, WMSLayerSource):
@@ -1068,18 +1072,47 @@ def load_image(
                     nb_bands = len(layersource.bands)
                 else:
                     nb_bands = image_file.profile["count"]
-                window = rio_windows.from_bounds(
-                    left=bbox_local[0],
-                    bottom=bbox_local[1],
-                    right=bbox_local[2],
-                    top=bbox_local[3],
-                    transform=image_file.transform,
-                )
+
+                if crs == image_file.crs:
+                    window = rio_windows.from_bounds(
+                        left=bbox_local[0],
+                        bottom=bbox_local[1],
+                        right=bbox_local[2],
+                        top=bbox_local[3],
+                        transform=image_file.transform,
+                    )
+                    boundless = True
+
+                else:
+                    # If the crs of the file is different, we need to reproject.
+                    # Using `image_file = rio_vrt.WarpedVRT(image_file, crs=crs)` would
+                    # be the most elegant solution, but if the input driver is WMS with
+                    # a tiled input layer, this leads to very bad image quality.
+                    tmp_dir = Path(tempfile.gettempdir())
+                    tmp_reprojected_path = (
+                        tmp_dir / f"{int(bbox_local[0])}_{int(bbox_local[1])}.tif"
+                    )
+                    options = gdal.WarpOptions(
+                        dstSRS=crs.to_string(),
+                        outputBounds=bbox_local,
+                        width=size_to_use[0],
+                        height=size_to_use[1],
+                        resampleAlg="cubic",
+                    )
+                    gdal.Warp(
+                        str(tmp_reprojected_path),
+                        str(layersource.path),
+                        options=options,
+                    )
+                    image_file.close()
+                    image_file = rio.open(str(tmp_reprojected_path))
+                    boundless = True
+
                 rio_read_kwargs = {
                     "window": window,
-                    "out_shape": (nb_bands, size[1], size[0]),
-                    "resampling": rasterio.enums.Resampling.nearest,
-                    "boundless": True,
+                    "out_shape": (nb_bands, size_to_use[0], size_to_use[1]),
+                    "resampling": rio_warp.Resampling.cubic,
+                    "boundless": boundless,
                 }
             else:
                 raise ValueError(f"Unsupported layer source: {layersource}")
@@ -1159,6 +1192,8 @@ def load_image(
             if memfile is not None:
                 memfile.close()
                 memfile = None
+            if tmp_reprojected_path is not None:
+                tmp_reprojected_path.unlink(missing_ok=True)
 
     if image_data_output is None or image_profile_output is None:  # pragma: no cover
         raise RuntimeError("No image data retrieved...")
