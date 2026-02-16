@@ -1,6 +1,4 @@
-"""
-Tests for functionalities in image_util.
-"""
+"""Tests for functionalities in image_util."""
 
 import pyproj
 import pytest
@@ -133,7 +131,7 @@ def test_load_image_to_file_filelayer(
 
 @pytest.mark.parametrize("width_pix, height_pix", [(512, 256), (256, 512), (512, 512)])
 @pytest.mark.parametrize("image_pixels_ignore_border", [0, 64])
-def test_load_image_to_file_wmslayer(
+def test_load_image_to_file_wmslayer_rgb(
     tmp_path, width_pix, height_pix, image_pixels_ignore_border
 ):
     # Init some stuff
@@ -173,6 +171,22 @@ def test_load_image_to_file_wmslayer(
         assert image_file.width == width_pix
         assert image_file.height == height_pix
 
+
+@pytest.mark.parametrize("width_pix, height_pix", [(512, 256), (256, 512), (512, 512)])
+@pytest.mark.parametrize("image_pixels_ignore_border", [0, 64])
+def test_load_image_to_file_wmslayer_grayscale(
+    tmp_path, width_pix, height_pix, image_pixels_ignore_border
+):
+    # Init some stuff
+    projection = "epsg:31370"
+    pixsize_x = 0.25
+    pixsize_y = pixsize_x
+    width_crs = width_pix * pixsize_x
+    height_crs = height_pix * pixsize_y
+    xmin = 160000
+    ymin = 170000
+    bbox = (xmin, ymin, xmin + width_crs, ymin + height_crs)
+
     # Test creating greyscale image
     # -----------------------------
     # If band -1 is specified, a greyscale version of the rgb image will be created
@@ -201,6 +215,22 @@ def test_load_image_to_file_wmslayer(
         assert image_file.width == width_pix
         assert image_file.height == height_pix
 
+
+@pytest.mark.parametrize("width_pix, height_pix", [(512, 256), (256, 512), (512, 512)])
+@pytest.mark.parametrize("image_pixels_ignore_border", [0, 64])
+def test_load_image_to_file_wmslayer_combined(
+    tmp_path, width_pix, height_pix, image_pixels_ignore_border
+):
+    # Init some stuff
+    projection = "epsg:31370"
+    pixsize_x = 0.25
+    pixsize_y = pixsize_x
+    width_crs = width_pix * pixsize_x
+    height_crs = height_pix * pixsize_y
+    xmin = 160000
+    ymin = 170000
+    bbox = (xmin, ymin, xmin + width_crs, ymin + height_crs)
+
     # Test combining bands of 3 different WMS layers
     # ----------------------------------------------
     # Layer sources for for skyview and hillshade
@@ -214,6 +244,12 @@ def test_load_image_to_file_wmslayer(
         wms_server_url=wms_server_url_dhm,
         layernames=["DHMV_II_HILL_25cm"],
         bands=[0],
+    )
+    # If band -1 is specified, a greyscale version of the rgb image will be created
+    layersource_dhm_ortho_grey = image_util.WMSLayerSource(
+        wms_server_url="https://geo.api.vlaanderen.be/ogw/wms?",
+        layernames=["OGWRGB13_15VL"],
+        bands=[-1],
     )
     layersources = [
         layersource_dhm_skyview,
