@@ -237,7 +237,7 @@ def get_images_for_grid(
         output_filepath = output_dir / output_filename
 
         # Add the extra info to the gdf
-        tiles_to_download_gdf.at[tile.Index, "path"] = output_filepath
+        tiles_to_download_gdf.at[tile.Index, "path"] = output_filepath.as_posix()
         tiles_to_download_gdf.at[tile.Index, "pixel_width"] = tile_pixel_width
         tiles_to_download_gdf.at[tile.Index, "pixel_height"] = tile_pixel_height
 
