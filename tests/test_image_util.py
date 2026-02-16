@@ -106,8 +106,7 @@ def test_load_image_to_file_filelayer(
     )
     bbox = (bbox[0], bbox[1], bbox[0] + width_crs, bbox[1] + height_crs)
 
-    # Test getting a standard 3 band image from a file layer
-    # ------------------------------------------------------
+    # Load a standard 3 band image from the file layer
     layersource_rgb = image_util.FileLayerSource(path=filelayer_path, layernames=["S1"])
     image_path = image_util.load_image_to_file(
         layersources=layersource_rgb,
@@ -127,6 +126,47 @@ def test_load_image_to_file_filelayer(
         assert image_file.width == width_pix
         assert image_file.height == height_pix
         assert tuple(image_file.bounds) == bbox
+
+
+@pytest.mark.parametrize("width_pix, height_pix", [(512, 256), (256, 512), (512, 512)])
+@pytest.mark.parametrize("image_pixels_ignore_border", [0, 64])
+def test_load_image_to_file_filelayer_xyz_reproject(
+    tmp_path, width_pix, height_pix, image_pixels_ignore_border
+):
+    """Test getting an image from a EPSG:3857 XYZ layer with reprojection."""
+    # Init some stuff
+    projection = "epsg:31370"  # Destination projection
+    pixsize_x = 0.25
+    pixsize_y = pixsize_x
+    width_crs = width_pix * pixsize_x
+    height_crs = height_pix * pixsize_y
+    xmin = 160000
+    ymin = 170000
+    bbox = (xmin, ymin, xmin + width_crs, ymin + height_crs)
+
+    osm_xyz_layer_path = test_helper.sampleprojects_dir / "imagelayer_osm.xml"
+    layersource_rgb = image_util.FileLayerSource(
+        path=osm_xyz_layer_path, layernames=["OSM-XYZ"]
+    )
+    image_path = image_util.load_image_to_file(
+        layersources=layersource_rgb,
+        output_dir=tmp_path,
+        crs=projection,
+        bbox=bbox,
+        size=(width_pix, height_pix),
+        image_format=image_util.FORMAT_PNG,
+        image_pixels_ignore_border=image_pixels_ignore_border,
+        transparent=False,
+        layername_in_filename=True,
+    )
+
+    assert image_path is not None
+    assert image_path.exists()
+    assert image_path.stat().st_size > 10000, "Image should be larger than 10kB"
+    with rio.open(image_path) as image_file:
+        # assert tuple(image_file.bounds) == bbox
+        assert image_file.width == width_pix
+        assert image_file.height == height_pix
 
 
 @pytest.mark.parametrize("width_pix, height_pix", [(512, 256), (256, 512), (512, 512)])
