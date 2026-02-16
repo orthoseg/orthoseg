@@ -8,57 +8,6 @@ from orthoseg.util import image_util
 from tests import test_helper
 
 
-def test_load_images_to_cache(tmp_path):
-    # Init some stuff
-    filelayer_path = (
-        test_helper.sampleprojects_dir
-        / "fields/input_raster"
-        / "BEFL-TEST-s2_2023-05-01_2023-07-01_B08-B04-B03_min_byte.tif"
-    )
-    # File bounds: left: 484500, bottom: 5642970, right: 499500, top: 5651030
-
-    crs = "epsg:32631"
-    pixsize_x = 5
-    pixsize_y = pixsize_x
-    width_pix = 512
-    height_pix = 256
-    width_crs = width_pix * pixsize_x
-    height_crs = height_pix * pixsize_y
-    pixels_overlap = 64
-    xmin = 484500
-    ymin = 5642970
-    image_gen_bbox = (xmin, ymin, xmin + width_crs * 2, ymin + height_crs * 2)
-
-    # Test getting the images for this grid
-    # -------------------------------------
-    layersource_rgb = image_util.FileLayerSource(path=filelayer_path, layernames=["S1"])
-    image_util.load_images_to_cache(
-        layersources=[layersource_rgb],
-        output_image_dir=tmp_path,
-        crs=crs,
-        image_gen_bbox=image_gen_bbox,
-        image_crs_pixel_x_size=pixsize_x,
-        image_crs_pixel_y_size=pixsize_y,
-        image_pixel_width=width_pix,
-        image_pixel_height=height_pix,
-        nb_concurrent_calls=1,
-        image_format=image_util.FORMAT_GEOTIFF,
-        pixels_overlap=pixels_overlap,
-        ssl_verify=True,
-    )
-
-    assert tmp_path.exists()
-    image_paths = list(tmp_path.glob("**/*.tif"))
-
-    assert len(image_paths) == 9
-    for image_path in image_paths:
-        assert image_path.exists()
-        assert image_path.stat().st_size > 50000, "Image should be larger than 50kB"
-        with rio.open(image_path) as image_file:
-            assert image_file.width == width_pix + 2 * pixels_overlap
-            assert image_file.height == height_pix + 2 * pixels_overlap
-
-
 @pytest.mark.parametrize(
     "crs_epsg, has_switched_axes",
     [
@@ -70,6 +19,16 @@ def test_load_images_to_cache(tmp_path):
 )
 def test_has_switched_axes(crs_epsg: int, has_switched_axes: bool):
     assert image_util._has_switched_axes(pyproj.CRS(crs_epsg)) is has_switched_axes
+
+
+def test_load_image_invalid_layersource():
+    with pytest.raises(ValueError, match="Unsupported layer source"):
+        image_util.load_image(
+            layersources="this is not a valid layer source",
+            crs="epsg:4326",
+            bbox=(0, 0, 10, 10),
+            size=(512, 512),
+        )
 
 
 @pytest.mark.parametrize("width_pix, height_pix", [(512, 256), (256, 512), (512, 512)])
@@ -315,3 +274,54 @@ def test_load_image_to_file_wmslayer_combined(
         # assert tuple(image_file.bounds) == bbox
         assert image_file.width == width_pix
         assert image_file.height == height_pix
+
+
+def test_load_images_to_cache(tmp_path):
+    # Init some stuff
+    filelayer_path = (
+        test_helper.sampleprojects_dir
+        / "fields/input_raster"
+        / "BEFL-TEST-s2_2023-05-01_2023-07-01_B08-B04-B03_min_byte.tif"
+    )
+    # File bounds: left: 484500, bottom: 5642970, right: 499500, top: 5651030
+
+    crs = "epsg:32631"
+    pixsize_x = 5
+    pixsize_y = pixsize_x
+    width_pix = 512
+    height_pix = 256
+    width_crs = width_pix * pixsize_x
+    height_crs = height_pix * pixsize_y
+    pixels_overlap = 64
+    xmin = 484500
+    ymin = 5642970
+    image_gen_bbox = (xmin, ymin, xmin + width_crs * 2, ymin + height_crs * 2)
+
+    # Test getting the images for this grid
+    # -------------------------------------
+    layersource_rgb = image_util.FileLayerSource(path=filelayer_path, layernames=["S1"])
+    image_util.load_images_to_cache(
+        layersources=[layersource_rgb],
+        output_image_dir=tmp_path,
+        crs=crs,
+        image_gen_bbox=image_gen_bbox,
+        image_crs_pixel_x_size=pixsize_x,
+        image_crs_pixel_y_size=pixsize_y,
+        image_pixel_width=width_pix,
+        image_pixel_height=height_pix,
+        nb_concurrent_calls=1,
+        image_format=image_util.FORMAT_GEOTIFF,
+        pixels_overlap=pixels_overlap,
+        ssl_verify=True,
+    )
+
+    assert tmp_path.exists()
+    image_paths = list(tmp_path.glob("**/*.tif"))
+
+    assert len(image_paths) == 9
+    for image_path in image_paths:
+        assert image_path.exists()
+        assert image_path.stat().st_size > 50000, "Image should be larger than 50kB"
+        with rio.open(image_path) as image_file:
+            assert image_file.width == width_pix + 2 * pixels_overlap
+            assert image_file.height == height_pix + 2 * pixels_overlap

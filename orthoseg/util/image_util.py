@@ -1095,7 +1095,7 @@ def load_image(
                     "boundless": boundless,
                 }
             else:
-                raise ValueError(f"Unsupported layer source: {layersource}")
+                raise ValueError(f"Unsupported layer source: <{layersource}>")
 
             # Read the data we need from the opened file
             if layersource.bands is None:
