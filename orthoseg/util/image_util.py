@@ -770,8 +770,6 @@ def load_image_to_file(
                 # Copy appropriate info from source file
                 image_profile_gtiff.update(
                     count=image_profile_orig["count"],
-                    width=size[0],
-                    height=size[1],
                     nodata=image_profile_orig["nodata"],
                     dtype=image_profile_orig["dtype"],
                 )
@@ -780,7 +778,7 @@ def load_image_to_file(
                 image_profile = image_profile_orig
 
             # Set the asked compression
-            image_profile.update(compress=tiff_compress)
+            image_profile.update(compress=tiff_compress, width=size[0], height=size[1])
 
             # For some coordinate systems apparently the axis ordered is wrong in LibOWS
             crs_pixel_x_size = (bbox[2] - bbox[0]) / size[0]
@@ -1182,8 +1180,8 @@ def load_image(
                 image_profile_output["transform"] = transform
 
                 assert isinstance(image_data_output, np.ndarray)
-                image_profile_output["height"] = image_data_output.shape[1]
-                image_profile_output["width"] = image_data_output.shape[2]
+                image_profile_output["width"] = image_data_output.shape[1]
+                image_profile_output["height"] = image_data_output.shape[2]
 
         finally:
             if image_file is not None:

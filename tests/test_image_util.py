@@ -74,7 +74,11 @@ def test_has_switched_axes(crs_epsg: int, has_switched_axes: bool):
     assert image_util._has_switched_axes(pyproj.CRS(crs_epsg)) is has_switched_axes
 
 
-def test_load_image_to_file_filelayer(tmp_path):
+@pytest.mark.parametrize("width_pix, height_pix", [(512, 256), (256, 512), (512, 512)])
+@pytest.mark.parametrize("image_pixels_ignore_border", [0, 64])
+def test_load_image_to_file_filelayer(
+    tmp_path, width_pix, height_pix, image_pixels_ignore_border
+):
     # Init some stuff
     filelayer_path = (
         test_helper.sampleprojects_dir
@@ -88,12 +92,10 @@ def test_load_image_to_file_filelayer(tmp_path):
     crs = "epsg:32631"
     pixsize_x = 5
     pixsize_y = pixsize_x
-    width_pix = 512
-    height_pix = 256
     width_crs = width_pix * pixsize_x
     height_crs = height_pix * pixsize_y
-    xmin = 484400
-    ymin = 5642900
+    xmin = 484400.0
+    ymin = 5642900.0
     bbox = (xmin, ymin, xmin + width_crs, ymin + height_crs)
 
     # Align box to pixel size + make sure width stays the asked number of pixels
@@ -115,7 +117,7 @@ def test_load_image_to_file_filelayer(tmp_path):
         crs=crs,
         bbox=bbox,
         size=(width_pix, height_pix),
-        image_pixels_ignore_border=0,
+        image_pixels_ignore_border=image_pixels_ignore_border,
         transparent=False,
         layername_in_filename=True,
     )
@@ -124,9 +126,9 @@ def test_load_image_to_file_filelayer(tmp_path):
     assert image_path.exists()
     assert image_path.stat().st_size > 50000, "Image should be larger than 50kB"
     with rio.open(image_path) as image_file:
-        assert tuple(image_file.bounds) == bbox
         assert image_file.width == width_pix
         assert image_file.height == height_pix
+        assert tuple(image_file.bounds) == bbox
 
 
 def test_load_image_to_file_wmslayer(tmp_path):
