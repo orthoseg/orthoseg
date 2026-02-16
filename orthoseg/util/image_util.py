@@ -237,7 +237,7 @@ def get_images_for_grid(
         output_filepath = output_dir / output_filename
 
         # Add the extra info to the gdf
-        tiles_to_download_gdf.at[tile.Index, "path"] = output_filepath.as_posix()
+        tiles_to_download_gdf.at[tile.Index, "path"] = output_filepath
         tiles_to_download_gdf.at[tile.Index, "pixel_width"] = tile_pixel_width
         tiles_to_download_gdf.at[tile.Index, "pixel_height"] = tile_pixel_height
 
@@ -246,7 +246,9 @@ def get_images_for_grid(
     if image_gen_roi_filepath is not None:
         # If an roi is specified, filter the tiles to download with it
         tiles_all_tmp_path = output_image_dir / "tiles_all_tmp.gpkg"
-        gfo.to_file(tiles_to_download_gdf, tiles_all_tmp_path)
+        tiles_to_save_gdf = tiles_to_download_gdf.copy()
+        tiles_to_save_gdf["path"] = tiles_to_save_gdf["path"].apply(Path.as_posix)
+        gfo.to_file(tiles_to_save_gdf, tiles_all_tmp_path)
         gfo.export_by_location(
             input_to_select_from_path=tiles_all_tmp_path,
             input_to_compare_with_path=image_gen_roi_filepath,
@@ -262,7 +264,9 @@ def get_images_for_grid(
 
     else:
         # No roi specified, so just write the tiles to download
-        gfo.to_file(tiles_to_download_gdf, tiles_path)
+        tiles_to_save_gdf = tiles_to_download_gdf.copy()
+        tiles_to_save_gdf["path"] = tiles_to_save_gdf["path"].apply(Path.as_posix)
+        gfo.to_file(tiles_to_save_gdf, tiles_path)
 
     return tiles_to_download_gdf
 
@@ -397,7 +401,7 @@ def load_images_to_cache(
                 )
 
             nb_processed += 1
-            output_filepath = Path(tiles_to_download_gdf.at[tile.Index, "path"])
+            output_filepath = tiles_to_download_gdf.at[tile.Index, "path"]
             output_dir = output_filepath.parent
             output_filename = output_filepath.name
 
