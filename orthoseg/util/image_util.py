@@ -397,7 +397,7 @@ def load_images_to_cache(
                 )
 
             nb_processed += 1
-            output_filepath = tiles_to_download_gdf.at[tile.Index, "path"]
+            output_filepath = Path(tiles_to_download_gdf.at[tile.Index, "path"])
             output_dir = output_filepath.parent
             output_filename = output_filepath.name
 
