@@ -733,32 +733,18 @@ def load_image_to_file(
 
     # Make the output image compliant with image_format_save
 
-    # If geotiff is asked, check if the the coordinates are embedded...
+    # If geotiff is asked, check if the coordinates are embedded...
     if image_format_save == FORMAT_GEOTIFF:
         # Read output image to check if coördinates are there
         with rio.open(str(output_filepath)) as image_file:
             image_profile_orig = image_file.profile
             image_transform_affine = image_file.transform
-
-            if image_pixels_ignore_border == 0:
-                image_data_output = image_file.read()
-            else:
-                image_data_output = image_file.read(
-                    window=rio_windows.Window(
-                        col_off=image_pixels_ignore_border,
-                        row_off=image_pixels_ignore_border,
-                        width=size[0],
-                        height=size[1],
-                    )
-                )
+            image_data_output = image_file.read()
 
         logger.debug(f"original image_profile: {image_profile_orig}")
 
-        # If coordinates are not embedded add them, if image_pixels_ignore_border
-        # change them
-        if (
-            image_transform_affine[2] == 0 and image_transform_affine[5] == 0
-        ) or image_pixels_ignore_border > 0:
+        # If coordinates are not embedded add them
+        if image_transform_affine[2] == 0 and image_transform_affine[5] == 0:
             logger.debug(
                 f"Coordinates not in image, driver: {image_profile_orig['driver']}"
             )
@@ -830,19 +816,7 @@ def load_image_to_file(
             with rio.open(str(output_filepath)) as image_file:
                 image_profile_orig = image_file.profile
                 image_transform_affine = image_file.transform
-
-                # If border needs to be ignored, only read data we are interested in
-                if image_pixels_ignore_border == 0:
-                    image_data_output = image_file.read()
-                else:
-                    image_data_output = image_file.read(
-                        window=rio_windows.Window(
-                            col_off=image_pixels_ignore_border,
-                            row_off=image_pixels_ignore_border,
-                            width=size[0],
-                            height=size[1],
-                        )
-                    )
+                image_data_output = image_file.read()
 
             # If same save format, reuse profile
             if image_format == image_format_save:
@@ -1167,6 +1141,18 @@ def load_image(
                             image_data_output, image_data_curr, axis=0
                         )
 
+            if image_pixels_ignore_border > 0:
+                assert isinstance(image_data_output, np.ndarray)
+                image_data_output = image_data_output[
+                    :,
+                    image_pixels_ignore_border : (
+                        image_data_output.shape[1] - image_pixels_ignore_border
+                    ),
+                    image_pixels_ignore_border : (
+                        image_data_output.shape[2] - image_pixels_ignore_border
+                    ),
+                ]
+
             # Set output profile
             # (# of bands will be corrected later if needed)
             if image_profile_output is None:
@@ -1175,7 +1161,7 @@ def load_image(
                 # Set transform. Pararameters to create Affine:
                 #   -> (x_pixsize, 0.0, xmin, 0.0, -y_pixsize, ymax)
                 transform = rio.Affine(
-                    x_pixsize, 0.0, bbox_local[0], 0.0, -y_pixsize, bbox_local[3]
+                    x_pixsize, 0.0, bbox[0], 0.0, -y_pixsize, bbox[3]
                 )
                 image_profile_output["transform"] = transform
 
