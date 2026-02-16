@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.8.0 (????-??-??)
+
+### Improvements
+
+- Add support to reproject a local image layer (#290)
+
 ## 0.7.0 (2025-08-01)
 
 ### Deprecations and compatibility notes
