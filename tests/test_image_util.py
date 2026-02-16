@@ -131,13 +131,15 @@ def test_load_image_to_file_filelayer(
         assert tuple(image_file.bounds) == bbox
 
 
-def test_load_image_to_file_wmslayer(tmp_path):
+@pytest.mark.parametrize("width_pix, height_pix", [(512, 256), (256, 512), (512, 512)])
+@pytest.mark.parametrize("image_pixels_ignore_border", [0, 64])
+def test_load_image_to_file_wmslayer(
+    tmp_path, width_pix, height_pix, image_pixels_ignore_border
+):
     # Init some stuff
     projection = "epsg:31370"
     pixsize_x = 0.25
     pixsize_y = pixsize_x
-    width_pix = 512
-    height_pix = 256
     width_crs = width_pix * pixsize_x
     height_crs = height_pix * pixsize_y
     xmin = 160000
@@ -158,7 +160,7 @@ def test_load_image_to_file_wmslayer(tmp_path):
         bbox=bbox,
         size=(width_pix, height_pix),
         image_format=image_util.FORMAT_PNG,
-        image_pixels_ignore_border=0,
+        image_pixels_ignore_border=image_pixels_ignore_border,
         transparent=False,
         layername_in_filename=True,
     )
@@ -187,7 +189,7 @@ def test_load_image_to_file_wmslayer(tmp_path):
         size=(width_pix, height_pix),
         image_format=image_util.FORMAT_PNG,
         # image_format_save=image_util.FORMAT_TIFF,
-        image_pixels_ignore_border=0,
+        image_pixels_ignore_border=image_pixels_ignore_border,
         transparent=False,
         layername_in_filename=True,
     )
@@ -226,7 +228,7 @@ def test_load_image_to_file_wmslayer(tmp_path):
         size=(width_pix, height_pix),
         image_format=image_util.FORMAT_PNG,
         # image_format_save=image_util.FORMAT_TIFF,
-        image_pixels_ignore_border=0,
+        image_pixels_ignore_border=image_pixels_ignore_border,
         transparent=False,
         layername_in_filename=True,
     )

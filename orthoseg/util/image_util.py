@@ -863,13 +863,12 @@ def load_image(
     image_pixels_ignore_border: int = 0,
     has_switched_axes: bool | None = None,
 ) -> tuple[np.ndarray, dict[str, Any]]:
-    """Loads an image from a layer source and saves it to a file.
+    """Loads an image from a layer source and returns the image data and profile.
 
     Args:
         layersources (WMSLayerSource, FileLayerSource, List): Layer source(s) to get
             images from. Multiple sources can be specified to create a combined image,
             eg. use band 1 of a layersource with band 2 and 3 of another one.
-        output_dir (Path): Directory to save the images to.
         crs (pyproj.CRS): The crs of the source and destination images.
         bbox (tuple[float, float, float, float]): Bbox of the image to get.
         size (tuple[int, int]): The image width and height.
@@ -879,14 +878,13 @@ def load_image(
             certificate bundle file (.pem) is passed, this will be used.
             In corporate networks using a proxy server this is often needed
             to evade CERTIFICATE_VERIFY_FAILED errors. Defaults to True.
-        image_format (str, optional): [description]. Defaults to FORMAT_GEOTIFF.
-        image_format_save (str, optional): [description]. Defaults to None.
-        output_filename (str, optional): [description]. Defaults to None.
-        transparent (bool, optional): [description]. Defaults to False.
-        tiff_compress (str, optional): [description]. Defaults to 'lzw'.
-        image_pixels_ignore_border (int, optional): [description]. Defaults to 0.
-        force (bool, optional): [description]. Defaults to False.
-        layername_in_filename (bool, optional): [description]. Defaults to False.
+        image_format (str, optional): The format to load the image in if it is loaded
+            from a WMS service. Defaults to FORMAT_GEOTIFF.
+        transparent (bool, optional): Whether the image should be transparent.
+            Defaults to False.
+        image_pixels_ignore_border (int, optional): The number of pixels to ignore at
+            the border of the image. Defaults to 0.
+        force (bool, optional): Whether to force the operation. Defaults to False.
         has_switched_axes (bool, optional): True if x and y axes should be switched to
             in the WMS GetMap request. If None, an effort is made to determine it
             automatically based on the crs. Defaults to None.
@@ -895,8 +893,9 @@ def load_image(
         RuntimeError: If the image can't be retrieved.
 
     Returns:
-        tuple(ndarray, dict): a tuple with an array with the image data and a dict with
-            the profile information of the file (transform,...).
+        tuple(ndarray, dict): a tuple with an array with the image data (shape is bands,
+            height, width) and a dict with the profile information of the file
+            (transform, width, height,...).
     """
     # Init
     if isinstance(crs, str):
@@ -906,20 +905,20 @@ def load_image(
 
     # Get image(s), read the band to keep and save
     # Some hacks for special cases...
-    bbox_local = bbox
-    size_to_use = size
+    bbox_with_border = bbox
+    size_with_border = size
     x_pixsize = (bbox[2] - bbox[0]) / size[0]
     y_pixsize = (bbox[3] - bbox[1]) / size[1]
 
     # Dirty hack to ask a bigger picture, and then remove the border again!
     if image_pixels_ignore_border > 0:
-        bbox_local = (
+        bbox_with_border = (
             bbox[0] - x_pixsize * image_pixels_ignore_border,
             bbox[1] - y_pixsize * image_pixels_ignore_border,
             bbox[2] + x_pixsize * image_pixels_ignore_border,
             bbox[3] + y_pixsize * image_pixels_ignore_border,
         )
-        size_to_use = (
+        size_with_border = (
             size[0] + 2 * image_pixels_ignore_border,
             size[1] + 2 * image_pixels_ignore_border,
         )
@@ -928,7 +927,12 @@ def load_image(
     if has_switched_axes is None:
         has_switched_axes = _has_switched_axes(crs)
     if has_switched_axes:
-        bbox_local = (bbox_local[1], bbox_local[0], bbox_local[3], bbox_local[2])
+        bbox_with_border = (
+            bbox_with_border[1],
+            bbox_with_border[0],
+            bbox_with_border[3],
+            bbox_with_border[2],
+        )
 
     image_data_output = None
     image_profile_output: dict[str, Any] | None = None
@@ -973,8 +977,8 @@ def load_image(
                             layers=layersource.layernames,
                             styles=layersource.layerstyles,
                             srs=f"epsg:{crs.to_epsg()}",
-                            bbox=bbox_local,
-                            size=size_to_use,
+                            bbox=bbox_with_border,
+                            size=size_with_border,
                             format=image_format,
                             transparent=transparent,
                         )
@@ -989,15 +993,17 @@ def load_image(
                     except Exception as ex:  # pragma: no cover
                         if isinstance(ex, owslib.util.ServiceException):
                             if "Error rendering coverage on the fast path" in str(ex):
-                                message = f"Bbox outside layer bounds? {bbox_local}"
+                                message = (
+                                    f"Bbox outside layer bounds? {bbox_with_border}"
+                                )
                                 raise RuntimeError(message) from ex
                             elif "java.lang.OutOfMemoryError: Java heap" in str(ex):
                                 logger.debug(
-                                    f"Request for bbox {bbox_local} gave an "
+                                    f"Request for bbox {bbox_with_border} gave an "
                                     f"exception, try again in {time_sleep} s: {ex}"
                                 )
                             else:
-                                message = f"WMS error for bbox {bbox_local}: {ex}"
+                                message = f"WMS error for bbox {bbox_with_border}: {ex}"
                                 raise RuntimeError(message) from ex
 
                         # If the exception isn't handled yet, retry 10 times...
@@ -1014,7 +1020,7 @@ def load_image(
                                 "Retried 10 times and didn't work, with "
                                 f"layers: {layersource.layernames}, "
                                 f"styles: {layersource.layerstyles}, "
-                                f"for bbox: {bbox_local}"
+                                f"for bbox: {bbox_with_border}"
                             )
                             raise RuntimeError(message) from ex
 
@@ -1047,10 +1053,10 @@ def load_image(
 
                 if crs == image_file.crs:
                     window = rio_windows.from_bounds(
-                        left=bbox_local[0],
-                        bottom=bbox_local[1],
-                        right=bbox_local[2],
-                        top=bbox_local[3],
+                        left=bbox_with_border[0],
+                        bottom=bbox_with_border[1],
+                        right=bbox_with_border[2],
+                        top=bbox_with_border[3],
                         transform=image_file.transform,
                     )
                     boundless = True
@@ -1062,13 +1068,14 @@ def load_image(
                     # a tiled input layer, this leads to very bad image quality.
                     tmp_dir = Path(tempfile.gettempdir())
                     tmp_reprojected_path = (
-                        tmp_dir / f"{int(bbox_local[0])}_{int(bbox_local[1])}.tif"
+                        tmp_dir
+                        / f"{int(bbox_with_border[0])}_{int(bbox_with_border[1])}.tif"
                     )
                     options = gdal.WarpOptions(
                         dstSRS=crs.to_string(),
-                        outputBounds=bbox_local,
-                        width=size_to_use[0],
-                        height=size_to_use[1],
+                        outputBounds=bbox_with_border,
+                        width=size_with_border[0],
+                        height=size_with_border[1],
                         resampleAlg="cubic",
                     )
                     gdal.Warp(
@@ -1080,9 +1087,10 @@ def load_image(
                     image_file = rio.open(str(tmp_reprojected_path))
                     boundless = True
 
+                # In the output shape, the order is (bands, height, width)
                 rio_read_kwargs = {
                     "window": window,
-                    "out_shape": (nb_bands, size_to_use[0], size_to_use[1]),
+                    "out_shape": (nb_bands, size_with_border[1], size_with_border[0]),
                     "resampling": rio_warp.Resampling.cubic,
                     "boundless": boundless,
                 }
@@ -1141,33 +1149,9 @@ def load_image(
                             image_data_output, image_data_curr, axis=0
                         )
 
-            if image_pixels_ignore_border > 0:
-                assert isinstance(image_data_output, np.ndarray)
-                image_data_output = image_data_output[
-                    :,
-                    image_pixels_ignore_border : (
-                        image_data_output.shape[1] - image_pixels_ignore_border
-                    ),
-                    image_pixels_ignore_border : (
-                        image_data_output.shape[2] - image_pixels_ignore_border
-                    ),
-                ]
-
-            # Set output profile
-            # (# of bands will be corrected later if needed)
+            # Prepare output profile. Width, height,... will be corrected later.
             if image_profile_output is None:
                 image_profile_output = dict(image_file.profile)
-
-                # Set transform. Pararameters to create Affine:
-                #   -> (x_pixsize, 0.0, xmin, 0.0, -y_pixsize, ymax)
-                transform = rio.Affine(
-                    x_pixsize, 0.0, bbox[0], 0.0, -y_pixsize, bbox[3]
-                )
-                image_profile_output["transform"] = transform
-
-                assert isinstance(image_data_output, np.ndarray)
-                image_profile_output["width"] = image_data_output.shape[1]
-                image_profile_output["height"] = image_data_output.shape[2]
 
         finally:
             if image_file is not None:
@@ -1181,6 +1165,29 @@ def load_image(
 
     if image_data_output is None or image_profile_output is None:  # pragma: no cover
         raise RuntimeError("No image data retrieved...")
+
+    # If a border needs to be ignored, remove it from the image data
+    if image_pixels_ignore_border > 0:
+        assert isinstance(image_data_output, np.ndarray)
+        image_data_output = image_data_output[
+            :,
+            image_pixels_ignore_border : (
+                image_data_output.shape[1] - image_pixels_ignore_border
+            ),
+            image_pixels_ignore_border : (
+                image_data_output.shape[2] - image_pixels_ignore_border
+            ),
+        ]
+
+    # Set transform. Pararameters to create Affine:
+    #   -> (x_pixsize, 0.0, xmin, 0.0, -y_pixsize, ymax)
+    transform = rio.Affine(x_pixsize, 0.0, bbox[0], 0.0, -y_pixsize, bbox[3])
+    image_profile_output["transform"] = transform
+
+    # Rasterio reads the image to an array in (bands, height, width) order.
+    assert isinstance(image_data_output, np.ndarray)
+    image_profile_output["height"] = image_data_output.shape[1]
+    image_profile_output["width"] = image_data_output.shape[2]
 
     return (image_data_output, image_profile_output)
 
