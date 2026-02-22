@@ -25,10 +25,10 @@ dependencies:
   # dependencies of tensorflow that need to be conda versions to evade binary compatibility issues
   - h5py <3.11  # When a version > 3.10 is used with tf 2.10: segmentation fault
   # linting
-  - mypy ==1.16.1
+  - mypy ==1.19.1
   - pandas-stubs
   - pre-commit
-  - ruff ==0.12.2
+  - ruff ==0.15.2
   - types-pillow
   # testing
   - pytest
