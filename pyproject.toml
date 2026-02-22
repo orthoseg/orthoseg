@@ -50,6 +50,7 @@ ignore = [
     "PLR0912",  # Too many branches
     "PLR0915",  # Too many statements
     "PLR2004",  # Magic number
+    "PLW0108",  # Lambda may be unnecessary
     "PLW2901",  # loop variable overwritten by assignment target
 ]
 

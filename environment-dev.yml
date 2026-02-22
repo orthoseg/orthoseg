@@ -23,10 +23,10 @@ dependencies:
   #- cudatoolkit ==12.3
   #- cudnn
   # linting
-  - mypy ==1.16.1
+  - mypy ==1.19.1
   - pandas-stubs
   - pre-commit
-  - ruff ==0.12.2
+  - ruff ==0.15.2
   - types-pillow
   # testing
   - pytest
