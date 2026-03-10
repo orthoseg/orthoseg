@@ -9,7 +9,7 @@ from tests import test_helper
 
 
 @pytest.mark.parametrize(
-    "crs_epsg, has_switched_axes",
+    "crs_epsg, exp_switched_axes",
     [
         [4326, False],
         [31370, False],
@@ -17,8 +17,8 @@ from tests import test_helper
         [31468, True],
     ],
 )
-def test_has_switched_axes(crs_epsg: int, has_switched_axes: bool):
-    assert image_util._has_switched_axes(pyproj.CRS(crs_epsg)) is has_switched_axes
+def test_has_switched_axes(crs_epsg: int, exp_switched_axes: bool):
+    assert image_util.has_switched_axes(pyproj.CRS(crs_epsg)) is exp_switched_axes
 
 
 def test_load_image_invalid_layersource():
@@ -286,6 +286,7 @@ def test_load_images_to_cache(tmp_path):
     # File bounds: left: 484500, bottom: 5642970, right: 499500, top: 5651030
 
     crs = "epsg:32631"
+    switch_axes = False
     pixsize_x = 5
     pixsize_y = pixsize_x
     width_pix = 512
@@ -304,6 +305,7 @@ def test_load_images_to_cache(tmp_path):
         layersources=[layersource_rgb],
         output_image_dir=tmp_path,
         crs=crs,
+        switch_axes=switch_axes,
         image_gen_bbox=image_gen_bbox,
         image_crs_pixel_x_size=pixsize_x,
         image_crs_pixel_y_size=pixsize_y,

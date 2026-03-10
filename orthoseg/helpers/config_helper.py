@@ -13,11 +13,12 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+import pyproj
 from osgeo import gdal
 
 from orthoseg.lib.prepare_traindatasets import LabelInfo
 from orthoseg.util import config_util
-from orthoseg.util.image_util import FileLayerSource, WMSLayerSource
+from orthoseg.util.image_util import FileLayerSource, WMSLayerSource, has_switched_axes
 
 # Get a logger...
 logger = logging.getLogger(__name__)
@@ -301,6 +302,13 @@ def _read_layer_config(layer_config_filepath: Path) -> dict:
             raise ValueError(
                 f"Image layer [{image_layer}] in layer config needs a 'projection' key!"
             )
+
+        # If the switch_axes property isn't supplied for the image layer,
+        # determine it based on the projection.
+        if image_layers[image_layer].get("switch_axes", None) is None:
+            crs = pyproj.CRS.from_user_input(image_layers[image_layer]["projection"])
+            image_layers[image_layer]["projection"] = crs
+            image_layers[image_layer]["switch_axes"] = has_switched_axes(crs)
 
         # If the layer source(s) are specified in a json parameter, parse it
         if "layersources" in image_layers[image_layer]:
