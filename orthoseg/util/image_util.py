@@ -545,24 +545,39 @@ def _align_bbox_to_grid(
     return (bbox_tmp[0], bbox_tmp[1], bbox_tmp[2], bbox_tmp[3])
 
 
-def _interprete_ssl_verify(ssl_verify: bool | str | None):
+def _prepare_auth(
+    username: str | None, password: str | None, ssl_verify: bool | str
+) -> owslib.util.Authentication | None:
+    """Prepare OWS authentication object.
+
+    Args:
+        username (str | None): Username for authentication. If None, no
+            authentication will be used.
+        password (str | None): Password for authentication. If None, no
+            authentication will be used.
+        ssl_verify (bool or str): True to use the default certificate bundle as
+            installed on your system. False disables certificate validation
+            (NOT recommended!). If a path to a certificate bundle file (.pem) is passed,
+            this will be used. In corporate networks using a proxy server this is often
+            needed to avoid CERTIFICATE_VERIFY_FAILED errors.
+    """
     # Interprete ssl_verify
-    auth = None
-    if ssl_verify is not None:
-        # If it is a string, make sure it isn't actually a bool
-        if isinstance(ssl_verify, str):
-            if ssl_verify.lower() == "true":
-                ssl_verify = True
-            elif ssl_verify.lower() == "false":
-                ssl_verify = False
+    if isinstance(ssl_verify, str):
+        # If it is actually a bool string, cast it to bool
+        if ssl_verify.lower() == "true":
+            ssl_verify = True
+        elif ssl_verify.lower() == "false":
+            ssl_verify = False
+    elif not isinstance(ssl_verify, bool):
+        raise ValueError(f"Invalid value for ssl_verify: {ssl_verify}")
 
-        assert isinstance(ssl_verify, bool)
-        auth = owslib.util.Authentication(verify=ssl_verify)
-        if ssl_verify is False:
-            urllib3.disable_warnings()
-            logger.warning("SSL VERIFICATION IS TURNED OFF!!!")
+    if not ssl_verify:
+        urllib3.disable_warnings()
+        logger.warning("SSL VERIFICATION IS TURNED OFF!!!")
 
-    return auth
+    return owslib.util.Authentication(
+        username=username, password=password, verify=ssl_verify
+    )
 
 
 def load_image_to_file(
@@ -952,12 +967,14 @@ def load_image(
             if isinstance(layersource, WMSLayerSource):
                 # Initialize WMS if this hasn't been done yet
                 if layersource.wms_service is None:
-                    auth = _interprete_ssl_verify(ssl_verify=ssl_verify)
+                    auth = _prepare_auth(
+                        layersource.username,
+                        layersource.password,
+                        ssl_verify=ssl_verify,
+                    )
                     wms_service = owslib.wms.WebMapService(
                         url=layersource.wms_server_url,
                         version=layersource.wms_version,
-                        username=layersource.username,
-                        password=layersource.password,
                         auth=auth,
                     )
                     if layersource.wms_ignore_capabilities_url:
