@@ -899,7 +899,7 @@ def read_image(image_path: Path, projection_if_missing: str | None = None) -> di
     # file and/or if one was provided
     if image_crs is None:
         if projection_if_missing is not None:
-            image_crs = rio_crs.CRS.from_string(projection_if_missing)
+            image_crs = rio_crs.CRS.from_user_input(projection_if_missing)
         else:
             message = (
                 f"Image has no proj and projection_if_missing is None: {image_path}"
