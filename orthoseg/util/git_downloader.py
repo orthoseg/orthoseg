@@ -55,7 +55,7 @@ def download(
             certificate validation (NOT recommended!). If a path to a
             certificate bundle file (.pem) is passed, this will be used.
             In corporate networks using a proxy server this is often needed
-            to evade CERTIFICATE_VERIFY_FAILED errors. Defaults to None.
+            to avoid CERTIFICATE_VERIFY_FAILED errors. Defaults to None.
         limit_rate (bool, optional): If True, limit the rate requests are done to
             github to the maximum level allowed for unauthenticated users.
             Defaults to True.

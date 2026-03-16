@@ -275,6 +275,7 @@ def load_images_to_cache(
     layersources: list[FileLayerSource | WMSLayerSource],
     output_image_dir: Path,
     crs: str | pyproj.CRS,
+    switch_axes: bool | None,
     image_gen_bbox: tuple[float, float, float, float] | None = None,
     image_gen_roi_filepath: Path | None = None,
     grid_xmin: float = 0.0,
@@ -304,6 +305,8 @@ def load_images_to_cache(
             1 of a WMS service with band 2 and 3 of another one.
         output_image_dir (Path): Directory to save the images to.
         crs (Union[str, pyproj.CRS]): The crs of the source and destination images.
+        switch_axes (bool | None): True if the x and y axes of the bounding boxes should
+            be switched. If None, it will be determined automatically based on the CRS.
         image_gen_bbox (tuple[float, float, float, float], optional): bbox of the roi to
             request/save images for. Defaults to None.
         image_gen_roi_filepath (Optional[Path], optional): File with the roi
@@ -335,12 +338,11 @@ def load_images_to_cache(
             Defaults to 0.
         nb_images_to_skip (int, optional): [description]. Defaults to 0.
         max_nb_images (int, optional): [description]. Defaults to -1.
-        ssl_verify (bool or str, optional): True to use the default
-            certificate bundle as installed on your system. False disables
-            certificate validation (NOT recommended!). If a path to a
-            certificate bundle file (.pem) is passed, this will be used.
-            In corporate networks using a proxy server this is often needed
-            to evade CERTIFICATE_VERIFY_FAILED errors. Defaults to True.
+        ssl_verify (bool or str, optional): True to use the default certificate bundle
+            as installed on your system. False disables certificate validation
+            (NOT recommended!). If a path to a certificate bundle file (.pem) is passed,
+            this will be used. In corporate networks using a proxy server this is often
+            needed to avoid CERTIFICATE_VERIFY_FAILED errors. Defaults to True.
         force (bool, optional): [description]. Defaults to False.
     """
     # Init
@@ -374,9 +376,11 @@ def load_images_to_cache(
         pixels_overlap=pixels_overlap,
     )
 
+    if switch_axes is None:
+        switch_axes = has_switched_axes(crs)
+
     with futures.ProcessPoolExecutor(nb_concurrent_calls) as pool:
         # Loop through all columns and get the images...
-        has_switched_axes = _has_switched_axes(crs)
         nb_total = len(tiles_to_download_gdf)
         nb_processed = 0
         nb_downloaded = 0
@@ -451,7 +455,7 @@ def load_images_to_cache(
                 transparent=transparent,
                 tiff_compress=tiff_compress,
                 image_pixels_ignore_border=image_pixels_ignore_border,
-                has_switched_axes=has_switched_axes,
+                switch_axes=switch_axes,
                 force=force,
                 on_outside_layer_bounds="return",
             )
@@ -595,7 +599,7 @@ def load_image_to_file(
     image_pixels_ignore_border: int = 0,
     force: bool = False,
     layername_in_filename: bool = False,
-    has_switched_axes: bool | None = None,
+    switch_axes: bool | None = None,
     on_outside_layer_bounds: str | None = "raise",
 ) -> Path | None:
     """Loads an image from a layer source and saves it to a file.
@@ -613,7 +617,7 @@ def load_image_to_file(
             certificate validation (NOT recommended!). If a path to a
             certificate bundle file (.pem) is passed, this will be used.
             In corporate networks using a proxy server this is often needed
-            to evade CERTIFICATE_VERIFY_FAILED errors. Defaults to True.
+            to avoid CERTIFICATE_VERIFY_FAILED errors. Defaults to True.
         image_format (str, optional): [description]. Defaults to FORMAT_GEOTIFF.
         image_format_save (str, optional): [description]. Defaults to None.
         output_filename (str, optional): [description]. Defaults to None.
@@ -622,9 +626,9 @@ def load_image_to_file(
         image_pixels_ignore_border (int, optional): [description]. Defaults to 0.
         force (bool, optional): [description]. Defaults to False.
         layername_in_filename (bool, optional): [description]. Defaults to False.
-        has_switched_axes (bool, optional): True if x and y axes should be switched to
+        switch_axes (bool, optional): True if x and y axes should be switched
             in the WMS GetMap request. If None, an effort is made to determine it
-            automatically based on the crs. Defaults to None.
+            automatically based on the CRS. Defaults to None.
         on_outside_layer_bounds (str, optional): What to do if the bbox asked is outside
             the layer bounds. Defaults to "raise". Options:
             - "raise": raise an error.
@@ -693,7 +697,7 @@ def load_image_to_file(
             image_format=image_format,
             transparent=transparent,
             image_pixels_ignore_border=image_pixels_ignore_border,
-            has_switched_axes=has_switched_axes,
+            switch_axes=switch_axes,
         )
     except RuntimeError as ex:  # pragma: no cover
         if str(ex).startswith("Bbox outside layer bounds"):
@@ -880,7 +884,7 @@ def load_image(
     image_format: str = FORMAT_GEOTIFF,
     transparent: bool = False,
     image_pixels_ignore_border: int = 0,
-    has_switched_axes: bool | None = None,
+    switch_axes: bool | None = None,
 ) -> tuple[np.ndarray, dict[str, Any]]:
     """Loads an image from a layer source and returns the image data and profile.
 
@@ -896,7 +900,7 @@ def load_image(
             certificate validation (NOT recommended!). If a path to a
             certificate bundle file (.pem) is passed, this will be used.
             In corporate networks using a proxy server this is often needed
-            to evade CERTIFICATE_VERIFY_FAILED errors. Defaults to True.
+            to avoid CERTIFICATE_VERIFY_FAILED errors. Defaults to True.
         image_format (str, optional): The format to load the image in if it is loaded
             from a WMS service. Defaults to FORMAT_GEOTIFF.
         transparent (bool, optional): Whether the image should be transparent.
@@ -904,7 +908,7 @@ def load_image(
         image_pixels_ignore_border (int, optional): The number of pixels to ignore at
             the border of the image. Defaults to 0.
         force (bool, optional): Whether to force the operation. Defaults to False.
-        has_switched_axes (bool, optional): True if x and y axes should be switched to
+        switch_axes (bool, optional): True if x and y axes should be switched to
             in the WMS GetMap request. If None, an effort is made to determine it
             automatically based on the crs. Defaults to None.
 
@@ -943,9 +947,9 @@ def load_image(
         )
 
     # For coordinate systems with switched axis (y, x or lon, lat), switch x and y
-    if has_switched_axes is None:
-        has_switched_axes = _has_switched_axes(crs)
-    if has_switched_axes:
+    if switch_axes is None:
+        switch_axes = has_switched_axes(crs)
+    if switch_axes:
         bbox_with_border = (
             bbox_with_border[1],
             bbox_with_border[0],
@@ -1253,7 +1257,12 @@ def create_filename(
     return output_filename
 
 
-def _has_switched_axes(crs: pyproj.CRS):
+def has_switched_axes(crs: pyproj.CRS):
+    """Determine if the axes of the CRS are switched (y, x instead of x, y).
+
+    Args:
+        crs (pyproj.CRS): The CRS to check.
+    """
     if len(crs.axis_info) < 2:
         logger.warning(
             f"has_switched_axes False: len(crs_31370.axis_info) < 2 for {crs}"

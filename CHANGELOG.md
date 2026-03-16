@@ -5,6 +5,7 @@
 ### Improvements
 
 - Add support to reproject a local image layer (#290)
+- Improve handling of `switch_axes` and `ssl_verify` (#295)
 
 ### Bugs fixed
 
