@@ -177,7 +177,7 @@ def prepare_traindatasets(
             certificate validation (NOT recommended!). If a path to a
             certificate bundle file (.pem) is passed, this will be used.
             In corporate networks using a proxy server this is often needed
-            to evade CERTIFICATE_VERIFY_FAILED errors. Defaults to True.
+            to avoid CERTIFICATE_VERIFY_FAILED errors. Defaults to True.
         only_validate (bool, optional): True to only validate the input label data.
         force (bool, opitional): True to force recreation of output files.
             Defaults to False.

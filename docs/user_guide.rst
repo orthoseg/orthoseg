@@ -377,7 +377,7 @@ If you find good examples, you can add them to the training dataset as such:
         data it has never seen before instead of specializing on the specific cases in
         the 'train' locations. The best results are obtained if 10% to 20% of the
         locations are set to 'validation' and try to focus on as many different common
-        examples as possible, but evade including difficult situations in the
+        examples as possible, but avoid including difficult situations in the
         'validation', only set those to 'train'. 
       * optionally, you can set locations to 'test': they won't be used in the training
         process, but after the training run the segmentation will be applied to them,

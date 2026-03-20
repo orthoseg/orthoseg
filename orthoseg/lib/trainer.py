@@ -405,7 +405,7 @@ def create_train_generator(
     # Checks that involve comparing augmentations between the image and the mask
     if image_augment_dict is not None and mask_augment_dict is not None:
         # If an augmentation is specified for image, it should be specified
-        # for the mask as well and the other way around to evade issues
+        # for the mask as well and the other way around to avoid issues
         for augmentation in image_augment_dict:
             if augmentation not in mask_augment_dict:
                 raise Exception(
@@ -525,7 +525,7 @@ def create_train_generator(
     train_generator = zip(image_generator, mask_generator, strict=True)
 
     for batch_id, (image, mask) in enumerate(train_generator):
-        # Cast to arrays to evade type errors
+        # Cast to arrays to avoid type errors
         image = np.array(image)
         mask = np.array(mask)
 

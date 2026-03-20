@@ -5,6 +5,11 @@
 ### Improvements
 
 - Add support to reproject a local image layer (#290)
+- Improve handling of `switch_axes` and `ssl_verify` (#295)
+
+### Bugs fixed
+
+- Fix use of username/password for WMS image layer (#294)
 
 ## 0.7.0 (2025-08-01)
 
@@ -200,7 +205,7 @@ train.classes
   parameters in project_defaults.ini
 - Make postprocessing steps to be done configurable in config files: check out the
   postprocess section in project_defaults.ini
-- Vectorize predictions on-the-fly during prediction to evade need for large temporary storage
+- Vectorize predictions on-the-fly during prediction to avoid need for large temporary storage
 - Add end-to-end tests using a test project
 - Add option to save augmented images during training for troubleshooting: check out
   the train.save_augmented_subdir parameter in project_defaults.ini
