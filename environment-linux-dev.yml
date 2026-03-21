@@ -1,0 +1,39 @@
+name: orthoseg-dev
+channels:
+  - conda-forge
+dependencies:
+  - python =3.12
+  - pip
+  # required
+  - gdal
+  - gdown
+  - geofileops >=0.10
+  - geopandas-base >=0.12
+  - matplotlib-base
+  - numpy
+  - owslib
+  - pillow
+  - pycron
+  - pygeoops >=0.2
+  - pyproj
+  - rasterio
+  - shapely >=2
+  - simplification
+  - tensorflow >=2.8
+  # optional, for CUDA support
+  #- cudatoolkit ==12.3
+  #- cudnn
+  # linting
+  - mypy ==1.19.1
+  - pandas-stubs
+  - pre-commit
+  - ruff ==0.15.2
+  - types-pillow
+  # testing
+  - pytest
+  - pytest-cov
+  - pytest-order
+  - pip:
+    - segmentation-models >=1.0,<1.1
+    - types-shapely
+    - types-tensorflow
