@@ -19,6 +19,7 @@ dependencies:
   - matplotlib-base
   - numpy =1.26  # <2 is needed for tf < 2.18
   - owslib
+  - pandas =2.2
   - pillow
   - pycron
   - pygeoops =0.4  # released 2023-11-24
