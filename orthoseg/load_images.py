@@ -122,7 +122,7 @@ def load_images(
         )
 
         # Get ssl_verify setting
-        ssl_verify = conf.general["ssl_verify"]
+        ssl_verify = conf.general.get("ssl_verify", True)
         # Get the download cron schedule
         download_cron_schedule = conf.download["cron_schedule"]
 
@@ -134,6 +134,7 @@ def load_images(
         layersources = conf.image_layers[predict_layer]["layersources"]
         nb_concurrent_calls = conf.image_layers[predict_layer]["nb_concurrent_calls"]
         crs = pyproj.CRS.from_user_input(conf.image_layers[predict_layer]["projection"])
+        switch_axes = conf.image_layers[predict_layer]["switch_axes"]
         bbox = conf.image_layers[predict_layer]["bbox"]
         grid_xmin = conf.image_layers[predict_layer]["grid_xmin"]
         grid_ymin = conf.image_layers[predict_layer]["grid_ymin"]
@@ -150,6 +151,7 @@ def load_images(
             layersources=layersources,
             output_image_dir=output_image_dir,
             crs=crs,
+            switch_axes=switch_axes,
             image_gen_bbox=bbox,
             image_gen_roi_filepath=roi_filepath,
             grid_xmin=grid_xmin,

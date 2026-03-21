@@ -255,7 +255,7 @@ def predict_layer(
             certificate validation (NOT recommended!). If a path to a
             certificate bundle file (.pem) is passed, this will be used.
             In corporate networks using a proxy server this is often needed
-            to evade CERTIFICATE_VERIFY_FAILED errors. Defaults to True.
+            to avoid CERTIFICATE_VERIFY_FAILED errors. Defaults to True.
         force: False to skip images that already have a prediction, true to
             ignore existing predictions and overwrite them
         no_images_ok (bool, optional): False to throw `ValueError`
@@ -899,7 +899,7 @@ def read_image(image_path: Path, projection_if_missing: str | None = None) -> di
     # file and/or if one was provided
     if image_crs is None:
         if projection_if_missing is not None:
-            image_crs = rio_crs.CRS.from_string(projection_if_missing)
+            image_crs = rio_crs.CRS.from_user_input(projection_if_missing)
         else:
             message = (
                 f"Image has no proj and projection_if_missing is None: {image_path}"
@@ -930,12 +930,11 @@ def load_image(
         bbox (Tuple): bounding box of the image to load.
         size (Tuple): size of the image to load.
         image_layer (dict): layer configuration to load the image.
-        ssl_verify (bool or str, optional): True to use the default
-            certificate bundle as installed on your system. False disables
-            certificate validation (NOT recommended!). If a path to a
-            certificate bundle file (.pem) is passed, this will be used.
-            In corporate networks using a proxy server this is often needed
-            to evade CERTIFICATE_VERIFY_FAILED errors. Defaults to True.
+        ssl_verify (bool or str, optional): True to use the default certificate bundle
+            as installed on your system. False disables certificate validation
+            (NOT recommended!). If a path to a certificate bundle file (.pem) is passed,
+            this will be used. In corporate networks using a proxy server this is often
+            needed to avoid CERTIFICATE_VERIFY_FAILED errors. Defaults to True.
 
     Returns:
         dict: the image and its properties.
@@ -951,7 +950,7 @@ def load_image(
         image_format=image_layer.get("image_format", image_util.FORMAT_JPEG),
         # transparent=transparent,
         image_pixels_ignore_border=image_layer["image_pixels_ignore_border"],
-        # has_switched_axes=has_switched_axes,
+        switch_axes=image_layer.get("switch_axes"),
     )
 
     # change from (channels, width, height) to
