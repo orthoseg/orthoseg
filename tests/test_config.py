@@ -2,6 +2,7 @@ import re
 import tempfile
 from pathlib import Path
 
+import pyproj
 import pytest
 
 from orthoseg.helpers import config_helper as conf
@@ -40,6 +41,13 @@ def test_read_orthoseg_config_image_layers():
 
     layer = conf.image_layers.get("BEFL-2019")
     assert layer is not None
+    assert layer.get("projection") == pyproj.CRS.from_user_input("epsg:31370")
+    assert layer.get("switch_axes") is False
+
+    layer = conf.image_layers.get("BEFL-2019-WMTS")
+    assert layer is not None
+    assert layer.get("projection") == pyproj.CRS.from_user_input("epsg:31370")
+    assert layer.get("switch_axes") is False
 
 
 @pytest.mark.parametrize(

@@ -99,7 +99,7 @@ class ProgressLogger:
             or pct_progress_since_last_reporting > 0.1
             or self.first_reporting_done is False
         ):
-            # Evade divisions by zero
+            # Avoid divisions by zero
             if time_passed_for_eta_s == 0 or nb_steps_done_eta == 0:
                 return
 

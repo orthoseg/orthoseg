@@ -22,7 +22,7 @@ dependencies:
   # optional, for CUDA support
   - cudatoolkit <12  # cudatoolkit 11 needed for tf 2.10
   - cudnn <9  # cudnn 8 needed for tf 2.10
-  # dependencies of tensorflow that need to be conda versions to evade binary compatibility issues
+  # dependencies of tensorflow that need to be conda versions to avoid binary compatibility issues
   - h5py <3.11  # When a version > 3.10 is used with tf 2.10: segmentation fault
   # linting
   - mypy ==1.19.1

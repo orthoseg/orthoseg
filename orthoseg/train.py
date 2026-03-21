@@ -112,7 +112,7 @@ def train(config_path: Path, config_overrules: list[str] | None = None):
                 image_pixel_y_size=conf.train.getfloat("image_pixel_y_size"),
                 image_pixel_width=conf.train.getint("image_pixel_width"),
                 image_pixel_height=conf.train.getint("image_pixel_height"),
-                ssl_verify=conf.general["ssl_verify"],
+                ssl_verify=conf.general.get("ssl_verify", True),
             )
 
         # Send mail that we are starting train
@@ -309,7 +309,7 @@ def train(config_path: Path, config_overrules: list[str] | None = None):
                 traindata_id=traindata_id,
             )
 
-        # Assert to evade typing warnings
+        # Assert to avoid typing warnings
         assert best_model_curr_train_version is not None
 
         # Now predict on the train,... data
