@@ -253,6 +253,7 @@ def load_model(
                         "weighted_categorical_crossentropy": weighted_categorical_crossentropy,  # noqa: E501
                     },
                     compile=compile_model,
+                    safe_mode=False,
                 )
                 break
 
