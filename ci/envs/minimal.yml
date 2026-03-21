@@ -12,6 +12,7 @@ dependencies:
   - python
   - pip
   # required
+  - filelock =3.15
   - flatbuffers =24.3
   - gdal =3.9  # 3.9.0 released 2024-05-10
   - gdown
