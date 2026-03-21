@@ -244,7 +244,7 @@ def load_model(
         while True:
             try:
                 load_model_kwargs = {}
-                if not KERAS_GT_2:
+                if KERAS_GT_2:
                     load_model_kwargs["safe_mode"] = False
                 model = tf.keras.models.load_model(
                     str(model_to_use_filepath),
