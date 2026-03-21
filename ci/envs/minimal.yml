@@ -12,7 +12,7 @@ dependencies:
   - python
   - pip
   # required
-  - gdal =3.7  # 3.7.0 released 2023-05-03
+  - gdal =3.9  # 3.9.0 released 2024-05-10
   - gdown
   - geofileops =0.10  # 0.10.0 released 2025-03-26
   - geopandas-base =1.0  # 1.0.0 released 2024-06-24
