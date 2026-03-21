@@ -17,6 +17,7 @@ from typing import Any, TYPE_CHECKING
 import h5py
 import numpy as np
 import tensorflow as tf
+import keras
 import keras.models
 
 # Set the framework to use by segmentation_models to keras
@@ -26,6 +27,8 @@ from segmentation_models import Linknet, PSPNet, Unet
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+KERAS_GT_2 = keras.__version__.split(".")[0] >= "3"
 
 # Get a logger...
 logger = logging.getLogger(__name__)
@@ -240,6 +243,9 @@ def load_model(
         upgrade_tried = False
         while True:
             try:
+                load_model_kwargs = {}
+                if not KERAS_GT_2:
+                    load_model_kwargs["safe_mode"] = False
                 model = tf.keras.models.load_model(
                     str(model_to_use_filepath),
                     custom_objects={
@@ -253,6 +259,7 @@ def load_model(
                         "weighted_categorical_crossentropy": weighted_categorical_crossentropy,  # noqa: E501
                     },
                     compile=compile_model,
+                    **load_model_kwargs,
                 )
                 break
 
