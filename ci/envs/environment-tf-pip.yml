@@ -18,6 +18,7 @@ dependencies:
   - matplotlib-base
   - numpy <2.2  # Tensorflow 2.19 needs a limit on the numpy version
   - owslib
+  - pandas
   - pillow
   - pycron
   - pygeoops >=0.4
