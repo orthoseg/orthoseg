@@ -12,6 +12,7 @@ dependencies:
   - matplotlib-base
   - numpy
   - owslib
+  - pandas
   - pillow
   - pycron
   - pygeoops >=0.2
