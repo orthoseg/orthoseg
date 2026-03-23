@@ -14,7 +14,7 @@ dependencies:
   # required
   - gdal =3.10.3  # 3.9.0 released 2024-05-10
   - gdown
-  - geofileops =0.10  # 0.10.0 released 2025-03-26
+  - geofileops =0.11  # 0.10.0 released 2025-03-26
   - geopandas-base =1.1  # 1.1.0 released 2025-06-01
   - matplotlib-base
   - numpy <2  # <2 is needed for tf < 2.18
