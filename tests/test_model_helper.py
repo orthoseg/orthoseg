@@ -1,11 +1,38 @@
 """Tests for the model_helper module."""
 
 import re
+from pathlib import Path
 
 import pytest
 
 from orthoseg.helpers import config_helper as conf
 from orthoseg.model import model_helper
+
+
+@pytest.mark.parametrize(
+    "input_names, expected_name",
+    [
+        (
+            ["subj_1_0.8_10.hdf5", "subj_2_0.9_20.hdf5", "subj_3_0.85_15.hdf5"],
+            "subj_3_0.85_15.hdf5",
+        ),
+        (
+            ["subj_1_0.8_10.hdf5", "subj_3_0.9_20.hdf5", "subj_3_0.85_15.hdf5"],
+            "subj_3_0.9_20.hdf5",
+        ),
+        (
+            ["subj_1_0.8_10.hdf5", "subj_2_0.9_20.keras", "subj_2_0.9_20.hdf5"],
+            "subj_2_0.9_20.keras",
+        ),
+    ],
+)
+def test_get_best_model(tmp_path, input_names, expected_name):
+    # Create dummy model files
+    for name in input_names:
+        (tmp_path / name).touch()
+
+    best_model = model_helper.get_best_model(tmp_path)
+    assert Path(best_model["filepath"]).name == expected_name
 
 
 @pytest.mark.parametrize(

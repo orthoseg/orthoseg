@@ -471,6 +471,7 @@ def get_models(
     """
     # List models
     model_paths: list[Path] = []
+    model_paths.extend(model_dir.glob("*.keras"))
     model_paths.extend(model_dir.glob("*.hdf5"))
     model_paths.extend(model_dir.glob("*.h5"))
     model_paths.extend(model_dir.glob("*_tf"))
@@ -550,30 +551,62 @@ def get_best_model(
     if len(model_info_list) == 0:
         return None
 
-    # If no traindata_id provided, find highest traindata id
+    # If no traindata_id provided, find models with highest traindata id
     max_traindata_id = -1
     for model_info in model_info_list:
         max_traindata_id = max(model_info["traindata_id"], max_traindata_id)
-
-    # Get the list of newest model
-    newest_model_info_list = [
+    model_info_list = [
         model_info
         for model_info in model_info_list
         if model_info["traindata_id"] == max_traindata_id
     ]
 
     # If only one result, return it
-    if len(newest_model_info_list) == 1:
-        return newest_model_info_list[0]
-    else:
-        max_monitor_metric_accuracy = -1
-        max_monitor_metric_accuracy_idx = -1
-        for model_info_idx, model_info in enumerate(model_info_list):
-            if model_info["monitor_metric_accuracy"] > max_monitor_metric_accuracy:
-                max_monitor_metric_accuracy = model_info["monitor_metric_accuracy"]
-                max_monitor_metric_accuracy_idx = model_info_idx
+    if len(model_info_list) == 1:
+        return model_info_list[0]
 
-        return model_info_list[max_monitor_metric_accuracy_idx]
+    # Find models with the highest monitor metric accuracy
+    max_monitor_metric_accuracy = -1
+    for model_info in model_info_list:
+        max_monitor_metric_accuracy = max(
+            max_monitor_metric_accuracy, model_info["monitor_metric_accuracy"]
+        )
+    model_info_list = [
+        model_info
+        for model_info in model_info_list
+        if model_info["monitor_metric_accuracy"] == max_monitor_metric_accuracy
+    ]
+
+    # If only one result, return it
+    if len(model_info_list) == 1:
+        return model_info_list[0]
+
+    # Return depending on the file format: prefer keras, then tf, then h5
+    keras_models = [
+        model_info
+        for model_info in model_info_list
+        if model_info["save_format"] == "keras"
+    ]
+    if len(keras_models) > 0:
+        return keras_models[0]
+
+    tf_models = [
+        model_info
+        for model_info in model_info_list
+        if model_info["save_format"] == "tf"
+    ]
+    if len(tf_models) > 0:
+        return tf_models[0]
+
+    h5_models = [
+        model_info
+        for model_info in model_info_list
+        if model_info["save_format"] == "h5"
+    ]
+    if len(h5_models) > 0:
+        return h5_models[0]
+
+    raise RuntimeError("No valid model found")
 
 
 class ModelCheckpointExt(callbacks.Callback):
