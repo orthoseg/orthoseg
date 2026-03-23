@@ -27,6 +27,8 @@ from segmentation_models import Linknet, PSPNet, Unet
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+KERAS_GT_3 = tf.keras.__version__.startswith("3.")
+
 # Get a logger...
 logger = logging.getLogger(__name__)
 
@@ -240,6 +242,9 @@ def load_model(
         upgrade_tried = False
         while True:
             try:
+                load_model_kwargs = {}
+                if KERAS_GT_3:
+                    load_model_kwargs["safe_mode"] = False
                 model = tf.keras.models.load_model(
                     str(model_to_use_filepath),
                     custom_objects={
@@ -253,7 +258,7 @@ def load_model(
                         "weighted_categorical_crossentropy": weighted_categorical_crossentropy,  # noqa: E501
                     },
                     compile=compile_model,
-                    safe_mode=False,
+                    **load_model_kwargs,
                 )
                 break
 
