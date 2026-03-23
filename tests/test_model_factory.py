@@ -67,7 +67,7 @@ def test_get_compile_save_load_model(
     assert model is not None
 
     # Now save model
-    model_path = tmp_path / f"{architecture}.hdf5"
+    model_path = tmp_path / f"{architecture}.keras"
     model.save(str(model_path))
     model = None
 
