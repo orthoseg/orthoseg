@@ -2,6 +2,8 @@
 Tests for functionalities in orthoseg.model.model_factory.
 """
 
+import os
+
 import pytest
 
 from orthoseg.model import model_factory
