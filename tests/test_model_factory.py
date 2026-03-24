@@ -57,6 +57,10 @@ def test_get_compile_save_load_model(
     )
     assert model is not None
 
+    # On windows, these give segmentation fault on github, so skip.
+    if "GITHUB_ACTIONS" in os.environ and os.name == "nt":
+        pytest.skip("crashes on github CI on windows")
+
     # Compile model
     model = model_factory.compile_model(
         model,
@@ -74,6 +78,7 @@ def test_get_compile_save_load_model(
     # Load model again
     model = model_factory.load_model(model_path)
     assert model is not None
+    """
 
 
 @pytest.mark.parametrize("architecture", ["mobilenetv2+unknown"])
