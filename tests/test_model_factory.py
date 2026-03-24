@@ -2,8 +2,6 @@
 
 import os
 
-import os
-
 import pytest
 
 from orthoseg.model import model_factory
