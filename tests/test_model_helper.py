@@ -24,12 +24,24 @@ from orthoseg.model import model_helper
             ["subj_1_0.8_10.hdf5", "subj_2_0.9_20.keras", "subj_2_0.9_20.hdf5"],
             "subj_2_0.9_20.keras",
         ),
+        (
+            ["subj_1_0.8_10.hdf5", "subj_2_0.9_20.hdf5", "subj_2_0.9_20_tf"],
+            "subj_2_0.9_20_tf",
+        ),
+        (
+            ["subj_1_0.8_10.hdf5", "subj_2_0.9_20.hdf5", "subj_2_0.9_20.hdf5"],
+            "subj_2_0.9_20.hdf5",
+        ),
     ],
 )
 def test_get_best_model(tmp_path, input_names, expected_name):
     # Create dummy model files
     for name in input_names:
-        (tmp_path / name).touch()
+        path = tmp_path / name
+        if path.name.endswith("_tf"):
+            path.mkdir()
+        else:
+            path.touch()
 
     best_model = model_helper.get_best_model(tmp_path)
     assert Path(best_model["filepath"]).name == expected_name
