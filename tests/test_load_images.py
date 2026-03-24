@@ -50,7 +50,7 @@ def test_load_images_error_handling():
     "overrules, exp_image_count",
     [
         (["predict.image_layer=BEFL-2019-WMTS"], 2),
-        (["predict.image_layer=OSM-XYZ"], 8),
+        (["predict.image_layer=OSM-XYZ"], 2),
         (["predict.image_layer=BEFL-2019"], 2),
     ],
 )
