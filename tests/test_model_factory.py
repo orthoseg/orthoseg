@@ -78,7 +78,6 @@ def test_get_compile_save_load_model(
     # Load model again
     model = model_factory.load_model(model_path)
     assert model is not None
-    """
 
 
 @pytest.mark.parametrize("architecture", ["mobilenetv2+unknown"])
