@@ -547,6 +547,9 @@ def get_best_model(
         trainparams_id=trainparams_id,
     )
 
+    # Sort the models so we also have a deterministic order and result further on.
+    model_info_list.sort(key=lambda model_info: model_info["filepath"])
+
     # If nothing found, return None
     if len(model_info_list) == 0:
         return None
