@@ -61,6 +61,10 @@ def test_get_compile_save_load_model(
     )
     assert model is not None
 
+    # On windows, these give segmentation fault on github, so skip.
+    if "GITHUB_ACTIONS" in os.environ and os.name == "nt":
+        pytest.skip("crashes on github CI on windows")
+
     # Compile model
     model = model_factory.compile_model(
         model,
@@ -71,7 +75,7 @@ def test_get_compile_save_load_model(
     assert model is not None
 
     # Now save model
-    model_path = tmp_path / f"{architecture}.hdf5"
+    model_path = tmp_path / f"{architecture}.keras"
     model.save(str(model_path))
     model = None
 
