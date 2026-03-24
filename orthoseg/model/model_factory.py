@@ -21,7 +21,7 @@ import keras
 import keras.models
 
 # Set the framework to use by segmentation_models to keras
-os.environ["SM_FRAMEWORK"] = "tf.keras"
+os.environ["SM_FRAMEWORK"] = "keras"
 import segmentation_models
 from segmentation_models import Linknet, PSPNet, Unet
 

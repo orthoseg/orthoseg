@@ -28,6 +28,6 @@ def convert_model(model_path: Path):
 # If the script is ran directly...
 if __name__ == "__main__":
     mode_path = Path(
-        r"X:\Monitoring\OrthoSeg\greenhouses2\models\greenhouses2_24_0.96385_17.hdf5"
+        r"X:\Monitoring\OrthoSeg\horsetracks\models\horsetracks_31_0.93096_156.hdf5"
     )
     convert_model(mode_path)
