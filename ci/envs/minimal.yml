@@ -19,6 +19,7 @@ dependencies:
   - matplotlib-base
   - numpy =1.26  # <2 is needed for tf < 2.18
   - owslib
+  - keras =2.10
   - pandas
   - pillow
   - pycron
