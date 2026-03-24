@@ -29,6 +29,7 @@ setuptools.setup(
         "matplotlib",
         "numpy",
         "owslib",
+        "pandas",
         "pillow",
         "pycron",
         "pygeoops>=0.4",
