@@ -29,22 +29,78 @@ from orthoseg.model import model_helper
             "subj_2_0.9_20_tf",
         ),
         (
-            ["subj_1_0.8_10.hdf5", "subj_2_0.9_20.hdf5", "subj_2_0.9_20.hdf5"],
+            ["subj_1_0.8_10.hdf5", "subj_2_0.9_20.hdf5", "subj_2_0.9_21.hdf5"],
             "subj_2_0.9_20.hdf5",
         ),
+        (["subj_1_0.8_10.invalid"], None),
+        (["subj_1_0.8_10_invalid"], None),
     ],
 )
 def test_get_best_model(tmp_path, input_names, expected_name):
-    # Create dummy model files
+    # Create dummy model files/directories.
     for name in input_names:
         path = tmp_path / name
-        if path.name.endswith("_tf"):
-            path.mkdir()
-        else:
+        if path.suffix in (".keras", ".hdf5", ".invalid"):
             path.touch()
+        else:
+            path.mkdir()
 
     best_model = model_helper.get_best_model(tmp_path)
-    assert Path(best_model["filepath"]).name == expected_name
+
+    if expected_name is None:
+        assert best_model is None
+    else:
+        assert Path(best_model["filepath"]).name == expected_name
+
+
+@pytest.mark.parametrize(
+    "filename, expected_info",
+    [
+        (
+            "subj_1_0.8_10.hdf5",
+            {
+                "traindata_id": 1,
+                "monitor_metric_accuracy": 0.8,
+                "epoch": 10,
+                "save_format": "h5",
+            },
+        ),
+        (
+            "subj_2_0.9_20.keras",
+            {
+                "traindata_id": 2,
+                "monitor_metric_accuracy": 0.9,
+                "epoch": 20,
+                "save_format": "keras",
+            },
+        ),
+        (
+            "subj_3_0.85_15_tf",
+            {
+                "traindata_id": 3,
+                "monitor_metric_accuracy": 0.85,
+                "epoch": 15,
+                "save_format": "tf",
+            },
+        ),
+        ("subj_3_0.85_15.invalid", None),
+        ("subj_3_0.85_15_invalid", None),
+    ],
+)
+def test_parse_model_filename(tmp_path, filename, expected_info):
+    # Create dummy model file/directory.
+    tmp_file = tmp_path / filename
+    if tmp_file.suffix in (".keras", ".hdf5", ".invalid"):
+        tmp_file.touch()
+    else:
+        tmp_file.mkdir()
+
+    model_info = model_helper.parse_model_filename(tmp_file)
+    if expected_info is None:
+        assert model_info is None
+    else:
+        for key, value in expected_info.items():
+            assert model_info[key] == value
 
 
 @pytest.mark.parametrize(

@@ -27,7 +27,7 @@ from segmentation_models import Linknet, PSPNet, Unet
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-KERAS_GT_3 = tf.keras.__version__.startswith("3.")
+KERAS_GT_3 = keras.__version__.startswith("3.")
 
 # Get a logger...
 logger = logging.getLogger(__name__)
