@@ -1,6 +1,6 @@
-"""
-Tests for functionalities in orthoseg.model.model_factory.
-"""
+"""Tests for functionalities in orthoseg.model.model_factory."""
+
+import os
 
 import os
 
@@ -39,6 +39,10 @@ def test_check_image_size(
         )
 
 
+@pytest.mark.skipif(
+    "GITHUB_ACTIONS" in os.environ and os.name == "nt",
+    reason="crashes on github CI on windows",
+)
 @pytest.mark.parametrize(
     "architecture, input_width, input_height",
     [

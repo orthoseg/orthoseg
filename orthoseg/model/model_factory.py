@@ -17,6 +17,7 @@ from typing import Any, TYPE_CHECKING
 import h5py
 import numpy as np
 import tensorflow as tf
+import keras
 import keras.models
 
 # Set the framework to use by segmentation_models to keras
@@ -27,7 +28,7 @@ from segmentation_models import Linknet, PSPNet, Unet
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-KERAS_GT_3 = keras.__version__.startswith("3.")
+KERAS_GTE_3 = keras.__version__.startswith("3.")
 
 # Get a logger...
 logger = logging.getLogger(__name__)
@@ -243,7 +244,7 @@ def load_model(
         while True:
             try:
                 load_model_kwargs = {}
-                if KERAS_GT_3:
+                if KERAS_GTE_3:
                     load_model_kwargs["safe_mode"] = False
                 model = tf.keras.models.load_model(
                     str(model_to_use_filepath),
