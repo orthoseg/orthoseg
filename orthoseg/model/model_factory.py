@@ -16,9 +16,9 @@ from typing import Any, TYPE_CHECKING
 
 import h5py
 import numpy as np
-import tensorflow as tf
 import keras
 import keras.models
+import tensorflow as tf
 
 # Set the framework to use by segmentation_models to keras
 os.environ["SM_FRAMEWORK"] = "tf.keras"
@@ -156,7 +156,7 @@ def compile_model(
         elif loss == "binary_crossentropy":
             metric_funcs.append("binary_accuracy")
 
-        onehot_mean_iou = tf.keras.metrics.OneHotMeanIoU(
+        onehot_mean_iou = keras.metrics.OneHotMeanIoU(
             num_classes=nb_classes, name="one_hot_mean_iou"
         )
         metric_funcs.append(onehot_mean_iou)
@@ -180,7 +180,7 @@ def compile_model(
 
     # Create optimizer
     if optimizer == "adam":
-        optimizer_func = tf.keras.optimizers.Adam(**optimizer_params)
+        optimizer_func = keras.optimizers.Adam(**optimizer_params)
     else:
         raise ValueError(
             f"Error creating optimizer: {optimizer}, with params {optimizer_params}"
@@ -216,7 +216,7 @@ def load_model(
         Exception: [description]
 
     Returns:
-        tf.keras.models.Model: The loaded model.
+        keras.models.Model: The loaded model.
     """
     errors = []
     model = None
@@ -236,7 +236,7 @@ def load_model(
 
         iou_score = segmentation_models.metrics.IOUScore()
         f1_score = segmentation_models.metrics.FScore()
-        onehot_mean_iou = tf.keras.metrics.OneHotMeanIoU(
+        onehot_mean_iou = keras.metrics.OneHotMeanIoU(
             num_classes=nb_classes, name="one_hot_mean_iou"
         )
 
@@ -246,7 +246,7 @@ def load_model(
                 load_model_kwargs = {}
                 if KERAS_GTE_3:
                     load_model_kwargs["safe_mode"] = False
-                model = tf.keras.models.load_model(
+                model = keras.models.load_model(
                     str(model_to_use_filepath),
                     custom_objects={
                         "jaccard_coef": jaccard_coef,
@@ -308,7 +308,7 @@ def load_model(
             with model_json_filepath.open("r") as src:
                 model_json = src.read()
             try:
-                model = tf.keras.models.model_from_json(model_json)
+                model = keras.models.model_from_json(model_json)
             except Exception as ex:
                 errors.append(
                     f"Error loading model architecture from {model_json_filepath}: {ex}"
