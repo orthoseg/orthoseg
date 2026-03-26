@@ -18,17 +18,17 @@ import h5py
 import numpy as np
 import keras
 import keras.models
+
 import tensorflow as tf
+from keras import backend as K
 
 # Set the framework to use by segmentation_models to keras
 os.environ["SM_FRAMEWORK"] = "tf.keras"
-import segmentation_models
-from segmentation_models import Linknet, PSPNet, Unet
+
+from orthoseg._compat import KERAS_GTE_3
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-
-KERAS_GTE_3 = keras.__version__.startswith("3.")
 
 # Get a logger...
 logger = logging.getLogger(__name__)
@@ -69,6 +69,8 @@ def get_model(
     Returns:
         Model: the model.
     """
+    from segmentation_models import Linknet, PSPNet, Unet  # noqa: PLC0415
+
     # Check architecture
     segment_architecture_parts = architecture.split("+")
     if len(segment_architecture_parts) < 2:
@@ -126,7 +128,6 @@ def compile_model(
     optimizer_params: dict,
     loss: str,
     metrics: list[str] | None = None,
-    class_weights: list | None = None,
 ) -> keras.models.Model:
     """Compile the model for training.
 
@@ -136,19 +137,19 @@ def compile_model(
         optimizer_params (dict): parameters to use for optimizer.
         loss (str): the loss function to use. One of:
             * categorical_crossentropy
-            * weighted_categorical_crossentropy: class_weights should be specified!
 
         metrics (list[str], optional): metrics to use. Support to specify them is not
             implemented... so should be None. Defaults to None.
-        class_weights (list, optional): class weigths to use. Defaults to None.
     """
+    import segmentation_models  # noqa: PLC0415
+
     # Get number classes of model
     nb_classes = model.output[-1].shape[-1]
 
     # If no metrics specified, use default ones
     metric_funcs: list[Any] = []
     if metrics is None:
-        if loss in ["categorical_crossentropy", "weighted_categorical_crossentropy"]:
+        if loss == "categorical_crossentropy":
             metric_funcs.append("categorical_accuracy")
         elif loss == "sparse_categorical_crossentropy":
             # metrics.append('sparse_categorical_accuracy')
@@ -171,10 +172,6 @@ def compile_model(
         loss_func = segmentation_models.losses.DiceLoss()
     elif loss == "jaccard_loss":
         loss_func = segmentation_models.losses.JaccardLoss()
-    elif loss == "weighted_categorical_crossentropy":
-        if class_weights is None:
-            raise ValueError(f"With loss == {loss}, class_weights cannot be None!")
-        loss_func = weighted_categorical_crossentropy(class_weights)
     else:
         loss_func = loss
 
@@ -186,10 +183,7 @@ def compile_model(
             f"Error creating optimizer: {optimizer}, with params {optimizer_params}"
         )
 
-    logger.info(
-        f"Compile model, optimizer: {optimizer}, loss: {loss}, "
-        f"class_weights: {class_weights}"
-    )
+    logger.info(f"Compile model, optimizer: {optimizer}, loss: {loss}")
     model.compile(optimizer=optimizer_func, loss=loss_func, metrics=metric_funcs)
 
     return model
@@ -234,8 +228,13 @@ def load_model(
                 hyperparams = json.load(src)
                 nb_classes = len(hyperparams["architecture"]["classes"])
 
-        iou_score = segmentation_models.metrics.IOUScore()
-        f1_score = segmentation_models.metrics.FScore()
+        # iou_score = segmentation_models.metrics.IOUScore()
+        # f1_score = segmentation_models.metrics.FScore()
+        iou_score = keras.metrics.IoU(
+            num_classes=nb_classes,
+            target_class_ids=list(range(nb_classes)),
+            name="iou_score",
+        )
         onehot_mean_iou = keras.metrics.OneHotMeanIoU(
             num_classes=nb_classes, name="one_hot_mean_iou"
         )
@@ -254,7 +253,7 @@ def load_model(
                         "jaccard_coef_round": jaccard_coef_round,
                         "dice_coef": dice_coef,
                         "iou_score": iou_score,
-                        "f1_score": f1_score,
+                        # "f1_score": f1_score,
                         "one_hot_mean_iou": onehot_mean_iou,
                         "weighted_categorical_crossentropy": weighted_categorical_crossentropy,  # noqa: E501
                     },
@@ -265,9 +264,10 @@ def load_model(
 
             except Exception as ex:
                 # If not tried yet, try upgrade the model to keras 3 compliant
-                if not upgrade_tried and str(ex).startswith(
-                    "Error when deserializing class 'DepthwiseConv2D' using config"
-                ):
+                # if not upgrade_tried and str(ex).startswith(
+                #    "Error when deserializing class 'DepthwiseConv2D' using config"
+                # ):
+                if not upgrade_tried:
                     logger.warning("Error loading model, try to upgrade it to keras 3.")
                     upgrade_tried = True
 
@@ -332,7 +332,7 @@ def load_model(
                     model = get_model(
                         architecture=hyperparams["architecture"]["architecture"],
                         nb_channels=hyperparams["architecture"]["nb_channels"],
-                        nb_classes=hyperparams["architecture"]["nb_classes"],
+                        nb_classes=len(hyperparams["architecture"]["classes"]),
                         activation=hyperparams["architecture"]["activation_function"],
                     )
                 except Exception as ex:
@@ -379,6 +379,8 @@ def set_trainable(model, recompile: bool = True):
         recompile (bool, optional): True to recompile the model so it is ready to train.
             Defaults to True.
     """
+    import segmentation_models  # noqa: PLC0415
+
     # doesn't seem to work, so save and load model
     segmentation_models.utils.set_trainable(model=model, recompile=recompile)
 
@@ -417,6 +419,7 @@ def check_image_size(architecture: str, input_width: int, input_height: int):
 # ------------------------------------------
 
 
+# @keras.saving.register_keras_serializable()
 def weighted_categorical_crossentropy(weights):
     """Loss function using weighted categorical crossentropy.
 
@@ -437,6 +440,31 @@ def weighted_categorical_crossentropy(weights):
             output = tf.clip_by_value(output, _epsilon, 1.0 - _epsilon)
             weighted_losses = target * tf.math.log(output) * weights
             retval = -tf.reduce_sum(weighted_losses, len(output.get_shape()) - 1)
+            return retval
+        else:
+            raise ValueError("WeightedCategoricalCrossentropy: not valid with logits")
+
+    return loss
+
+
+def weighted_categorical_crossentropy_tmp(weights):
+    """Loss function using weighted categorical crossentropy.
+
+    Args:
+        weights (ktensor|nparray|list): crossentropy weights
+    Returns:
+        weighted categorical crossentropy function
+    """
+    if isinstance(weights, list | np.ndarray):
+        weights = K.Variable(weights)
+
+    def loss(target, output, from_logits=False):
+        if not from_logits:
+            output /= K.reduce_sum(output, len(output.get_shape()) - 1, True)
+            _epsilon = K.convert_to_tensor(K.epsilon(), dtype=output.dtype.base_dtype)
+            output = K.clip(output, _epsilon, 1.0 - _epsilon)
+            weighted_losses = target * K.log(output) * weights
+            retval = -K.reduce_sum(weighted_losses, len(output.get_shape()) - 1)
             return retval
         else:
             raise ValueError("WeightedCategoricalCrossentropy: not valid with logits")
@@ -521,6 +549,7 @@ def dice_coef_loss_bce(y_true, y_pred):
 SMOOTH_LOSS = 1e-12
 
 
+# @keras.saving.register_keras_serializable()
 def jaccard_coef(y_true, y_pred):
     """Metric jaccard coefficient aka intersection over union.
 
@@ -539,6 +568,7 @@ def jaccard_coef(y_true, y_pred):
     return tf.keras.backend.mean(jac)
 
 
+# @keras.saving.register_keras_serializable()
 def jaccard_coef_round(y_true, y_pred):
     """Metric jaccard coefficient aka intersection over union with rounding.
 
@@ -557,6 +587,7 @@ def jaccard_coef_round(y_true, y_pred):
     return tf.keras.backend.mean(jac)
 
 
+# @keras.saving.register_keras_serializable()
 def jaccard_coef_flat(y_true, y_pred):
     """Metric jaccard coefficient aka intersection over union with flattening.
 
@@ -578,6 +609,7 @@ def jaccard_coef_flat(y_true, y_pred):
     )
 
 
+# @keras.saving.register_keras_serializable()
 def dice_coef(y_true, y_pred, smooth=1.0):
     """Metric dice coefficient.
 
@@ -597,6 +629,7 @@ def dice_coef(y_true, y_pred, smooth=1.0):
     )
 
 
+# @keras.saving.register_keras_serializable()
 def pct_wrong(y_true, y_pred):
     """Metric percentage wrong.
 

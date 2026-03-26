@@ -72,7 +72,7 @@ def train(
     #    +- ignored.
 
     # Create the train generator
-    train_gen = create_train_generator(
+    train_data = create_train_dataset(
         input_data_dir=traindata_dir,
         image_subdir=image_subdir,
         mask_subdir=mask_subdir,
@@ -92,7 +92,7 @@ def train(
     validation_mask_augmentations = {
         "rescale": hyperparams.train.mask_augmentations["rescale"]
     }
-    validation_gen = create_train_generator(
+    validation_data = create_train_dataset(
         input_data_dir=validationdata_dir,
         image_subdir=image_subdir,
         mask_subdir=mask_subdir,
@@ -175,7 +175,7 @@ def train(
         model = mf.load_model(model_preload_filepath, compile_model=False)
 
     # Now prepare the model for training
-    nb_gpu = len(tf.config.experimental.list_physical_devices("GPU"))
+    nb_gpu = mh.get_number_gpus()
 
     # TODO: because of bug in tensorflow 1.14, multi GPU doesn't work (this way),
     # so always use standard model
@@ -185,7 +185,6 @@ def train(
             optimizer=hyperparams.train.optimizer,
             optimizer_params=hyperparams.train.optimizer_params,
             loss=hyperparams.train.loss_function,
-            class_weights=hyperparams.train.class_weights,
         )
         logger.info(f"Train using single GPU or CPU, with nb_gpu: {nb_gpu}")
     else:
@@ -200,7 +199,6 @@ def train(
                 optimizer=hyperparams.train.optimizer,
                 optimizer_params=hyperparams.train.optimizer_params,
                 loss=hyperparams.train.loss_function,
-                class_weights=hyperparams.train.class_weights,
             )
 
     # Define some callbacks for the training
@@ -301,16 +299,22 @@ def train(
 
     try:
         # If the encoder should be frozen for the first epochs, do so
+        class_weight = (
+            dict(enumerate(hyperparams.train.class_weights))
+            if hyperparams.train.class_weights is not None
+            else None
+        )
         if hyperparams.train.nb_epoch_with_freeze > 0:
             logger.info(
                 f"First train for {hyperparams.train.nb_epoch_with_freeze} epochs with "
                 "frozen layers"
             )
             model_for_train.fit(
-                train_gen,
+                train_data,
                 steps_per_epoch=train_steps_per_epoch,
                 epochs=hyperparams.train.nb_epoch_with_freeze,
-                validation_data=validation_gen,
+                validation_data=validation_data,
+                class_weight=class_weight,
                 # Number of items in validation/batch_size
                 validation_steps=validation_steps_per_epoch,
                 callbacks=train_callbacks,
@@ -323,15 +327,15 @@ def train(
                 optimizer=hyperparams.train.optimizer,
                 optimizer_params=hyperparams.train.optimizer_params,
                 loss=hyperparams.train.loss_function,
-                class_weights=hyperparams.train.class_weights,
             )
 
         # Train!
         model_for_train.fit(
-            train_gen,
+            train_data,
             steps_per_epoch=train_steps_per_epoch,
             epochs=hyperparams.train.nb_epoch,
-            validation_data=validation_gen,
+            validation_data=validation_data,
+            class_weight=class_weight,
             # Number of items in validation/batch_size
             validation_steps=validation_steps_per_epoch,
             callbacks=train_callbacks,
@@ -358,6 +362,64 @@ def train(
         # from keras import backend as K
         # K.clear_session()
         kr.backend.clear_session()
+
+
+def create_train_dataset(
+    input_data_dir: Path,
+    image_subdir: str,
+    mask_subdir: str,
+    image_augment_dict: dict,
+    mask_augment_dict: dict,
+    batch_size: int = 32,
+    image_color_mode: str = "rgb",
+    mask_color_mode: str = "grayscale",
+    save_to_subdir: str | None = None,
+    image_save_prefix: str = "image",
+    mask_save_prefix: str = "mask",
+    nb_classes: int = 1,
+    target_size: tuple[int, int] = (256, 256),
+    shuffle: bool = True,
+    seed: int = 1,
+) -> tf.data.Dataset:
+    """Creates a Dataset to generate and augment train images.
+
+    The augmentations
+    specified in aug_dict will be applied. For the augmentations that can be
+    specified in aug_dict look at the documentation of
+    keras.preprocessing.image.ImageDataGenerator
+
+    For more info about the other parameters, check keras flow_from_directory.
+
+    Remarks: * use the same seed for image_datagen and mask_datagen to ensure
+               the transformation for image and mask is the same
+             * set save_to_dir = "your path" to check results of the generator
+    """
+    train_gen = create_train_generator(
+        input_data_dir=input_data_dir,
+        image_subdir=image_subdir,
+        mask_subdir=mask_subdir,
+        image_augment_dict=image_augment_dict,
+        mask_augment_dict=mask_augment_dict,
+        batch_size=batch_size,
+        image_color_mode=image_color_mode,
+        mask_color_mode=mask_color_mode,
+        save_to_subdir=save_to_subdir,
+        image_save_prefix=image_save_prefix,
+        mask_save_prefix=mask_save_prefix,
+        nb_classes=nb_classes,
+        target_size=target_size,
+        shuffle=shuffle,
+        seed=seed,
+    )
+
+    return tf.data.Dataset.from_generator(
+        lambda: train_gen,
+        output_types=(tf.float32, tf.float32),
+        output_shapes=(
+            [None, target_size[0], target_size[1], 3],
+            [None, target_size[0], target_size[1], nb_classes],
+        ),
+    )
 
 
 def create_train_generator(

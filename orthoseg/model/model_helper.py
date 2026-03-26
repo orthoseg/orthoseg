@@ -9,6 +9,8 @@ from typing import Any, Literal
 import pandas as pd
 from keras import callbacks
 
+from orthoseg._compat import KERAS_GTE_3
+
 # Get a logger...
 logger = logging.getLogger(__name__)
 
@@ -68,7 +70,7 @@ class TrainParams:
         batch_size: int = 4,
         optimizer: str = "adam",
         optimizer_params: dict | None = None,
-        loss_function: str | None = None,  # noqa: ARG002
+        loss_function: str | None = None,
         monitor_metric: str | None = None,
         monitor_metric_mode: str = "auto",
         save_format: str = "keras",
@@ -150,18 +152,15 @@ class TrainParams:
         else:
             self.optimizer_params = optimizer_params
 
-        if self.class_weights is not None:
-            self.loss_function = "weighted_categorical_crossentropy"
-        else:
+        if loss_function is None:
             self.loss_function = "categorical_crossentropy"
+        else:
+            self.loss_function = loss_function
 
         # Properties to choose the best model
         if monitor_metric is not None:
             self.monitor_metric = monitor_metric
-        elif self.loss_function in (
-            "weighted_categorical_crossentropy",
-            "categorical_crossentropy",
-        ):
+        elif self.loss_function == "categorical_crossentropy":
             self.monitor_metric = "categorical_accuracy"
         self.monitor_metric_mode = monitor_metric_mode
 
@@ -471,7 +470,8 @@ def get_models(
     """
     # List models
     model_paths: list[Path] = []
-    model_paths.extend(model_dir.glob("*.keras"))
+    if KERAS_GTE_3:
+        model_paths.extend(model_dir.glob("*.keras"))
     model_paths.extend(model_dir.glob("*.hdf5"))
     model_paths.extend(model_dir.glob("*.h5"))
     model_paths.extend(model_dir.glob("*_tf"))
@@ -610,6 +610,17 @@ def get_best_model(
         return h5_models[0]
 
     raise RuntimeError("No valid model found")
+
+
+def get_number_gpus() -> int:
+    """Get the number of GPUs available.
+
+    Returns:
+        int: the number of GPUs available.
+    """
+    import tensorflow as tf  # noqa: PLC0415
+
+    return len(tf.config.experimental.list_physical_devices("GPU"))
 
 
 class ModelCheckpointExt(callbacks.Callback):
