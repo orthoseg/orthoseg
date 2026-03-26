@@ -134,11 +134,18 @@ def train(config_path: Path, config_overrules: list[str] | None = None):
             architecture_id=conf.model.getint("architecture_id"),
             activation_function="softmax",
         )
+
+        class_weights = [classes[classname]["weight"] for classname in classes]
+        if len(set(class_weights)) == 1:
+            # If all weights are the same, set class_weights to None to avoid using
+            # weighted loss function.
+            class_weights = None  # type: ignore[assignment]
+
         trainparams = mh.TrainParams(
             trainparams_id=conf.train.getint("trainparams_id"),
             image_augmentations=conf.train.getdict("image_augmentations"),
             mask_augmentations=conf.train.getdict("mask_augmentations"),
-            class_weights=[classes[classname]["weight"] for classname in classes],
+            class_weights=class_weights,
             batch_size=conf.train.getint("batch_size_fit"),
             optimizer=conf.train.get("optimizer"),
             optimizer_params=conf.train.getdict("optimizer_params"),

@@ -93,7 +93,8 @@ class TrainParams:
                 during training.
             architecture_id (int, optional): id of the architecture. Defaults to 0.
             trainparams_id (int, optional): id of the hyperparams. Defaults to 0.
-            class_weights (list, optional): [description]. Defaults to None.
+            class_weights (list, optional): the weights to use for each class.
+                Defaults to None.
             batch_size (int, optional): batch size to use while training. This must be
                 choosen depending on the neural network architecture
                 and available memory on you GPU. Defaults to 4.
@@ -101,7 +102,8 @@ class TrainParams:
                 Defaults to 'adam'.
             optimizer_params (dict, optional): Optimizer params to use.
                 Defaults to { 'learning_rate': 0.0001 }.
-            loss_function (str, optional): [description]. Defaults to None.
+            loss_function (str, optional): Loss function to use for training.
+                Defaults to None.
             monitor_metric (str, optional): Metric to monitor. If not specified
                 the loss function will drive the metric. Defaults to None.
             monitor_metric_mode (str, optional): Mode of the metric to monitor.
@@ -111,7 +113,8 @@ class TrainParams:
                 - **"h5"**: legacy keras format
                 - **"tf"**: tensorflow savedmodel
                 Defaults to 'keras'.
-            save_best_only (bool, optional): [description]. Defaults to True.
+            save_best_only (bool, optional): True to save only the best model.
+                Defaults to True.
             save_min_accuracy (float, optional): minimum accuracy to save a model.
                 Defaults to 0.95.
             nb_epoch (int, optional): maximum number of epochs to train.
