@@ -5,6 +5,7 @@
 ### Improvements
 
 - Add support for geofileops 0.11 (#288, #292)
+- Add retry for ARCGIS WMS server errors (#305)
 
 ### Bugs fixed
 

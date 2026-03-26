@@ -1041,6 +1041,13 @@ def load_image(
                                     f"Request for bbox {bbox_local} gave an "
                                     f"exception, try again in {time_sleep} s: {ex}"
                                 )
+                            elif "ArcGIS Server Error" in str(
+                                ex
+                            ) and "http.400:" in str(ex):
+                                logger.debug(
+                                    f"Request for bbox {bbox_with_border} gave an "
+                                    f"exception, try again in {time_sleep} s: {ex}"
+                                )
                             else:
                                 message = f"WMS error for bbox {bbox_local}: {ex}"
                                 raise RuntimeError(message) from ex
