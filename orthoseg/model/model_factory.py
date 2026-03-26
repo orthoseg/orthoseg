@@ -24,6 +24,7 @@ from keras import backend as K
 
 # Set the framework to use by segmentation_models to keras
 os.environ["SM_FRAMEWORK"] = "tf.keras"
+from segmentation_models import Linknet, PSPNet, Unet
 
 from orthoseg._compat import KERAS_GTE_3
 
@@ -69,8 +70,6 @@ def get_model(
     Returns:
         Model: the model.
     """
-    from segmentation_models import Linknet, PSPNet, Unet  # noqa: PLC0415
-
     # Check architecture
     segment_architecture_parts = architecture.split("+")
     if len(segment_architecture_parts) < 2:
