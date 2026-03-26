@@ -457,9 +457,7 @@ def postprocess_for_evaluation(
             # If there is more than 1 class, extract the seperate masks
             # per class with one-hot encoding
             if nb_classes > 1:
-                mask_categorical_arr = keras.utils.to_categorical(
-                    mask_arr, nb_classes
-                )
+                mask_categorical_arr = keras.utils.to_categorical(mask_arr, nb_classes)
                 mask_arr = (mask_categorical_arr[:, :, class_id]) * 255
 
             # similarity = jaccard_similarity(mask_arr, image_pred)
