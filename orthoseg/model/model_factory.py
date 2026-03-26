@@ -127,6 +127,7 @@ def compile_model(
     optimizer_params: dict,
     loss: str,
     metrics: list[str] | None = None,
+    class_weights: list[float] | None = None,
 ) -> keras.models.Model:
     """Compile the model for training.
 
@@ -136,9 +137,12 @@ def compile_model(
         optimizer_params (dict): parameters to use for optimizer.
         loss (str): the loss function to use. One of:
             * categorical_crossentropy
+            * weighted_categorical_crossentropy: class_weights should be specified!
 
         metrics (list[str], optional): metrics to use. Support to specify them is not
             implemented... so should be None. Defaults to None.
+        class_weights (list[float], optional): class weights to use for the loss
+            function. Defaults to None.
     """
     import segmentation_models  # noqa: PLC0415
 
@@ -148,7 +152,7 @@ def compile_model(
     # If no metrics specified, use default ones
     metric_funcs: list[Any] = []
     if metrics is None:
-        if loss == "categorical_crossentropy":
+        if loss in ["categorical_crossentropy", "weighted_categorical_crossentropy"]:
             metric_funcs.append("categorical_accuracy")
         elif loss == "sparse_categorical_crossentropy":
             # metrics.append('sparse_categorical_accuracy')
@@ -171,6 +175,16 @@ def compile_model(
         loss_func = segmentation_models.losses.DiceLoss()
     elif loss == "jaccard_loss":
         loss_func = segmentation_models.losses.JaccardLoss()
+    elif loss == "weighted_categorical_crossentropy":
+        # Remark: in keras it is possible to use a class_weight parameter of model.fit
+        # to specify class weights. But, this option was implemented for timeseries data
+        # and only supports 2D input data, otherwise the following error is given:
+        # "class_weight not supported for 3+ dimensional targets". With computer vision
+        # you typically have 3D+ input data, so it doesn't work.
+        # Hence: use a custom weighted loss function!
+        if class_weights is None:
+            raise ValueError(f"With loss == {loss}, class_weights cannot be None!")
+        loss_func = weighted_categorical_crossentropy(class_weights)
     else:
         loss_func = loss
 
@@ -182,7 +196,10 @@ def compile_model(
             f"Error creating optimizer: {optimizer}, with params {optimizer_params}"
         )
 
-    logger.info(f"Compile model, optimizer: {optimizer}, loss: {loss}")
+    logger.info(
+        f"Compile model, optimizer: {optimizer}, loss: {loss}, "
+        f"class_weights: {class_weights}"
+    )
     model.compile(optimizer=optimizer_func, loss=loss_func, metrics=metric_funcs)
 
     return model
@@ -418,8 +435,7 @@ def check_image_size(architecture: str, input_width: int, input_height: int):
 # ------------------------------------------
 
 
-# @keras.saving.register_keras_serializable()
-def weighted_categorical_crossentropy(weights):
+def weighted_categorical_crossentropy_tmp(weights):
     """Loss function using weighted categorical crossentropy.
 
     Args:
@@ -446,7 +462,7 @@ def weighted_categorical_crossentropy(weights):
     return loss
 
 
-def weighted_categorical_crossentropy_tmp(weights):
+def weighted_categorical_crossentropy(weights):
     """Loss function using weighted categorical crossentropy.
 
     Args:
@@ -548,7 +564,6 @@ def dice_coef_loss_bce(y_true, y_pred):
 SMOOTH_LOSS = 1e-12
 
 
-# @keras.saving.register_keras_serializable()
 def jaccard_coef(y_true, y_pred):
     """Metric jaccard coefficient aka intersection over union.
 
@@ -567,7 +582,6 @@ def jaccard_coef(y_true, y_pred):
     return tf.keras.backend.mean(jac)
 
 
-# @keras.saving.register_keras_serializable()
 def jaccard_coef_round(y_true, y_pred):
     """Metric jaccard coefficient aka intersection over union with rounding.
 
@@ -586,7 +600,6 @@ def jaccard_coef_round(y_true, y_pred):
     return tf.keras.backend.mean(jac)
 
 
-# @keras.saving.register_keras_serializable()
 def jaccard_coef_flat(y_true, y_pred):
     """Metric jaccard coefficient aka intersection over union with flattening.
 
@@ -608,7 +621,6 @@ def jaccard_coef_flat(y_true, y_pred):
     )
 
 
-# @keras.saving.register_keras_serializable()
 def dice_coef(y_true, y_pred, smooth=1.0):
     """Metric dice coefficient.
 
@@ -628,7 +640,6 @@ def dice_coef(y_true, y_pred, smooth=1.0):
     )
 
 
-# @keras.saving.register_keras_serializable()
 def pct_wrong(y_true, y_pred):
     """Metric percentage wrong.
 

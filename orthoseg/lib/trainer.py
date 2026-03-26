@@ -185,6 +185,7 @@ def train(
             optimizer=hyperparams.train.optimizer,
             optimizer_params=hyperparams.train.optimizer_params,
             loss=hyperparams.train.loss_function,
+            class_weights=hyperparams.train.class_weights,
         )
         logger.info(f"Train using single GPU or CPU, with nb_gpu: {nb_gpu}")
     else:
@@ -199,6 +200,7 @@ def train(
                 optimizer=hyperparams.train.optimizer,
                 optimizer_params=hyperparams.train.optimizer_params,
                 loss=hyperparams.train.loss_function,
+                class_weights=hyperparams.train.class_weights,
             )
 
     # Define some callbacks for the training
@@ -299,11 +301,6 @@ def train(
 
     try:
         # If the encoder should be frozen for the first epochs, do so
-        class_weight = (
-            dict(enumerate(hyperparams.train.class_weights))
-            if hyperparams.train.class_weights is not None
-            else None
-        )
         if hyperparams.train.nb_epoch_with_freeze > 0:
             logger.info(
                 f"First train for {hyperparams.train.nb_epoch_with_freeze} epochs with "
@@ -314,7 +311,6 @@ def train(
                 steps_per_epoch=train_steps_per_epoch,
                 epochs=hyperparams.train.nb_epoch_with_freeze,
                 validation_data=validation_data,
-                class_weight=class_weight,
                 # Number of items in validation/batch_size
                 validation_steps=validation_steps_per_epoch,
                 callbacks=train_callbacks,
@@ -327,6 +323,7 @@ def train(
                 optimizer=hyperparams.train.optimizer,
                 optimizer_params=hyperparams.train.optimizer_params,
                 loss=hyperparams.train.loss_function,
+                class_weights=hyperparams.train.class_weights,
             )
 
         # Train!
@@ -335,7 +332,6 @@ def train(
             steps_per_epoch=train_steps_per_epoch,
             epochs=hyperparams.train.nb_epoch,
             validation_data=validation_data,
-            class_weight=class_weight,
             # Number of items in validation/batch_size
             validation_steps=validation_steps_per_epoch,
             callbacks=train_callbacks,
