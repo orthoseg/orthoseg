@@ -174,10 +174,7 @@ def read_orthoseg_config(config_path: Path, overrules: list[str] | None = None):
 
     # Apply some defaults that need some logic.
     if train.get("save_format") is None:
-        if KERAS_GTE_3:
-            train["save_format"] = "keras"
-        else:
-            train["save_format"] = "h5"
+        train["save_format"] = "keras" if KERAS_GTE_3 else "h5"
     elif train.get("save_format") == "keras" and not KERAS_GTE_3:
         raise ValueError(
             "Keras format for saving models is only supported for Keras >= 3. "
