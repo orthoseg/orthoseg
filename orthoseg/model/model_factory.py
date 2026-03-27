@@ -20,7 +20,6 @@ import keras
 import keras.models
 
 import tensorflow as tf
-from keras import backend as K
 
 # Set the framework to use by segmentation_models to keras
 os.environ["SM_FRAMEWORK"] = "tf.keras"
