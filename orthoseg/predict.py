@@ -10,8 +10,6 @@ from typing import Any
 
 # import os
 # os.environ["CUDA_VISIBLE_DEVICES"] = "-1" # Disable using GPU
-import tensorflow as tf
-
 import orthoseg.model.model_factory as mf
 import orthoseg.model.model_helper as mh
 from orthoseg.helpers import config_helper as conf, email_helper
@@ -206,7 +204,7 @@ def predict(config_path: Path, config_overrules: list[str] | None = None):
             model = mf.load_model(best_model["filepath"], compile_model=False)
 
         # Prepare the model for predicting
-        nb_gpu = len(tf.config.experimental.list_physical_devices("GPU"))
+        nb_gpu = mh.get_number_gpus()
         batch_size = conf.predict.getint("batch_size")
         if nb_gpu <= 1:
             model_for_predict = model

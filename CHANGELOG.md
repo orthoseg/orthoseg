@@ -6,6 +6,7 @@
 
 - Add support to reproject a local image layer (#290)
 - Improve handling of `switch_axes` and `ssl_verify` (#295)
+- Reduce dependencies on tf to prepare proper keras v3 support (#304)
 - Add retry for ARCGIS WMS server errors (#305)
 - Add retry when reading vrt layers (#307)
 

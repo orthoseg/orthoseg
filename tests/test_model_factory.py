@@ -71,6 +71,7 @@ def test_get_compile_save_load_model(
         optimizer="adam",
         optimizer_params={"learning_rate": 0.0001},
         loss="categorical_crossentropy",
+        class_weights=None,
     )
     assert model is not None
 

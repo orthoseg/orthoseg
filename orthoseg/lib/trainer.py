@@ -175,7 +175,7 @@ def train(
         model = mf.load_model(model_preload_filepath, compile_model=False)
 
     # Now prepare the model for training
-    nb_gpu = len(tf.config.experimental.list_physical_devices("GPU"))
+    nb_gpu = mh.get_number_gpus()
 
     # TODO: because of bug in tensorflow 1.14, multi GPU doesn't work (this way),
     # so always use standard model
@@ -389,6 +389,16 @@ def create_train_generator(
     Remarks: * use the same seed for image_datagen and mask_datagen to ensure
                the transformation for image and mask is the same
              * set save_to_dir = "your path" to check results of the generator
+             * it is possible to convert the generator to a Dataset using
+               tf.data.Dataset.from_generator, but this halves training speed.
+                    return tf.data.Dataset.from_generator(
+                        lambda: train_gen,
+                        output_types=(tf.float32, tf.float32),
+                        output_shapes=(
+                            [None, target_size[0], target_size[1], 3],
+                            [None, target_size[0], target_size[1], nb_classes],
+                        ),
+                    )
     """
     # Init
     # Do some checks on the augmentations specified, as it is easy to

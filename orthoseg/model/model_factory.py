@@ -16,19 +16,19 @@ from typing import Any, TYPE_CHECKING
 
 import h5py
 import numpy as np
-import tensorflow as tf
 import keras
 import keras.models
 
+import tensorflow as tf
+
 # Set the framework to use by segmentation_models to keras
 os.environ["SM_FRAMEWORK"] = "tf.keras"
-import segmentation_models
 from segmentation_models import Linknet, PSPNet, Unet
+
+from orthoseg._compat import KERAS_GTE_3
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-
-KERAS_GTE_3 = keras.__version__.startswith("3.")
 
 # Get a logger...
 logger = logging.getLogger(__name__)
@@ -126,7 +126,7 @@ def compile_model(
     optimizer_params: dict,
     loss: str,
     metrics: list[str] | None = None,
-    class_weights: list | None = None,
+    class_weights: list[float] | None = None,
 ) -> keras.models.Model:
     """Compile the model for training.
 
@@ -140,8 +140,11 @@ def compile_model(
 
         metrics (list[str], optional): metrics to use. Support to specify them is not
             implemented... so should be None. Defaults to None.
-        class_weights (list, optional): class weigths to use. Defaults to None.
+        class_weights (list[float], optional): class weights to use for the loss
+            function. Defaults to None.
     """
+    import segmentation_models  # noqa: PLC0415
+
     # Get number classes of model
     nb_classes = model.output[-1].shape[-1]
 
@@ -156,7 +159,7 @@ def compile_model(
         elif loss == "binary_crossentropy":
             metric_funcs.append("binary_accuracy")
 
-        onehot_mean_iou = tf.keras.metrics.OneHotMeanIoU(
+        onehot_mean_iou = keras.metrics.OneHotMeanIoU(
             num_classes=nb_classes, name="one_hot_mean_iou"
         )
         metric_funcs.append(onehot_mean_iou)
@@ -172,6 +175,12 @@ def compile_model(
     elif loss == "jaccard_loss":
         loss_func = segmentation_models.losses.JaccardLoss()
     elif loss == "weighted_categorical_crossentropy":
+        # Remark: in keras it is possible to use a class_weight parameter of model.fit
+        # to specify class weights. But, this option was implemented for timeseries data
+        # and only supports 2D input data, otherwise the following error is given:
+        # "class_weight not supported for 3+ dimensional targets". With computer vision
+        # you typically have 3D+ input data, so it doesn't work.
+        # Hence: use a custom weighted loss function!
         if class_weights is None:
             raise ValueError(f"With loss == {loss}, class_weights cannot be None!")
         loss_func = weighted_categorical_crossentropy(class_weights)
@@ -180,7 +189,7 @@ def compile_model(
 
     # Create optimizer
     if optimizer == "adam":
-        optimizer_func = tf.keras.optimizers.Adam(**optimizer_params)
+        optimizer_func = keras.optimizers.Adam(**optimizer_params)
     else:
         raise ValueError(
             f"Error creating optimizer: {optimizer}, with params {optimizer_params}"
@@ -216,7 +225,7 @@ def load_model(
         Exception: [description]
 
     Returns:
-        tf.keras.models.Model: The loaded model.
+        keras.models.Model: The loaded model.
     """
     errors = []
     model = None
@@ -234,9 +243,14 @@ def load_model(
                 hyperparams = json.load(src)
                 nb_classes = len(hyperparams["architecture"]["classes"])
 
-        iou_score = segmentation_models.metrics.IOUScore()
-        f1_score = segmentation_models.metrics.FScore()
-        onehot_mean_iou = tf.keras.metrics.OneHotMeanIoU(
+        # iou_score = segmentation_models.metrics.IOUScore()
+        # f1_score = segmentation_models.metrics.FScore()
+        iou_score = keras.metrics.IoU(
+            num_classes=nb_classes,
+            target_class_ids=list(range(nb_classes)),
+            name="iou_score",
+        )
+        onehot_mean_iou = keras.metrics.OneHotMeanIoU(
             num_classes=nb_classes, name="one_hot_mean_iou"
         )
 
@@ -246,7 +260,7 @@ def load_model(
                 load_model_kwargs = {}
                 if KERAS_GTE_3:
                     load_model_kwargs["safe_mode"] = False
-                model = tf.keras.models.load_model(
+                model = keras.models.load_model(
                     str(model_to_use_filepath),
                     custom_objects={
                         "jaccard_coef": jaccard_coef,
@@ -254,7 +268,7 @@ def load_model(
                         "jaccard_coef_round": jaccard_coef_round,
                         "dice_coef": dice_coef,
                         "iou_score": iou_score,
-                        "f1_score": f1_score,
+                        # "f1_score": f1_score,
                         "one_hot_mean_iou": onehot_mean_iou,
                         "weighted_categorical_crossentropy": weighted_categorical_crossentropy,  # noqa: E501
                     },
@@ -265,9 +279,10 @@ def load_model(
 
             except Exception as ex:
                 # If not tried yet, try upgrade the model to keras 3 compliant
-                if not upgrade_tried and str(ex).startswith(
-                    "Error when deserializing class 'DepthwiseConv2D' using config"
-                ):
+                # if not upgrade_tried and str(ex).startswith(
+                #    "Error when deserializing class 'DepthwiseConv2D' using config"
+                # ):
+                if not upgrade_tried:
                     logger.warning("Error loading model, try to upgrade it to keras 3.")
                     upgrade_tried = True
 
@@ -308,7 +323,7 @@ def load_model(
             with model_json_filepath.open("r") as src:
                 model_json = src.read()
             try:
-                model = tf.keras.models.model_from_json(model_json)
+                model = keras.models.model_from_json(model_json)
             except Exception as ex:
                 errors.append(
                     f"Error loading model architecture from {model_json_filepath}: {ex}"
@@ -332,7 +347,7 @@ def load_model(
                     model = get_model(
                         architecture=hyperparams["architecture"]["architecture"],
                         nb_channels=hyperparams["architecture"]["nb_channels"],
-                        nb_classes=hyperparams["architecture"]["nb_classes"],
+                        nb_classes=len(hyperparams["architecture"]["classes"]),
                         activation=hyperparams["architecture"]["activation_function"],
                     )
                 except Exception as ex:
@@ -379,6 +394,8 @@ def set_trainable(model, recompile: bool = True):
         recompile (bool, optional): True to recompile the model so it is ready to train.
             Defaults to True.
     """
+    import segmentation_models  # noqa: PLC0415
+
     # doesn't seem to work, so save and load model
     segmentation_models.utils.set_trainable(model=model, recompile=recompile)
 

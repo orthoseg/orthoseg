@@ -9,6 +9,8 @@ from typing import Any, Literal
 import pandas as pd
 from keras import callbacks
 
+from orthoseg._compat import KERAS_GTE_3
+
 # Get a logger...
 logger = logging.getLogger(__name__)
 
@@ -68,7 +70,7 @@ class TrainParams:
         batch_size: int = 4,
         optimizer: str = "adam",
         optimizer_params: dict | None = None,
-        loss_function: str | None = None,  # noqa: ARG002
+        loss_function: str | None = None,
         monitor_metric: str | None = None,
         monitor_metric_mode: str = "auto",
         save_format: str = "keras",
@@ -91,7 +93,8 @@ class TrainParams:
                 during training.
             architecture_id (int, optional): id of the architecture. Defaults to 0.
             trainparams_id (int, optional): id of the hyperparams. Defaults to 0.
-            class_weights (list, optional): [description]. Defaults to None.
+            class_weights (list, optional): the weights to use for each class.
+                Defaults to None.
             batch_size (int, optional): batch size to use while training. This must be
                 choosen depending on the neural network architecture
                 and available memory on you GPU. Defaults to 4.
@@ -99,7 +102,8 @@ class TrainParams:
                 Defaults to 'adam'.
             optimizer_params (dict, optional): Optimizer params to use.
                 Defaults to { 'learning_rate': 0.0001 }.
-            loss_function (str, optional): [description]. Defaults to None.
+            loss_function (str, optional): Loss function to use for training.
+                Defaults to None.
             monitor_metric (str, optional): Metric to monitor. If not specified
                 the loss function will drive the metric. Defaults to None.
             monitor_metric_mode (str, optional): Mode of the metric to monitor.
@@ -109,7 +113,8 @@ class TrainParams:
                 - **"h5"**: legacy keras format
                 - **"tf"**: tensorflow savedmodel
                 Defaults to 'keras'.
-            save_best_only (bool, optional): [description]. Defaults to True.
+            save_best_only (bool, optional): True to save only the best model.
+                Defaults to True.
             save_min_accuracy (float, optional): minimum accuracy to save a model.
                 Defaults to 0.95.
             nb_epoch (int, optional): maximum number of epochs to train.
@@ -150,17 +155,20 @@ class TrainParams:
         else:
             self.optimizer_params = optimizer_params
 
-        if self.class_weights is not None:
-            self.loss_function = "weighted_categorical_crossentropy"
+        if loss_function is None:
+            if self.class_weights is not None:
+                self.loss_function = "weighted_categorical_crossentropy"
+            else:
+                self.loss_function = "categorical_crossentropy"
         else:
-            self.loss_function = "categorical_crossentropy"
+            self.loss_function = loss_function
 
         # Properties to choose the best model
         if monitor_metric is not None:
             self.monitor_metric = monitor_metric
         elif self.loss_function in (
-            "weighted_categorical_crossentropy",
             "categorical_crossentropy",
+            "weighted_categorical_crossentropy",
         ):
             self.monitor_metric = "categorical_accuracy"
         self.monitor_metric_mode = monitor_metric_mode
@@ -471,7 +479,8 @@ def get_models(
     """
     # List models
     model_paths: list[Path] = []
-    model_paths.extend(model_dir.glob("*.keras"))
+    if KERAS_GTE_3:
+        model_paths.extend(model_dir.glob("*.keras"))
     model_paths.extend(model_dir.glob("*.hdf5"))
     model_paths.extend(model_dir.glob("*.h5"))
     model_paths.extend(model_dir.glob("*_tf"))
@@ -610,6 +619,17 @@ def get_best_model(
         return h5_models[0]
 
     raise RuntimeError("No valid model found")
+
+
+def get_number_gpus() -> int:
+    """Get the number of GPUs available.
+
+    Returns:
+        int: the number of GPUs available.
+    """
+    import tensorflow as tf  # noqa: PLC0415
+
+    return len(tf.config.experimental.list_physical_devices("GPU"))
 
 
 class ModelCheckpointExt(callbacks.Callback):

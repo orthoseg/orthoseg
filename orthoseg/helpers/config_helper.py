@@ -13,9 +13,11 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+import keras
 import pyproj
 from osgeo import gdal
 
+from orthoseg._compat import KERAS_GTE_3
 from orthoseg.lib.prepare_traindatasets import LabelInfo
 from orthoseg.util import config_util
 from orthoseg.util.image_util import FileLayerSource, WMSLayerSource, has_switched_axes
@@ -169,6 +171,20 @@ def read_orthoseg_config(config_path: Path, overrules: list[str] | None = None):
             f"dirs.projects_dir was relative: is resolved to {projects_dir_absolute}"
         )
         dirs["projects_dir"] = projects_dir_absolute.as_posix()
+
+    # Apply some defaults that need some logic.
+    if train.get("save_format") is None:
+        train["save_format"] = "keras" if KERAS_GTE_3 else "h5"
+    elif train.get("save_format") == "keras" and not KERAS_GTE_3:
+        raise ValueError(
+            "Keras format for saving models is only supported for Keras >= 3. "
+            f"Current Keras version is {keras.__version__}."
+        )
+    elif train.get("save_format") not in ["keras", "h5", "tf"]:
+        raise ValueError(
+            f"Invalid save_format: {train.get('save_format')}. "
+            "Valid options are 'keras', 'h5', or 'tf'."
+        )
 
     # Read the layer config
     layer_config_filepath = files.getpath("image_layers_config_filepath")

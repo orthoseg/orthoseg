@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from orthoseg._compat import KERAS_GTE_3
 from orthoseg.helpers import config_helper as conf
 from orthoseg.model import model_helper
 
@@ -50,6 +51,8 @@ def test_get_best_model(tmp_path, input_names, expected_name):
     if expected_name is None:
         assert best_model is None
     else:
+        if not KERAS_GTE_3 and expected_name.endswith(".keras"):
+            expected_name = expected_name.replace(".keras", ".hdf5")
         assert Path(best_model["filepath"]).name == expected_name
 
 
