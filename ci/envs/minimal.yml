@@ -12,6 +12,7 @@ dependencies:
   - python
   - pip
   # required
+  - astunparse  # Avoid it being installed via pip, otherwise segfault on windows
   - gdal =3.9.0  # 3.9.0 released 2024-05-10
   - gdown
   - geofileops =0.10  # 0.10.0 released 2025-03-26
