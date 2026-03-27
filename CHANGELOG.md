@@ -7,6 +7,7 @@
 - Add support to reproject a local image layer (#290)
 - Improve handling of `switch_axes` and `ssl_verify` (#295)
 - Add retry for ARCGIS WMS server errors (#305)
+- Add retry when reading vrt layers (#307)
 
 ### Bugs fixed
 

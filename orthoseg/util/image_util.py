@@ -992,7 +992,7 @@ def load_image(
                     layersource.wms_service = wms_service
 
                 # Get image from server, and retry up to 10 times...
-                nb_retries = 0
+                retry_count = 0
                 time_sleep = 5
                 image_retrieved = False
                 while image_retrieved is False:
@@ -1039,13 +1039,13 @@ def load_image(
                                 raise RuntimeError(message) from ex
 
                         # If the exception isn't handled yet, retry 10 times...
-                        if nb_retries < 10:
+                        if retry_count < 10:
                             time.sleep(time_sleep)
 
                             # Increase sleep time every
                             # time.
                             time_sleep += 5
-                            nb_retries += 1
+                            retry_count += 1
                             continue
                         else:
                             message = (
@@ -1130,28 +1130,28 @@ def load_image(
                 raise ValueError(f"Unsupported layer source: <{layersource}>")
 
             # Read the data we need from the opened file
+
+            # If the driver is VRT, use retries for the read as it sometimes fails
+            # reading remote files.
+            nb_retries = 10 if image_file.profile["driver"] == "VRT" else 0
+
             if layersource.bands is None:
                 # If no specific bands specified, read them all...
+                image_data_cur = _rio_read(image_file, rio_read_kwargs, nb_retries)
                 if image_data_output is None:
-                    image_data_output = image_file.read(**rio_read_kwargs)
+                    image_data_output = image_data_cur
                 else:
                     image_data_output = np.append(
-                        image_data_output,
-                        image_file.read(**rio_read_kwargs),
-                        axis=0,
+                        image_data_output, image_data_cur, axis=0
                     )
             elif len(layersource.bands) == 1 and layersource.bands[0] == -1:
                 # If 1 band, -1 specified: dirty hack to use greyscale
                 # version of rgb image
-                image_data_tmp = image_file.read(**rio_read_kwargs)
+                image_data_tmp = _rio_read(image_file, rio_read_kwargs, nb_retries)
                 image_data_grey = np.mean(image_data_tmp, axis=0).astype(
                     image_data_tmp.dtype
                 )
-                new_shape = (
-                    1,
-                    image_data_grey.shape[0],
-                    image_data_grey.shape[1],
-                )
+                new_shape = (1, image_data_grey.shape[0], image_data_grey.shape[1])
                 image_data_grey = np.reshape(image_data_grey, new_shape)
                 if image_data_output is None:
                     image_data_output = image_data_grey
@@ -1165,12 +1165,8 @@ def load_image(
                     # Read the band needed + reshape. Remark: rasterio uses
                     # 1-based indexing instead of 0-based
                     rio_read_kwargs["indexes"] = band + 1
-                    image_data_curr = image_file.read(**rio_read_kwargs)
-                    new_shape = (
-                        1,
-                        image_data_curr.shape[0],
-                        image_data_curr.shape[1],
-                    )
+                    image_data_curr = _rio_read(image_file, rio_read_kwargs, nb_retries)
+                    new_shape = (1, image_data_curr.shape[0], image_data_curr.shape[1])
                     image_data_curr = np.reshape(image_data_curr, new_shape)
 
                     # Set or append to image_data_output
@@ -1378,3 +1374,23 @@ def _get_cleaned_write_profile(
         profile_cleaned = profile.copy()
 
     return profile_cleaned
+
+
+def _rio_read(
+    image_file: rio.DatasetReader, rio_read_kwargs: dict, nb_retries: int = 0
+):
+    retry_count = 0
+    time_sleep = 1
+    while True:
+        try:
+            return image_file.read(**rio_read_kwargs)
+        except Exception as ex:  # pragma: no cover
+            if retry_count < nb_retries:
+                time.sleep(time_sleep)
+
+                # Increase sleep time every time.
+                time_sleep += 5
+                retry_count += 1
+            else:
+                message = f"Retried {nb_retries} times and didn't work"
+                raise RuntimeError(message) from ex
