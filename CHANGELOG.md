@@ -6,6 +6,7 @@
 
 - Add support for geofileops 0.11 (#288, #292)
 - Add retry for ARCGIS WMS server errors (#305)
+- Add retry when reading vrt layers (#307)
 - Use small mobilenetv2 model instead of the default in footballfield sample project
   (#130)
 
