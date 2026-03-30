@@ -810,27 +810,26 @@ def save_and_clean_models(
         debug (bool, optional): write debug logging
         only_report (bool, optional): only report which models would be cleaned up
     """
-    # TODO: add option to specify minimum accuracy/iou score before saving to speed up,
-    # because saving takes quite some time!
     # Check validaty of input
     monitor_metric_mode_values = ["min", "max"]
     if monitor_metric_mode not in monitor_metric_mode_values:
-        raise Exception(
+        raise ValueError(
             f"Invalid value for mode: {monitor_metric_mode}, should be one of "
             f"{monitor_metric_mode_values}"
         )
     save_format_values = ("keras", "h5", "tf")
     if save_format not in save_format_values:
-        raise Exception(
+        raise ValueError(
             f"Invalid value for save_format: {save_format}, should be one of "
             f"{save_format_values}"
         )
 
-    # Get a list of all existing models
+    # Get a list of all relevant existing models
     model_info_list = get_models(
         model_dir=model_save_dir,
         segment_subject=segment_subject,
         traindata_id=traindata_id,
+        architecture_id=architecture_id,
         trainparams_id=trainparams_id,
     )
 
@@ -839,7 +838,7 @@ def save_and_clean_models(
     new_model_monitor_accuracy = None
     if new_model is not None:
         if new_model_monitor_value is None or new_model_epoch is None:
-            raise Exception(
+            raise ValueError(
                 "If new_model is not None, new_model_monitor_... parameters cannot be "
                 f"None either???, new_model_monitor_value: {new_model_monitor_value}, "
                 f"new_model_epoch: {new_model_epoch}"
@@ -881,7 +880,7 @@ def save_and_clean_models(
 
     # Loop through all existing models
     # Remark: the list is sorted descending before iterating it, this way new
-    # modelss are saved bevore deleting the previous best one(s)
+    # models are saved before deleting the previous best one(s)
     model_info_df = pd.DataFrame(model_info_list)
     model_info_sorted_df = model_info_df.sort_values(
         by="monitor_metric_accuracy", ascending=False
@@ -902,7 +901,7 @@ def save_and_clean_models(
                 keep_model = False
 
         # If model is (relatively) ok, keep it
-        if keep_model is True:
+        if keep_model:
             logger.debug(f"KEEP {model_info.filename}")
 
             # If it is the new model that needs to be kept, keep it or save to disk
@@ -910,7 +909,7 @@ def save_and_clean_models(
                 new_model_path is not None
                 and new_model is not None
                 and new_model_epoch is not None
-                and only_report is not True
+                and not only_report
                 and model_info.filepath == str(new_model_path)
                 and not new_model_path.exists()
             ):
@@ -945,21 +944,21 @@ def save_and_clean_models(
         else:
             # Bad model... can be removed (or not saved)
             assert isinstance(model_info.filepath, str | Path)
-            if only_report is True:
+            if only_report:
                 logger.debug(f"DELETE {model_info.filename}")
-            elif Path(model_info.filepath).exists() is True:
+            elif Path(model_info.filepath).exists():
                 logger.debug(f"DELETE {model_info.filename}")
-                if Path(model_info.filepath).is_dir() is True:
+                if Path(model_info.filepath).is_dir():
                     shutil.rmtree(model_info.filepath)
                 else:
                     Path(model_info.filepath).unlink()
 
-            if debug is True and better_ones_df is not None:
-                print(f"Better one(s) found for{model_info.filename}:")
+            if debug and better_ones_df is not None:
+                print(f"Better one(s) found for {model_info.filename}:")
                 for better_one in better_ones_df.itertuples(index=False):
                     print(f"  {better_one.filename}")
 
-    if verbose is True or debug is True:
+    if verbose or debug:
         best_model = get_best_model(
             model_dir=model_save_dir,
             segment_subject=segment_subject,
