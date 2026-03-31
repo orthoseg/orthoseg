@@ -24,7 +24,6 @@ import keras.models
 import tensorflow as tf
 
 # Set the framework to use by segmentation_models to keras
-os.environ["SM_FRAMEWORK"] = "tf.keras"
 os.environ["SM_FRAMEWORK"] = "keras"
 
 import segmodels_keras as smk
@@ -32,6 +31,9 @@ from segmodels_keras import Linknet, PSPNet, Unet
 
 from orthoseg._compat import KERAS_GTE_3
 
+if KERAS_GTE_3:
+    import keras
+    from keras import ops
 else:
     from keras import backend as ops
 
@@ -446,18 +448,14 @@ def weighted_categorical_crossentropy(weights):
     Returns:
         weighted categorical crossentropy function
     """
-    if isinstance(weights, list | np.ndarray):
-        weights = tf.keras.backend.variable(weights)
 
     def loss(target, output, from_logits=False):
         if not from_logits:
             output /= tf.reduce_sum(output, len(output.get_shape()) - 1, True)
             _epsilon = tf.convert_to_tensor(
-                tf.keras.backend.epsilon(), dtype=output.dtype.base_dtype
             )
-            output = tf.clip_by_value(output, _epsilon, 1.0 - _epsilon)
-            weighted_losses = target * tf.math.log(output) * weights
-            retval = -tf.reduce_sum(weighted_losses, len(output.get_shape()) - 1)
+            weighted_losses = target * ops.log(output) * weights
+            retval = -ops.sum(weighted_losses, len(output.shape) - 1)
             return retval
         else:
             raise ValueError("WeightedCategoricalCrossentropy: not valid with logits")
