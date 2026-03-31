@@ -158,7 +158,7 @@ class TrainParams:
         if loss_function is None:
             if KERAS_GTE_3:
                 self.loss_function = "categorical_focal_crossentropy"
-            else:
+            else:  # noqa: PLR5501
                 if self.class_weights is not None:
                     self.loss_function = "weighted_categorical_crossentropy"
                 else:
