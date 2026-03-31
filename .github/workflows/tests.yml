@@ -37,6 +37,11 @@ jobs:
         python: ["3.10", "3.11", "3.12"]
         env: ["latest"]
         include:
+          - env: latest
+            os: ubuntu-latest
+            dev: false
+            python: "3.12"
+            extra: jax
           - env: latest-tf-pip
             os: macos-latest
             dev: false
@@ -69,6 +74,10 @@ jobs:
           create-args: >-
             python=${{ matrix.python }}
             ${{ matrix.extra }}
+
+      - name: Set KERAS_BACKEND if needed
+        if: matrix.extra == 'jax'
+        run: echo "KERAS_BACKEND=jax" >> $GITHUB_ENV
 
       - name: Test
         run: |
