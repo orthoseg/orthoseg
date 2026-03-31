@@ -41,7 +41,7 @@ jobs:
             os: ubuntu-latest
             dev: false
             python: "3.12"
-            extra:
+            extra: tensorflow
           - env: latest
             os: ubuntu-latest
             dev: false
