@@ -41,6 +41,7 @@ jobs:
             os: ubuntu-latest
             dev: false
             python: "3.12"
+            extra:
           - env: latest
             os: ubuntu-latest
             dev: false
