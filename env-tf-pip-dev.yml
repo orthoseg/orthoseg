@@ -2,7 +2,7 @@ name: orthoseg-dev
 channels:
   - conda-forge
 dependencies:
-  - python =3.10
+  - python =3.12
   - pip
   # required
   - gdal
@@ -19,6 +19,7 @@ dependencies:
   - pyproj
   - rasterio
   - shapely >=2
+  - scikit-image
   - simplification
   # optional, for CUDA support
   #- cudatoolkit ==12.3
@@ -34,7 +35,7 @@ dependencies:
   - pytest-cov
   - pytest-order
   - pip:
-    - segmentation-models >=1.0,<1.1
+    - segmodels
     - tensorflow >=2.8
     - types-shapely
     - types-tensorflow

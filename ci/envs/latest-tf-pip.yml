@@ -26,6 +26,7 @@ dependencies:
   - pyproj
   - rasterio
   - shapely >=2
+  - scikit-image
   - simplification
   # dependencies of tensorflow that need to be conda versions to avoid binary compatibility issues
   #- h5py <3.14  # When a version > 3.13 is used with tf 2.19: segmentation fault
@@ -34,5 +35,5 @@ dependencies:
   - pytest-cov
   - pytest-order
   - pip:
-    - segmentation-models >=1.0
+    - segmodels_keras
     - tensorflow >=2.10,<2.20

@@ -7,6 +7,8 @@ from pathlib import Path
 if "KERAS_BACKEND" not in os.environ:
     os.environ["KERAS_BACKEND"] = "tensorflow"
 
+import keras
+
 # ruff: noqa: F401
 from orthoseg.load_images import load_images
 from orthoseg.postprocess import postprocess
@@ -14,7 +16,7 @@ from orthoseg.predict import predict
 from orthoseg.train import train
 from orthoseg.validate import validate
 
-print(f"Using Keras backend: {os.environ['KERAS_BACKEND']}")
+print(f"Using Keras backend: {keras.backend.backend()}")
 
 
 def _get_version():
