@@ -21,6 +21,7 @@ dependencies:
   - pyproj
   - rasterio
   - shapely >=2
+  - skimage
   - simplification
   - tensorflow-cpu >=2.8
   # docs
