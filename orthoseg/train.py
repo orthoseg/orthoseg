@@ -7,7 +7,7 @@ import sys
 import traceback
 from pathlib import Path
 
-from tensorflow import keras as kr
+import keras
 
 from orthoseg.helpers import config_helper as conf, email_helper
 from orthoseg.lib import predicter, prepare_traindatasets as prep, trainer
@@ -416,7 +416,7 @@ def train(config_path: Path, config_overrules: list[str] | None = None):
         logger.debug("Free resources")
         if model is not None:
             del model
-        kr.backend.clear_session()
+        keras.backend.clear_session()
         gc.collect()
 
         # Log and send mail

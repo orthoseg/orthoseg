@@ -1,0 +1,43 @@
+name: orthoseg-jax-dev
+channels:
+  - conda-forge
+dependencies:
+  - python =3.12
+  - pip
+  # required
+  - gdal
+  - gdown
+  - geofileops >=0.10
+  - geopandas-base >=0.12
+  - jax
+  - keras
+  - matplotlib-base
+  - numpy
+  - owslib
+  - pandas
+  - pillow
+  - pycron
+  - pygeoops >=0.2
+  - pyproj
+  - rasterio
+  - shapely >=2
+  - scikit-image
+  - simplification
+  # optional, for CUDA support
+  #- cudatoolkit #==12.3
+  #- cudnn
+  # linting
+  - mypy ==1.19.1
+  - pandas-stubs
+  - pre-commit
+  - ruff ==0.15.2
+  - types-pillow
+  # testing
+  - pytest
+  - pytest-cov
+  - pytest-order
+  - pip:
+    - segmodels
+    - tensorflow >=2.8
+    - types-shapely
+    - types-tensorflow
