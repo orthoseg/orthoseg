@@ -106,6 +106,26 @@ def test_parse_model_filename(tmp_path, filename, expected_info):
             assert model_info[key] == value
 
 
+@pytest.mark.parametrize("class_weights", [None, {0: 1.0, 1: 2.0}])
+def test_trainparams_defaults(class_weights):
+    params = model_helper.TrainParams(
+        image_augmentations={"cval": 0, "fill_mode": "constant", "rescale": 1},
+        mask_augmentations={"cval": 0, "fill_mode": "constant", "rescale": 1},
+        class_weights=class_weights,
+    )
+
+    assert params.trainparams_id == 0
+    assert params.save_format == "keras" if KERAS_GTE_3 else "h5"
+    if KERAS_GTE_3:
+        expected_loss_function = "categorical_focal_crossentropy"
+    else:  # noqa: PLR5501
+        if class_weights is not None:
+            expected_loss_function = "weighted_categorical_crossentropy"
+        else:
+            expected_loss_function = "categorical_crossentropy"
+    assert params.loss_function == expected_loss_function
+
+
 @pytest.mark.parametrize(
     "image_augmentations, mask_augmentations",
     [
