@@ -146,7 +146,9 @@ def compile_model(
         optimizer_params (dict): parameters to use for optimizer.
         loss (str): the loss function to use. One of:
             * categorical_crossentropy
-            * weighted_categorical_crossentropy: class_weights should be specified!
+            * categorical_focal_crossentropy
+            * weighted_categorical_crossentropy is deprecated as it gives issues with
+              keras 3 combined with torch as backend.
 
         metrics (list[str], optional): metrics to use. Support to specify them is not
             implemented... so should be None. Defaults to None.
@@ -159,7 +161,11 @@ def compile_model(
     # If no metrics specified, use default ones
     metric_funcs: list[Any] = []
     if metrics is None:
-        if loss in ["categorical_crossentropy", "weighted_categorical_crossentropy"]:
+        if loss in [
+            "categorical_crossentropy",
+            "weighted_categorical_crossentropy",
+            "categorical_focal_crossentropy",
+        ]:
             metric_funcs.append("categorical_accuracy")
         elif loss == "sparse_categorical_crossentropy":
             # metrics.append('sparse_categorical_accuracy')
@@ -192,6 +198,9 @@ def compile_model(
         if class_weights is None:
             raise ValueError(f"With loss == {loss}, class_weights cannot be None!")
         loss_func = weighted_categorical_crossentropy(class_weights)
+    elif loss == "categorical_focal_crossentropy":
+        kwargs = {"alpha": class_weights} if class_weights is not None else {}
+        loss_func = keras.losses.CategoricalFocalCrossentropy(**kwargs)
     else:
         loss_func = loss
 
@@ -266,20 +275,24 @@ def load_model(
         while True:
             try:
                 load_model_kwargs = {}
+                custom_objects = {
+                    "jaccard_coef": jaccard_coef,
+                    "jaccard_coef_flat": jaccard_coef_flat,
+                    "jaccard_coef_round": jaccard_coef_round,
+                    "dice_coef": dice_coef,
+                    "iou_score": iou_score,
+                    # "f1_score": f1_score,
+                    "one_hot_mean_iou": onehot_mean_iou,
+                    "weighted_categorical_crossentropy": weighted_categorical_crossentropy,  # noqa: E501
+                }
                 if KERAS_GTE_3:
                     load_model_kwargs["safe_mode"] = False
+                    custom_objects["categorical_focal_crossentropy"] = (
+                        keras.losses.CategoricalFocalCrossentropy
+                    )
                 model = keras.models.load_model(
                     str(model_to_use_filepath),
-                    custom_objects={
-                        "jaccard_coef": jaccard_coef,
-                        "jaccard_coef_flat": jaccard_coef_flat,
-                        "jaccard_coef_round": jaccard_coef_round,
-                        "dice_coef": dice_coef,
-                        "iou_score": iou_score,
-                        # "f1_score": f1_score,
-                        "one_hot_mean_iou": onehot_mean_iou,
-                        "weighted_categorical_crossentropy": weighted_categorical_crossentropy,  # noqa: E501
-                    },
+                    custom_objects=custom_objects,
                     compile=compile_model,
                     **load_model_kwargs,
                 )
@@ -451,8 +464,10 @@ def weighted_categorical_crossentropy(weights):
 
     def loss(target, output, from_logits=False):
         if not from_logits:
-            output /= tf.reduce_sum(output, len(output.get_shape()) - 1, True)
-            _epsilon = tf.convert_to_tensor()
+            output /= ops.sum(output, len(output.shape) - 1, True)
+            output = ops.clip(
+                output, keras.backend.epsilon(), 1.0 - keras.backend.epsilon()
+            )
             weighted_losses = target * ops.log(output) * weights
             retval = -ops.sum(weighted_losses, len(output.shape) - 1)
             return retval
