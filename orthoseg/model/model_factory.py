@@ -452,8 +452,7 @@ def weighted_categorical_crossentropy(weights):
     def loss(target, output, from_logits=False):
         if not from_logits:
             output /= tf.reduce_sum(output, len(output.get_shape()) - 1, True)
-            _epsilon = tf.convert_to_tensor(
-            )
+            _epsilon = tf.convert_to_tensor()
             weighted_losses = target * ops.log(output) * weights
             retval = -ops.sum(weighted_losses, len(output.shape) - 1)
             return retval
