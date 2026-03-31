@@ -307,6 +307,8 @@ def train(config_path: Path, config_overrules: list[str] | None = None):
                 model_dir=model_dir,
                 segment_subject=segment_subject,
                 traindata_id=traindata_id,
+                architecture_id=architectureparams.architecture_id,
+                trainparams_id=trainparams.trainparams_id,
             )
 
         # Assert to evade typing warnings
