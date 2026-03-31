@@ -14,18 +14,26 @@ import os
 from pathlib import Path
 from typing import Any, TYPE_CHECKING
 
+# Default to using tensorflow as keras backend if not specified.
+if "KERAS_BACKEND" not in os.environ:
+    os.environ["KERAS_BACKEND"] = "tensorflow"
+
 import h5py
-import numpy as np
 import keras
 import keras.models
-
 import tensorflow as tf
 
 # Set the framework to use by segmentation_models to keras
 os.environ["SM_FRAMEWORK"] = "tf.keras"
-from segmentation_models import Linknet, PSPNet, Unet
+os.environ["SM_FRAMEWORK"] = "keras"
+
+import segmodels_keras as smk
+from segmodels_keras import Linknet, PSPNet, Unet
 
 from orthoseg._compat import KERAS_GTE_3
+
+else:
+    from keras import backend as ops
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -143,8 +151,6 @@ def compile_model(
         class_weights (list[float], optional): class weights to use for the loss
             function. Defaults to None.
     """
-    import segmentation_models  # noqa: PLC0415
-
     # Get number classes of model
     nb_classes = model.output[-1].shape[-1]
 
@@ -171,9 +177,9 @@ def compile_model(
     if loss == "bcedice":
         loss_func = dice_coef_loss_bce
     elif loss == "dice_loss":
-        loss_func = segmentation_models.losses.DiceLoss()
+        loss_func = smk.losses.DiceLoss()
     elif loss == "jaccard_loss":
-        loss_func = segmentation_models.losses.JaccardLoss()
+        loss_func = smk.losses.JaccardLoss()
     elif loss == "weighted_categorical_crossentropy":
         # Remark: in keras it is possible to use a class_weight parameter of model.fit
         # to specify class weights. But, this option was implemented for timeseries data
@@ -394,10 +400,8 @@ def set_trainable(model, recompile: bool = True):
         recompile (bool, optional): True to recompile the model so it is ready to train.
             Defaults to True.
     """
-    import segmentation_models  # noqa: PLC0415
-
     # doesn't seem to work, so save and load model
-    segmentation_models.utils.set_trainable(model=model, recompile=recompile)
+    smk.utils.set_trainable(model=model, recompile=recompile)
 
 
 def check_image_size(architecture: str, input_width: int, input_height: int):

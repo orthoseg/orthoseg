@@ -34,5 +34,5 @@ dependencies:
   - pytest-cov
   - pytest-order
   - pip:
-    - segmentation-models >=1.0
+    - segmodels_keras
     - tensorflow >=2.10,<2.20
