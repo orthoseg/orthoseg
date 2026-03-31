@@ -9,7 +9,7 @@
 - Add proper support for keras 3:
     - Use `categorical_focal_crossentropy` by default on keras 3 (#312)
     - Use [segmodels_keras](https://github.com/orthoseg/segmodels_keras) (#311)
-    - Avoid dependencies on tf.keras (#304)
+    - Avoid unneeded direct use of tensorflow (#304, #313)
 - Add retry for ARCGIS WMS server errors (#305)
 - Add retry when reading vrt layers (#307)
 
