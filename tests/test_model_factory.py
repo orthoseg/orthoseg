@@ -96,7 +96,9 @@ def test_get_model_unknown_decoder(architecture: str):
 @pytest.mark.parametrize("architecture", ["unknown+unet"])
 def test_get_model_unknown_encoder(architecture: str):
     # Error is raised by segmentation_models library
-    with pytest.raises(ValueError, match="No such model"):
+    with pytest.raises(
+        ValueError, match="Backbone with name 'unknown' is not supported"
+    ):
         _ = model_factory.get_model(
             architecture=architecture,
         )
