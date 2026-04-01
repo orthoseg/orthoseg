@@ -7,6 +7,14 @@ import pytest
 from orthoseg.model import model_factory
 
 
+@pytest.mark.parametrize("backend", [os.environ.get("KERAS_BACKEND", "tensorflow")])
+def test_backend(backend):
+    """The backend loaded should be the same as set in the environment variable."""
+    import keras  # noqa: PLC0415
+
+    assert keras.backend.backend() == backend
+
+
 @pytest.mark.parametrize(
     "architecture, input_width, input_height, expected_error",
     [

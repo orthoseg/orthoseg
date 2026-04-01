@@ -23,7 +23,7 @@ concurrency:
 
 jobs:
   Test:
-    name: ${{ matrix.env }} - python ${{ matrix.python }} - ${{ matrix.os }}
+    name: ${{ matrix.env }} - python ${{ matrix.python }} - ${{ matrix.os }} - ${{ matrix.extra }}
     timeout-minutes: 30
     runs-on: ${{ matrix.os }}
     defaults:
@@ -36,7 +36,18 @@ jobs:
         dev: [false]
         python: ["3.10", "3.11", "3.12"]
         env: ["latest"]
+        extra: [""]
         include:
+          - env: latest
+            os: ubuntu-latest
+            dev: false
+            python: "3.12"
+            extra: tensorflow
+          - env: latest
+            os: ubuntu-latest
+            dev: false
+            python: "3.12"
+            extra: jax
           - env: latest-tf-pip
             os: macos-latest
             dev: false
@@ -69,6 +80,17 @@ jobs:
           create-args: >-
             python=${{ matrix.python }}
             ${{ matrix.extra }}
+
+      - name: Set KERAS_BACKEND if needed
+        if: matrix.extra == 'jax'
+        run: echo "KERAS_BACKEND=jax" >> $GITHUB_ENV
+
+      - name: Print installed versions and keras backend
+        run: |
+          python -c "import sys; print('Python version:', sys.version)"
+          python -c "import orthoseg; print('orthoseg version:', orthoseg.__version__)"
+          python -c "import tensorflow as tf; print('TensorFlow version:', tf.__version__)"
+          python -c "import keras; print('Keras version:', keras.__version__); print('Keras backend:', keras.backend.backend())"
 
       - name: Test
         run: |

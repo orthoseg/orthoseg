@@ -5,13 +5,11 @@ import math
 from pathlib import Path
 from typing import Any
 
+import keras
 import numpy as np
-
-# import keras as kr
 import pandas as pd
-import tensorflow as tf
 from PIL import Image
-from tensorflow import keras as kr
+from tensorflow.keras import preprocessing
 
 import orthoseg.model.model_factory as mf
 import orthoseg.model.model_helper as mh
@@ -106,7 +104,7 @@ def train(
         seed=3,
     )
 
-    # Get the max epoch number from the log file if it exists...
+    # Get the max epoch number from log file if it exists...
     start_epoch = 0
     model_save_base_filename = mh.format_model_basefilename(
         segment_subject=segment_subject,
@@ -193,6 +191,8 @@ def train(
         model_for_train = model
         logger.info(f"Train using all GPU's, with nb_gpu: {nb_gpu}")
         logger.warning("MULTI GPU TRAINING NOT TESTED BUT WILL BE TRIED ANYWAY")
+        raise NotImplementedError("Multi GPU training not implemented yet")
+        """
         strategy = tf.distribute.MirroredStrategy()
         with strategy.scope():
             model_for_train = mf.compile_model(
@@ -202,11 +202,12 @@ def train(
                 loss=hyperparams.train.loss_function,
                 class_weights=hyperparams.train.class_weights,
             )
+        """
 
     # Define some callbacks for the training
     train_callbacks: list[Any] = []
     # Reduce the learning rate if the loss doesn't improve anymore
-    reduce_lr = kr.callbacks.ReduceLROnPlateau(
+    reduce_lr = keras.callbacks.ReduceLROnPlateau(
         monitor="loss",
         factor=0.2,
         patience=20,
@@ -243,16 +244,18 @@ def train(
         tensorboard_log_dir = model_save_dir / (
             model_save_base_filename + "_tensorboard_log"
         )
-        tensorboard_logger = kr.callbacks.TensorBoard(log_dir=str(tensorboard_log_dir))
+        tensorboard_logger = keras.callbacks.TensorBoard(
+            log_dir=str(tensorboard_log_dir)
+        )
         train_callbacks.append(tensorboard_logger)
     if hyperparams.train.log_csv is True:
-        csv_logger = kr.callbacks.CSVLogger(
+        csv_logger = keras.callbacks.CSVLogger(
             str(csv_log_filepath), append=True, separator=";"
         )
         train_callbacks.append(csv_logger)
 
     # Stop if no more improvement
-    early_stopping = kr.callbacks.EarlyStopping(
+    early_stopping = keras.callbacks.EarlyStopping(
         monitor=hyperparams.train.earlystop_monitor_metric,
         patience=hyperparams.train.earlystop_patience,
         mode=hyperparams.train.earlystop_monitor_metric_mode,
@@ -357,7 +360,7 @@ def train(
         # Release the memory from the GPU...
         # from keras import backend as K
         # K.clear_session()
-        kr.backend.clear_session()
+        keras.backend.clear_session()
 
 
 def create_train_generator(
@@ -494,8 +497,8 @@ def create_train_generator(
         for (key, value) in mask_augment_dict.items()
         if key != "brightness_range"
     }
-    image_datagen = kr.preprocessing.image.ImageDataGenerator(**image_augment_dict_temp)
-    mask_datagen = kr.preprocessing.image.ImageDataGenerator(**mask_augment_dict_temp)
+    image_datagen = preprocessing.image.ImageDataGenerator(**image_augment_dict_temp)
+    mask_datagen = preprocessing.image.ImageDataGenerator(**mask_augment_dict_temp)
 
     # Format save_to_dir
     # Remark: flow_from_directory doesn't support Path, so supply str immediately as
@@ -558,7 +561,7 @@ def create_train_generator(
 
         # One-hot encode mask if multiple classes
         if nb_classes > 1:
-            mask = kr.utils.to_categorical(mask, nb_classes)
+            mask = keras.utils.to_categorical(mask, nb_classes)
 
         # Because the default save_to_dir option doesn't support saving the
         # augmented masks in seperate files per class, implement this here.

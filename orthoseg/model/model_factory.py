@@ -14,10 +14,6 @@ import os
 from pathlib import Path
 from typing import Any, TYPE_CHECKING
 
-# Default to using tensorflow as keras backend if not specified.
-if "KERAS_BACKEND" not in os.environ:
-    os.environ["KERAS_BACKEND"] = "tensorflow"
-
 import h5py
 import keras
 import keras.models
