@@ -7,12 +7,11 @@ Many models are supported by using this segmentation model zoo:
 https://github.com/qubvel/segmentation_models
 """
 
-# Disable isort, another import order gives a segmentation fault on Windows.
-import json  # noqa: I001
+import json
 import logging
 import os
 from pathlib import Path
-from typing import Any, TYPE_CHECKING
+from typing import Any
 
 import h5py
 import keras
@@ -21,6 +20,8 @@ import tensorflow as tf
 
 # Set the framework to use by segmentation_models to keras
 os.environ["SM_FRAMEWORK"] = "keras"
+
+from collections.abc import Callable
 
 import segmodels_keras as smk
 from segmodels_keras import Linknet, PSPNet, Unet
@@ -33,16 +34,9 @@ if KERAS_GTE_3:
 else:
     from keras import backend as ops
 
-if TYPE_CHECKING:
-    from collections.abc import Callable
 
 # Get a logger...
 logger = logging.getLogger(__name__)
-
-"""
-preprocessing_fn = get_preprocessing('resnet34')
-x = preprocessing_fn(x)
-"""
 
 
 def get_model(
@@ -124,6 +118,58 @@ def get_model(
 
     else:
         raise ValueError(f"Unknown decoder architecture: {decoder}")
+
+
+def get_preprocessing_func(architecture: str) -> Callable:
+    """Get the default preprocessing function for a given architecture.
+
+    The preprocessing function should be used to preprocess input images when using a
+    model with the given architecture.
+
+    Something typical that might be done in the preprocessing function is to rescale
+    pixel values to the range [-1, 1].
+
+    Args:
+        architecture (str): the architecture to get the preprocessing function for.
+    """
+    # Check architecture
+    segment_architecture_parts = architecture.split("+")
+    if len(segment_architecture_parts) < 2:
+        raise Exception(f"Unsupported architecture: {architecture}")
+
+    encoder = segment_architecture_parts[0]
+    preprocess_input_func = smk.backbones.get_preprocessing(encoder.lower())
+
+    return preprocess_input_func
+
+
+def get_preprocessing_func_rescale(rescale_factor: float) -> Callable:
+    """Get a preprocessing function that applies the rescale factor provided.
+
+    Args:
+        rescale_factor (float): the factor to rescale pixel values with.
+            E.g. 1/255 or 0.0039215686274509803921568627451 to rescale pixel values to
+            the range [0, 1].
+
+    Returns:
+        Callable: the default preprocessing function.
+    """
+    return lambda x: _rescale(x, rescale_factor)
+
+
+def _rescale(x, rescale_factor: float) -> Callable:
+    """Get a preprocessing function that applies the rescale factor provided.
+
+    Args:
+        x: the input array, 3D or 4D, to preprocess.
+        rescale_factor (float): the factor to rescale pixel values with.
+            E.g. 1/255 or 0.0039215686274509803921568627451 to rescale pixel values to
+            the range [0, 1].
+
+    Returns:
+        The rescaled input array.
+    """
+    return x * rescale_factor
 
 
 def compile_model(
@@ -219,7 +265,7 @@ def compile_model(
 
 def load_model(
     model_to_use_filepath: Path, compile_model: bool = True
-) -> keras.models.Model:
+) -> tuple[keras.models.Model, Callable]:
     """Load an existing model from a file.
 
     If loading the architecture + model from the file doesn't work, tries
@@ -235,27 +281,37 @@ def load_model(
             ready to train. Defaults to True.
 
     Raises:
-        Exception: [description]
+        RuntimeError: If the hyperparams file is not found or if loading the model gave
+            an error.
 
     Returns:
-        keras.models.Model: The loaded model.
+        A tuple of (keras.models.Model, Callable): The loaded model and the function to
+        use to preprocess input images when using the model.
     """
     errors = []
     model = None
+
     model_basestem = f"{'_'.join(model_to_use_filepath.stem.split('_')[0:2])}"
+
+    # Load the hyperparams file
+    hyperparams_json_filepath = (
+        model_to_use_filepath.parent / f"{model_basestem}_hyperparams.json"
+    )
+    nb_classes = 1
+    if not hyperparams_json_filepath.exists():
+        raise RuntimeError(
+            f"No hyperparams file found for model: {hyperparams_json_filepath}"
+        )
+
+    with hyperparams_json_filepath.open("r") as src:
+        hyperparams = json.load(src)
+        nb_classes = len(hyperparams["architecture"]["classes"])
+        train_rescale_factor = hyperparams["train"]["image_augmentations"].get(
+            "rescale", None
+        )
 
     # If it is a file with the complete model, try loading it entirely...
     if not model_to_use_filepath.stem.endswith("_weights"):
-        # Load the hyperparams file
-        hyperparams_json_filepath = (
-            model_to_use_filepath.parent / f"{model_basestem}_hyperparams.json"
-        )
-        nb_classes = 1
-        if hyperparams_json_filepath.exists():
-            with hyperparams_json_filepath.open("r") as src:
-                hyperparams = json.load(src)
-                nb_classes = len(hyperparams["architecture"]["classes"])
-
         # iou_score = segmentation_models.metrics.IOUScore()
         # f1_score = segmentation_models.metrics.FScore()
         iou_score = keras.metrics.IoU(
@@ -352,36 +408,25 @@ def load_model(
 
         # If loading model.json not successfull, create model based on hyperparams.json
         if model is None:
-            # Load the hyperparams file if available
-            hyperparams_json_filepath = (
-                model_to_use_filepath.parent / f"{model_basestem}_hyperparams.json"
-            )
-            if hyperparams_json_filepath.exists():
-                with hyperparams_json_filepath.open("r") as src:
-                    hyperparams = json.load(src)
-                # Create the model we want to use
-                try:
-                    model = get_model(
-                        architecture=hyperparams["architecture"]["architecture"],
-                        nb_channels=hyperparams["architecture"]["nb_channels"],
-                        nb_classes=len(hyperparams["architecture"]["classes"]),
-                        activation=hyperparams["architecture"]["activation_function"],
-                    )
-                except Exception as ex:
-                    errors.append(
-                        "Error in get_model() with params from: "
-                        f"{hyperparams_json_filepath}: {ex}"
-                    )
-            else:
+            # Create the model we want to use
+            try:
+                model = get_model(
+                    architecture=hyperparams["architecture"]["architecture"],
+                    nb_channels=hyperparams["architecture"]["nb_channels"],
+                    nb_classes=len(hyperparams["architecture"]["classes"]),
+                    activation=hyperparams["architecture"]["activation_function"],
+                )
+            except Exception as ex:
                 errors.append(
-                    f"No file found to load model from: {hyperparams_json_filepath}"
+                    "Error in get_model() with params from: "
+                    f"{hyperparams_json_filepath}: {ex}"
                 )
 
         # Now load the weights
         if model is not None:
             try:
                 model.load_weights(str(model_to_use_filepath))
-            except Exception as ex:
+            except RuntimeError as ex:
                 errors.append(
                     f"Error trying model.load_weights on: {model_to_use_filepath}: {ex}"
                 )
@@ -398,9 +443,22 @@ def load_model(
                 " The following errors occured while trying: \n    -> "
                 + "\n    -> ".join(errors)
             )
-        raise Exception(f"Error loading model for {model_to_use_filepath}.{errors_str}")
+        raise RuntimeError(
+            f"Error loading model for {model_to_use_filepath}.{errors_str}"
+        )
 
-    return model
+    if train_rescale_factor is not None:
+        # For backwards compatibility, if a rescale factor was still specified in the
+        # augmentation hyperparams, use a custom preprocessing function that applies
+        # this rescale factor.
+        # Otherwise, use the default preprocessing function for the architecture.
+        preprocess_input_func = get_preprocessing_func_rescale(train_rescale_factor)
+    else:
+        preprocess_input_func = get_preprocessing_func(
+            hyperparams["architecture"]["architecture"]
+        )
+
+    return model, preprocess_input_func
 
 
 def set_trainable(model, recompile: bool = True):

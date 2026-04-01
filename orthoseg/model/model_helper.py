@@ -9,7 +9,7 @@ from typing import Any, Literal
 import pandas as pd
 from keras import callbacks
 
-from orthoseg._compat import KERAS_GTE_3
+from orthoseg._compat import KERAS_GTE_3, __version__
 
 # Get a logger...
 logger = logging.getLogger(__name__)
@@ -301,9 +301,12 @@ def _validate_augmentations(
     mask_specifics = [
         ("fill_mode", "constant", True),
         ("cval", 0, True),
-        ("rescale", 1, True),
         ("brightness_range", [1.0, 1.0], False),
     ]
+    if __version__ < "0.8":
+        # For orthoseg < 0.8, rescaling is a mandatory augmentation.
+        mask_specifics.append(("rescale", 1, True))
+
     for key, value, mandatory in mask_specifics:
         if key not in mask_augmentations:
             if mandatory:

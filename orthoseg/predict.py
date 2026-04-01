@@ -201,7 +201,9 @@ def predict(config_path: Path, config_overrules: list[str] | None = None):
 
         # If model isn't loaded yet... load!
         if model is None:
-            model = mf.load_model(best_model["filepath"], compile_model=False)
+            model, preprocess_input = mf.load_model(
+                best_model["filepath"], compile_model=False
+            )
 
         # Prepare the model for predicting
         nb_gpu = mh.get_number_gpus()
@@ -278,6 +280,7 @@ def predict(config_path: Path, config_overrules: list[str] | None = None):
             # Predict from a directory with (cached) images
             predicter.predict_dir(
                 model=model_for_predict,
+                preprocess_input=preprocess_input,
                 input_image_dir=input_image_dir,
                 output_image_dir=predict_output_dir,
                 output_vector_path=output_vector_path,
@@ -298,6 +301,7 @@ def predict(config_path: Path, config_overrules: list[str] | None = None):
             # Predict directly from an image/layer
             predicter.predict_layer(
                 model=model_for_predict,
+                preprocess_input=preprocess_input,
                 image_layer_config=image_layer_config,
                 image_pixel_width=conf.predict.getint("image_pixel_width"),
                 image_pixel_height=conf.predict.getint("image_pixel_height"),

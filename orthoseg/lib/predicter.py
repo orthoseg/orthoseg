@@ -9,6 +9,7 @@ import shutil
 import tempfile
 import time
 import traceback
+from collections.abc import Callable
 from concurrent import futures
 from pathlib import Path
 from typing import Any
@@ -33,6 +34,7 @@ logger = logging.getLogger(__name__)
 
 def predict_dir(
     model: keras.models.Model,
+    preprocess_input: Callable,
     input_image_dir: Path,
     output_image_dir: Path,
     output_vector_path: Path | None,
@@ -74,6 +76,8 @@ def predict_dir(
 
     Args:
         model (Model): the model to use for the prediction
+        preprocess_input (Callable): the preprocessing function to apply to the input
+            images before passing them to the model
         input_image_dir (Pathlike): dir where the input images are located
         output_image_dir (Pathlike): dir where the output will be put
         output_vector_path (Pathlike): the path to write the vector output to
@@ -141,6 +145,7 @@ def predict_dir(
     image_files = [{"path": path} for path in sorted(image_filepaths)]
     _predict_layer(
         model=model,
+        preprocess_input=preprocess_input,
         input_image_dir=input_image_dir,
         image_layer=None,
         output_image_dir=output_image_dir,
@@ -164,6 +169,7 @@ def predict_dir(
 
 def predict_layer(
     model: keras.models.Model,
+    preprocess_input: Callable,
     image_layer_config: dict[str, Any],
     image_pixel_x_size: float,
     image_pixel_y_size: float,
@@ -210,6 +216,8 @@ def predict_layer(
 
     Args:
         model (Model): the model to use for the prediction
+        preprocess_input (Callable): the preprocessing function to apply to the input
+            images before passing them to the model.
         image_layer_config: configuration of the image layer to predict on.
         image_pixel_x_size (float, optional): Pixel size of the image tiles to
             create in the `crs` specified. Defaults to 0.25.
@@ -323,6 +331,7 @@ def predict_layer(
 
     _predict_layer(
         model=model,
+        preprocess_input=preprocess_input,
         input_image_dir=None,
         image_layer=image_layer_config,
         output_image_dir=output_image_dir,
@@ -347,6 +356,7 @@ def predict_layer(
 
 def _predict_layer(
     model: keras.models.Model,
+    preprocess_input: Callable,
     input_image_dir: Path | None,
     image_layer: dict[str, Any] | None,
     output_image_dir: Path,
@@ -500,6 +510,7 @@ def _predict_layer(
                         read_image,
                         image_path=image_file["path"],
                         projection_if_missing=projection_if_missing,
+                        preprocess_input=preprocess_input,
                     )
                     read_queue[read_future] = image_file["path"]
                 else:
@@ -797,7 +808,7 @@ def _predict_layer(
             errors = pd.read_csv(
                 images_error_log_filepath, usecols=["filename", "error"]
             ).to_html(justify="left", index=False)
-            raise Exception(f"Error(s) occured while predicting:\n{errors}")
+            raise RuntimeError(f"Error(s) occured while predicting:\n{errors}")
 
         # If all images were processed, rename to real output file + cleanup
         if (
@@ -856,13 +867,19 @@ def _handle_error(image_path: Path, ex: Exception, log_path: Path):
         writer.writerow(fields)
 
 
-def read_image(image_path: Path, projection_if_missing: str | None = None) -> dict:
+def read_image(
+    image_path: Path,
+    projection_if_missing: str | None = None,
+    preprocess_input: Callable | None = None,
+) -> dict:
     """Read image file.
 
     Args:
         image_path (Path): file path.
         projection_if_missing (Optional[str], optional): the projection to use if the
             image to read does not contain projection information. Defaults to None.
+        preprocess_input (Optional[Callable], optional): the preprocessing function to
+            apply to the image being read. Defaults to None.
 
     Returns:
         dict: the data read from the image file.
@@ -883,11 +900,12 @@ def read_image(image_path: Path, projection_if_missing: str | None = None) -> di
             # change from (channels, width, height) to
             # (width, height, channels) + normalize to between 0 and 1
             image_data = rio_plot.reshape_as_image(image_data)
-            image_data = image_data / 255.0
+            if preprocess_input is not None:
+                image_data = preprocess_input(image_data)
 
             # Read worked, so jump out of the loop...
             break
-        except Exception as ex:  # pragma: no cover
+        except RuntimeError as ex:  # pragma: no cover
             retry_count += 1
             logger.warning(f"Read failed, retry nb {retry_count} for {image_path}")
             if retry_count >= 3:

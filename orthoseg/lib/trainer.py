@@ -84,12 +84,12 @@ def train(
     )
 
     # Create validation generator
-    validation_augmentations = {
-        "rescale": hyperparams.train.image_augmentations["rescale"]
-    }
-    validation_mask_augmentations = {
-        "rescale": hyperparams.train.mask_augmentations["rescale"]
-    }
+    # Only apply rescale augmentation if relevant.
+    rescale = hyperparams.train.image_augmentations.get("rescale")
+    validation_augmentations = {"rescale": rescale} if rescale is not None else {}
+    rescale = hyperparams.train.mask_augmentations.get("rescale")
+    validation_mask_augmentations = {"rescale": rescale} if rescale is not None else {}
+
     validation_gen = create_train_generator(
         input_data_dir=validationdata_dir,
         image_subdir=image_subdir,
