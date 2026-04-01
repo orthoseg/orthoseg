@@ -167,13 +167,20 @@ class TrainParams:
             self.loss_function = loss_function
 
         # Properties to choose the best model
-        if monitor_metric is not None:
-            self.monitor_metric = monitor_metric
-        elif self.loss_function in (
+        crossentropy_loss_functions = (
             "categorical_crossentropy",
             "weighted_categorical_crossentropy",
-        ):
+            "categorical_focal_crossentropy",
+        )
+        if monitor_metric is not None:
+            self.monitor_metric = monitor_metric
+        elif self.loss_function in crossentropy_loss_functions:
             self.monitor_metric = "categorical_accuracy"
+        else:
+            raise ValueError(
+                "monitor_metric should be specified if loss function is not one of "
+                f"{crossentropy_loss_functions}"
+            )
         self.monitor_metric_mode = monitor_metric_mode
 
         self.save_format = save_format
