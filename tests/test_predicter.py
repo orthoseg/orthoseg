@@ -31,6 +31,7 @@ def test_predict_dir_input_image_dir_empty(
     with handler:
         predicter.predict_dir(
             model=None,  # type: ignore
+            preprocess_input=None,  # type: ignore
             input_image_dir=input_image_dir,
             output_image_dir=output_image_dir,
             output_vector_path=None,

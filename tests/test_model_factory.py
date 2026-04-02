@@ -5,6 +5,7 @@ import os
 import pytest
 
 from orthoseg.model import model_factory
+from orthoseg.model import model_helper as mh
 
 
 @pytest.mark.parametrize("backend", [os.environ.get("KERAS_BACKEND", "tensorflow")])
@@ -83,10 +84,19 @@ def test_get_compile_save_load_model(
     )
     assert model is not None
 
-    # Now save model
+    # Now save model + hyperparams.
     model_path = tmp_path / f"{architecture}.keras"
     model.save(str(model_path))
     model = None
+    augmentations = {"rescale": 1 / 255.0, "fill_mode": "constant", "cval": 0}
+    hyperparams = mh.HyperParams(
+        architecture=mh.ArchitectureParams(architecture=architecture),
+        train=mh.TrainParams(
+            image_augmentations=augmentations, mask_augmentations=augmentations
+        ),
+    )
+    hyperparams_filepath = tmp_path / f"{model_path.stem}_hyperparams.json"
+    hyperparams_filepath.write_text(hyperparams.toJSON())
 
     # Load model again
     model = model_factory.load_model(model_path)
