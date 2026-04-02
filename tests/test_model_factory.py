@@ -4,8 +4,7 @@ import os
 
 import pytest
 
-from orthoseg.model import model_factory
-from orthoseg.model import model_helper as mh
+from orthoseg.model import model_factory as mf, model_helper as mh
 
 
 @pytest.mark.parametrize("backend", [os.environ.get("KERAS_BACKEND", "tensorflow")])
@@ -33,13 +32,13 @@ def test_check_image_size(
 ):
     if expected_error is not None:
         with pytest.raises(ValueError, match=expected_error):
-            model_factory.check_image_size(
+            mf.check_image_size(
                 architecture=architecture,
                 input_width=input_width,
                 input_height=input_height,
             )
     else:
-        model_factory.check_image_size(
+        mf.check_image_size(
             architecture=architecture,
             input_width=input_width,
             input_height=input_height,
@@ -62,7 +61,7 @@ def test_get_compile_save_load_model(
     tmp_path, architecture: str, input_width: int, input_height: int
 ):
     # Get model
-    model = model_factory.get_model(
+    model = mf.get_model(
         architecture=architecture,
         input_width=input_width,
         input_height=input_height,
@@ -75,7 +74,7 @@ def test_get_compile_save_load_model(
         pytest.skip("crashes on github CI on windows")
 
     # Compile model
-    model = model_factory.compile_model(
+    model = mf.compile_model(
         model,
         optimizer="adam",
         optimizer_params={"learning_rate": 0.0001},
@@ -99,16 +98,14 @@ def test_get_compile_save_load_model(
     hyperparams_filepath.write_text(hyperparams.toJSON())
 
     # Load model again
-    model = model_factory.load_model(model_path)
+    model = mf.load_model(model_path)
     assert model is not None
 
 
 @pytest.mark.parametrize("architecture", ["mobilenetv2+unknown"])
 def test_get_model_unknown_decoder(architecture: str):
     with pytest.raises(ValueError, match="Unknown decoder architecture:"):
-        _ = model_factory.get_model(
-            architecture=architecture,
-        )
+        _ = mf.get_model(architecture=architecture)
 
 
 @pytest.mark.parametrize("architecture", ["unknown+unet"])
@@ -117,6 +114,4 @@ def test_get_model_unknown_encoder(architecture: str):
     with pytest.raises(
         ValueError, match="Backbone with name 'unknown' is not supported"
     ):
-        _ = model_factory.get_model(
-            architecture=architecture,
-        )
+        _ = mf.get_model(architecture=architecture)
