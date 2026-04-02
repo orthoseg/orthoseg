@@ -138,7 +138,7 @@ def get_preprocessing_func(architecture: str) -> Callable:
         raise Exception(f"Unsupported architecture: {architecture}")
 
     encoder = segment_architecture_parts[0]
-    preprocess_input_func = smk.backbones.get_preprocessing(encoder.lower())
+    preprocess_input_func = smk.get_preprocessing(encoder.lower())
 
     return preprocess_input_func
 
