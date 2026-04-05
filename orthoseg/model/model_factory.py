@@ -48,7 +48,7 @@ def get_model(
     activation: str = "softmax",
     init_weights_with: str = "imagenet",
     freeze: bool = False,
-) -> keras.models.Model:
+) -> tuple[keras.models.Model, Callable | None]:
     """Get a model.
 
     Args:
@@ -86,7 +86,6 @@ def get_model(
             encoder_weights=init_weights_with,
             encoder_freeze=freeze,
         )
-        return model
 
     elif decoder.lower() == "pspnet":
         # Architecture implemented using the segmentation_models library
@@ -98,7 +97,6 @@ def get_model(
             encoder_weights=init_weights_with,
             encoder_freeze=freeze,
         )
-        return model
 
     elif decoder.lower() == "linknet":
         # Architecture implemented using the segmentation_models library
@@ -114,16 +112,18 @@ def get_model(
             encoder_weights=init_weights_with,
             encoder_freeze=freeze,
         )
-        return model
 
     else:
         raise ValueError(f"Unknown decoder architecture: {decoder}")
 
+    model_preprocess_input = get_model_preprocess_input(architecture)
+    return model, model_preprocess_input
 
-def get_preprocessing_func(architecture: str) -> Callable:
-    """Get the default preprocessing function for a given architecture.
 
-    The preprocessing function should be used to preprocess input images when using a
+def get_model_preprocess_input(architecture: str) -> Callable:
+    """Get the default input preprocess function for a given architecture.
+
+    The preprocess_input function should be used to preprocess input images when using a
     model with the given architecture.
 
     Something typical that might be done in the preprocessing function is to rescale
@@ -265,7 +265,7 @@ def compile_model(
 
 def load_model(
     model_to_use_filepath: Path, compile_model: bool = True
-) -> tuple[keras.models.Model, Callable]:
+) -> tuple[keras.models.Model, Callable | None]:
     """Load an existing model from a file.
 
     If loading the architecture + model from the file doesn't work, tries
@@ -342,7 +342,7 @@ def load_model(
                     custom_objects["categorical_focal_crossentropy"] = (
                         keras.losses.CategoricalFocalCrossentropy
                     )
-                model = keras.models.load_model(
+                model, _model_preprocess_input = keras.models.load_model(
                     str(model_to_use_filepath),
                     custom_objects=custom_objects,
                     compile=compile_model,
@@ -410,7 +410,7 @@ def load_model(
         if model is None:
             # Create the model we want to use
             try:
-                model = get_model(
+                model, _model_preprocess_input = get_model(
                     architecture=hyperparams["architecture"]["architecture"],
                     nb_channels=hyperparams["architecture"]["nb_channels"],
                     nb_classes=len(hyperparams["architecture"]["classes"]),
@@ -454,7 +454,7 @@ def load_model(
         # Otherwise, use the default preprocessing function for the architecture.
         preprocess_input_func = get_preprocessing_func_rescale(train_rescale_factor)
     else:
-        preprocess_input_func = get_preprocessing_func(
+        preprocess_input_func = get_model_preprocess_input(
             hyperparams["architecture"]["architecture"]
         )
 

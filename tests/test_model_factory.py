@@ -74,7 +74,7 @@ def test_get_compile_save_load_model(
         pytest.skip("crashes on github CI on windows")
 
     # Compile model
-    model = mf.compile_model(
+    model, _model_preprocess_input = mf.compile_model(
         model,
         optimizer="adam",
         optimizer_params={"learning_rate": 0.0001},
@@ -86,7 +86,7 @@ def test_get_compile_save_load_model(
     # Now save model + hyperparams.
     model_path = tmp_path / f"{architecture}.keras"
     model.save(str(model_path))
-    model = None
+
     augmentations = {"rescale": 1 / 255.0, "fill_mode": "constant", "cval": 0}
     hyperparams = mh.HyperParams(
         architecture=mh.ArchitectureParams(architecture=architecture),

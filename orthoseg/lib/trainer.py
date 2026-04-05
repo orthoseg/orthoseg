@@ -2,6 +2,7 @@
 
 import logging
 import math
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -63,47 +64,6 @@ def train(
         save_augmented_subdir: (str, optional): the subdirectory to save the augmented
             images to. If None, the images aren't saved. Defaults to None.
     """
-    # These are the augmentations that will be applied to the input training
-    # images/masks.
-    # Remark: fill_mode + cval are defined as they are so missing pixels after
-    #    eg. rotation are filled with 0, and so the mask will take care that they are
-    #    +- ignored.
-
-    # Create the train generator
-    train_gen = create_train_generator(
-        input_data_dir=traindata_dir,
-        image_subdir=image_subdir,
-        mask_subdir=mask_subdir,
-        image_augment_dict=hyperparams.train.image_augmentations,
-        mask_augment_dict=hyperparams.train.mask_augmentations,
-        batch_size=hyperparams.train.batch_size,
-        target_size=(image_width, image_height),
-        nb_classes=len(hyperparams.architecture.classes),
-        save_to_subdir=save_augmented_subdir,
-        seed=2,
-    )
-
-    # Create validation generator
-    # Only apply rescale augmentation if relevant.
-    rescale = hyperparams.train.image_augmentations.get("rescale")
-    validation_augmentations = {"rescale": rescale} if rescale is not None else {}
-    rescale = hyperparams.train.mask_augmentations.get("rescale")
-    validation_mask_augmentations = {"rescale": rescale} if rescale is not None else {}
-
-    validation_gen = create_train_generator(
-        input_data_dir=validationdata_dir,
-        image_subdir=image_subdir,
-        mask_subdir=mask_subdir,
-        image_augment_dict=validation_augmentations,
-        mask_augment_dict=validation_mask_augmentations,
-        batch_size=hyperparams.train.batch_size,
-        target_size=(image_width, image_height),
-        nb_classes=len(hyperparams.architecture.classes),
-        save_to_subdir=save_augmented_subdir,
-        shuffle=False,
-        seed=3,
-    )
-
     # Get the max epoch number from log file if it exists...
     start_epoch = 0
     model_save_base_filename = mh.format_model_basefilename(
@@ -120,7 +80,7 @@ def train(
                 f"{csv_log_filepath}"
             )
             logger.critical(message)
-            raise Exception(message)
+            raise ValueError(message)
 
         train_log_df = pd.read_csv(csv_log_filepath, sep=";", usecols=["epoch", "lr"])
         assert isinstance(train_log_df, pd.DataFrame)
@@ -143,7 +103,7 @@ def train(
             freeze = False
 
         # Get the model we want to use
-        model = mf.get_model(
+        model, model_preprocess_input = mf.get_model(
             architecture=hyperparams.architecture.architecture,
             nb_channels=hyperparams.architecture.nb_channels,
             nb_classes=len(hyperparams.architecture.classes),
@@ -165,12 +125,14 @@ def train(
                 f"Error: preload model file doesn't exist: {model_preload_filepath}"
             )
             logger.critical(message)
-            raise Exception(message)
+            raise RuntimeError(message)
 
         # Load the existing model
         # Remark: compiling during load crashes, so compile 'manually'
         logger.info(f"Load model from {model_preload_filepath}")
-        model = mf.load_model(model_preload_filepath, compile_model=False)
+        model, model_preprocess_input = mf.load_model(
+            model_preload_filepath, compile_model=False
+        )
 
     # Now prepare the model for training
     nb_gpu = mh.get_number_gpus()
@@ -203,6 +165,52 @@ def train(
                 class_weights=hyperparams.train.class_weights,
             )
         """
+
+    # Prepare the data generators for training and validation that will also take care
+    # of the augmentations.
+    # Remarks:
+    #   - fill_mode + cval are defined as they are so missing pixels after
+    #     eg. rotation are filled with 0, and so the mask will take care that they are
+    #     +- ignored.
+    #   - if rescaling is included in the image augmentations, don't apply the standard
+    #     model preprocess function, as this also includes rescaling.
+    rescale_train = hyperparams.train.image_augmentations.get("rescale")
+    if rescale_train is not None:
+        model_preprocess_input = None
+
+    train_gen = create_train_generator(
+        input_data_dir=traindata_dir,
+        image_subdir=image_subdir,
+        mask_subdir=mask_subdir,
+        image_augment_dict=hyperparams.train.image_augmentations,
+        mask_augment_dict=hyperparams.train.mask_augmentations,
+        model_preprocess_input=model_preprocess_input,
+        batch_size=hyperparams.train.batch_size,
+        target_size=(image_width, image_height),
+        nb_classes=len(hyperparams.architecture.classes),
+        save_to_subdir=save_augmented_subdir,
+        seed=2,
+    )
+
+    # For validation data, don't apply augmentation except potentially rescaling.
+    validation_augm = {"rescale": rescale_train} if rescale_train is not None else {}
+    rescale_mask = hyperparams.train.mask_augmentations.get("rescale")
+    validation_mask_augm = {"rescale": rescale_mask} if rescale_mask is not None else {}
+
+    validation_gen = create_train_generator(
+        input_data_dir=validationdata_dir,
+        image_subdir=image_subdir,
+        mask_subdir=mask_subdir,
+        image_augment_dict=validation_augm,
+        mask_augment_dict=validation_mask_augm,
+        model_preprocess_input=model_preprocess_input,
+        batch_size=hyperparams.train.batch_size,
+        target_size=(image_width, image_height),
+        nb_classes=len(hyperparams.architecture.classes),
+        save_to_subdir=save_augmented_subdir,
+        shuffle=False,
+        seed=3,
+    )
 
     # Define some callbacks for the training
     train_callbacks: list[Any] = []
@@ -369,6 +377,7 @@ def create_train_generator(
     mask_subdir: str,
     image_augment_dict: dict,
     mask_augment_dict: dict,
+    model_preprocess_input: Callable | None,
     batch_size: int = 32,
     image_color_mode: str = "rgb",
     mask_color_mode: str = "grayscale",
@@ -604,9 +613,8 @@ def create_train_generator(
                     im = Image.fromarray((mask_to_save * 255).astype(np.uint8))
                     im.save(mask_path)
 
+        # Apply the model preprocess function if there is one
+        if model_preprocess_input is not None:
+            image = model_preprocess_input(image)
+
         yield (image, mask)
-
-
-# If the script is ran directly...
-if __name__ == "__main__":
-    raise Exception("Not implemented")
