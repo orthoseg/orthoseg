@@ -342,7 +342,7 @@ def load_model(
             )
 
         try:
-            model, _model_preprocess_input = keras.models.load_model(
+            model = keras.models.load_model(
                 str(model_to_use_filepath),
                 custom_objects=custom_objects,
                 compile=compile_model,
