@@ -386,11 +386,12 @@ def load_model(
                     **load_model_kwargs,
                 )
 
-        if model is None:
-            logger.warning(
-                "Loading model+weights from file failed. Will try loading architecture "
-                "and weights separately but this won't restore the optimizer state."
-            )
+            if model is None:
+                logger.warning(
+                    "Loading model+weights from file failed. Will try loading architecture "
+                    "and weights separately but this won't restore the optimizer state: "
+                    f"error: {ex}"
+                )
 
     # If no model loaded yet, try loading loading architecture and weights separately
     if model is None:
