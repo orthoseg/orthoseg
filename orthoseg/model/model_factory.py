@@ -25,7 +25,6 @@ from collections.abc import Callable
 
 import segmodels_keras as smk
 from segmodels_keras import Linknet, PSPNet, Unet
-from segmodels_keras.backbones import inception_resnet_v2
 
 from orthoseg._compat import KERAS_GTE_3
 
@@ -335,7 +334,6 @@ def load_model(
             # "f1_score": f1_score,
             "one_hot_mean_iou": onehot_mean_iou,
             "weighted_categorical_crossentropy": weighted_categorical_crossentropy,
-            "CustomScaleLayer": inception_resnet_v2.CustomScaleLayer,
         }
         if KERAS_GTE_3:
             load_model_kwargs["safe_mode"] = False
@@ -389,16 +387,16 @@ def load_model(
                 except Exception as ex2:
                     message = (
                         "Error loading model file, after trying to make it keras 3 "
-                        f"compatible: {ex2}"
+                        f"compatible: {ex2=}"
                     )
                     logger.warning(message)
                     errors.append(message)
 
             if model is None:
                 logger.warning(
-                    "Loading model+weights from file failed. Will try loading "
+                    "Error loading model+weights from file. Will try loading "
                     "architecture and weights separately but this won't restore the "
-                    f"optimizer state: {ex}"
+                    f"optimizer state: {ex=}"
                 )
 
     # If no model loaded yet, try loading loading architecture and weights separately
