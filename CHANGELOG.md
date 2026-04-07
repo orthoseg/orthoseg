@@ -16,7 +16,7 @@
     - Use `categorical_focal_crossentropy` by default on keras 3 (#312)
     - Use [segmodels_keras](https://github.com/orthoseg/segmodels_keras) (#311)
     - Avoid unneeded direct use of tensorflow (#304, #313)
-- Use keras.preprocess_input functions to prepare inputs (#314)
+- Use keras.applications `preprocess_input` functions to prepare inputs (#314)
 - Add retry for ARCGIS WMS server errors (#305)
 - Add retry when reading vrt layers (#307)
 

@@ -10,6 +10,7 @@ https://github.com/qubvel/segmentation_models
 import json
 import logging
 import os
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -20,8 +21,6 @@ import tensorflow as tf
 
 # Set the framework to use by segmentation_models to keras
 os.environ["SM_FRAMEWORK"] = "keras"
-
-from collections.abc import Callable
 
 import segmodels_keras as smk
 from segmodels_keras import Linknet, PSPNet, Unet
@@ -116,11 +115,11 @@ def get_model(
     else:
         raise ValueError(f"Unknown decoder architecture: {decoder}")
 
-    model_preprocess_input = get_model_preprocess_input(architecture)
+    model_preprocess_input = get_preprocess_input(architecture)
     return model, model_preprocess_input
 
 
-def get_model_preprocess_input(architecture: str) -> Callable:
+def get_preprocess_input(architecture: str) -> Callable:
     """Get the default input preprocess function for a given architecture.
 
     The preprocess_input function should be used to preprocess input images when using a
@@ -135,7 +134,7 @@ def get_model_preprocess_input(architecture: str) -> Callable:
     # Check architecture
     segment_architecture_parts = architecture.split("+")
     if len(segment_architecture_parts) < 2:
-        raise Exception(f"Unsupported architecture: {architecture}")
+        raise ValueError(f"Unsupported architecture: {architecture}")
 
     encoder = segment_architecture_parts[0]
     preprocess_input_func = smk.get_preprocessing(encoder.lower())
@@ -143,7 +142,7 @@ def get_model_preprocess_input(architecture: str) -> Callable:
     return preprocess_input_func
 
 
-def get_preprocessing_func_rescale(rescale_factor: float) -> Callable:
+def get_preprocess_input_rescale(rescale_factor: float) -> Callable:
     """Get a preprocessing function that applies the rescale factor provided.
 
     Args:
@@ -299,7 +298,7 @@ def load_model(
     )
     nb_classes = 1
     if not hyperparams_json_filepath.exists():
-        raise RuntimeError(
+        raise FileNotFoundError(
             f"No hyperparams file found for model: {hyperparams_json_filepath}"
         )
 
@@ -392,7 +391,7 @@ def load_model(
                     logger.warning(message)
                     errors.append(message)
 
-            if model is None:
+            if model is None and compile_model:
                 logger.warning(
                     "Error loading model+weights from file. Will try loading "
                     "architecture and weights separately but this won't restore the "
@@ -467,9 +466,9 @@ def load_model(
         # augmentation hyperparams, use a custom preprocessing function that applies
         # this rescale factor.
         # Otherwise, use the default preprocessing function for the architecture.
-        preprocess_input_func = get_preprocessing_func_rescale(train_rescale_factor)
+        preprocess_input_func = get_preprocess_input_rescale(train_rescale_factor)
     else:
-        preprocess_input_func = get_model_preprocess_input(
+        preprocess_input_func = get_preprocess_input(
             hyperparams["architecture"]["architecture"]
         )
 
