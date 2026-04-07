@@ -379,18 +379,26 @@ def load_model(
 
                 f.close()
 
-                model, _model_preprocess_input = keras.models.load_model(
-                    str(model_to_use_filepath),
-                    custom_objects=custom_objects,
-                    compile=compile_model,
-                    **load_model_kwargs,
-                )
+                try:
+                    model, _model_preprocess_input = keras.models.load_model(
+                        str(model_to_use_filepath),
+                        custom_objects=custom_objects,
+                        compile=compile_model,
+                        **load_model_kwargs,
+                    )
+                except Exception as ex2:
+                    message = (
+                        "Error loading model file, after trying to make it keras 3 "
+                        f"compatible: {ex2}"
+                    )
+                    logger.warning(message)
+                    errors.append(message)
 
             if model is None:
                 logger.warning(
-                    "Loading model+weights from file failed. Will try loading architecture "
-                    "and weights separately but this won't restore the optimizer state: "
-                    f"error: {ex}"
+                    "Loading model+weights from file failed. Will try loading "
+                    "architecture and weights separately but this won't restore the "
+                    f"optimizer state: {ex}"
                 )
 
     # If no model loaded yet, try loading loading architecture and weights separately
