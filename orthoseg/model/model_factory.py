@@ -25,6 +25,7 @@ from collections.abc import Callable
 
 import segmodels_keras as smk
 from segmodels_keras import Linknet, PSPNet, Unet
+from segmodels_keras.backbones import inception_resnet_v2
 
 from orthoseg._compat import KERAS_GTE_3
 
@@ -323,64 +324,75 @@ def load_model(
             num_classes=nb_classes, name="one_hot_mean_iou"
         )
 
-        upgrade_tried = False
-        while True:
-            try:
-                load_model_kwargs = {}
-                custom_objects = {
-                    "jaccard_coef": jaccard_coef,
-                    "jaccard_coef_flat": jaccard_coef_flat,
-                    "jaccard_coef_round": jaccard_coef_round,
-                    "dice_coef": dice_coef,
-                    "iou_score": iou_score,
-                    # "f1_score": f1_score,
-                    "one_hot_mean_iou": onehot_mean_iou,
-                    "weighted_categorical_crossentropy": weighted_categorical_crossentropy,  # noqa: E501
-                }
-                if KERAS_GTE_3:
-                    load_model_kwargs["safe_mode"] = False
-                    custom_objects["categorical_focal_crossentropy"] = (
-                        keras.losses.CategoricalFocalCrossentropy
+        load_model_kwargs = {}
+
+        custom_objects = {
+            "jaccard_coef": jaccard_coef,
+            "jaccard_coef_flat": jaccard_coef_flat,
+            "jaccard_coef_round": jaccard_coef_round,
+            "dice_coef": dice_coef,
+            "iou_score": iou_score,
+            # "f1_score": f1_score,
+            "one_hot_mean_iou": onehot_mean_iou,
+            "weighted_categorical_crossentropy": weighted_categorical_crossentropy,
+            "CustomScaleLayer": inception_resnet_v2.CustomScaleLayer,
+        }
+        if KERAS_GTE_3:
+            load_model_kwargs["safe_mode"] = False
+            custom_objects["categorical_focal_crossentropy"] = (
+                keras.losses.CategoricalFocalCrossentropy
+            )
+
+        try:
+            model, _model_preprocess_input = keras.models.load_model(
+                str(model_to_use_filepath),
+                custom_objects=custom_objects,
+                compile=compile_model,
+                **load_model_kwargs,
+            )
+        except Exception as ex:
+            errors.append(
+                f"Error loading model+weights from {model_to_use_filepath}: {ex}"
+            )
+
+            # Try to make the saved model file keras 3 compatible and retry.
+            if KERAS_GTE_3 and str(ex).startswith(
+                "Error when deserializing class 'DepthwiseConv2D' using config"
+            ):
+                logger.warning(
+                    "Error loading model file, try to make it keras 3 compatible and "
+                    "retry."
+                )
+
+                # Ref: https://github.com/keras-team/keras/issues/19441
+                # Hack to change model config from keras 2->3 compliant
+                f = h5py.File(str(model_to_use_filepath), mode="r+")
+                model_config_string = f.attrs.get("model_config")
+                if model_config_string.find('"groups": 1,') != -1:
+                    model_config_string = model_config_string.replace(
+                        '"groups": 1,', ""
                     )
+                    f.attrs.modify("model_config", model_config_string)
+                    f.flush()
+                    model_config_string = f.attrs.get("model_config")
+                    assert model_config_string.find('"groups": 1,') == -1
+
+                f.close()
+
                 model, _model_preprocess_input = keras.models.load_model(
                     str(model_to_use_filepath),
                     custom_objects=custom_objects,
                     compile=compile_model,
                     **load_model_kwargs,
                 )
-                break
 
-            except Exception as ex:
-                # If not tried yet, try upgrade the model to keras 3 compliant
-                # if not upgrade_tried and str(ex).startswith(
-                #    "Error when deserializing class 'DepthwiseConv2D' using config"
-                # ):
-                if not upgrade_tried:
-                    logger.warning("Error loading model, try to upgrade it to keras 3.")
-                    upgrade_tried = True
+        if model is None:
+            logger.warning(
+                "Loading model+weights from file failed. Will try loading architecture "
+                "and weights separately but this won't restore the optimizer state."
+            )
 
-                    # Ref: https://github.com/keras-team/keras/issues/19441
-                    # Hack to change model config from keras 2->3 compliant
-                    f = h5py.File(str(model_to_use_filepath), mode="r+")
-                    model_config_string = f.attrs.get("model_config")
-                    if model_config_string.find('"groups": 1,') != -1:
-                        model_config_string = model_config_string.replace(
-                            '"groups": 1,', ""
-                        )
-                        f.attrs.modify("model_config", model_config_string)
-                        f.flush()
-                        model_config_string = f.attrs.get("model_config")
-                        assert model_config_string.find('"groups": 1,') == -1
-
-                    f.close()
-                    continue
-
-                errors.append(
-                    f"Error loading model+weights from {model_to_use_filepath}: {ex}"
-                )
-                break
-
-    # If no model returned yet, try loading loading architecture and weights seperately
+    # If no model loaded yet, try loading loading architecture and weights separately
     if model is None:
         # Load the architecture from a model.json file
         # Check if there is a specific model.json file for these weights
@@ -406,7 +418,7 @@ def load_model(
                 f"No model.json file found to load model from: {model_json_filepath}"
             )
 
-        # If loading model.json not successfull, create model based on hyperparams.json
+        # If loading model.json not successful, create model based on hyperparams.json
         if model is None:
             # Create the model we want to use
             try:
@@ -431,11 +443,7 @@ def load_model(
                     f"Error trying model.load_weights on: {model_to_use_filepath}: {ex}"
                 )
 
-    # Check if a model got loaded...
-    if model is not None:
-        # Eager seems to be 50% slower, tested on tensorflow 2.5
-        model.run_eagerly = False
-    else:
+    if model is None:
         # If we still have not model... time to give up.
         errors_str = ""
         if len(errors) > 0:
@@ -457,6 +465,9 @@ def load_model(
         preprocess_input_func = get_model_preprocess_input(
             hyperparams["architecture"]["architecture"]
         )
+
+    # Eager seems slower: 50% slower on tf 2.5, 15% slower on tf 2.10.
+    # model.run_eagerly = True
 
     return model, preprocess_input_func
 
