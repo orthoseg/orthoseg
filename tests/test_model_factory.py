@@ -61,7 +61,7 @@ def test_get_compile_save_load_model(
     tmp_path, architecture: str, input_width: int, input_height: int
 ):
     # Get model
-    model = mf.get_model(
+    model, _model_preprocess_input = mf.get_model(
         architecture=architecture,
         input_width=input_width,
         input_height=input_height,
@@ -74,7 +74,7 @@ def test_get_compile_save_load_model(
         pytest.skip("crashes on github CI on windows")
 
     # Compile model
-    model, _model_preprocess_input = mf.compile_model(
+    model = mf.compile_model(
         model,
         optimizer="adam",
         optimizer_params={"learning_rate": 0.0001},
@@ -98,7 +98,7 @@ def test_get_compile_save_load_model(
     hyperparams_filepath.write_text(hyperparams.toJSON())
 
     # Load model again
-    model = mf.load_model(model_path)
+    model, _model_preprocess_input = mf.load_model(model_path)
     assert model is not None
 
 
