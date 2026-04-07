@@ -1,4 +1,6 @@
-name: orthoseg-dev
+name: orthoseg-tf-dev
+# This is the typical development environment for orthoseg that installs TensorFlow
+# from conda-forge.
 channels:
   - conda-forge
 dependencies:
@@ -36,6 +38,6 @@ dependencies:
   - pytest-cov
   - pytest-order
   - pip:
-    - segmodels
+    - segmodels-keras
     - types-shapely
     - types-tensorflow

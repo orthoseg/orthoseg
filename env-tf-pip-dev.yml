@@ -1,4 +1,6 @@
-name: orthoseg-dev
+name: orthoseg-tf-pip-dev
+# This development environment installs TensorFlow from pip as for e.g. for windows it
+# is not available on conda-forge.
 channels:
   - conda-forge
 dependencies:
@@ -35,7 +37,7 @@ dependencies:
   - pytest-cov
   - pytest-order
   - pip:
-    - segmodels
+    - segmodels-keras
     - tensorflow >=2.8
     - types-shapely
     - types-tensorflow
