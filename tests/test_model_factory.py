@@ -102,6 +102,10 @@ def test_get_compile_save_load_model(
     model, _model_preprocess_input = mf.load_model(model_path)
     assert model is not None
 
+    # Load only model weights from the saved file
+    model.load_weights(str(model_path))
+    assert model is not None
+
 
 @pytest.mark.parametrize("architecture", ["mobilenetv2+unknown"])
 def test_get_model_unknown_decoder(architecture: str):
