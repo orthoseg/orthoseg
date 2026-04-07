@@ -61,11 +61,12 @@ def test_get_compile_save_load_model(
     tmp_path, architecture: str, input_width: int, input_height: int
 ):
     # Get model
+    classes = ["a", "b", "c", "d", "e"]
     model, _model_preprocess_input = mf.get_model(
         architecture=architecture,
         input_width=input_width,
         input_height=input_height,
-        nb_classes=5,
+        nb_classes=len(classes),
     )
     assert model is not None
 
@@ -89,7 +90,7 @@ def test_get_compile_save_load_model(
 
     augmentations = {"rescale": 1 / 255.0, "fill_mode": "constant", "cval": 0}
     hyperparams = mh.HyperParams(
-        architecture=mh.ArchitectureParams(architecture=architecture),
+        architecture=mh.ArchitectureParams(architecture=architecture, classes=classes),
         train=mh.TrainParams(
             image_augmentations=augmentations, mask_augmentations=augmentations
         ),
