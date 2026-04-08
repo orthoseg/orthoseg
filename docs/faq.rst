@@ -46,6 +46,7 @@ the default in orthoseg.
 
 In the table below some models that were considered are listed and compared to
 inceptionresnetv2. The columns:
+
 * Model: the name of the model
 * Acc@1: the top 1 classification accuracy on imagenet
 * Speed: an indication on the inference speed, normalized on inceptionresnetv2 getting
@@ -54,54 +55,55 @@ inceptionresnetv2. The columns:
 * Remarks: some remarks on the model, e.g. if practical tests have been conducted on
   segmentation performance,...
 
-| Model           |Acc@1|Speed|Orthoseg|Remarks|
-|-----------------|:---:|:---:|--------|-------|
-|vgg11            |69.15|  -  |   No   | Tested (=TernausNet): not very accurate |
-|vgg16            |70.79|  46 |  Yes   | accuracy ~ vgg11 |
-|vgg19            |70.89|  46 |  Yes   | accuracy ~ vgg11 |
-|resnet18         |68.24|  29 |   No   | accuracy ~ vgg11 |
-|resnet34         |72.17|  32 |   No   | accuracy ~ vgg11 |
-|resnet50         |74.81|  41 |  Yes   |       |
-|resnet101        |76.58|  60 |  Yes   |       |
-|resnet152        |76.66|  77 |  Yes   |       |
-|resnet50v2       |69.73|  36 |  Yes   |       |
-|resnet101v2      |71.93|  53 |  Yes   | accuracy ~ vgg11 |
-|resnet152v2      |72.29|  75 |  Yes   | accuracy ~ vgg11 |
-|resnext50        |77.36|  69 |   No   |       |
-|resnext101       |78.48| 110 |   No   | slower + worse accuracy |
-|densenet121      |74.67|  51 |  Yes   |       |
-|densenet169      |75.85|  62 |  Yes   |       |
-|densenet201      |77.13|  77 |  Yes   |       |
-|inceptionv3      |77.55|  71 |  Yes   |       |
-|xception         |78.87|  77 |   No   |       |
-|inceptionresnetv2|80.03| 100 |  Yes   |       |
-|seresnet18       |69.41|  37 |   No   | accuracy ~ vgg11 |
-|seresnet34       |72.60|  41 |   No   | accuracy ~ vgg11 |
-|seresnet50       |76.44|  43 |   No   |       |
-|seresnet101      |77.92|  59 |   No   |       |
-|seresnet152      |78.34|  87 |   No   |       |
-|seresnext50      |78.74|  70 |   No   |       |
-|seresnext101     |79.88| 115 |   No   | slower + worse accuracy |
-|senet154         |81.06| 251 |   No   | a lot slower |
-|nasnetlarge      |82.12| 213 |   No   | a lot slower |
-|nasnetmobile     |74.04|  51 |   No   |       |
-|mobilenet        |70.36|  28 |  Yes   | accuracy ~ vgg11 |
-|mobilenetv2      |71.63|  33 |  Yes   | accuracy ~ vgg11 |
-|EfficientNetB0   |77.1 |	 49 |   No   |       |
-|EfficientNetB1   |79.1 |  56 |   No   |       |
-|EfficientNetB2   |80.1 |  65 |   No   |       |
-|EfficientNetB3	  |81.6 |  88 |   No   |       |
-|EfficientNetB4	  |82.9 | 151 |   No   |       |
-|EfficientNetB5	  |83.6 | 253 |   No   | a lot slower |
-|EfficientNetB6	  |84.0 | 404 |   No   | a lot slower |
-|EfficientNetB7	  |84.3 | 616 |   No   | a lot slower |
-|EfficientNetV2B0	|78.7 |	    |   No   |       |
-|EfficientNetV2B1	|79.8 |	    |   No   |       |
-|EfficientNetV2B2	|80.5 |	    |   No   |       |
-|EfficientNetV2B3	|82.0 |	    |   No   |       |
-|EfficientNetV2S	|83.9 |	    |   No   |       |
-|EfficientNetV2M	|85.3 |	 96 |  Yes   | Tested*: similar theoretical accuracy, worse in practice |
-|EfficientNetV2L	|85.7 |	    |   No   |       |
+================== ===== ===== ======== =======
+Model              Acc@1 Speed Orthoseg Remarks
+================== ===== ===== ======== =======
+vgg11              69.15  -       No     Tested (=TernausNet): not very accurate
+vgg16              70.79   46    Yes     accuracy ~ vgg11
+vgg19              70.89   46    Yes     accuracy ~ vgg11
+resnet18           68.24   29     No     accuracy ~ vgg11
+resnet34           72.17   32     No     accuracy ~ vgg11
+resnet50           74.81   41    Yes     
+resnet101          76.58   60    Yes     
+resnet152          76.66   77    Yes     
+resnet50v2         69.73   36    Yes     
+resnet101v2        71.93   53    Yes     accuracy ~ vgg11
+resnet152v2        72.29   75    Yes     accuracy ~ vgg11
+resnext50          77.36   69     No      
+resnext101         78.48  110     No     slower + worse accuracy
+densenet121        74.67   51    Yes     
+densenet169        75.85   62    Yes     
+densenet201        77.13   77    Yes     
+inceptionv3        77.55   71    Yes     
+xception           78.87   77     No      
+inceptionresnetv2  80.03  100    Yes     
+seresnet18         69.41   37    No      accuracy ~ vgg11
+seresnet34         72.60   41    No      accuracy ~ vgg11
+seresnet50         76.44   43    No      
+seresnet101        77.92   59    No      
+seresnet152        78.34   87    No      
+seresnext50        78.74   70    No      
+seresnext101       79.88  115    No     slower + worse accuracy
+senet154           81.06  251    No     a lot slower
+nasnetlarge        82.12  213    No     a lot slower
+nasnetmobile       74.04   51    No       
+mobilenet          70.36   28   Yes     accuracy ~ vgg11
+mobilenetv2        71.63   33   Yes     accuracy ~ vgg11
+EfficientNetB0     77.1    49    No       
+EfficientNetB1     79.1    56    No       
+EfficientNetB2     80.1    65    No       
+EfficientNetB3     81.6    88    No       
+EfficientNetB4     82.9   151    No       
+EfficientNetB5     83.6   253    No     a lot slower
+EfficientNetB6	   84.0   404    No     a lot slower
+EfficientNetB7	   84.3   616    No     a lot slower
+EfficientNetV2B0	 78.7	         No
+EfficientNetV2B1	 79.8	         No
+EfficientNetV2B2	 80.5	         No
+EfficientNetV2B3	 82.0	         No
+EfficientNetV2S    83.9	         No
+EfficientNetV2M    85.3    96   Yes     Tested*: similar theoretical accuracy, worse in practice
+EfficientNetV2L    85.7	         No
 
 * Here are some more details about some tests performed:
 
