@@ -113,26 +113,20 @@ TernausNet + Unet
 EfficientNetV2M
 ---------------
 * The classification accuracy on imagenet is significantly better than
-  `InceptionResNetV2` (85.3% vs 80.3% top 5 accuracy)
+  `InceptionResNetV2` (85.3% vs 80.3% top 1 accuracy)
 * The number of weights is similar, and train/inference speed is reported to be a lot
   faster than v1 of the EfficientNet family.
-* In practice, the train/inference speed was almost the same as `InceptionResNetV2`, and
-  the accuracy was significantly worse. The IOU score obtained on the training data was
-  around 0.95, which is significantly worse than the 0.98 obtained with
-  `InceptionResNetV2`. When running an actual detection and reviewing the results
-  on-screen, it seeemed like types of sealed areas that were less represented in the
-  training data and were narrow were detected significantly worse than was the case with
-  `InceptionResNetV2`. Possbibly this could be solved by adding extra training data of
-  this type, but as the IOU score improvement was very low as well, it isn't an
-  improvement over `InceptionResNetV2`.
+* The train/inference speed for a segmentation was about the same as
+  `InceptionResNetV2`: training was a few % slower, but inference was a few % faster.
+  Both tested on the same hardware (NVidia Quadro P5000).
 * The IOU score from the training obtained on a "sealed surfaces" detection was slightly
-  higher than `InceptionResNetV2` (0.9791 vs 0.9765) but not significantly so. When
-  running an actual detection and reviewing the results on-screen, it seeemed like types
-  of sealed areas that were less represented in the training data and were narrow were
-  detected significantly worse than was the case with `InceptionResNetV2`. Possbibly
-  this can be solved by adding extra training data of this type, but as the IOU score
-  improvement was very low as well, it doesn't seem to be an improvement compared to
-  `InceptionResNetV2`.
+  higher than `InceptionResNetV2` (0.9791 vs 0.9765). When running an actual detection
+  and reviewing the results on-screen though, it seeemed like types of sealed areas that
+  were less represented in the training data and were narrow were detected significantly
+  worse than was the case with `InceptionResNetV2`. Mainly unpaved roads were often
+  missing. Possbibly this can be solved by adding extra training data of this type, but
+  as the IOU score improvement was very low as well, it doesn't seem to be an actual
+  improvement compared to `InceptionResNetV2`.
 
 
 These are some interesting sources of information:
