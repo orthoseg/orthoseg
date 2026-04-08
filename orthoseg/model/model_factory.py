@@ -7,22 +7,17 @@ Many models are supported by using this segmentation model zoo:
 https://github.com/qubvel/segmentation_models
 """
 
-# Disable isort, another import order gives a segmentation fault on Windows.
-import json  # noqa: I001
+import json
 import logging
-import os
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, TYPE_CHECKING
+from typing import Any
 
 import h5py
 import keras
 import keras.models
-import tensorflow as tf
-
-# Set the framework to use by segmentation_models to keras
-os.environ["SM_FRAMEWORK"] = "keras"
-
 import segmodels_keras as smk
+import tensorflow as tf
 from segmodels_keras import Linknet, PSPNet, Unet
 
 from orthoseg._compat import KERAS_GTE_3
@@ -33,16 +28,9 @@ if KERAS_GTE_3:
 else:
     from keras import backend as ops
 
-if TYPE_CHECKING:
-    from collections.abc import Callable
 
 # Get a logger...
 logger = logging.getLogger(__name__)
-
-"""
-preprocessing_fn = get_preprocessing('resnet34')
-x = preprocessing_fn(x)
-"""
 
 
 def get_model(
@@ -54,7 +42,7 @@ def get_model(
     activation: str = "softmax",
     init_weights_with: str = "imagenet",
     freeze: bool = False,
-) -> keras.models.Model:
+) -> tuple[keras.models.Model, Callable | None]:
     """Get a model.
 
     Args:
@@ -92,7 +80,6 @@ def get_model(
             encoder_weights=init_weights_with,
             encoder_freeze=freeze,
         )
-        return model
 
     elif decoder.lower() == "pspnet":
         # Architecture implemented using the segmentation_models library
@@ -104,7 +91,6 @@ def get_model(
             encoder_weights=init_weights_with,
             encoder_freeze=freeze,
         )
-        return model
 
     elif decoder.lower() == "linknet":
         # Architecture implemented using the segmentation_models library
@@ -120,10 +106,74 @@ def get_model(
             encoder_weights=init_weights_with,
             encoder_freeze=freeze,
         )
-        return model
 
     else:
         raise ValueError(f"Unknown decoder architecture: {decoder}")
+
+    model_preprocess_input = get_preprocess_input(architecture)
+    return model, model_preprocess_input
+
+
+def get_custom_objects(architecture: str) -> dict[str, Callable]:
+    """Get the custom objects to use for loading models."""
+    segment_architecture_parts = architecture.split("+")
+    if len(segment_architecture_parts) < 2:
+        raise ValueError(f"Unsupported architecture: {architecture}")
+
+    encoder = segment_architecture_parts[0]
+    return smk.Backbones.get_custom_objects(encoder.lower())
+
+
+def get_preprocess_input(architecture: str) -> Callable:
+    """Get the default input preprocess function for a given architecture.
+
+    The preprocess_input function should be used to preprocess input images when using a
+    model with the given architecture.
+
+    Something typical that might be done in the preprocessing function is to rescale
+    pixel values to the range [-1, 1].
+
+    Args:
+        architecture (str): the architecture to get the preprocessing function for.
+    """
+    # Check architecture
+    segment_architecture_parts = architecture.split("+")
+    if len(segment_architecture_parts) < 2:
+        raise ValueError(f"Unsupported architecture: {architecture}")
+
+    encoder = segment_architecture_parts[0]
+    preprocess_input_func = smk.get_preprocessing(encoder.lower())
+
+    return preprocess_input_func
+
+
+def get_preprocess_input_rescale(rescale_factor: float) -> Callable:
+    """Get a preprocessing function that applies the rescale factor provided.
+
+    Args:
+        rescale_factor (float): the factor to rescale pixel values with.
+            E.g. 1/255 or 0.0039215686274509803921568627451 to rescale pixel values to
+            the range [0, 1].
+
+    Returns:
+        Callable: the default preprocessing function.
+    """
+    return lambda x: _rescale(x, rescale_factor)
+
+
+def _rescale(x, rescale_factor: float) -> Callable:
+    """Get a preprocessing function that applies the rescale factor provided.
+
+    Args:
+        x: the input array, 3D or 4D, to preprocess.
+        rescale_factor (float): the factor to rescale pixel values with.
+            E.g. 1/255 or 0.0039215686274509803921568627451 to rescale pixel values to
+            the range [0, 1].
+
+    Returns:
+        The rescaled input array.
+    """
+    return x * rescale_factor
 
 
 def compile_model(
@@ -219,7 +269,7 @@ def compile_model(
 
 def load_model(
     model_to_use_filepath: Path, compile_model: bool = True
-) -> keras.models.Model:
+) -> tuple[keras.models.Model, Callable | None]:
     """Load an existing model from a file.
 
     If loading the architecture + model from the file doesn't work, tries
@@ -235,27 +285,37 @@ def load_model(
             ready to train. Defaults to True.
 
     Raises:
-        Exception: [description]
+        RuntimeError: If the hyperparams file is not found or if loading the model gave
+            an error.
 
     Returns:
-        keras.models.Model: The loaded model.
+        A tuple of (keras.models.Model, Callable): The loaded model and the function to
+        use to preprocess input images when using the model.
     """
     errors = []
     model = None
+
     model_basestem = f"{'_'.join(model_to_use_filepath.stem.split('_')[0:2])}"
+
+    # Load the hyperparams file
+    hyperparams_json_filepath = (
+        model_to_use_filepath.parent / f"{model_basestem}_hyperparams.json"
+    )
+    nb_classes = 1
+    if not hyperparams_json_filepath.exists():
+        raise FileNotFoundError(
+            f"No hyperparams file found for model: {hyperparams_json_filepath}"
+        )
+
+    with hyperparams_json_filepath.open("r") as src:
+        hyperparams = json.load(src)
+        nb_classes = len(hyperparams["architecture"]["classes"])
+        train_rescale_factor = hyperparams["train"]["image_augmentations"].get(
+            "rescale", None
+        )
 
     # If it is a file with the complete model, try loading it entirely...
     if not model_to_use_filepath.stem.endswith("_weights"):
-        # Load the hyperparams file
-        hyperparams_json_filepath = (
-            model_to_use_filepath.parent / f"{model_basestem}_hyperparams.json"
-        )
-        nb_classes = 1
-        if hyperparams_json_filepath.exists():
-            with hyperparams_json_filepath.open("r") as src:
-                hyperparams = json.load(src)
-                nb_classes = len(hyperparams["architecture"]["classes"])
-
         # iou_score = segmentation_models.metrics.IOUScore()
         # f1_score = segmentation_models.metrics.FScore()
         iou_score = keras.metrics.IoU(
@@ -267,64 +327,87 @@ def load_model(
             num_classes=nb_classes, name="one_hot_mean_iou"
         )
 
-        upgrade_tried = False
-        while True:
-            try:
-                load_model_kwargs = {}
-                custom_objects = {
-                    "jaccard_coef": jaccard_coef,
-                    "jaccard_coef_flat": jaccard_coef_flat,
-                    "jaccard_coef_round": jaccard_coef_round,
-                    "dice_coef": dice_coef,
-                    "iou_score": iou_score,
-                    # "f1_score": f1_score,
-                    "one_hot_mean_iou": onehot_mean_iou,
-                    "weighted_categorical_crossentropy": weighted_categorical_crossentropy,  # noqa: E501
-                }
-                if KERAS_GTE_3:
-                    load_model_kwargs["safe_mode"] = False
-                    custom_objects["categorical_focal_crossentropy"] = (
-                        keras.losses.CategoricalFocalCrossentropy
+        load_model_kwargs: dict[str, Any] = {}
+
+        custom_objects = {
+            "jaccard_coef": jaccard_coef,
+            "jaccard_coef_flat": jaccard_coef_flat,
+            "jaccard_coef_round": jaccard_coef_round,
+            "dice_coef": dice_coef,
+            "iou_score": iou_score,
+            # "f1_score": f1_score,
+            "one_hot_mean_iou": onehot_mean_iou,
+            "weighted_categorical_crossentropy": weighted_categorical_crossentropy,
+        }
+        if KERAS_GTE_3:
+            # load_model_kwargs["safe_mode"] = False
+            custom_objects["categorical_focal_crossentropy"] = (
+                keras.losses.CategoricalFocalCrossentropy
+            )
+
+        # Add custom objects for the architecture used.
+        custom_objects.update(
+            get_custom_objects(hyperparams["architecture"]["architecture"])
+        )
+        try:
+            model = keras.models.load_model(
+                str(model_to_use_filepath),
+                custom_objects=custom_objects,
+                compile=compile_model,
+                **load_model_kwargs,
+            )
+        except Exception as ex:
+            errors.append(
+                f"Error loading model+weights from {model_to_use_filepath}: {ex}"
+            )
+
+            # Try to make the saved model file keras 3 compatible and retry.
+            if KERAS_GTE_3 and str(ex).startswith(
+                "Error when deserializing class 'DepthwiseConv2D' using config"
+            ):
+                logger.warning(
+                    "Error loading model file, try to make it keras 3 compatible and "
+                    "retry."
+                )
+
+                # Ref: https://github.com/keras-team/keras/issues/19441
+                # Hack to change model config from keras 2->3 compliant
+                f = h5py.File(str(model_to_use_filepath), mode="r+")
+                model_config_string = f.attrs.get("model_config")
+                if model_config_string.find('"groups": 1,') != -1:
+                    model_config_string = model_config_string.replace(
+                        '"groups": 1,', ""
                     )
-                model = keras.models.load_model(
-                    str(model_to_use_filepath),
-                    custom_objects=custom_objects,
-                    compile=compile_model,
-                    **load_model_kwargs,
-                )
-                break
-
-            except Exception as ex:
-                # If not tried yet, try upgrade the model to keras 3 compliant
-                # if not upgrade_tried and str(ex).startswith(
-                #    "Error when deserializing class 'DepthwiseConv2D' using config"
-                # ):
-                if not upgrade_tried:
-                    logger.warning("Error loading model, try to upgrade it to keras 3.")
-                    upgrade_tried = True
-
-                    # Ref: https://github.com/keras-team/keras/issues/19441
-                    # Hack to change model config from keras 2->3 compliant
-                    f = h5py.File(str(model_to_use_filepath), mode="r+")
+                    f.attrs.modify("model_config", model_config_string)
+                    f.flush()
                     model_config_string = f.attrs.get("model_config")
-                    if model_config_string.find('"groups": 1,') != -1:
-                        model_config_string = model_config_string.replace(
-                            '"groups": 1,', ""
-                        )
-                        f.attrs.modify("model_config", model_config_string)
-                        f.flush()
-                        model_config_string = f.attrs.get("model_config")
-                        assert model_config_string.find('"groups": 1,') == -1
+                    assert model_config_string.find('"groups": 1,') == -1
 
-                    f.close()
-                    continue
+                f.close()
 
-                errors.append(
-                    f"Error loading model+weights from {model_to_use_filepath}: {ex}"
+                try:
+                    model, _model_preprocess_input = keras.models.load_model(
+                        str(model_to_use_filepath),
+                        custom_objects=custom_objects,
+                        compile=compile_model,
+                        **load_model_kwargs,
+                    )
+                except Exception as ex2:
+                    message = (
+                        "Error loading model file, after trying to make it keras 3 "
+                        f"compatible: {ex2=}"
+                    )
+                    logger.warning(message)
+                    errors.append(message)
+
+            if model is None and compile_model:
+                logger.warning(
+                    "Error loading model+weights from file. Will try loading "
+                    "architecture and weights separately but this won't restore the "
+                    f"optimizer state: {ex=}"
                 )
-                break
 
-    # If no model returned yet, try loading loading architecture and weights seperately
+    # If no model loaded yet, try loading loading architecture and weights separately
     if model is None:
         # Load the architecture from a model.json file
         # Check if there is a specific model.json file for these weights
@@ -350,47 +433,32 @@ def load_model(
                 f"No model.json file found to load model from: {model_json_filepath}"
             )
 
-        # If loading model.json not successfull, create model based on hyperparams.json
+        # If loading model.json not successful, create model based on hyperparams.json
         if model is None:
-            # Load the hyperparams file if available
-            hyperparams_json_filepath = (
-                model_to_use_filepath.parent / f"{model_basestem}_hyperparams.json"
-            )
-            if hyperparams_json_filepath.exists():
-                with hyperparams_json_filepath.open("r") as src:
-                    hyperparams = json.load(src)
-                # Create the model we want to use
-                try:
-                    model = get_model(
-                        architecture=hyperparams["architecture"]["architecture"],
-                        nb_channels=hyperparams["architecture"]["nb_channels"],
-                        nb_classes=len(hyperparams["architecture"]["classes"]),
-                        activation=hyperparams["architecture"]["activation_function"],
-                    )
-                except Exception as ex:
-                    errors.append(
-                        "Error in get_model() with params from: "
-                        f"{hyperparams_json_filepath}: {ex}"
-                    )
-            else:
+            # Create the model we want to use
+            try:
+                model, _model_preprocess_input = get_model(
+                    architecture=hyperparams["architecture"]["architecture"],
+                    nb_channels=hyperparams["architecture"]["nb_channels"],
+                    nb_classes=len(hyperparams["architecture"]["classes"]),
+                    activation=hyperparams["architecture"]["activation_function"],
+                )
+            except Exception as ex:
                 errors.append(
-                    f"No file found to load model from: {hyperparams_json_filepath}"
+                    "Error in get_model() with params from: "
+                    f"{hyperparams_json_filepath}: {ex}"
                 )
 
         # Now load the weights
         if model is not None:
             try:
                 model.load_weights(str(model_to_use_filepath))
-            except Exception as ex:
+            except RuntimeError as ex:
                 errors.append(
                     f"Error trying model.load_weights on: {model_to_use_filepath}: {ex}"
                 )
 
-    # Check if a model got loaded...
-    if model is not None:
-        # Eager seems to be 50% slower, tested on tensorflow 2.5
-        model.run_eagerly = False
-    else:
+    if model is None:
         # If we still have not model... time to give up.
         errors_str = ""
         if len(errors) > 0:
@@ -398,9 +466,25 @@ def load_model(
                 " The following errors occured while trying: \n    -> "
                 + "\n    -> ".join(errors)
             )
-        raise Exception(f"Error loading model for {model_to_use_filepath}.{errors_str}")
+        raise RuntimeError(
+            f"Error loading model for {model_to_use_filepath}.{errors_str}"
+        )
 
-    return model
+    if train_rescale_factor is not None:
+        # For backwards compatibility, if a rescale factor was still specified in the
+        # augmentation hyperparams, use a custom preprocessing function that applies
+        # this rescale factor.
+        # Otherwise, use the default preprocessing function for the architecture.
+        preprocess_input_func = get_preprocess_input_rescale(train_rescale_factor)
+    else:
+        preprocess_input_func = get_preprocess_input(
+            hyperparams["architecture"]["architecture"]
+        )
+
+    # Eager seems slower: 50% slower on tf 2.5, 15% slower on tf 2.10.
+    # model.run_eagerly = True
+
+    return model, preprocess_input_func
 
 
 def set_trainable(model, recompile: bool = True):

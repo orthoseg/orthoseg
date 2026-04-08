@@ -165,6 +165,13 @@ def train(config_path: Path, config_overrules: list[str] | None = None):
             log_tensorboard=conf.train.getboolean("log_tensorboard"),
             log_csv=conf.train.getboolean("log_csv"),
         )
+        if trainparams.image_augmentations.get("rescale") is not None:
+            raise ValueError(
+                "Using 'rescale' image augmentation is not allowed anymore in "
+                "orthoseg > 0.8, because rescaling the input should be handled by the "
+                "default preprocess_input function of the model (architecture) if"
+                "needed."
+            )
 
         # Check if there exists already a model for this train dataset + hyperparameters
         model_dir = conf.dirs.getpath("model_dir")
@@ -225,7 +232,7 @@ def train(config_path: Path, config_overrules: list[str] | None = None):
                     logger.info(
                         f"Load model + weights from {best_recent_model['filepath']}"
                     )
-                    best_model = mf.load_model(
+                    best_model, preprocess_input = mf.load_model(
                         best_recent_model["filepath"], compile_model=False
                     )
                     best_hyperparams_path = (
@@ -241,6 +248,7 @@ def train(config_path: Path, config_overrules: list[str] | None = None):
                     # Predict training dataset
                     predicter.predict_dir(
                         model=best_model,
+                        preprocess_input=preprocess_input,
                         input_image_dir=traindata_dir / "image",
                         output_image_dir=traindata_dir / predict_out_subdir,
                         output_vector_path=None,
@@ -260,6 +268,7 @@ def train(config_path: Path, config_overrules: list[str] | None = None):
                     # Predict validation dataset
                     predicter.predict_dir(
                         model=best_model,
+                        preprocess_input=preprocess_input,
                         input_image_dir=validationdata_dir / "image",
                         output_image_dir=validationdata_dir / predict_out_subdir,
                         output_vector_path=None,
@@ -331,7 +340,7 @@ def train(config_path: Path, config_overrules: list[str] | None = None):
         logger.info(
             f"Load model + weights from {best_model_curr_train_version['filepath']}"
         )
-        model = mf.load_model(
+        model, preprocess_input = mf.load_model(
             best_model_curr_train_version["filepath"], compile_model=False
         )
         logger.info("Loaded model + weights")
@@ -342,6 +351,7 @@ def train(config_path: Path, config_overrules: list[str] | None = None):
         # Predict training dataset
         predicter.predict_dir(
             model=model,
+            preprocess_input=preprocess_input,
             input_image_dir=traindata_dir / "image",
             output_image_dir=traindata_dir / predict_out_subdir,
             output_vector_path=None,
@@ -359,6 +369,7 @@ def train(config_path: Path, config_overrules: list[str] | None = None):
         # Predict validation dataset
         predicter.predict_dir(
             model=model,
+            preprocess_input=preprocess_input,
             input_image_dir=validationdata_dir / "image",
             output_image_dir=validationdata_dir / predict_out_subdir,
             output_vector_path=None,
@@ -377,6 +388,7 @@ def train(config_path: Path, config_overrules: list[str] | None = None):
         if testdata_dir is not None and testdata_dir.exists():
             predicter.predict_dir(
                 model=model,
+                preprocess_input=preprocess_input,
                 input_image_dir=testdata_dir / "image",
                 output_image_dir=testdata_dir / predict_out_subdir,
                 output_vector_path=None,
@@ -398,6 +410,7 @@ def train(config_path: Path, config_overrules: list[str] | None = None):
         if conf.dirs.getpath("predictsample_image_input_dir").exists():
             predicter.predict_dir(
                 model=model,
+                preprocess_input=preprocess_input,
                 input_image_dir=conf.dirs.getpath("predictsample_image_input_dir"),
                 output_image_dir=conf.dirs.getpath("predictsample_image_output_basedir")
                 / predict_out_subdir,

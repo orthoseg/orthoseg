@@ -1,4 +1,6 @@
-name: orthoseg-win-k2-gpu-dev
+name: orthoseg-k2-tf-dev
+# This development environment uses TensorFlow 2.10 from pip, which is the last version
+# with GPU support on native windows.
 channels:
   - conda-forge
 dependencies:
@@ -38,7 +40,7 @@ dependencies:
   - pytest-cov
   - pytest-order
   - pip:
-    - segmodels
+    - segmodels-keras
     - tensorflow >=2.8,<2.11  # Window native GPU builds only ava!ilable till tf 2.10
     - types-shapely
     - types-tensorflow<2.11  # Window native GPU builds only ava!ilable till tf 2.10
