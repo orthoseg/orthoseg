@@ -340,7 +340,7 @@ def load_model(
             "weighted_categorical_crossentropy": weighted_categorical_crossentropy,
         }
         if KERAS_GTE_3:
-            load_model_kwargs["safe_mode"] = False
+            # load_model_kwargs["safe_mode"] = False
             custom_objects["categorical_focal_crossentropy"] = (
                 keras.losses.CategoricalFocalCrossentropy
             )
