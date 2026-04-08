@@ -20,16 +20,18 @@ Decoder
 ^^^^^^^
 
 For the decoder, following model architectures are supported:
-- `UNet`
-- `LinkNet`
-- `FPN`
-- `PSPNet`
+
+* `UNet`
+* `LinkNet`
+* `FPN`
+* `PSPNet`
 
 Based on practical tests, `UNet` and `LinkNet` give the best results. Both in terms of
 accuracy and inference speed, they are very similar. There are many variants on e.g.
-`UNet` as well, but it seems that most give marginal accuracy improvements for
-significant increases in complexity resulting in worse inference/train speed. Hence,
-the default in orthoseg is the classic `UNet`.
+`UNet` as well, but based on the literature found it seems that most give relatively
+small accuracy improvements for significant increases in complexity, resulting in worse
+inference/train speed. Hence only the architectures listed above are supported, and the
+default in orthoseg is the classic `UNet`.
 
 Encoder
 ^^^^^^^
