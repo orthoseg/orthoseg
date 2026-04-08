@@ -20,51 +20,33 @@ Decoder
 ^^^^^^^
 
 For the decoder, following model architectures are supported:
-- UNet
-- LinkNet
-- FPN
-- PSPNet
+- `UNet`
+- `LinkNet`
+- `FPN`
+- `PSPNet`
 
-In my tests UNet and LinkNet gave the best results. Both in terms of accuracy and
-inference speed, they were very similar. There are many variants on e.g. UNet as well,
-but it seems that most give marginal accuracy improvements for significant increases in
-complexity resulting in decreased inference speed. Hence, the default in orthoseg is the
-classic UNet.
+Based on practical tests, `UNet` and `LinkNet` give the best results. Both in terms of
+accuracy and inference speed, they are very similar. There are many variants on e.g.
+`UNet` as well, but it seems that most give marginal accuracy improvements for
+significant increases in complexity resulting in worse inference/train speed. Hence,
+the default in orthoseg is the classic `UNet`.
 
 Encoder
 ^^^^^^^
 
-For the encoder there are even more options. These are some interesting sources of
-information I encountered:
-
-* A very interesting comparison of the performance of different DNNs:
-  `Benchmark Analysis of Representative Deep Neural Network Architectures <https://arxiv.org/pdf/1810.00736.pdf>`_.
-  Not specific to image segmentation though, rather object classification, but
-  interesting to choose a good backbone DNN for the segmentation.
-* This is an overview of the accuracy, network size and inference speed cost of the
-  different pretrained neural networks available in keras.applications:
-  `Keras models <https://keras.io/api/applications/>`_.
-* A similar overview with some other models:
-  `Classification Models <https://github.com/qubvel/classification_models?tab=readme-ov-file#specification>`_
-* paperswithcode.com is also an interesting website with an huge overview of accuracy
-  results achieved using AI, also in the domain of computer vision. Some examples:
-
-  * `Best performing image classifications on the imagenet dataset <https://paperswithcode.com/sota/image-classification-on-imagenet>`_
-  * `Best performing image segmentations on the PASCAL VOC 2012 dataset <https://paperswithcode.com/sota/semantic-segmentation-on-pascal-voc-2012>`_
-
-Based on the information found and some tests I did, inceptionresnetv2 gives the best
-combination of quality and performance as a backbone to segment orthophotos, so this is
-the default in orthoseg.
+For the encoder there are even more options. Based on the information found and some
+practical tests, `InceptionResnetV2` gives the best combination of quality and
+performance as a backbone to segment orthophotos, so this is the default in orthoseg.
 
 In the table below some models that were considered are listed and compared to
-inceptionresnetv2:
+`InceptionResnetV2`:
 
-* Model: the name of the model
-* Acc@1: the top 1 classification accuracy on imagenet
-* Speed: an indication on the inference speed, normalized on inceptionresnetv2 getting
-  speed = 100
-* Support: whether the model is supported in orthoseg
-* Remarks: some remarks on the model, e.g. if practical tests have been conducted on
+* **Model**: the name of the model
+* **Acc@1**: the top 1 classification accuracy on imagenet
+* **Speed**: an indication on the inference speed, normalized on `InceptionResnetV2`
+  having speed = 100
+* **Support**: whether the model is supported in orthoseg
+* **Remarks**: some remarks on the model, e.g. if practical tests have been conducted on
   segmentation performance,...
 
 ================== ===== ===== ======= =======
@@ -118,27 +100,54 @@ EfficientNetV2M    85.3    96    Yes   Tested*: similar theoretical accuracy, wo
 EfficientNetV2L    85.7	   -       
 ================== ===== ===== ======= =======
 
-* Here are some more details about some tests performed:
+Here are some more details about some tests performed:
 
 TernausNet + Unet
 -----------------
-* Both standard Unet and TernausNet (Unet with vgg11 backbone) were tested on the
-  detection of greenhouses. The accuracy of both was very similar and was decent, but
-  clearly worse than InceptionResNetV2.
+* Both standard `Unet` and `TernausNet` (`Unet` with `vgg11` backbone) were tested on
+  the detection of greenhouses. The accuracy of both was very similar and was decent,
+  but clearly worse than `InceptionResNetV2`.
 * Support for these models was removed from orthoseg to avoid having to upgrade them to
   stay supported with newer keras versions.
 
 EfficientNetV2M
 ---------------
 * The classification accuracy on imagenet is significantly better than
-  InceptionResNetV2 (85.3% vs 80.3% top 5 accuracy)
+  `InceptionResNetV2` (85.3% vs 80.3% top 5 accuracy)
 * The number of weights is similar, and train/inference speed is reported to be a lot
   faster than v1 of the EfficientNet family.
-* In practice, the train/inference speed was almost the same as InceptionResNetV2
+* In practice, the train/inference speed was almost the same as `InceptionResNetV2`, and
+  the accuracy was significantly worse. The IOU score obtained on the training data was
+  around 0.95, which is significantly worse than the 0.98 obtained with
+  `InceptionResNetV2`. When running an actual detection and reviewing the results
+  on-screen, it seeemed like types of sealed areas that were less represented in the
+  training data and were narrow were detected significantly worse than was the case with
+  `InceptionResNetV2`. Possbibly this could be solved by adding extra training data of
+  this type, but as the IOU score improvement was very low as well, it isn't an
+  improvement over `InceptionResNetV2`.
 * The IOU score from the training obtained on a "sealed surfaces" detection was slightly
-  higher than InceptionResNetV2 (0.9791 vs 0.9765) but not significantly so. When
+  higher than `InceptionResNetV2` (0.9791 vs 0.9765) but not significantly so. When
   running an actual detection and reviewing the results on-screen, it seeemed like types
   of sealed areas that were less represented in the training data and were narrow were
-  detected significantly worse than was the case with InceptionResNetV2. Possbibly this
-  could be solved by adding extra training data of this type, but as the IOU score
-  improvement was very low as well, it isn't an improvement over InceptionResNetV2.
+  detected significantly worse than was the case with `InceptionResNetV2`. Possbibly
+  this can be solved by adding extra training data of this type, but as the IOU score
+  improvement was very low as well, it doesn't seem to be an improvement compared to
+  `InceptionResNetV2`.
+
+
+These are some interesting sources of information:
+
+* A very interesting comparison of the performance of different DNNs:
+  `Benchmark Analysis of Representative Deep Neural Network Architectures <https://arxiv.org/pdf/1810.00736.pdf>`_.
+  Not specific to image segmentation though, rather object classification, but
+  interesting to choose a good backbone DNN for the segmentation.
+* This is an overview of the accuracy, network size and inference speed cost of the
+  different pretrained neural networks available in keras.applications:
+  `Keras models <https://keras.io/api/applications/>`_.
+* A similar overview with some other models:
+  `Classification Models <https://github.com/qubvel/classification_models?tab=readme-ov-file#specification>`_
+* paperswithcode.com is also an interesting website with an huge overview of accuracy
+  results achieved using AI, also in the domain of computer vision. Some examples:
+
+  * `Best performing image classifications on the imagenet dataset <https://paperswithcode.com/sota/image-classification-on-imagenet>`_
+  * `Best performing image segmentations on the PASCAL VOC 2012 dataset <https://paperswithcode.com/sota/semantic-segmentation-on-pascal-voc-2012>`_
