@@ -91,10 +91,10 @@ EfficientNetB4     82.9  151           "
 EfficientNetB5     83.6  253           "
 EfficientNetB6	   84.0  404           "
 EfficientNetB7	   84.3  616           "
-EfficientNetV2B0	 78.7	           
-EfficientNetV2B1	 79.8	           
-EfficientNetV2B2	 80.5	          
-EfficientNetV2B3	 82.0	          
+EfficientNetV2B0   78.7	           
+EfficientNetV2B1   79.8	           
+EfficientNetV2B2   80.5	          
+EfficientNetV2B3   82.0	          
 EfficientNetV2S    83.9	          
 EfficientNetV2M    85.3  96    Yes     Tested*: similar theoretical accuracy, worse in practice
 EfficientNetV2L    85.7	          
