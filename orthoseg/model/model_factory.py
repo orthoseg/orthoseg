@@ -327,7 +327,7 @@ def load_model(
             num_classes=nb_classes, name="one_hot_mean_iou"
         )
 
-        load_model_kwargs = {}
+        load_model_kwargs: dict[str, Any] = {}
 
         custom_objects = {
             "jaccard_coef": jaccard_coef,
