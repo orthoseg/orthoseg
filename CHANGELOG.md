@@ -2,14 +2,28 @@
 
 ## 0.8.0 (????-??-??)
 
+### Deprecations and compatibility notes
+
+- Using `rescale` as augmentation is not allowed anymore as the rescaling of input
+  images will now be done via the keras.application `preprocess_input' function of the
+  backbone model used (#314).
+
 ### Improvements
 
 - Add support to reproject a local image layer (#290)
 - Improve handling of `switch_axes` and `ssl_verify` (#295)
+- Add proper support for keras 3:
+    - Use `categorical_focal_crossentropy` by default on keras 3 (#312)
+    - Use [segmodels_keras](https://github.com/orthoseg/segmodels_keras) (#311)
+    - Avoid unneeded direct use of tensorflow (#304, #313)
+- Use keras.applications `preprocess_input` functions to prepare inputs (#314)
+- Add retry for ARCGIS WMS server errors (#305)
+- Add retry when reading vrt layers (#307)
 
 ### Bugs fixed
 
 - Fix use of username/password for WMS image layer (#294)
+- Fix models not being saved if architecture_id != 1 (#310)
 
 ## 0.7.0 (2025-08-01)
 

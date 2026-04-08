@@ -8,6 +8,7 @@ from typing import Any
 
 import geofileops as gfo
 import geopandas as gpd
+import keras
 import numpy as np
 import pygeoops
 import rasterio as rio
@@ -15,7 +16,6 @@ import rasterio.features as rio_features
 import rasterio.transform as rio_transform
 import shapely.geometry as sh_geom
 import skimage.filters.rank
-import tensorflow as tf
 from skimage.morphology import rectangle
 
 from orthoseg.helpers import vectorfile_helper
@@ -457,9 +457,7 @@ def postprocess_for_evaluation(
             # If there is more than 1 class, extract the seperate masks
             # per class with one-hot encoding
             if nb_classes > 1:
-                mask_categorical_arr = tf.keras.utils.to_categorical(
-                    mask_arr, nb_classes
-                )
+                mask_categorical_arr = keras.utils.to_categorical(mask_arr, nb_classes)
                 mask_arr = (mask_categorical_arr[:, :, class_id]) * 255
 
             # similarity = jaccard_similarity(mask_arr, image_pred)

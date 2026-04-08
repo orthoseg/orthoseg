@@ -403,7 +403,7 @@ def prepare_traindatasets(
                     force=force,
                 )
 
-                # Log the progress and prediction speed
+                # Log the progress estimated time remaining.
                 progress.step()
 
     # If everything went fine, rename output_tmp_dir to the final output_dir

@@ -16,12 +16,14 @@ dependencies:
   - matplotlib-base
   - numpy
   - owslib
+  - pandas
   - pillow
   - pycron
   - pygeoops >=0.4
   - pyproj
   - rasterio
   - shapely >=2
+  - scikit-image
   - simplification
   # Tensorflow is only availabla for linux-64 on conda-forge.
   # Will resolve to tensorflow-gpu if a compatible GPU is available
@@ -31,5 +33,5 @@ dependencies:
   - pytest-cov
   - pytest-order
   - pip:
-    - segmentation-models >=1.0
+    - segmodels-keras
     - orthoseg >=0.6

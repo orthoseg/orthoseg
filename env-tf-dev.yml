@@ -1,8 +1,10 @@
-name: orthoseg-dev
+name: orthoseg-tf-dev
+# This is the typical development environment for orthoseg that installs TensorFlow
+# from conda-forge.
 channels:
   - conda-forge
 dependencies:
-  - python =3.10
+  - python =3.12
   - pip
   # required
   - gdal
@@ -12,13 +14,16 @@ dependencies:
   - matplotlib-base
   - numpy
   - owslib
+  - pandas
   - pillow
   - pycron
   - pygeoops >=0.2
   - pyproj
   - rasterio
   - shapely >=2
+  - scikit-image
   - simplification
+  - tensorflow >=2.8
   # optional, for CUDA support
   #- cudatoolkit ==12.3
   #- cudnn
@@ -33,7 +38,6 @@ dependencies:
   - pytest-cov
   - pytest-order
   - pip:
-    - segmentation-models >=1.0,<1.1
-    - tensorflow >=2.8
+    - segmodels-keras
     - types-shapely
     - types-tensorflow

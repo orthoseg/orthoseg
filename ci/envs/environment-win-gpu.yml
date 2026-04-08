@@ -21,12 +21,14 @@ dependencies:
   - matplotlib-base
   - numpy <2  # <2 is needed for tf < 2.18
   - owslib
+  - pandas
   - pillow
   - pycron
   - pygeoops >=0.4
   - pyproj
   - rasterio
   - shapely >=2.0
+  - scikit-image
   - simplification
   # dependencies of tensorflow that need to be conda versions to avoid binary compatibility issues
   - h5py <3.11  # When a version > 3.10 is used with tf 2.10: segmentation fault
@@ -35,7 +37,7 @@ dependencies:
   - pytest-cov
   - pytest-order
   - pip:
-    - segmentation-models >=1.0,<1.1
+    - segmodels-keras
     - tensorflow <2.11  # On native windows, tf 2.10 is the last version with GPU support
     - orthoseg >=0.6
     - numpy <2  # numpy <2 is needed for tf < 2.18

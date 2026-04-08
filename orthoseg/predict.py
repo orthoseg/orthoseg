@@ -10,8 +10,6 @@ from typing import Any
 
 # import os
 # os.environ["CUDA_VISIBLE_DEVICES"] = "-1" # Disable using GPU
-import tensorflow as tf
-
 import orthoseg.model.model_factory as mf
 import orthoseg.model.model_helper as mh
 from orthoseg.helpers import config_helper as conf, email_helper
@@ -96,12 +94,14 @@ def predict(config_path: Path, config_overrules: list[str] | None = None):
         if force_model_traindata_id is not None and force_model_traindata_id > -1:
             traindata_id = force_model_traindata_id
 
-        # Get the best model that already exists for this train dataset
+        # Get the best model that already exists for this train dataset,...
+        architecture_id = conf.model.getint("architecture_id")
         trainparams_id = conf.train.getint("trainparams_id")
         best_model = mh.get_best_model(
             model_dir=conf.dirs.getpath("model_dir"),
             segment_subject=conf.general["segment_subject"],
             traindata_id=traindata_id,
+            architecture_id=architecture_id,
             trainparams_id=trainparams_id,
         )
 
@@ -109,7 +109,8 @@ def predict(config_path: Path, config_overrules: list[str] | None = None):
         if best_model is None:
             message = (
                 f"No model found in model_dir: {conf.dirs.getpath('model_dir')} for "
-                f"traindata_id: {traindata_id}"
+                f"traindata_id: {traindata_id}, architecture_id: {architecture_id}, "
+                f"trainparams_id: {trainparams_id}"
             )
             logger.critical(message)
             raise RuntimeError(message)
@@ -203,10 +204,12 @@ def predict(config_path: Path, config_overrules: list[str] | None = None):
 
         # If model isn't loaded yet... load!
         if model is None:
-            model = mf.load_model(best_model["filepath"], compile_model=False)
+            model, preprocess_input = mf.load_model(
+                best_model["filepath"], compile_model=False
+            )
 
         # Prepare the model for predicting
-        nb_gpu = len(tf.config.experimental.list_physical_devices("GPU"))
+        nb_gpu = mh.get_number_gpus()
         batch_size = conf.predict.getint("batch_size")
         if nb_gpu <= 1:
             model_for_predict = model
@@ -280,6 +283,7 @@ def predict(config_path: Path, config_overrules: list[str] | None = None):
             # Predict from a directory with (cached) images
             predicter.predict_dir(
                 model=model_for_predict,
+                preprocess_input=preprocess_input,
                 input_image_dir=input_image_dir,
                 output_image_dir=predict_output_dir,
                 output_vector_path=output_vector_path,
@@ -300,6 +304,7 @@ def predict(config_path: Path, config_overrules: list[str] | None = None):
             # Predict directly from an image/layer
             predicter.predict_layer(
                 model=model_for_predict,
+                preprocess_input=preprocess_input,
                 image_layer_config=image_layer_config,
                 image_pixel_width=conf.predict.getint("image_pixel_width"),
                 image_pixel_height=conf.predict.getint("image_pixel_height"),

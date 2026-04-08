@@ -14,12 +14,14 @@ dependencies:
   - matplotlib-base
   - numpy
   - owslib
+  - pandas
   - pillow
   - pycron
   - pygeoops >=0.4
   - pyproj
   - rasterio
   - shapely >=2
+  - scikit-image
   - simplification
   - tensorflow-cpu >=2.8
   # docs
@@ -28,4 +30,4 @@ dependencies:
   - sphinx-automodapi
   - sphinx-copybutton
   - pip:
-    - segmentation-models >=1.0,<1.1
+    - segmodels-keras

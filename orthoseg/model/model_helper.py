@@ -9,6 +9,8 @@ from typing import Any, Literal
 import pandas as pd
 from keras import callbacks
 
+from orthoseg._compat import KERAS_GTE_3, __version__
+
 # Get a logger...
 logger = logging.getLogger(__name__)
 
@@ -68,10 +70,10 @@ class TrainParams:
         batch_size: int = 4,
         optimizer: str = "adam",
         optimizer_params: dict | None = None,
-        loss_function: str | None = None,  # noqa: ARG002
+        loss_function: str | None = None,
         monitor_metric: str | None = None,
         monitor_metric_mode: str = "auto",
-        save_format: str = "h5",
+        save_format: str = "keras",
         save_best_only: bool = True,
         save_min_accuracy: float = 0.95,
         nb_epoch: int = 1000,
@@ -91,7 +93,8 @@ class TrainParams:
                 during training.
             architecture_id (int, optional): id of the architecture. Defaults to 0.
             trainparams_id (int, optional): id of the hyperparams. Defaults to 0.
-            class_weights (list, optional): [description]. Defaults to None.
+            class_weights (list, optional): the weights to use for each class.
+                Defaults to None.
             batch_size (int, optional): batch size to use while training. This must be
                 choosen depending on the neural network architecture
                 and available memory on you GPU. Defaults to 4.
@@ -99,13 +102,19 @@ class TrainParams:
                 Defaults to 'adam'.
             optimizer_params (dict, optional): Optimizer params to use.
                 Defaults to { 'learning_rate': 0.0001 }.
-            loss_function (str, optional): [description]. Defaults to None.
+            loss_function (str, optional): Loss function to use for training.
+                Defaults to None.
             monitor_metric (str, optional): Metric to monitor. If not specified
                 the loss function will drive the metric. Defaults to None.
             monitor_metric_mode (str, optional): Mode of the metric to monitor.
                 Defaults to 'auto'.
-            save_format (str, optional): [description]. Defaults to 'h5'.
-            save_best_only (bool, optional): [description]. Defaults to True.
+            save_format (str, optional): Format to save the model. Options are:
+                - **"keras"**: new keras format
+                - **"h5"**: legacy keras format
+                - **"tf"**: tensorflow savedmodel
+                Defaults to 'keras'.
+            save_best_only (bool, optional): True to save only the best model.
+                Defaults to True.
             save_min_accuracy (float, optional): minimum accuracy to save a model.
                 Defaults to 0.95.
             nb_epoch (int, optional): maximum number of epochs to train.
@@ -146,19 +155,32 @@ class TrainParams:
         else:
             self.optimizer_params = optimizer_params
 
-        if self.class_weights is not None:
-            self.loss_function = "weighted_categorical_crossentropy"
+        if loss_function is None:
+            if KERAS_GTE_3:
+                self.loss_function = "categorical_focal_crossentropy"
+            else:  # noqa: PLR5501
+                if self.class_weights is not None:
+                    self.loss_function = "weighted_categorical_crossentropy"
+                else:
+                    self.loss_function = "categorical_crossentropy"
         else:
-            self.loss_function = "categorical_crossentropy"
+            self.loss_function = loss_function
 
         # Properties to choose the best model
+        crossentropy_loss_functions = (
+            "categorical_crossentropy",
+            "weighted_categorical_crossentropy",
+            "categorical_focal_crossentropy",
+        )
         if monitor_metric is not None:
             self.monitor_metric = monitor_metric
-        elif self.loss_function in (
-            "weighted_categorical_crossentropy",
-            "categorical_crossentropy",
-        ):
+        elif self.loss_function in crossentropy_loss_functions:
             self.monitor_metric = "categorical_accuracy"
+        else:
+            raise ValueError(
+                "monitor_metric should be specified if loss function is not one of "
+                f"{crossentropy_loss_functions}"
+            )
         self.monitor_metric_mode = monitor_metric_mode
 
         self.save_format = save_format
@@ -279,9 +301,12 @@ def _validate_augmentations(
     mask_specifics = [
         ("fill_mode", "constant", True),
         ("cval", 0, True),
-        ("rescale", 1, True),
         ("brightness_range", [1.0, 1.0], False),
     ]
+    if __version__ < "0.8":
+        # For orthoseg < 0.8, rescaling is a mandatory augmentation.
+        mask_specifics.append(("rescale", 1, True))
+
     for key, value, mandatory in mask_specifics:
         if key not in mask_augmentations:
             if mandatory:
@@ -341,7 +366,8 @@ def format_model_filename(
         monitor_metric_accuracy: the monitor metric accuracy
         epoch: the epoch during training that reached these model weights
         save_format (str): the format to save in:
-            * keras format: 'h5'
+            * keras format: 'keras'
+            * legacy keras format: 'h5'
             * tensorflow savedmodel: 'tf'
     """
     # Format file name
@@ -354,7 +380,9 @@ def format_model_filename(
     filename += f"_{monitor_metric_accuracy:.5f}_{epoch}"
 
     # Add suffix
-    if save_format == "tf":
+    if save_format == "keras":
+        filename += ".keras"
+    elif save_format == "tf":
         filename += "_tf"
     else:
         filename += ".hdf5"
@@ -372,7 +400,8 @@ def parse_model_filename(filepath: Path) -> dict | None:
         * trainparams_id: the version of the hyper parameters used to train
         * epoch: the epoch during training that reached these model weights
         * save_format (str): the format to save in:
-            * keras format: 'h5'
+            * keras format: 'keras'
+            * legacy keras format: 'h5'
             * tensorflow savedmodel: 'tf'
 
     Args:
@@ -392,8 +421,12 @@ def parse_model_filename(filepath: Path) -> dict | None:
         filename = filepath.stem
         if filepath.suffix in (".h5", ".hdf5"):
             save_format = "h5"
+        elif filepath.suffix == ".keras":
+            save_format = "keras"
         else:
-            logger.warning(f"Model file should have .h5 of .hdf5 as suffix: {filepath}")
+            logger.warning(
+                f"Model file should have .h5, .hdf5, or .keras as suffix: {filepath}"
+            )
             return None
 
     # Now extract the fields...
@@ -459,6 +492,8 @@ def get_models(
     """
     # List models
     model_paths: list[Path] = []
+    if KERAS_GTE_3:
+        model_paths.extend(model_dir.glob("*.keras"))
     model_paths.extend(model_dir.glob("*.hdf5"))
     model_paths.extend(model_dir.glob("*.h5"))
     model_paths.extend(model_dir.glob("*_tf"))
@@ -534,34 +569,80 @@ def get_best_model(
         trainparams_id=trainparams_id,
     )
 
+    # Sort the models so we also have a deterministic order and result further on.
+    model_info_list.sort(key=lambda model_info: model_info["filepath"])
+
     # If nothing found, return None
     if len(model_info_list) == 0:
         return None
 
-    # If no traindata_id provided, find highest traindata id
+    # If no traindata_id provided, find models with highest traindata id
     max_traindata_id = -1
     for model_info in model_info_list:
         max_traindata_id = max(model_info["traindata_id"], max_traindata_id)
-
-    # Get the list of newest model
-    newest_model_info_list = [
+    model_info_list = [
         model_info
         for model_info in model_info_list
         if model_info["traindata_id"] == max_traindata_id
     ]
 
     # If only one result, return it
-    if len(newest_model_info_list) == 1:
-        return newest_model_info_list[0]
-    else:
-        max_monitor_metric_accuracy = -1
-        max_monitor_metric_accuracy_idx = -1
-        for model_info_idx, model_info in enumerate(model_info_list):
-            if model_info["monitor_metric_accuracy"] > max_monitor_metric_accuracy:
-                max_monitor_metric_accuracy = model_info["monitor_metric_accuracy"]
-                max_monitor_metric_accuracy_idx = model_info_idx
+    if len(model_info_list) == 1:
+        return model_info_list[0]
 
-        return model_info_list[max_monitor_metric_accuracy_idx]
+    # Find models with the highest monitor metric accuracy
+    max_monitor_metric_accuracy = -1
+    for model_info in model_info_list:
+        max_monitor_metric_accuracy = max(
+            max_monitor_metric_accuracy, model_info["monitor_metric_accuracy"]
+        )
+    model_info_list = [
+        model_info
+        for model_info in model_info_list
+        if model_info["monitor_metric_accuracy"] == max_monitor_metric_accuracy
+    ]
+
+    # If only one result, return it
+    if len(model_info_list) == 1:
+        return model_info_list[0]
+
+    # Return depending on the file format: prefer keras, then tf, then h5
+    keras_models = [
+        model_info
+        for model_info in model_info_list
+        if model_info["save_format"] == "keras"
+    ]
+    if len(keras_models) > 0:
+        return keras_models[0]
+
+    tf_models = [
+        model_info
+        for model_info in model_info_list
+        if model_info["save_format"] == "tf"
+    ]
+    if len(tf_models) > 0:
+        return tf_models[0]
+
+    h5_models = [
+        model_info
+        for model_info in model_info_list
+        if model_info["save_format"] == "h5"
+    ]
+    if len(h5_models) > 0:
+        return h5_models[0]
+
+    raise RuntimeError("No valid model found")
+
+
+def get_number_gpus() -> int:
+    """Get the number of GPUs available.
+
+    Returns:
+        int: the number of GPUs available.
+    """
+    import tensorflow as tf  # noqa: PLC0415
+
+    return len(tf.config.experimental.list_physical_devices("GPU"))
 
 
 class ModelCheckpointExt(callbacks.Callback):
@@ -580,7 +661,7 @@ class ModelCheckpointExt(callbacks.Callback):
         trainparams_id: int,
         monitor_metric: str,
         monitor_metric_mode: str,
-        save_format: str = "h5",
+        save_format: str = "keras",
         save_best_only: bool = False,
         save_min_accuracy: float = 0.90,
         save_min_accuracy_ignored_epoch: int = 100,
@@ -602,8 +683,8 @@ class ModelCheckpointExt(callbacks.Callback):
                 should be  as low as possible, 'max' if a higher values is
                 better.
             save_format (str, optional): The format to save in:
-                'h5' (keras format) or 'tf' (tensorflow savedmodel).
-                Defaults to 'tf'
+                'h5' (legacy keras format), 'keras' (new keras format), or 'tf'
+                (tensorflow savedmodel). Defaults to 'keras'.
             save_best_only (bool, optional): only keep the best model.
                 Defaults to True.
             save_min_accuracy (float, optional): minimum accuracy to be
@@ -623,7 +704,7 @@ class ModelCheckpointExt(callbacks.Callback):
                 f"Invalid value for mode: {monitor_metric_mode}, should be one of "
                 f"{monitor_metric_mode_values}"
             )
-        save_format_values = ("h5", "tf")
+        save_format_values = ("keras", "h5", "tf")
         if save_format not in save_format_values:
             raise Exception(
                 f"Invalid value for save_format: {save_format}, should be one of "
@@ -698,7 +779,7 @@ def save_and_clean_models(
     new_model=None,
     new_model_monitor_value: float | None = None,
     new_model_epoch: int | None = None,
-    save_format: str = "h5",
+    save_format: str = "keras",
     save_best_only: bool = False,
     save_min_accuracy: float = 0.9,
     save_min_accuracy_ignored_epoch: int = 100,
@@ -726,7 +807,8 @@ def save_and_clean_models(
         new_model_monitor_value (float, optional): the monitored metric value
         new_model_epoch (int, optional): the epoch in the training
         save_format (SaveFormat, optional): The format to save in:
-            * h5: keras format (= default)
+            * keras: new keras format
+            * h5: legacy keras format (= default)
             * tf: tensorflow savedmodel
         save_best_only (bool, optional): only keep the best model
         save_min_accuracy (float, optional): minimum accuracy to save the
@@ -741,27 +823,26 @@ def save_and_clean_models(
         debug (bool, optional): write debug logging
         only_report (bool, optional): only report which models would be cleaned up
     """
-    # TODO: add option to specify minimum accuracy/iou score before saving to speed up,
-    # because saving takes quite some time!
     # Check validaty of input
     monitor_metric_mode_values = ["min", "max"]
     if monitor_metric_mode not in monitor_metric_mode_values:
-        raise Exception(
+        raise ValueError(
             f"Invalid value for mode: {monitor_metric_mode}, should be one of "
             f"{monitor_metric_mode_values}"
         )
-    save_format_values = ("h5", "tf")
+    save_format_values = ("keras", "h5", "tf")
     if save_format not in save_format_values:
-        raise Exception(
+        raise ValueError(
             f"Invalid value for save_format: {save_format}, should be one of "
             f"{save_format_values}"
         )
 
-    # Get a list of all existing models
+    # Get a list of all relevant existing models
     model_info_list = get_models(
         model_dir=model_save_dir,
         segment_subject=segment_subject,
         traindata_id=traindata_id,
+        architecture_id=architecture_id,
         trainparams_id=trainparams_id,
     )
 
@@ -770,7 +851,7 @@ def save_and_clean_models(
     new_model_monitor_accuracy = None
     if new_model is not None:
         if new_model_monitor_value is None or new_model_epoch is None:
-            raise Exception(
+            raise ValueError(
                 "If new_model is not None, new_model_monitor_... parameters cannot be "
                 f"None either???, new_model_monitor_value: {new_model_monitor_value}, "
                 f"new_model_epoch: {new_model_epoch}"
@@ -812,7 +893,7 @@ def save_and_clean_models(
 
     # Loop through all existing models
     # Remark: the list is sorted descending before iterating it, this way new
-    # modelss are saved bevore deleting the previous best one(s)
+    # models are saved before deleting the previous best one(s)
     model_info_df = pd.DataFrame(model_info_list)
     model_info_sorted_df = model_info_df.sort_values(
         by="monitor_metric_accuracy", ascending=False
@@ -833,7 +914,7 @@ def save_and_clean_models(
                 keep_model = False
 
         # If model is (relatively) ok, keep it
-        if keep_model is True:
+        if keep_model:
             logger.debug(f"KEEP {model_info.filename}")
 
             # If it is the new model that needs to be kept, keep it or save to disk
@@ -841,7 +922,7 @@ def save_and_clean_models(
                 new_model_path is not None
                 and new_model is not None
                 and new_model_epoch is not None
-                and only_report is not True
+                and not only_report
                 and model_info.filepath == str(new_model_path)
                 and not new_model_path.exists()
             ):
@@ -876,21 +957,21 @@ def save_and_clean_models(
         else:
             # Bad model... can be removed (or not saved)
             assert isinstance(model_info.filepath, str | Path)
-            if only_report is True:
+            if only_report:
                 logger.debug(f"DELETE {model_info.filename}")
-            elif Path(model_info.filepath).exists() is True:
+            elif Path(model_info.filepath).exists():
                 logger.debug(f"DELETE {model_info.filename}")
-                if Path(model_info.filepath).is_dir() is True:
+                if Path(model_info.filepath).is_dir():
                     shutil.rmtree(model_info.filepath)
                 else:
                     Path(model_info.filepath).unlink()
 
-            if debug is True and better_ones_df is not None:
-                print(f"Better one(s) found for{model_info.filename}:")
+            if debug and better_ones_df is not None:
+                print(f"Better one(s) found for {model_info.filename}:")
                 for better_one in better_ones_df.itertuples(index=False):
                     print(f"  {better_one.filename}")
 
-    if verbose is True or debug is True:
+    if verbose or debug:
         best_model = get_best_model(
             model_dir=model_save_dir,
             segment_subject=segment_subject,
