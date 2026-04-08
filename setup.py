@@ -34,7 +34,7 @@ setuptools.setup(
         "pycron",
         "pygeoops>=0.4",
         "rasterio",
-        "segmentation-models>=1.0,<1.1",
+        "segmodels-keras",
         "shapely>=2",
         "simplification",
         "tensorflow>=2.8",
