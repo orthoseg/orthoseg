@@ -30,4 +30,4 @@ dependencies:
   - sphinx-automodapi
   - sphinx-copybutton
   - pip:
-    - segmodels_keras
+    - segmodels-keras

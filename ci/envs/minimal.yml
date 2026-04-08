@@ -37,6 +37,6 @@ dependencies:
   - pytest-cov
   - pytest-order
   - pip:
-    - segmodels_keras
+    - segmodels-keras
     - tensorflow <2.11  # On windows, tf 2.10 is the last version with GPU support
     - numpy <2  # numpy <2 is needed for tf < 2.18
