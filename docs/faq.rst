@@ -58,27 +58,27 @@ inceptionresnetv2. The columns:
 ================== ===== ===== ======== =======
 Model              Acc@1 Speed Orthoseg Remarks
 ================== ===== ===== ======== =======
-vgg11              69.15  -       No     Tested (=TernausNet): not very accurate
-vgg16              70.79   46    Yes     accuracy ~ vgg11
-vgg19              70.89   46    Yes     accuracy ~ vgg11
-resnet18           68.24   29     No     accuracy ~ vgg11
-resnet34           72.17   32     No     accuracy ~ vgg11
+vgg11              69.15  -       No    Tested (=TernausNet): not very accurate
+vgg16              70.79   46    Yes    accuracy ~ vgg11
+vgg19              70.89   46    Yes    accuracy ~ vgg11
+resnet18           68.24   29     No    accuracy ~ vgg11
+resnet34           72.17   32     No    accuracy ~ vgg11
 resnet50           74.81   41    Yes     
 resnet101          76.58   60    Yes     
 resnet152          76.66   77    Yes     
 resnet50v2         69.73   36    Yes     
-resnet101v2        71.93   53    Yes     accuracy ~ vgg11
-resnet152v2        72.29   75    Yes     accuracy ~ vgg11
+resnet101v2        71.93   53    Yes    accuracy ~ vgg11
+resnet152v2        72.29   75    Yes    accuracy ~ vgg11
 resnext50          77.36   69     No      
-resnext101         78.48  110     No     slower + worse accuracy
+resnext101         78.48  110     No    slower + worse accuracy
 densenet121        74.67   51    Yes     
 densenet169        75.85   62    Yes     
 densenet201        77.13   77    Yes     
 inceptionv3        77.55   71    Yes     
 xception           78.87   77     No      
 inceptionresnetv2  80.03  100    Yes     
-seresnet18         69.41   37    No      accuracy ~ vgg11
-seresnet34         72.60   41    No      accuracy ~ vgg11
+seresnet18         69.41   37    No     accuracy ~ vgg11
+seresnet34         72.60   41    No     accuracy ~ vgg11
 seresnet50         76.44   43    No      
 seresnet101        77.92   59    No      
 seresnet152        78.34   87    No      
@@ -104,6 +104,7 @@ EfficientNetV2B3	 82.0	         No
 EfficientNetV2S    83.9	         No
 EfficientNetV2M    85.3    96   Yes     Tested*: similar theoretical accuracy, worse in practice
 EfficientNetV2L    85.7	         No
+================== ===== ===== ======== =======
 
 * Here are some more details about some tests performed:
 
