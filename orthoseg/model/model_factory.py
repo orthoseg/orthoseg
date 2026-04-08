@@ -9,7 +9,6 @@ https://github.com/qubvel/segmentation_models
 
 import json
 import logging
-import os
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -17,12 +16,8 @@ from typing import Any
 import h5py
 import keras
 import keras.models
-import tensorflow as tf
-
-# Set the framework to use by segmentation_models to keras
-os.environ["SM_FRAMEWORK"] = "keras"
-
 import segmodels_keras as smk
+import tensorflow as tf
 from segmodels_keras import Linknet, PSPNet, Unet
 
 from orthoseg._compat import KERAS_GTE_3
@@ -117,6 +112,16 @@ def get_model(
 
     model_preprocess_input = get_preprocess_input(architecture)
     return model, model_preprocess_input
+
+
+def get_custom_objects(architecture: str) -> dict[str, Callable]:
+    """Get the custom objects to use for loading models."""
+    segment_architecture_parts = architecture.split("+")
+    if len(segment_architecture_parts) < 2:
+        raise ValueError(f"Unsupported architecture: {architecture}")
+
+    encoder = segment_architecture_parts[0]
+    return smk.Backbones.get_custom_objects(encoder.lower())
 
 
 def get_preprocess_input(architecture: str) -> Callable:
@@ -340,6 +345,10 @@ def load_model(
                 keras.losses.CategoricalFocalCrossentropy
             )
 
+        # Add custom objects for the architecture used.
+        custom_objects.update(
+            get_custom_objects(hyperparams["architecture"]["architecture"])
+        )
         try:
             model = keras.models.load_model(
                 str(model_to_use_filepath),

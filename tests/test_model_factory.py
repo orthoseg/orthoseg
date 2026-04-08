@@ -55,6 +55,7 @@ def test_check_image_size(
         ["mobilenetv2+linknet", 256, 256],
         ["mobilenetv2+pspnet", 144, 144],
         ["mobilenetv2+unet", 256, 256],
+        ["inceptionresnetv2+unet", 256, 256],
     ],
 )
 def test_get_compile_save_load_model(
