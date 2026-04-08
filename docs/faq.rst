@@ -100,10 +100,12 @@ EfficientNetV2M    85.3  96    Yes     Tested*: similar theoretical accuracy, wo
 EfficientNetV2L    85.7	          
 ================== ===== ===== ======= =======
 
-Here are some more details about some tests performed:
+
+Test details
+^^^^^^^^^^^^
 
 TernausNet + Unet
------------------
+"""""""""""""""""
 * Both standard `Unet` and `TernausNet` (`Unet` with `vgg11` backbone) were tested on
   the detection of greenhouses. The accuracy of both was very similar and was decent,
   but clearly worse than `InceptionResNetV2`.
@@ -111,7 +113,7 @@ TernausNet + Unet
   stay supported with newer keras versions.
 
 EfficientNetV2M
----------------
+"""""""""""""""
 * The classification accuracy on imagenet is significantly better than
   `InceptionResNetV2` (85.3% vs 80.3% top 1 accuracy)
 * The number of weights is similar, and train/inference speed is reported to be a lot
@@ -129,7 +131,8 @@ EfficientNetV2M
   improvement compared to `InceptionResNetV2`.
 
 
-These are some interesting sources of information:
+Some links
+^^^^^^^^^^
 
 * A very interesting comparison of the performance of different DNNs:
   `Benchmark Analysis of Representative Deep Neural Network Architectures <https://arxiv.org/pdf/1810.00736.pdf>`_.
