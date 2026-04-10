@@ -332,7 +332,7 @@ def load_model(
                     model = get_model(
                         architecture=hyperparams["architecture"]["architecture"],
                         nb_channels=hyperparams["architecture"]["nb_channels"],
-                        nb_classes=hyperparams["architecture"]["nb_classes"],
+                        nb_classes=len(hyperparams["architecture"]["classes"]),
                         activation=hyperparams["architecture"]["activation_function"],
                     )
                 except Exception as ex:

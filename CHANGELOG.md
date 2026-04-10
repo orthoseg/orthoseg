@@ -11,6 +11,7 @@
 
 - Fix use of username/password for WMS image layer (#294)
 - Fix models not being saved if architecture_id != 1 (#310)
+- Fix error on `nb_classes` when loading older models
 
 ## 0.7.0 (2025-08-01)
 
