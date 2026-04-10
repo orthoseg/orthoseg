@@ -63,7 +63,7 @@ def test_load_images(tmp_path, overrules, exp_image_count):
 
     # Run task to load images
     orthoseg.load_images(
-        footballfields_dir / "footballfields_BEFL-2019_test.ini",
+        footballfields_dir / "footballfields_BEFL-2019.ini",
         config_overrules=overrules,
     )
 
