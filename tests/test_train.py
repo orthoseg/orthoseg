@@ -43,7 +43,7 @@ def test_train_error_handling():
     """Force an error so the general error handler in train is tested."""
     with pytest.raises(
         RuntimeError,
-        match="ERROR in train for footballfields_train_test",
+        match="ERROR in train for footballfields_train",
     ):
         train(
             config_path=test_helper.SampleProjectFootball.train_config_path,

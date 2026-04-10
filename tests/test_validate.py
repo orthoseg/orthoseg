@@ -73,6 +73,11 @@ def test_validate_error(tmp_path):
         dst=project_dir / "footballfields_BEFL-2019.ini",
     )
     shutil.copyfile(
+        src=test_helper.SampleProjectFootball.project_dir
+        / "footballfields.ini",
+        dst=project_dir / "footballfields.ini",
+    )
+    shutil.copyfile(
         src=test_helper.sampleprojects_dir / "imagelayers.ini",
         dst=tmp_path / "imagelayers.ini",
     )
