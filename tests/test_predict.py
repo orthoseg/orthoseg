@@ -75,7 +75,7 @@ def test_predict_use_cache_skip(tmp_path, use_cache, skip_images, exp_area):
 
     footballfields_dir = testprojects_dir / "footballfields"
 
-    config_path = footballfields_dir / "footballfields_BEFL-2019_test.ini"
+    config_path = footballfields_dir / "footballfields_BEFL-2019.ini"
     conf.read_orthoseg_config(config_path=config_path)
     image_cache_dir = conf.dirs.getpath("predict_image_input_dir")
 
