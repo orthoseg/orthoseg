@@ -1,37 +1,26 @@
-# -*- coding: utf-8 -*-
-"""
-High-level API to run a segmentation.
-"""
+"""High-level API to run a segmentation."""
 
 import argparse
 import logging
-from pathlib import Path
 import pprint
-import shlex
 import sys
 import traceback
+from pathlib import Path
+from typing import Any
 
 # import os
 # os.environ["CUDA_VISIBLE_DEVICES"] = "-1" # Disable using GPU
-import tensorflow as tf
-
-from orthoseg.helpers import config_helper as conf
-from orthoseg.helpers import email_helper
-from orthoseg.lib import predicter
 import orthoseg.model.model_factory as mf
 import orthoseg.model.model_helper as mh
+from orthoseg.helpers import config_helper as conf, email_helper
+from orthoseg.lib import cleanup, predicter
 from orthoseg.util import log_util
 
 # Get a logger...
 logger = logging.getLogger(__name__)
 
 
-def predict_argstr(argstr):
-    args = shlex.split(argstr)
-    predict_args(args)
-
-
-def predict_args(args):
+def _predict_args(args) -> argparse.Namespace:
     # Interprete arguments
     parser = argparse.ArgumentParser(add_help=False)
 
@@ -51,52 +40,51 @@ def predict_args(args):
         default=argparse.SUPPRESS,
         help="Show this help message and exit",
     )
+    optional.add_argument(
+        "config_overrules",
+        nargs="*",
+        help=(
+            "Supply any number of config overrules like this: "
+            "<section>.<parameter>=<value>"
+        ),
+    )
 
-    # Interprete arguments
-    args = parser.parse_args(args)
-
-    # Run!
-    predict(config_path=Path(args.config))
+    return parser.parse_args(args)
 
 
-def predict(config_path: Path):
-    """
-    Run a prediction for the config specified.
+def predict(config_path: Path, config_overrules: list[str] | None = None):
+    """Run a prediction for the config specified.
 
     Args:
         config_path (Path): Path to the config file to use.
+        config_overrules (list[str], optional): list of config options that will
+            overrule other ways to supply configuration. They should be specified in the
+            form of "<section>.<parameter>=<value>". Defaults to None.
     """
     # Init
     # Load the config and save in a bunch of global variables zo it
     # is accessible everywhere
-    conf.read_orthoseg_config(config_path)
+    conf.read_orthoseg_config(config_path, overrules=config_overrules)
 
     # Init logging
     log_util.clean_log_dir(
         log_dir=conf.dirs.getpath("log_dir"),
-        nb_logfiles_tokeep=conf.logging.getint("nb_logfiles_tokeep"),
+        nb_logfiles_tokeep=conf.logging_conf.getint("nb_logfiles_tokeep"),
     )
-    global logger
+    global logger  # noqa: PLW0603
     logger = log_util.main_log_init(conf.dirs.getpath("log_dir"), __name__)
-
-    # Log start + send email
-    message = f"Start predict for config {config_path.stem}"
-    logger.info(message)
+    logger.info(f"Start predict for config {config_path.stem}")
     logger.debug(f"Config used: \n{conf.pformat_config()}")
-    email_helper.sendmail(message)
+    model_name = None
 
     try:
         # Read some config, and check if values are ok
-        image_layer = conf.image_layers[conf.predict["image_layer"]]
-        if image_layer is None:
-            raise Exception(
-                f"image_layer to predict is not specified in config: {image_layer}"
-            )
-        input_image_dir = conf.dirs.getpath("predict_image_input_dir")
-        if not input_image_dir.exists():
-            raise Exception(f"input image dir doesn't exist: {input_image_dir}")
+        image_layer = conf.predict["image_layer"]
+        image_layer_config = conf.image_layers.get(image_layer)
+        if image_layer_config is None:
+            raise ValueError(f"{image_layer=} is not configured in image_layers")
 
-        # TODO: add something to delete old data, predictions???
+        input_image_dir = conf.dirs.getpath("predict_image_input_dir")
 
         # Create base filename of model to use
         # TODO: is force data version the most logical, or rather implement
@@ -106,12 +94,14 @@ def predict(config_path: Path):
         if force_model_traindata_id is not None and force_model_traindata_id > -1:
             traindata_id = force_model_traindata_id
 
-        # Get the best model that already exists for this train dataset
+        # Get the best model that already exists for this train dataset,...
+        architecture_id = conf.model.getint("architecture_id")
         trainparams_id = conf.train.getint("trainparams_id")
         best_model = mh.get_best_model(
             model_dir=conf.dirs.getpath("model_dir"),
             segment_subject=conf.general["segment_subject"],
             traindata_id=traindata_id,
+            architecture_id=architecture_id,
             trainparams_id=trainparams_id,
         )
 
@@ -119,13 +109,16 @@ def predict(config_path: Path):
         if best_model is None:
             message = (
                 f"No model found in model_dir: {conf.dirs.getpath('model_dir')} for "
-                f"traindata_id: {traindata_id}"
+                f"traindata_id: {traindata_id}, architecture_id: {architecture_id}, "
+                f"trainparams_id: {trainparams_id}"
             )
             logger.critical(message)
-            raise Exception(message)
+            raise RuntimeError(message)
         else:
             model_weights_filepath = best_model["filepath"]
             logger.info(f"Best model found: {model_weights_filepath}")
+
+        model_name = f"{best_model['segment_subject']}_{best_model['traindata_id']}"
 
         # Load the hyperparams of the model
         # TODO: move the hyperparams filename formatting to get_models...
@@ -134,6 +127,16 @@ def predict(config_path: Path):
             / f"{best_model['basefilename']}_hyperparams.json"
         )
         hyperparams = mh.HyperParams(path=hyperparams_path)
+
+        # Validate the image prediction size for the model architecture
+        overlap = conf.predict.getint("image_pixels_overlap", 0)
+        input_width_pred = conf.predict.getint("image_pixel_width") + 2 * overlap
+        input_height_pred = conf.predict.getint("image_pixel_height") + 2 * overlap
+        mf.check_image_size(
+            architecture=hyperparams.architecture.architecture,
+            input_width=input_width_pred,
+            input_height=input_height_pred,
+        )
 
         # Prepare output subdir to be used for predictions
         predict_out_subdir = f"{best_model['basefilename']}"
@@ -201,10 +204,12 @@ def predict(config_path: Path):
 
         # If model isn't loaded yet... load!
         if model is None:
-            model = mf.load_model(best_model["filepath"], compile=False)
+            model, preprocess_input = mf.load_model(
+                best_model["filepath"], compile_model=False
+            )
 
         # Prepare the model for predicting
-        nb_gpu = len(tf.config.experimental.list_physical_devices("GPU"))
+        nb_gpu = mh.get_number_gpus()
         batch_size = conf.predict.getint("batch_size")
         if nb_gpu <= 1:
             model_for_predict = model
@@ -213,7 +218,9 @@ def predict(config_path: Path):
             # If multiple GPU's available, create multi_gpu_model
             try:
                 model_for_predict = model
-                logger.warn("Predict using multiple GPUs NOT IMPLEMENTED AT THE MOMENT")
+                logger.warning(
+                    "Predict using multiple GPUs NOT IMPLEMENTED AT THE MOMENT"
+                )
 
                 # logger.info(
                 #     f"Predict using multiple GPUs: {nb_gpu}, batch size becomes: "
@@ -226,7 +233,7 @@ def predict(config_path: Path):
 
         # Prepare params for the inline postprocessing of the prediction
         min_probability = conf.predict.getfloat("min_probability")
-        postprocess = {}
+        postprocess: dict[str, Any] = {}
         simplify_algorithm = conf.predict.get("simplify_algorithm")
         if simplify_algorithm is not None and simplify_algorithm != (""):
             postprocess["simplify"] = {}
@@ -249,52 +256,119 @@ def predict(config_path: Path):
 
         # Prepare the output dirs/paths
         predict_output_dir = Path(
-            f"{str(conf.dirs.getpath('predict_image_output_basedir'))}_"
-            f"{predict_out_subdir}"
+            f"{conf.dirs['predict_image_output_basedir']}_{predict_out_subdir}"
         )
         output_vector_dir = conf.dirs.getpath("output_vector_dir")
         output_vector_name = (
-            f"{best_model['basefilename']}_{best_model['epoch']}_"
-            f"{conf.predict['image_layer']}"
+            f"{best_model['basefilename']}_{best_model['epoch']}_{image_layer}"
         )
         output_vector_path = output_vector_dir / f"{output_vector_name}.gpkg"
 
-        # Predict for entire dataset
-        nb_parallel = conf.general.getint("nb_parallel")
-        predicter.predict_dir(
-            model=model_for_predict,  # type: ignore
-            input_image_dir=input_image_dir,
-            output_image_dir=predict_output_dir,
-            output_vector_path=output_vector_path,
-            classes=hyperparams.architecture.classes,
-            min_probability=min_probability,
-            postprocess=postprocess,
-            border_pixels_to_ignore=conf.predict.getint("image_pixels_overlap"),
-            projection_if_missing=image_layer["projection"],
-            input_mask_dir=None,
-            batch_size=batch_size,
-            evaluate_mode=False,
-            cancel_filepath=conf.files.getpath("cancel_filepath"),
-            nb_parallel_postprocess=nb_parallel,
-            max_prediction_errors=conf.predict.getint("max_prediction_errors"),
-        )
+        # Start predict for entire dataset
+        # --------------------------------
+        # Send email
+        email_helper.sendmail(f"Start predict for {model_name} on {image_layer}")
+
+        # Check if we should use an image cache
+        use_cache = image_layer_config.get("use_cache", "yes")
+        if use_cache == "ifavailable":
+            use_cache = (
+                "yes"
+                if input_image_dir is not None and input_image_dir.exists()
+                else "no"
+            )
+
+        # Predict!
+        if use_cache == "yes":
+            # Predict from a directory with (cached) images
+            predicter.predict_dir(
+                model=model_for_predict,
+                preprocess_input=preprocess_input,
+                input_image_dir=input_image_dir,
+                output_image_dir=predict_output_dir,
+                output_vector_path=output_vector_path,
+                classes=hyperparams.architecture.classes,
+                min_probability=min_probability,
+                postprocess=postprocess,
+                border_pixels_to_ignore=conf.predict.getint("image_pixels_overlap"),
+                projection_if_missing=image_layer_config["projection"],
+                input_mask_dir=None,
+                batch_size=batch_size,
+                evaluate_mode=False,
+                cancel_filepath=conf.files.getpath("cancel_filepath"),
+                nb_parallel_read=conf.predict.getint("nb_parallel_read", -1),
+                nb_parallel_postprocess=conf.general.getint("nb_parallel"),
+                max_prediction_errors=conf.predict.getint("max_prediction_errors"),
+            )
+        else:
+            # Predict directly from an image/layer
+            predicter.predict_layer(
+                model=model_for_predict,
+                preprocess_input=preprocess_input,
+                image_layer_config=image_layer_config,
+                image_pixel_width=conf.predict.getint("image_pixel_width"),
+                image_pixel_height=conf.predict.getint("image_pixel_height"),
+                image_pixel_x_size=conf.predict.getfloat("image_pixel_x_size"),
+                image_pixel_y_size=conf.predict.getfloat("image_pixel_y_size"),
+                image_pixels_overlap=conf.predict.getint("image_pixels_overlap", 0),
+                output_image_dir=predict_output_dir,
+                output_vector_path=output_vector_path,
+                classes=hyperparams.architecture.classes,
+                min_probability=min_probability,
+                postprocess=postprocess,
+                projection_if_missing=image_layer_config["projection"],
+                input_mask_dir=None,
+                batch_size=batch_size,
+                evaluate_mode=False,
+                cancel_filepath=conf.files.getpath("cancel_filepath"),
+                ssl_verify=conf.general.get("ssl_verify", True),
+                nb_parallel_read=conf.predict.getint("nb_parallel_read", -1),
+                nb_parallel_postprocess=conf.general.getint("nb_parallel"),
+                max_prediction_errors=conf.predict.getint("max_prediction_errors"),
+            )
 
         # Log and send mail
-        message = f"Completed predict for config {config_path.stem}"
+        message = f"Completed predict for {model_name} on {image_layer}"
         logger.info(message)
         email_helper.sendmail(message)
+
+        # Cleanup old data
+        cleanup.clean_models(
+            model_dir=conf.dirs.getpath("model_dir"),
+            versions_to_retain=conf.cleanup.getint("model_versions_to_retain"),
+            simulate=conf.cleanup.getboolean("simulate"),
+        )
+        cleanup.clean_training_data_directories(
+            training_dir=conf.dirs.getpath("training_dir"),
+            versions_to_retain=conf.cleanup.getint("training_versions_to_retain"),
+            simulate=conf.cleanup.getboolean("simulate"),
+        )
+        cleanup.clean_predictions(
+            output_vector_dir=conf.dirs.getpath("output_vector_dir"),
+            versions_to_retain=conf.cleanup.getint("prediction_versions_to_retain"),
+            simulate=conf.cleanup.getboolean("simulate"),
+        )
     except Exception as ex:
-        message = f"ERROR while running predict for task {config_path.stem}"
+        if model_name is None:
+            model_name = config_path.stem
+        message = f"ERROR in predict for {model_name} on {image_layer}"
         logger.exception(message)
         email_helper.sendmail(
             subject=message, body=f"Exception: {ex}\n\n {traceback.format_exc()}"
         )
-        raise Exception(message) from ex
+        raise RuntimeError(f"{message}: {ex}") from ex
+    finally:
+        conf.remove_run_tmp_dir()
 
 
 def main():
+    """Run predict."""
     try:
-        predict_args(sys.argv[1:])
+        # Interprete arguments
+        args = _predict_args(sys.argv[1:])
+
+        # Run!
+        predict(config_path=Path(args.config), config_overrules=args.config_overrules)
     except Exception as ex:
         logger.exception(f"Error: {ex}")
         raise

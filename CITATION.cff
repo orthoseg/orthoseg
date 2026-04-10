@@ -1,0 +1,31 @@
+cff-version: 1.2.0
+message: If you use this software, please cite it as below.
+type: software
+title: orthoseg
+version: 0.7.0
+date-released: 2025-08-01
+doi: 10.5281/zenodo.16684842
+abstract: OrthoSeg makes it easy to train neural networks to segment orthophotos.
+url: https://github.com/orthoseg/orthoseg
+repository-code: https://github.com/orthoseg/orthoseg
+license: GPL-3.0
+authors:
+  - given-names: Pieter
+    family-names: Roggemans
+    orcid: https://orcid.org/0009-0009-2046-3284
+
+keywords:
+  - python
+  - geospatial
+  - geoai
+  - remote sensing
+  - orthophotos
+  - image-classification
+  - image-segmentation
+  - maps
+  - artificial intelligence
+  - computer vision
+  - deep learning
+  - convolutional neural networks
+  - keras
+  - tensorflow

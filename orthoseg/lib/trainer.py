@@ -1,36 +1,22 @@
-# -*- coding: utf-8 -*-
-"""
-Module with high-level operations to segment images.
-"""
+"""Module with high-level operations to segment images."""
 
 import logging
 import math
-import os
+from collections.abc import Callable
 from pathlib import Path
-from typing import Tuple, Optional
+from typing import Any
 
+import keras
 import numpy as np
-import tensorflow as tf
-from tensorflow import keras as kr
-
-# import keras as kr
-
 import pandas as pd
 from PIL import Image
+from tensorflow.keras import preprocessing
 
 import orthoseg.model.model_factory as mf
 import orthoseg.model.model_helper as mh
 
-# -------------------------------------------------------------
-# First define/init some general variables/constants
-# -------------------------------------------------------------
 # Get a logger...
 logger = logging.getLogger(__name__)
-# logger.setLevel(logging.DEBUG)
-
-# -------------------------------------------------------------
-# The real work
-# -------------------------------------------------------------
 
 
 def train(
@@ -40,16 +26,16 @@ def train(
     segment_subject: str,
     traindata_id: int,
     hyperparams: mh.HyperParams,
-    model_preload_filepath: Optional[Path] = None,
+    model_preload_filepath: Path | None = None,
     image_width: int = 512,
     image_height: int = 512,
     image_subdir: str = "image",
     mask_subdir: str = "mask",
-    save_augmented_subdir: Optional[str] = None,
+    save_augmented_subdir: str | None = None,
 ):
-    """
-    Create a new or load an existing neural network and train it using
-    data from the train and validation directories specified.
+    """Create/load a neural network and train it.
+
+    Data from the train and validation directories specified for the training.
 
     The best models will be saved to model_save_dir. The filenames of the
     models will be constructed like this:
@@ -60,64 +46,25 @@ def train(
     In the scripts, if the "best model" is mentioned, this is the one with the
     highest "combined_acc".
 
-    Args
+    Args:
         traindata_dir: dir where the train data is located
         validationdata_dir: dir where the validation data is located
         model_save_dir: dir where (intermediate) best models will be saved
         segment_subject (str): segment subject
         traindata_id (int): train data version
         hyperparams (mh.HyperParams): the hyper parameters to use for the model
+        model_preload_filepath: filepath to the model to continue training on,
+            or None if you want to start from scratch
         image_width: width the input images will be rescaled to for training
         image_height: height the input images will be rescaled to for training
         image_subdir: subdir where the images can be found in traindata_dir and
             validationdata_dir
         mask_subdir: subdir where the corresponding masks can be found in traindata_dir
             and validationdata_dir
-        model_preload_filepath: filepath to the model to continue training on,
-            or None if you want to start from scratch
+        save_augmented_subdir: (str, optional): the subdirectory to save the augmented
+            images to. If None, the images aren't saved. Defaults to None.
     """
-    # These are the augmentations that will be applied to the input training
-    # images/masks.
-    # Remark: fill_mode + cval are defined as they are so missing pixels after
-    #    eg. rotation are filled with 0, and so the mask will take care that they are
-    #    +- ignored.
-
-    # Create the train generator
-    train_gen = create_train_generator(
-        input_data_dir=traindata_dir,
-        image_subdir=image_subdir,
-        mask_subdir=mask_subdir,
-        image_augment_dict=hyperparams.train.image_augmentations,
-        mask_augment_dict=hyperparams.train.mask_augmentations,
-        batch_size=hyperparams.train.batch_size,
-        target_size=(image_width, image_height),
-        nb_classes=len(hyperparams.architecture.classes),
-        save_to_subdir=save_augmented_subdir,
-        seed=2,
-    )
-
-    # Create validation generator
-    validation_augmentations = dict(
-        rescale=hyperparams.train.image_augmentations["rescale"]
-    )
-    validation_mask_augmentations = dict(
-        rescale=hyperparams.train.mask_augmentations["rescale"]
-    )
-    validation_gen = create_train_generator(
-        input_data_dir=validationdata_dir,
-        image_subdir=image_subdir,
-        mask_subdir=mask_subdir,
-        image_augment_dict=validation_augmentations,
-        mask_augment_dict=validation_mask_augmentations,
-        batch_size=hyperparams.train.batch_size,
-        target_size=(image_width, image_height),
-        nb_classes=len(hyperparams.architecture.classes),
-        save_to_subdir=save_augmented_subdir,
-        shuffle=False,
-        seed=3,
-    )
-
-    # Get the max epoch number from the log file if it exists...
+    # Get the max epoch number from log file if it exists...
     start_epoch = 0
     model_save_base_filename = mh.format_model_basefilename(
         segment_subject=segment_subject,
@@ -126,18 +73,16 @@ def train(
         trainparams_id=hyperparams.train.trainparams_id,
     )
     csv_log_filepath = model_save_dir / (model_save_base_filename + "_log.csv")
-    if csv_log_filepath.exists() and os.path.getsize(csv_log_filepath) > 0:
+    if csv_log_filepath.exists() and csv_log_filepath.stat().st_size > 0:
         if not model_preload_filepath:
             message = (
                 "log file exists but preload model file not specified: "
                 f"{csv_log_filepath}"
             )
             logger.critical(message)
-            raise Exception(message)
+            raise ValueError(message)
 
-        train_log_df = pd.read_csv(
-            csv_log_filepath, sep=";", usecols=["epoch", "lr"]
-        )
+        train_log_df = pd.read_csv(csv_log_filepath, sep=";", usecols=["epoch", "lr"])
         assert isinstance(train_log_df, pd.DataFrame)
         logger.debug(f"train_log csv contents:\n{train_log_df}")
         start_epoch = train_log_df["epoch"].max()
@@ -158,7 +103,7 @@ def train(
             freeze = False
 
         # Get the model we want to use
-        model = mf.get_model(
+        model, model_preprocess_input = mf.get_model(
             architecture=hyperparams.architecture.architecture,
             nb_channels=hyperparams.architecture.nb_channels,
             nb_classes=len(hyperparams.architecture.classes),
@@ -180,15 +125,17 @@ def train(
                 f"Error: preload model file doesn't exist: {model_preload_filepath}"
             )
             logger.critical(message)
-            raise Exception(message)
+            raise RuntimeError(message)
 
         # Load the existing model
         # Remark: compiling during load crashes, so compile 'manually'
         logger.info(f"Load model from {model_preload_filepath}")
-        model = mf.load_model(model_preload_filepath, compile=False)
+        model, model_preprocess_input = mf.load_model(
+            model_preload_filepath, compile_model=False
+        )
 
     # Now prepare the model for training
-    nb_gpu = len(tf.config.experimental.list_physical_devices("GPU"))
+    nb_gpu = mh.get_number_gpus()
 
     # TODO: because of bug in tensorflow 1.14, multi GPU doesn't work (this way),
     # so always use standard model
@@ -205,7 +152,9 @@ def train(
         # If multiple GPU's available, should create a multi-GPU model
         model_for_train = model
         logger.info(f"Train using all GPU's, with nb_gpu: {nb_gpu}")
-        logger.warn("MULTI GPU TRAINING NOT TESTED BUT WILL BE TRIED ANYWAY")
+        logger.warning("MULTI GPU TRAINING NOT TESTED BUT WILL BE TRIED ANYWAY")
+        raise NotImplementedError("Multi GPU training not implemented yet")
+        """
         strategy = tf.distribute.MirroredStrategy()
         with strategy.scope():
             model_for_train = mf.compile_model(
@@ -215,16 +164,63 @@ def train(
                 loss=hyperparams.train.loss_function,
                 class_weights=hyperparams.train.class_weights,
             )
+        """
+
+    # Prepare the data generators for training and validation that will also take care
+    # of the augmentations.
+    # Remarks:
+    #   - fill_mode + cval are defined as they are so missing pixels after
+    #     eg. rotation are filled with 0, and so the mask will take care that they are
+    #     +- ignored.
+    #   - if rescaling is included in the image augmentations, don't apply the standard
+    #     model preprocess function, as this also includes rescaling.
+    rescale_train = hyperparams.train.image_augmentations.get("rescale")
+    if rescale_train is not None:
+        model_preprocess_input = None
+
+    train_gen = create_train_generator(
+        input_data_dir=traindata_dir,
+        image_subdir=image_subdir,
+        mask_subdir=mask_subdir,
+        image_augment_dict=hyperparams.train.image_augmentations,
+        mask_augment_dict=hyperparams.train.mask_augmentations,
+        model_preprocess_input=model_preprocess_input,
+        batch_size=hyperparams.train.batch_size,
+        target_size=(image_width, image_height),
+        nb_classes=len(hyperparams.architecture.classes),
+        save_to_subdir=save_augmented_subdir,
+        seed=2,
+    )
+
+    # For validation data, don't apply augmentation except potentially rescaling.
+    validation_augm = {"rescale": rescale_train} if rescale_train is not None else {}
+    rescale_mask = hyperparams.train.mask_augmentations.get("rescale")
+    validation_mask_augm = {"rescale": rescale_mask} if rescale_mask is not None else {}
+
+    validation_gen = create_train_generator(
+        input_data_dir=validationdata_dir,
+        image_subdir=image_subdir,
+        mask_subdir=mask_subdir,
+        image_augment_dict=validation_augm,
+        mask_augment_dict=validation_mask_augm,
+        model_preprocess_input=model_preprocess_input,
+        batch_size=hyperparams.train.batch_size,
+        target_size=(image_width, image_height),
+        nb_classes=len(hyperparams.architecture.classes),
+        save_to_subdir=save_augmented_subdir,
+        shuffle=False,
+        seed=3,
+    )
 
     # Define some callbacks for the training
-    train_callbacks = []
+    train_callbacks: list[Any] = []
     # Reduce the learning rate if the loss doesn't improve anymore
-    reduce_lr = kr.callbacks.ReduceLROnPlateau(
+    reduce_lr = keras.callbacks.ReduceLROnPlateau(
         monitor="loss",
         factor=0.2,
         patience=20,
-        min_lr=1e-20,  # type: ignore
-        verbose=True,
+        min_lr=1e-20,
+        verbose=1,
     )
     train_callbacks.append(reduce_lr)
 
@@ -256,16 +252,18 @@ def train(
         tensorboard_log_dir = model_save_dir / (
             model_save_base_filename + "_tensorboard_log"
         )
-        tensorboard_logger = kr.callbacks.TensorBoard(log_dir=str(tensorboard_log_dir))
+        tensorboard_logger = keras.callbacks.TensorBoard(
+            log_dir=str(tensorboard_log_dir)
+        )
         train_callbacks.append(tensorboard_logger)
     if hyperparams.train.log_csv is True:
-        csv_logger = kr.callbacks.CSVLogger(
+        csv_logger = keras.callbacks.CSVLogger(
             str(csv_log_filepath), append=True, separator=";"
         )
         train_callbacks.append(csv_logger)
 
     # Stop if no more improvement
-    early_stopping = kr.callbacks.EarlyStopping(
+    early_stopping = keras.callbacks.EarlyStopping(
         monitor=hyperparams.train.earlystop_monitor_metric,
         patience=hyperparams.train.earlystop_patience,
         mode=hyperparams.train.earlystop_monitor_metric_mode,
@@ -328,7 +326,7 @@ def train(
                 validation_steps=validation_steps_per_epoch,
                 callbacks=train_callbacks,
                 initial_epoch=start_epoch,
-                verbose=2,  # type: ignore
+                verbose=2,
             )
             mf.set_trainable(model=model_for_train, recompile=False)
             model_for_train = mf.compile_model(
@@ -349,7 +347,7 @@ def train(
             validation_steps=validation_steps_per_epoch,
             callbacks=train_callbacks,
             initial_epoch=start_epoch,
-            verbose=2,  # type: ignore
+            verbose=2,
         )
 
         # Write some reporting
@@ -358,17 +356,19 @@ def train(
         assert isinstance(train_log_df, pd.DataFrame)
         columns_to_keep = []
         for column in train_log_df.columns:
-            if column.endswith("accuracy") or column.endswith("f1-score"):
+            if column.endswith(("accuracy", "f1-score")):
                 columns_to_keep.append(column)
 
         train_log_vis_df = train_log_df[columns_to_keep]
-        train_log_vis_df.plot().get_figure().savefig(str(train_report_path))
+        fig = train_log_vis_df.plot().get_figure()
+        if fig is not None:
+            fig.savefig(str(train_report_path))
 
     finally:
         # Release the memory from the GPU...
         # from keras import backend as K
         # K.clear_session()
-        kr.backend.clear_session()
+        keras.backend.clear_session()
 
 
 def create_train_generator(
@@ -377,19 +377,21 @@ def create_train_generator(
     mask_subdir: str,
     image_augment_dict: dict,
     mask_augment_dict: dict,
+    model_preprocess_input: Callable | None,
     batch_size: int = 32,
     image_color_mode: str = "rgb",
     mask_color_mode: str = "grayscale",
-    save_to_subdir: Optional[str] = None,
+    save_to_subdir: str | None = None,
     image_save_prefix: str = "image",
     mask_save_prefix: str = "mask",
     nb_classes: int = 1,
-    target_size: Tuple[int, int] = (256, 256),
+    target_size: tuple[int, int] = (256, 256),
     shuffle: bool = True,
     seed: int = 1,
 ):
-    """
-    Creates a generator to generate and augment train images. The augmentations
+    """Creates a generator to generate and augment train images.
+
+    The augmentations
     specified in aug_dict will be applied. For the augmentations that can be
     specified in aug_dict look at the documentation of
     keras.preprocessing.image.ImageDataGenerator
@@ -399,17 +401,24 @@ def create_train_generator(
     Remarks: * use the same seed for image_datagen and mask_datagen to ensure
                the transformation for image and mask is the same
              * set save_to_dir = "your path" to check results of the generator
+             * it is possible to convert the generator to a Dataset using
+               tf.data.Dataset.from_generator, but this halves training speed.
+                    return tf.data.Dataset.from_generator(
+                        lambda: train_gen,
+                        output_types=(tf.float32, tf.float32),
+                        output_shapes=(
+                            [None, target_size[0], target_size[1], 3],
+                            [None, target_size[0], target_size[1], nb_classes],
+                        ),
+                    )
     """
     # Init
     # Do some checks on the augmentations specified, as it is easy to
     # introduce illogical values
-    if (
-        image_augment_dict is not None
-        and mask_augment_dict is None
-        or image_augment_dict is not None
-        and mask_augment_dict is None
+    if (image_augment_dict is not None and mask_augment_dict is None) or (
+        image_augment_dict is not None and mask_augment_dict is None
     ):
-        logger.warn(
+        logger.warning(
             "Only augmentations specified for either image or mask: "
             f"image_augment_dict: {image_augment_dict}, mask_augment_dict: "
             f"{mask_augment_dict}"
@@ -418,7 +427,7 @@ def create_train_generator(
     # Checks that involve comparing augmentations between the image and the mask
     if image_augment_dict is not None and mask_augment_dict is not None:
         # If an augmentation is specified for image, it should be specified
-        # for the mask as well and the other way around to evade issues
+        # for the mask as well and the other way around to avoid issues
         for augmentation in image_augment_dict:
             if augmentation not in mask_augment_dict:
                 raise Exception(
@@ -454,7 +463,7 @@ def create_train_generator(
                 )
             # brightness_range is applied to the image, it should be [1,1] for the mask
             if mask_brightness_range[0] != 1.0 or mask_brightness_range[1] != 1.0:
-                raise Exception(
+                raise ValueError(
                     "augmentation brightness_range is specified on the image: then the "
                     f"mask should get range [1, 1], not {mask_brightness_range}"
                 )
@@ -463,7 +472,7 @@ def create_train_generator(
     if mask_augment_dict is not None:
         # Check cval value
         if "cval" in mask_augment_dict and mask_augment_dict["cval"] != 0:
-            logger.warn(
+            logger.warning(
                 "cval typically should be 0 for the mask, even if it is different for "
                 "the image, as the cval of the mask refers to these locations being of "
                 f"class 'background'. It is: {mask_augment_dict['cval']}"
@@ -497,8 +506,8 @@ def create_train_generator(
         for (key, value) in mask_augment_dict.items()
         if key != "brightness_range"
     }
-    image_datagen = kr.preprocessing.image.ImageDataGenerator(**image_augment_dict_temp)
-    mask_datagen = kr.preprocessing.image.ImageDataGenerator(**mask_augment_dict_temp)
+    image_datagen = preprocessing.image.ImageDataGenerator(**image_augment_dict_temp)
+    mask_datagen = preprocessing.image.ImageDataGenerator(**mask_augment_dict_temp)
 
     # Format save_to_dir
     # Remark: flow_from_directory doesn't support Path, so supply str immediately as
@@ -512,7 +521,7 @@ def create_train_generator(
     image_generator = image_datagen.flow_from_directory(
         directory=str(input_data_dir),
         classes=[image_subdir],
-        class_mode=None,  # type: ignore
+        class_mode=None,
         color_mode=image_color_mode,
         target_size=target_size,
         batch_size=batch_size,
@@ -525,7 +534,7 @@ def create_train_generator(
     mask_generator = mask_datagen.flow_from_directory(
         directory=str(input_data_dir),
         classes=[mask_subdir],
-        class_mode=None,  # type: ignore
+        class_mode=None,
         color_mode=mask_color_mode,
         target_size=target_size,
         batch_size=batch_size,
@@ -535,10 +544,10 @@ def create_train_generator(
         seed=seed,
     )
 
-    train_generator = zip(image_generator, mask_generator)
+    train_generator = zip(image_generator, mask_generator, strict=True)
 
     for batch_id, (image, mask) in enumerate(train_generator):
-        # Cast to arrays to evade type errors
+        # Cast to arrays to avoid type errors
         image = np.array(image)
         mask = np.array(mask)
 
@@ -552,9 +561,8 @@ def create_train_generator(
                 or image_augment_dict["brightness_range"][1] != 1
             )
         ):
-
             # Random brightness shift to apply to all images in batch
-            brightness_shift = np.random.uniform(
+            brightness_shift = np.random.uniform(  # noqa: NPY002
                 image_augment_dict["brightness_range"][0],
                 image_augment_dict["brightness_range"][1],
             )
@@ -562,7 +570,7 @@ def create_train_generator(
 
         # One-hot encode mask if multiple classes
         if nb_classes > 1:
-            mask = kr.utils.to_categorical(mask, nb_classes)
+            mask = keras.utils.to_categorical(mask, nb_classes)
 
         # Because the default save_to_dir option doesn't support saving the
         # augmented masks in seperate files per class, implement this here.
@@ -605,9 +613,8 @@ def create_train_generator(
                     im = Image.fromarray((mask_to_save * 255).astype(np.uint8))
                     im.save(mask_path)
 
+        # Apply the model preprocess function if there is one
+        if model_preprocess_input is not None:
+            image = model_preprocess_input(image)
+
         yield (image, mask)
-
-
-# If the script is ran directly...
-if __name__ == "__main__":
-    raise Exception("Not implemented")

@@ -1,12 +1,106 @@
 # CHANGELOG
 
+## 0.8.0 (????-??-??)
+
+### Deprecations and compatibility notes
+
+- Using `rescale` as augmentation is not allowed anymore as the rescaling of input
+  images will now be done via the keras.application `preprocess_input' function of the
+  backbone model used (#314).
+
+### Improvements
+
+- Add support to reproject a local image layer (#290)
+- Improve handling of `switch_axes` and `ssl_verify` (#295)
+- Add proper support for keras 3:
+    - Use `categorical_focal_crossentropy` by default on keras 3 (#312)
+    - Use [segmodels_keras](https://github.com/orthoseg/segmodels_keras) (#311)
+    - Avoid unneeded direct use of tensorflow (#304, #313)
+- Use keras.applications `preprocess_input` functions to prepare inputs (#314)
+- Add retry for ARCGIS WMS server errors (#305)
+- Add retry when reading vrt layers (#307)
+
+### Bugs fixed
+
+- Fix use of username/password for WMS image layer (#294)
+- Fix models not being saved if architecture_id != 1 (#310)
+
+## 0.7.0 (2025-08-01)
+
+### Deprecations and compatibility notes
+
+- Add support + tests for recent tensorflow versions (2.19 at time of writing) (#217)
+- Update minimal dependencies. Most notable ones: drop support of python 3.9,
+  geopandas >=1.0, geofileops >= 0.10. (#229, #230, #271)
+
+### Improvements
+
+- Support reading images directly from the datasource while predicting (#228, #231)
+- Add support to load images from a WMTS service and document the option to use the
+  [GDAL WMS driver](https://gdal.org/en/stable/drivers/raster/wms.html) to use several
+  other service types like TMS, XYZ,... (#207)
+- Make image format for downloaded images configurable (#204)
+- Add validations on the augmentation configuration (#214)
+- Add support to reuse one training dataset for multiple train resolutions (#244)
+- Improve performance of `predict_dir` for `evaluation_mode` (#236)
+- In `clean_project_dir`, use the unique traindata versions of the files present to
+  determine the number of versions to remove (#254)
+- Make `load_images` more robust by ignoring some filesystem errors that occur sometimes
+  but that don't seem to give actual issues (#216, #2019)
+- Small improvements to logging, error messages,... (#198, #218, #247)
+- Add some examples of existing segmentation results to docs (#283)
+
+### Bugs fixed
+
+- Avoid error if a training dataset contains 2 identical locations (#205)
+- Avoid error with mixed usage of label name and classname columns in polygon train
+  files (#237)
+
+## 0.6.1 (2024-08-12)
+
+### Bugs fixed
+
+- Fix error in `prepare_traindatasets` when a polygons training dataset is empty
+  (#192, #193)
+- Fix error in `train` when a model was saved and the next epoch should not be retained
+  (#195)
+
+## 0.6.0 (2024-07-26)
+
+### Deprecations and compatibility notes
+
+- Change default nb_concurrent_calls when downloading layer to 1 instead of 6 (##149)
+- Update dependencies: geopandas, ruff,... + drop support for pygeos (#179)
+
+### Improvements
+
+- Add command to (only) validate a training dataset (#133)
+- Add options to improve control of output of postprocess (#167)
+- Add support to train subject on different pixel sizes (#143, #174)
+- Add support to overrule configuration parameters via command line arguments (#152)
+- Add option(s) to do automatic cleanup of "old" models, predictions and training data
+  directories (#52)
+- In prepare_trainingdata, reuse images already available in previous version (#170)
+- Several small improvements to logging, documentation,... (#128, #180, #185)
+- Apply pyupgrade (python >= 3.9), pydocstyle, isort and mypy (#181, #182, #184, #187)
+
+### Bugs fixed
+
+- Fix check that traindataset has validation samples should not be per file (#131)
+- Fix support for WMS username/password (#146)
+- Fix train gives an error after training if there are no "test" locations defined (#165)
+- Ignore occassional irrelevant errors thrown during `load_images` (#186)
+
 ## 0.5.0 (2023-07-27)
+
+### Deprecations and compatibility notes
+
+- Support geopandas 0.13 + remove dependency on pygeos (#121)
 
 ### Improvements
 
 - Add support to train and detect on local image file layer (#111)
 - Add check that train and validation data is mandatory (#118)
-- Support geopandas 0.13 + remove dependency on pygeos (#121)
 - Improve performance of prepare_traindatasets for large label files (#116)
 - Use [pygeoops](https://github.com/pygeoops/pygeoops) for inline simplification during
   predict (#123):
@@ -31,6 +125,11 @@
 
 ## 0.4.1 (2023-01-20)
 
+### Deprecations and compatibility notes
+
+- Remove old model architectures: standard+unet and ternaus+unet (#82)
+- Add support for shapely 2 (#92)
+
 ### Improvements
 
 - Avoid warning blockysize is not supported for jpeg when downloading images (#77)
@@ -38,7 +137,6 @@
 - Add option to specify reclassify to neighbour query as postprocessing (#86, #88)
 - Reuse sample_project for tests so it is tested as well (#81)
 - Improve test coverage (#79, #82, #83)
-- Add support for shapely 2 (#92)
 
 ### Bugs fixed
 
@@ -48,11 +146,13 @@
 - Fix error when prediction output dir doesn't exist yet (#75)
 - Fix reclassify_to_neighbours giving undetermined result when 2+ neighbours are reclassification candidates (#84)
 
+## 0.4.0 (2022-11-14)
+
 ### Deprecations and compatibility notes
 
-- Remove old model architectures: standard+unet and ternaus+unet (#82)
-
-## 0.4.0 (2022-11-14)
+- Support newer versions of used packages (#59, #61, #62)
+- Disable default simplify in postprocess (#32)
+- Command 'scriptrunner' renamed to 'osscriptrunner' (#59)
 
 ### Improvements
 
@@ -72,16 +172,14 @@
 - Add option to disable ssl verification when downloading sample projects (#64)
 - Apply black formatting to comply with pep8 (#27)
 - Enable running CI tests using github actions (#42, #67)
-- Support newer versions of used packages (#59, #61, #62)
-
-### Deprecations and compatibility notes
-
-- Disable default simplify in postprocess (#32)
-- Command 'scriptrunner' renamed to 'osscriptrunner' (#59)
 
 ## 0.3.0 (2022-02-10)
 
 Highlights for this release are a feature to be able to combine bands from different WMS layers to one (3 band) input layer, performance improvements,...
+
+### Deprecations and compatibility notes
+
+- Update dependencies, eg. tensorflow 2.8, geofileops 0.3, geopandas 0.10,...
 
 ### Improvements
 
@@ -93,7 +191,6 @@ Highlights for this release are a feature to be able to combine bands from diffe
 - Improve/update documentation + sample project
 - Improve prediction performance (#5)
 - Improve logging
-- Update dependencies, eg. tensorflow 2.8, geofileops 0.3, geopandas 0.10,...
 
 ### Bugs fixed
 
@@ -108,6 +205,10 @@ For typical segmentation projects the changes should be backwards compatible. If
 train.image_augmentations, train.mask_augmentations
 train.classes
 
+### Deprecations and compatibility notes
+
+- Update tensorflow dependency to 2.4
+
 ### Improvements
 
 - Add support for multiclass classification: check out the train.classes parameter in project_defaults.ini
@@ -118,13 +219,12 @@ train.classes
   parameters in project_defaults.ini
 - Make postprocessing steps to be done configurable in config files: check out the
   postprocess section in project_defaults.ini
-- Vectorize predictions on-the-fly during prediction to evade need for large temporary storage
+- Vectorize predictions on-the-fly during prediction to avoid need for large temporary storage
 - Add end-to-end tests using a test project
 - Add option to save augmented images during training for troubleshooting: check out
   the train.save_augmented_subdir parameter in project_defaults.ini
 - Cleanup support for uninteresting models
 - Improve logging, progress reporting, type annotations
-- Update tensorflow dependency to 2.4
 
 ### Bugs fixed
 

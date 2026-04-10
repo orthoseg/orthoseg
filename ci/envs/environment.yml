@@ -1,0 +1,37 @@
+# This is the standard environment with recent version of all dependencies.
+#
+# Note: only supports linux-64, as tensorflow on conda-forge is only available for this
+#       platform.
+name: orthoseg
+channels:
+  - conda-forge
+dependencies:
+  - python <3.13
+  - pip
+  # required
+  - gdal
+  - gdown
+  - geofileops >=0.10
+  - geopandas-base >=1.0
+  - matplotlib-base
+  - numpy
+  - owslib
+  - pandas
+  - pillow
+  - pycron
+  - pygeoops >=0.4
+  - pyproj
+  - rasterio
+  - shapely >=2
+  - scikit-image
+  - simplification
+  # Tensorflow is only availabla for linux-64 on conda-forge.
+  # Will resolve to tensorflow-gpu if a compatible GPU is available
+  - tensorflow >=2.8
+  # testing
+  - pytest
+  - pytest-cov
+  - pytest-order
+  - pip:
+    - segmodels-keras
+    - orthoseg >=0.6

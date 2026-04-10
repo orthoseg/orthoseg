@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Some functions to cleanup files ad-hoc...
 """
@@ -8,7 +7,6 @@ from pathlib import Path
 
 
 def movefiles(dir_src, dir_dest, filename_list_filepath):
-
     # Read the filenames from file
     filenames = []
     with open(filename_list_filepath, "r") as file:
@@ -62,7 +60,6 @@ def movefile_go():
 
 
 def remove_wrong_files_from_cache(cachedir: Path):
-
     # Get list of all image files to process...
     cache_filepaths = cachedir.rglob("*.*")
 

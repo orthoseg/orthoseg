@@ -4,21 +4,28 @@
 name: Tests
 
 on:
+  workflow_dispatch:
   push:
-    branches: [ master, 0.** ]
+    branches: [ main, 0.** ]
   pull_request:
-    branches: [ master, 0.** ]
+    branches: [ main, 0.** ]
+    paths-ignore:
+      - "docs/**"
+      - ".github/workflows/tests_installed.yml"
+      - "*.md"
+      - "*.yml"
   schedule:
-    - cron: "0 0 * * *"
+    # Run every Tuesday at 2:40 UTC
+    - cron: "40 2 * * 2"
 
 concurrency: 
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-
   Test:
-    name: ${{ matrix.os }}, ${{ matrix.env }}
+    name: ${{ matrix.env }} - python ${{ matrix.python }} - ${{ matrix.os }} - ${{ matrix.extra }}
+    timeout-minutes: 30
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -28,32 +35,69 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         dev: [false]
-        env:
-          - ci/envs/38-latest.yaml
-          - ci/envs/39-latest.yaml
-          - ci/envs/310-latest.yaml
+        python: ["3.10", "3.11", "3.12"]
+        env: ["latest"]
+        extra: [""]
         include:
-          - env: ci/envs/310-latest.yaml
+          - env: latest
+            os: ubuntu-latest
+            dev: false
+            python: "3.12"
+            extra: tensorflow
+          - env: latest
+            os: ubuntu-latest
+            dev: false
+            python: "3.12"
+            extra: jax
+          - env: latest-tf-pip
             os: macos-latest
             dev: false
-          - env: ci/envs/310-latest.yaml
+            python: "3.12"
+          - env: latest-tf-pip
             os: windows-latest
             dev: false
-            
-    steps:
-      - uses: actions/checkout@v2
+            python: "3.12"
+          - env: latest-tf-pip
+            os: ubuntu-latest
+            dev: false
+            python: "3.12"
+          - env: minimal
+            os: windows-latest
+            dev: false
+            python: "3.10"
+          - env: minimal
+            os: ubuntu-latest
+            dev: false
+            python: "3.10"
 
-      - name: Setup Conda
-        uses: conda-incubator/setup-miniconda@v2
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Conda environment with Micromamba
+        uses: mamba-org/setup-micromamba@v3
         with:
-          environment-file: ${{ matrix.env }}
-          miniforge-version: latest
-          miniforge-variant: Mambaforge
-          use-mamba: true
+          micromamba-version: "2.5.0-1"
+          environment-file: ci/envs/${{ matrix.env }}.yml
+          create-args: >-
+            python=${{ matrix.python }}
+            ${{ matrix.extra }}
+
+      - name: Set KERAS_BACKEND if needed
+        if: matrix.extra == 'jax'
+        run: echo "KERAS_BACKEND=jax" >> $GITHUB_ENV
+
+      - name: Print installed versions and keras backend
+        run: |
+          python -c "import sys; print('Python version:', sys.version)"
+          python -c "import orthoseg; print('orthoseg version:', orthoseg.__version__)"
+          python -c "import tensorflow as tf; print('TensorFlow version:', tf.__version__)"
+          python -c "import keras; print('Keras version:', keras.__version__); print('Keras backend:', keras.backend.backend())"
 
       - name: Test
         run: |
           pytest --color=yes --cov=orthoseg --cov-append --cov-report term-missing --cov-report xml tests/
 
-      - uses: codecov/codecov-action@v2
-      
+      - name: Upload coverage reports to Codecov with GitHub Action
+        uses: codecov/codecov-action@v6
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

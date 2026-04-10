@@ -1,9 +1,13 @@
+"""Configuration setting to build the orthoseg package."""
+
+from pathlib import Path
+
 import setuptools
 
-with open("README.md", "r") as fh:
+with Path("README.md").open() as fh:
     long_description = fh.read()
 
-with open("orthoseg/version.txt", mode="r") as file:
+with Path("orthoseg/version.txt").open() as file:
     version = file.readline()
 
 setuptools.setup(
@@ -18,22 +22,27 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     include_package_data=True,
     install_requires=[
+        "gdal",
         "gdown",
-        "geofileops>=0.6,<0.8",
-        "geopandas>=0.12",
+        "geofileops>=0.10",
+        "geopandas>=1.0",
+        "matplotlib",
+        "numpy",
         "owslib",
+        "pandas",
         "pillow",
         "pycron",
-        "pygeoops>=0.2,<0.3",
+        "pygeoops>=0.4",
         "rasterio",
-        "segmentation-models>=1.0,<1.1",
+        "segmodels-keras",
         "shapely>=2",
         "simplification",
-        "tensorflow>=2.7,<2.11",
+        "tensorflow>=2.8",
     ],
     entry_points="""
             [console_scripts]
             orthoseg_load_images=orthoseg.load_images:main
+            orthoseg_validate=orthoseg.validate:main
             orthoseg_train=orthoseg.train:main
             orthoseg_predict=orthoseg.predict:main
             orthoseg_postprocess=orthoseg.postprocess:main
@@ -44,5 +53,5 @@ setuptools.setup(
         "Programming Language :: Python :: 3",
         "Operating System :: OS Independent",
     ],
-    python_requires=">=3.8",
+    python_requires=">=3.10",
 )

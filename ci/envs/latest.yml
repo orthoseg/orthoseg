@@ -1,0 +1,31 @@
+# This is the standard environment with recent version of all dependencies.
+name: orthoseg-latest
+channels:
+  - conda-forge
+dependencies:
+  - python <3.13
+  - pip
+  # required
+  - gdal
+  - gdown
+  - geofileops >=0.10
+  - geopandas-base >=1.0
+  - matplotlib-base
+  - numpy
+  - owslib
+  - pandas
+  - pillow
+  - pycron
+  - pygeoops >=0.4
+  - pyproj
+  - rasterio
+  - shapely >=2
+  - scikit-image
+  - simplification
+  - tensorflow-cpu >=2.8
+  # testing
+  - pytest
+  - pytest-cov
+  - pytest-order
+  - pip:
+    - segmodels-keras

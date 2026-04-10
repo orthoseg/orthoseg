@@ -1,22 +1,70 @@
-# -*- coding: utf-8 -*-
 """
 Helper functions for all tests.
 """
 
 import logging
-from pathlib import Path
+import os
 import tempfile
-from typing import Optional
+from pathlib import Path
+from typing import ClassVar
 
+import gdown
 import geopandas as gpd
 from shapely import geometry as sh_geom
 
+sampleprojects_dir = Path(__file__).resolve().parent.parent / "sample_projects"
+
+
+class SampleProjectFootball:
+    project_dir = sampleprojects_dir / "footballfields"
+    predict_config_path = project_dir / "footballfields_BEFL-2019_test.ini"
+    train_config_path = project_dir / "footballfields_train_test.ini"
+
+    @staticmethod
+    def download_model(dst_dir):
+        cache_dir = Path(tempfile.gettempdir()) / "orthoseg_test_cache"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+
+        model_name = "footballfields_01_0.97392_201.hdf5"
+        model_hyperparams_name = "footballfields_01_hyperparams.json"
+        model_modeljson_name = "footballfields_01_model.json"
+
+        model_hdf5_cache_path = cache_dir / model_name
+        if not model_hdf5_cache_path.exists():
+            gdown.download(
+                id="1UlNorZ74ADCr3pL4MCJ_tnKRNoeZX79g",
+                output=str(model_hdf5_cache_path),
+            )
+        if not (dst_dir / model_name).exists():
+            os.link(model_hdf5_cache_path, dst_dir / model_name)
+
+        model_hyperparams_cache_path = cache_dir / model_hyperparams_name
+        if not model_hyperparams_cache_path.exists():
+            gdown.download(
+                id="1NwrVVjx9IsjvaioQ4-bkPMrq7S6HeWIo",
+                output=str(model_hyperparams_cache_path),
+            )
+        if not (dst_dir / model_hyperparams_name).exists():
+            os.link(model_hyperparams_cache_path, dst_dir / model_hyperparams_name)
+
+        model_modeljson_cache_path = cache_dir / model_modeljson_name
+        if not model_modeljson_cache_path.exists():
+            gdown.download(
+                id="1LNPLypM5in3aZngBKK_U4Si47Oe97ZWN",
+                output=str(model_modeljson_cache_path),
+            )
+        if not (dst_dir / model_modeljson_name).exists():
+            os.link(model_modeljson_cache_path, dst_dir / model_modeljson_name)
+
+
+class SampleProjectTemplate:
+    project_dir = sampleprojects_dir / "project_template"
+
 
 class TestData:
-    testdata_dir = Path(__file__).resolve().parent / "data"
-    sampleprojects_dir = Path(__file__).resolve().parent.parent / "sample_projects"
+    dir = Path(__file__).resolve().parent / "data"
 
-    classes = {
+    classes: ClassVar = {
         "background": {
             "labelnames": ["ignore_for_train", "background"],
             "weight": 1,
@@ -62,7 +110,7 @@ class TestData:
             "path": "/tmp/locations.gdf",
         },
         crs="epsg:31370",
-    )  # type: ignore
+    )
     polygons_gdf = gpd.GeoDataFrame(
         {
             "geometry": [polygon, polygon],
@@ -70,10 +118,10 @@ class TestData:
             "path": "/tmp/polygons.gdf",
         },
         crs="epsg:31370",
-    )  # type: ignore
+    )
 
 
-def create_tempdir(base_dirname: str, parent_dir: Optional[Path] = None) -> Path:
+def create_tempdir(base_dirname: str, parent_dir: Path | None = None) -> Path:
     # Parent
     if parent_dir is None:
         parent_dir = Path(tempfile.gettempdir())

@@ -1,0 +1,33 @@
+# This is the environment used for building the documentation on ReadTheDocs.
+name: orthosegdoc
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - python =3.12
+  - pip
+  # required
+  - gdal
+  - gdown
+  - geofileops >=0.10
+  - geopandas-base >=1.0
+  - matplotlib-base
+  - numpy
+  - owslib
+  - pandas
+  - pillow
+  - pycron
+  - pygeoops >=0.4
+  - pyproj
+  - rasterio
+  - shapely >=2
+  - scikit-image
+  - simplification
+  - tensorflow-cpu >=2.8
+  # docs
+  - pydata-sphinx-theme
+  - sphinx
+  - sphinx-automodapi
+  - sphinx-copybutton
+  - pip:
+    - segmodels-keras

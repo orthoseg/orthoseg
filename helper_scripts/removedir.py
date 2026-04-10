@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Delete a directory faster (in windows)
 """
