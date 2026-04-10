@@ -48,7 +48,7 @@ def test_predict_error_handling():
     """Force an error so the general error handler in predict is tested."""
     with pytest.raises(
         RuntimeError,
-        match="ERROR in predict for footballfields_BEFL-2019_test on UNEXISTING",
+        match="ERROR in predict for footballfields_BEFL-2019 on UNEXISTING",
     ):
         predict(
             config_path=test_helper.SampleProjectFootball.predict_config_path,
