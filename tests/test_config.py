@@ -87,7 +87,7 @@ def test_read_orthoseg_config_train_overrules(overrules, expected_image_layer):
     kwargs = {}
     if overrules is not None:
         kwargs["overrules"] = overrules
-    conf.read_orthoseg_config(SampleProjectFootball.train_config_path, **kwargs)
+    conf.read_orthoseg_config(SampleProjectFootball.config_path, **kwargs)
 
     image_layer = conf.train.get("image_layer")
     if expected_image_layer is None:

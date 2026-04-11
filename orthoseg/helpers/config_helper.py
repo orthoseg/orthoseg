@@ -146,7 +146,7 @@ def read_orthoseg_config(config_path: Path, overrules: list[str] | None = None):
     segment_subject = general.get("segment_subject")
     if segment_subject is None or segment_subject == "MUST_OVERRIDE":
         raise ValueError(
-            "Projectconfig parameter general.segment_subject needs to be overruled to"
+            "Projectconfig parameter general.segment_subject needs to be overruled to "
             "a proper name in a specific project config file, \nwith config_filepaths "
             f"{config_paths}"
         )
