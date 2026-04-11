@@ -81,6 +81,8 @@ def read_orthoseg_config(config_path: Path, overrules: list[str] | None = None):
     _set_tmp_dir()
 
     # Determine list of config files that should be loaded
+    # Support using ~ in the config path by expanding it
+    config_path = config_path.expanduser()
     config_paths = config_util.get_config_files(config_path)
 
     # If there are overrules, write them to a temporary configuration file.
