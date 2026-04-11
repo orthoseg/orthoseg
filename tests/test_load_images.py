@@ -34,7 +34,7 @@ def test_load_images_error_handling():
     """Force an error so the general error handler in predict is tested."""
     with pytest.raises(
         RuntimeError,
-        match="ERROR in load_images for footballfields_BEFL-2019_test",
+        match="ERROR in load_images for footballfields_BEFL-2019",
     ):
         load_images(
             config_path=test_helper.SampleProjectFootball.predict_config_path,
@@ -63,7 +63,7 @@ def test_load_images(tmp_path, overrules, exp_image_count):
 
     # Run task to load images
     orthoseg.load_images(
-        footballfields_dir / "footballfields_BEFL-2019_test.ini",
+        footballfields_dir / "footballfields_BEFL-2019.ini",
         config_overrules=overrules,
     )
 
