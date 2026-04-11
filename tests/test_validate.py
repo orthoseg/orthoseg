@@ -65,25 +65,14 @@ def test_validate_args(args):
 
 def test_validate_error(tmp_path):
     # Create test project
-    project_dir = tmp_path / "footballfields"
-    project_dir.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(
-        src=test_helper.SampleProjectFootball.project_dir
-        / "footballfields_BEFL-2019.ini",
-        dst=project_dir / "footballfields_BEFL-2019.ini",
-    )
-    shutil.copyfile(
-        src=test_helper.SampleProjectFootball.project_dir / "footballfields.ini",
-        dst=project_dir / "footballfields.ini",
-    )
-    shutil.copyfile(
-        src=test_helper.sampleprojects_dir / "imagelayers.ini",
-        dst=tmp_path / "imagelayers.ini",
-    )
+    project_dir = test_helper.SampleProjectFootball.project_dir
+    tmp_project_dir = tmp_path / "footballfields"
+    tmp_project_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy(src=project_dir / "footballfields_BEFL-2019.ini", dst=tmp_project_dir)
+    shutil.copy(src=project_dir / "footballfields.ini", dst=tmp_project_dir)
+    shutil.copy(src=test_helper.sampleprojects_dir / "imagelayers.ini", dst=tmp_path)
 
     with pytest.raises(
         RuntimeError, match="ERROR in validate for footballfields_BEFL-2019"
     ):
-        orthoseg.validate(
-            config_path=project_dir / "footballfields_BEFL-2019.ini",
-        )
+        orthoseg.validate(config_path=tmp_project_dir / "footballfields_BEFL-2019.ini")
