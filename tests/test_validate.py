@@ -18,7 +18,7 @@ def test_validate(tmp_path):
     shutil.copytree(test_helper.sampleprojects_dir, testprojects_dir)
 
     # Load project config to init some vars.
-    config_path = footballfields_dir / SampleProjectFootball.train_config_path.name
+    config_path = footballfields_dir / SampleProjectFootball.config_path.name
     conf.read_orthoseg_config(config_path)
 
     # Init + cleanup result dirs
