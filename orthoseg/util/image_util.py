@@ -1045,7 +1045,7 @@ def load_image(
                                 ex
                             ) and "http.400:" in str(ex):
                                 logger.debug(
-                                    f"Request for bbox {bbox_with_border} gave an "
+                                    f"Request for bbox {bbox_local} gave an "
                                     f"exception, try again in {time_sleep} s: {ex}"
                                 )
                             else:
