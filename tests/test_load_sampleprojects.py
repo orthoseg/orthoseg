@@ -1,15 +1,14 @@
 """Tests for module load_sampleprojects."""
 
-import os
-import platform
+import filecmp
 import shutil
-import sys
 from pathlib import Path
 
 import pytest
 
 from orthoseg import load_sampleprojects
 from orthoseg.load_sampleprojects import _parse_load_sampleprojects_args
+from tests import test_helper
 
 
 def get_testdata_dir() -> Path:
@@ -63,3 +62,47 @@ def test_load_sampleprojects(tmp_path):
     assert len(files) > 0
     files = list((projecttemplate_dir / "labels").glob("**/*.gpkg"))
     assert len(files) == 2
+
+    # Compare the loaded files with the current sampleprojects in the repository
+    _assert_dirs_equal(sampleprojects_dir, test_helper.sampleprojects_dir)
+
+
+def _assert_dirs_equal(dir1: Path, dir2: Path):
+    """Compare two directories recursively.
+
+    Files in each directory are assumed to be equal if their names and contents are
+    equal.
+
+    Inspired by: https://stackoverflow.com/a/6681395/10096091
+
+    Args:
+        dir1: First directory path
+        dir2: Second directory path
+    """
+    dirs_cmp = filecmp.dircmp(dir1, dir2)
+    if len(dirs_cmp.left_only) > 0:
+        raise AssertionError(
+            f"{dir1} contains files not found in {dir2}: {dirs_cmp.left_only}"
+        )
+    elif len(dirs_cmp.right_only) > 0:
+        raise AssertionError(
+            f"{dir2} contains files not found in {dir1}: {dirs_cmp.right_only}"
+        )
+    elif len(dirs_cmp.funny_files) > 0:
+        raise AssertionError(
+            f"files found in {dir1} and {dir2} that could not be compared: "
+            f"{dirs_cmp.funny_files}"
+        )
+
+    (_, mismatch, errors) = filecmp.cmpfiles(
+        dir1, dir2, dirs_cmp.common_files, shallow=False
+    )
+    if len(mismatch) > 0 or len(errors) > 0:
+        raise AssertionError(
+            f"dir {dir1} and {dir2} contain files that do not match: {mismatch}, "
+            f"errors: {errors}"
+        )
+    for common_dir in dirs_cmp.common_dirs:
+        new_dir1 = dir1 / common_dir
+        new_dir2 = dir2 / common_dir
+        _assert_dirs_equal(new_dir1, new_dir2)
