@@ -94,14 +94,22 @@ def _assert_dirs_equal(dir1: Path, dir2: Path):
             f"{dirs_cmp.funny_files}"
         )
 
-    (_, mismatch, errors) = filecmp.cmpfiles(
-        dir1, dir2, dirs_cmp.common_files, shallow=False
-    )
-    if len(mismatch) > 0 or len(errors) > 0:
-        raise AssertionError(
-            f"dir {dir1} and {dir2} contain files that do not match: {mismatch}, "
-            f"errors: {errors}"
-        )
+    def cmpfiles_no_crlf(path_1: Path, path_2: Path):
+        l1 = l2 = "1"
+        with path_1.open("r") as f1, path_2.open("r") as f2:
+            while l1 and l2:
+                l1 = f1.readline()
+                l2 = f2.readline()
+                if l1 != l2:
+                    return False
+        return True
+
+    for name in dirs_cmp.common_files:
+        path1 = dir1 / name
+        path2 = dir2 / name
+        if not cmpfiles_no_crlf(path1, path2):
+            raise AssertionError(f"Files {path1} and {path2} do not match")
+
     for common_dir in dirs_cmp.common_dirs:
         new_dir1 = dir1 / common_dir
         new_dir2 = dir2 / common_dir
