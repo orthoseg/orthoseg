@@ -2,11 +2,12 @@
 
 import filecmp
 import shutil
+from packaging.version import Version
 from pathlib import Path
 
 import pytest
 
-from orthoseg import load_sampleprojects
+from orthoseg import __version__, load_sampleprojects
 from orthoseg.load_sampleprojects import _parse_load_sampleprojects_args
 from tests import test_helper
 
@@ -34,7 +35,7 @@ def test_load_images_args(args, exp_ssl_verify):
         assert valid_args["ssl_verify"] == exp_ssl_verify
 
 
-def test_load_sampleprojects(tmp_path):
+def test_load_sampleprojects(request, tmp_path):
     sampleprojects_dir = tmp_path / "sample_projects"
     shutil.rmtree(sampleprojects_dir, ignore_errors=True)
     load_sampleprojects.load_sampleprojects(dest_dir=sampleprojects_dir.parent)
@@ -64,10 +65,29 @@ def test_load_sampleprojects(tmp_path):
     assert len(files) == 2
 
     # Compare the loaded files with the current sampleprojects in the repository
-    _assert_dirs_equal(sampleprojects_dir, test_helper.sampleprojects_dir)
+    # For pre-release versions, xfail as the sampleprojects may still differ
+    if Version(__version__).is_prerelease:
+        request.node.add_marker(
+            pytest.mark.xfail(
+                reason="prerelease: loaded sampleprojects may differ from repository"
+            )
+        )
+
+    # Downloaded models are not present in the repository, so ignore.
+    _assert_dirs_equal(
+        sampleprojects_dir,
+        test_helper.sampleprojects_dir,
+        ignore=["models"],
+        ignore_crlf_suffixes=[".ini", ".py", ".txt", ".xml"],
+    )
 
 
-def _assert_dirs_equal(dir1: Path, dir2: Path):
+def _assert_dirs_equal(
+    dir1: Path,
+    dir2: Path,
+    ignore: list[str] | None = None,
+    ignore_crlf_suffixes: list[str] | None = None,
+):
     """Compare two directories recursively.
 
     Files in each directory are assumed to be equal if their names and contents are
@@ -78,8 +98,11 @@ def _assert_dirs_equal(dir1: Path, dir2: Path):
     Args:
         dir1: First directory path
         dir2: Second directory path
+        ignore: List of file or directory names to ignore
+        ignore_crlf_suffixes: List of file name suffixes for which to ignore differences
+        in line endings (CRLF vs LF)
     """
-    dirs_cmp = filecmp.dircmp(dir1, dir2)
+    dirs_cmp = filecmp.dircmp(dir1, dir2, ignore=ignore)
     if len(dirs_cmp.left_only) > 0:
         raise AssertionError(
             f"{dir1} contains files not found in {dir2}: {dirs_cmp.left_only}"
@@ -107,10 +130,16 @@ def _assert_dirs_equal(dir1: Path, dir2: Path):
     for name in dirs_cmp.common_files:
         path1 = dir1 / name
         path2 = dir2 / name
-        if not cmpfiles_no_crlf(path1, path2):
-            raise AssertionError(f"Files {path1} and {path2} do not match")
+        if ignore_crlf_suffixes is not None and path1.suffix in ignore_crlf_suffixes:
+            if not cmpfiles_no_crlf(path1, path2):
+                raise AssertionError(f"Files {path1} and {path2} do not match")
+        else:  # noqa: PLR5501
+            if not filecmp.cmp(path1, path2, shallow=False):
+                raise AssertionError(f"Files {path1} and {path2} do not match")
 
     for common_dir in dirs_cmp.common_dirs:
         new_dir1 = dir1 / common_dir
         new_dir2 = dir2 / common_dir
-        _assert_dirs_equal(new_dir1, new_dir2)
+        _assert_dirs_equal(
+            new_dir1, new_dir2, ignore=ignore, ignore_crlf_suffixes=ignore_crlf_suffixes
+        )
