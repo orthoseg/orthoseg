@@ -24,6 +24,7 @@
 
 - Add retry for ARCGIS WMS server errors (#305)
 - Add retry when reading vrt layers (#307)
+- Improve handling of read errors during prediction (#325)
 - Use small mobilenetv2 model instead of the default in footballfield sample project
   (#130)
 - Don't download sample projects from git repo (#323)
