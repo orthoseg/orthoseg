@@ -2,12 +2,14 @@
 
 import argparse
 import logging
+import shutil
 import sys
+import tempfile
+import urllib.request
+import zipfile
 from pathlib import Path
 
 import gdown
-
-from orthoseg.util import git_downloader
 
 # Get a logger...
 logger = logging.getLogger(__name__)
@@ -66,11 +68,27 @@ def load_sampleprojects(dest_dir: Path, ssl_verify: bool | None = None):
 
     # Download
     print(f"Start download of sample projects to {dest_dir_full!s}")
-    git_downloader.download(
-        repo_url="https://github.com/orthoseg/orthoseg/tree/main/sample_projects",
-        output_dir=dest_dir,
-        ssl_verify=ssl_verify,
-    )
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
+        # Download the sample projects to a temporary directory first
+        url = "https://github.com/orthoseg/orthoseg_sample_projects/archive/refs/tags/v0.1.0.zip"
+        tmp_zip_path = Path(tmp_dir) / "sample_projects.zip"
+        urllib.request.urlretrieve(url, tmp_zip_path)
+
+        # Unzip the downloaded file
+        tmp_proj_dir = Path(tmp_dir) / "sample_projects_tmp"
+        with zipfile.ZipFile(tmp_zip_path, "r") as zip_file:
+            zip_file.extractall(tmp_proj_dir)
+        # Get the single subdirectory in the unzipped folder
+        subdirs = [d for d in tmp_proj_dir.iterdir() if d.is_dir()]
+        if len(subdirs) != 1:
+            raise ValueError(
+                f"Expected exactly one subdirectory, but found {len(subdirs)}"
+            )
+
+        # Move the unzipped sample projects to the destination directory
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        shutil.move(subdirs[0] / "sample_projects", dest_dir)
+
     print("Download finished")
 
     print("Start download of footballfields pretrained neural net")
