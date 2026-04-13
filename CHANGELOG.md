@@ -18,7 +18,7 @@
     - Avoid unneeded direct use of tensorflow (#304, #313)
 - Use keras.applications `preprocess_input` functions to prepare inputs (#314)
 
-## 0.7.1 (2026-04-10)
+## 0.7.1 (2026-04-13)
 
 ### Improvements
 
@@ -26,6 +26,7 @@
 - Add retry when reading vrt layers (#307)
 - Use small mobilenetv2 model instead of the default in footballfield sample project
   (#130)
+- Don't download sample projects from git repo (#323)
 
 ### Bugs fixed
 
