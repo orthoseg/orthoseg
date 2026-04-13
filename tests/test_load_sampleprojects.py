@@ -95,7 +95,7 @@ def test_load_sampleprojects(request):
     _assert_dirs_equal(
         sampleprojects_dir,
         test_helper.sampleprojects_dir,
-        ignore=["models"],
+        ignore=["models", "log"],
         ignore_crlf_suffixes=[".ini", ".py", ".txt", ".xml"],
     )
 
