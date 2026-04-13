@@ -564,6 +564,11 @@ def _predict_layer(
                             }
                         )
 
+                    except Exception as ex:  # pragma: no cover
+                        nb_errors += 1
+                        image_path = read_queue[future]
+                        _handle_error(image_path, ex, images_error_log_filepath)
+
                     finally:
                         # Remove from queue...
                         del read_queue[future]
