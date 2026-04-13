@@ -17,13 +17,22 @@
     - Use [segmodels_keras](https://github.com/orthoseg/segmodels_keras) (#311)
     - Avoid unneeded direct use of tensorflow (#304, #313)
 - Use keras.applications `preprocess_input` functions to prepare inputs (#314)
+
+## 0.7.1 (2026-04-13)
+
+### Improvements
+
 - Add retry for ARCGIS WMS server errors (#305)
 - Add retry when reading vrt layers (#307)
+- Use small mobilenetv2 model instead of the default in footballfield sample project
+  (#130)
+- Don't download sample projects from git repo (#323)
 
 ### Bugs fixed
 
 - Fix use of username/password for WMS image layer (#294)
 - Fix models not being saved if architecture_id != 1 (#310)
+- Fix some issues with handing ~ in input paths (#321)
 
 ## 0.7.0 (2025-08-01)
 

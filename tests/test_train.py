@@ -41,11 +41,8 @@ def test_train(config_path, exp_error):
 
 def test_train_error_handling():
     """Force an error so the general error handler in train is tested."""
-    with pytest.raises(
-        RuntimeError,
-        match="ERROR in train for footballfields_train_test",
-    ):
+    with pytest.raises(RuntimeError, match="ERROR in train for footballfields"):
         train(
-            config_path=test_helper.SampleProjectFootball.train_config_path,
+            config_path=test_helper.SampleProjectFootball.config_path,
             config_overrules=["train.force_model_traindata_id=INVALID_TYPE"],
         )

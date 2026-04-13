@@ -960,6 +960,7 @@ def load_image(
     image_data_output = None
     image_profile_output: dict[str, Any] | None = None
     response = None
+    nb_retries = 5
     for layersource in layersources:
         window = None
         memfile = None
@@ -991,7 +992,7 @@ def load_image(
                             ] = layersource.wms_server_url
                     layersource.wms_service = wms_service
 
-                # Get image from server, and retry up to 10 times...
+                # Get image from server, and retry up to nb_retries times...
                 retry_count = 0
                 time_sleep = 5
                 image_retrieved = False
@@ -1038,8 +1039,8 @@ def load_image(
                                 message = f"WMS error for bbox {bbox_with_border}: {ex}"
                                 raise RuntimeError(message) from ex
 
-                        # If the exception isn't handled yet, retry 10 times...
-                        if retry_count < 10:
+                        # If the exception isn't handled yet, retry nb_retries times...
+                        if retry_count < nb_retries:
                             time.sleep(time_sleep)
 
                             # Increase sleep time every
@@ -1049,7 +1050,7 @@ def load_image(
                             continue
                         else:
                             message = (
-                                "Retried 10 times and didn't work, with "
+                                f"Retried {nb_retries} times and didn't work, with "
                                 f"layers: {layersource.layernames}, "
                                 f"styles: {layersource.layerstyles}, "
                                 f"for bbox: {bbox_with_border}"
@@ -1133,11 +1134,11 @@ def load_image(
 
             # If the driver is VRT, use retries for the read as it sometimes fails
             # reading remote files.
-            nb_retries = 10 if image_file.profile["driver"] == "VRT" else 0
+            nb_retries_read = nb_retries if image_file.profile["driver"] == "VRT" else 0
 
             if layersource.bands is None:
                 # If no specific bands specified, read them all...
-                image_data_cur = _rio_read(image_file, rio_read_kwargs, nb_retries)
+                image_data_cur = _rio_read(image_file, rio_read_kwargs, nb_retries_read)
                 if image_data_output is None:
                     image_data_output = image_data_cur
                 else:
@@ -1147,7 +1148,7 @@ def load_image(
             elif len(layersource.bands) == 1 and layersource.bands[0] == -1:
                 # If 1 band, -1 specified: dirty hack to use greyscale
                 # version of rgb image
-                image_data_tmp = _rio_read(image_file, rio_read_kwargs, nb_retries)
+                image_data_tmp = _rio_read(image_file, rio_read_kwargs, nb_retries_read)
                 image_data_grey = np.mean(image_data_tmp, axis=0).astype(
                     image_data_tmp.dtype
                 )
@@ -1165,7 +1166,9 @@ def load_image(
                     # Read the band needed + reshape. Remark: rasterio uses
                     # 1-based indexing instead of 0-based
                     rio_read_kwargs["indexes"] = band + 1
-                    image_data_curr = _rio_read(image_file, rio_read_kwargs, nb_retries)
+                    image_data_curr = _rio_read(
+                        image_file, rio_read_kwargs, nb_retries_read
+                    )
                     new_shape = (1, image_data_curr.shape[0], image_data_curr.shape[1])
                     image_data_curr = np.reshape(image_data_curr, new_shape)
 

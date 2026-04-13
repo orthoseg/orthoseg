@@ -32,13 +32,18 @@ def get_config_files(config_path: Path) -> list[Path]:
         config_path (Path): base config file.
 
     Returns:
-        list[Path]: all relevant config files.
+        list[Path]: a list of all relevant config files.
     """
     # Init
     # First check input param
-    config_path = config_path.expanduser()
+    if not config_path.is_absolute():
+        raise ValueError(
+            f"Config file specified is not an absolute path: {config_path}"
+        )
     if not config_path.exists():
         raise ValueError(f"Config file specified does not exist: {config_path}")
+    if not config_path.is_file():
+        raise ValueError(f"Config file specified is not a file: {config_path}")
 
     # Collect the config files to use. The "hardcoded" defaults should always
     # be loaded.

@@ -51,7 +51,7 @@ steps should do the trick:
    step orthoseg_load_sampleprojects to avoid having to train it. But, normally you
    would now train the neural network with the following command::
 
-    orthoseg_train --config ~/orthoseg/sample_projects/footballfields/footballfields_BEFL-2019.ini
+    orthoseg_train --config ~/orthoseg/sample_projects/footballfields/footballfields.ini
 
 6. detect the football fields::
 
