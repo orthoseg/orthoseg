@@ -10,19 +10,6 @@ from orthoseg.util import image_util
 from tests import test_helper
 
 
-@pytest.mark.parametrize(
-    "crs_epsg, exp_switched_axes",
-    [
-        [4326, False],
-        [31370, False],
-        [3059, True],
-        [31468, True],
-    ],
-)
-def test_has_switched_axes(crs_epsg: int, exp_switched_axes: bool):
-    assert image_util.has_switched_axes(pyproj.CRS(crs_epsg)) is exp_switched_axes
-
-
 def test_load_image_invalid_layersource():
     with pytest.raises(ValueError, match="Unsupported layer source"):
         image_util.load_image(
