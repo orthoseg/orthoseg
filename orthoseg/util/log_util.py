@@ -188,11 +188,14 @@ def clean_log_dir(log_dir: Path, nb_logfiles_tokeep: int, pattern: str = "*.*"):
             Defaults to '*.*'.
     """
     # Check input params
-    if log_dir is None or log_dir.exists() is False or nb_logfiles_tokeep is None:
+    if log_dir is None or not log_dir.exists() or nb_logfiles_tokeep is None:
         return
 
     # List log files and remove the ones that are too much
     files = sorted(log_dir.glob(pattern), reverse=True)
     if len(files) > nb_logfiles_tokeep:
         for file_index in range(nb_logfiles_tokeep, len(files)):
-            files[file_index].unlink()
+            try:
+                files[file_index].unlink()
+            except Exception as ex:
+                print(f"Error deleting log file {files[file_index]}: {ex}")
