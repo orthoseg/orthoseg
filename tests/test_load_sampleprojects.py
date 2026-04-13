@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from orthoseg import __version__, load_sampleprojects
-from orthoseg.load_sampleprojects import _parse_load_sampleprojects_args
+from orthoseg.helpers import config_helper as conf
 from tests import test_helper
 
 
@@ -26,7 +26,7 @@ def get_testdata_dir() -> Path:
     ],
 )
 def test_load_images_args(args, exp_ssl_verify):
-    valid_args = _parse_load_sampleprojects_args(args=args)
+    valid_args = load_sampleprojects._parse_load_sampleprojects_args(args=args)
     assert valid_args is not None
     assert valid_args["dest_dir"] is not None
     if isinstance(exp_ssl_verify, bool):
@@ -35,18 +35,36 @@ def test_load_images_args(args, exp_ssl_verify):
         assert valid_args["ssl_verify"] == exp_ssl_verify
 
 
-def test_load_sampleprojects(request, tmp_path):
-    sampleprojects_dir = tmp_path / "sample_projects"
-    shutil.rmtree(sampleprojects_dir, ignore_errors=True)
-    load_sampleprojects.load_sampleprojects(dest_dir=sampleprojects_dir.parent)
+def test_load_sampleprojects(request):
+    """Test loading the sample projects.
+
+    Test this using ~ in the path to check if this is correctly handled as this is
+    used in the documentation.
+    """
+    dest_dir = Path("~/orthoseg_test")
+
+    # The path needs to be expanded to have exist, rmtree,... work, at least on windows
+    shutil.rmtree(dest_dir.expanduser(), ignore_errors=True)
+
+    # Load the sample projects. Has to handle ~ in the path correctly.
+    load_sampleprojects.load_sampleprojects(dest_dir=dest_dir)
+
+    # Try loading the config of the footballfields sample project
+    # Use the unexpanded path here as read_orthoseg_config should handle this correctly
+    config_path = dest_dir / "sample_projects/footballfields/footballfields.ini"
+    conf.read_orthoseg_config(config_path)
 
     # Check if the files were correctly loaded
-    assert sampleprojects_dir.exists()
-    assert (sampleprojects_dir / "imagelayers.ini").exists()
-    assert (sampleprojects_dir / "project_defaults_overrule.ini").exists()
-    assert (sampleprojects_dir / "run_footballfields.py").exists()
+    sampleprojects_dir = dest_dir.expanduser() / "sample_projects"
 
-    footballfields_dir = sampleprojects_dir / "footballfields"
+    # The path needs to be expanded to get e.g. exist to work, at least on windows
+    sampleprojects_exp_dir = sampleprojects_dir.expanduser()
+    assert sampleprojects_exp_dir.exists()
+    assert (sampleprojects_exp_dir / "imagelayers.ini").exists()
+    assert (sampleprojects_exp_dir / "project_defaults_overrule.ini").exists()
+    assert (sampleprojects_exp_dir / "run_footballfields.py").exists()
+
+    footballfields_dir = sampleprojects_exp_dir / "footballfields"
     assert footballfields_dir.exists()
     files = list((footballfields_dir).glob("**/*.ini"))
     assert len(files) > 0
@@ -57,7 +75,7 @@ def test_load_sampleprojects(request, tmp_path):
     # The model should be larger than 40 MB, otherwise not normal
     assert model_path.stat().st_size > 40 * 1024 * 1024
 
-    projecttemplate_dir = sampleprojects_dir / "project_template"
+    projecttemplate_dir = sampleprojects_exp_dir / "project_template"
     assert projecttemplate_dir.exists()
     files = list((projecttemplate_dir).glob("**/*.ini"))
     assert len(files) > 0

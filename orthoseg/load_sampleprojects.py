@@ -62,6 +62,7 @@ def load_sampleprojects(dest_dir: Path, ssl_verify: bool | None = None):
             this is often needed to evade CERTIFICATE_VERIFY_FAILED errors.
             Defaults to None.
     """
+    dest_dir = dest_dir.expanduser()
     dest_dir_full = dest_dir / "sample_projects"
     if dest_dir_full.exists():
         raise ValueError(f"Destination directory already exists: {dest_dir_full}")
