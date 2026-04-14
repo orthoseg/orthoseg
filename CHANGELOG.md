@@ -10,13 +10,15 @@
 
 ### Improvements
 
-- Add support to reproject a local image layer (#290)
-- Improve handling of `switch_axes` and `ssl_verify` (#295)
 - Add proper support for keras 3:
     - Use `categorical_focal_crossentropy` by default on keras 3 (#312)
     - Use [segmodels_keras](https://github.com/orthoseg/segmodels_keras) (#311)
     - Avoid unneeded direct use of tensorflow (#304, #313)
 - Use keras.applications `preprocess_input` functions to prepare inputs (#314)
+- Add support to finetune models using "orthoseg" weights, which becomes the default
+  for supported architectures (#)
+- Add support to reproject a local image layer (#290)
+- Improve handling of `switch_axes` and `ssl_verify` (#295)
 
 ## 0.7.1 (2026-04-13)
 
