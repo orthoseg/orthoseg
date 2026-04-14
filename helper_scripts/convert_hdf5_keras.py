@@ -1,6 +1,4 @@
-"""
-Convert models in .hdf5 file format to .keras.
-"""
+"""Convert a model in .hdf5 file format to .keras."""
 import logging
 from pathlib import Path
 

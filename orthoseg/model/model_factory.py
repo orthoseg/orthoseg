@@ -18,6 +18,7 @@ import keras
 import keras.models
 import segmodels_keras as smk
 import tensorflow as tf
+from keras import layers, models
 from segmodels_keras import Linknet, PSPNet, Unet
 
 from orthoseg._compat import KERAS_GTE_3
@@ -40,7 +41,7 @@ def get_model(
     nb_channels: int = 3,
     nb_classes: int = 1,
     activation: str = "softmax",
-    init_weights_with: str = "imagenet",
+    init_weights_with: str | None = "auto",
     freeze: bool = False,
 ) -> tuple[keras.models.Model, Callable | None]:
     """Get a model.
@@ -54,8 +55,9 @@ def get_model(
         nb_classes (int, optional): Nb of classes to be segmented to. Defaults to 1.
         activation (Activation, optional): Activation function of last layer.
             Defaults to 'softmax'.
-        init_weights_with (str, optional): Weights to init the network with.
-            Defaults to 'imagenet'.
+        init_weights_with (str | None, optional): Weights to init the network with.
+            If "auto", following weights will be used in order, depending on
+            availability: "orthoseg", "imagenet" or None.
         freeze (bool, optional): Freeze the final layer weights during
             training. It is usefull to use this option for the first few
             epochs get a more robust network. Defaults to False.
@@ -66,9 +68,30 @@ def get_model(
     # Check architecture
     segment_architecture_parts = architecture.split("+")
     if len(segment_architecture_parts) < 2:
-        raise Exception(f"Unsupported architecture: {architecture}")
+        raise ValueError(f"Unsupported architecture: {architecture}")
     encoder = segment_architecture_parts[0]
     decoder = segment_architecture_parts[1]
+
+    # Prepare the weights to be loaded
+    encoder_weights = None
+    weights_path = None
+    if init_weights_with == "imagenet":
+        encoder_weights = "imagenet"
+    elif init_weights_with in ["auto", "orthoseg"]:
+        weights_dir = Path("X:/Monitoring/orthoseg/_weights")
+        if architecture.lower() == "inceptionresnetv2+unet":
+            weights_path = weights_dir / "inceptionresnetv2+unet_notop.weights.h5"
+        elif architecture.lower() == "mobilenetv2+linknet":
+            weights_path = weights_dir / "mobilenetv2+linknet_notop.weights.h5"
+        elif init_weights_with == "auto":
+            encoder_weights = "imagenet"
+        else:
+            raise ValueError(
+                f"Unsupported for init_weights_with='orthoseg': {architecture=}"
+            )
+
+        if weights_path is not None and not weights_path.exists():
+            raise FileNotFoundError(f"Weights file not found: {weights_path}")
 
     if decoder.lower() == "unet":
         # Architecture implemented using the segmentation_models library
@@ -77,7 +100,8 @@ def get_model(
             input_shape=(input_width, input_height, nb_channels),
             classes=nb_classes,
             activation=activation,
-            encoder_weights=init_weights_with,
+            weights_notop=weights_path,
+            encoder_weights=encoder_weights,
             encoder_freeze=freeze,
         )
 
@@ -88,7 +112,8 @@ def get_model(
             input_shape=(input_width, input_height, nb_channels),
             classes=nb_classes,
             activation=activation,
-            encoder_weights=init_weights_with,
+            weights=weights_path,
+            encoder_weights=encoder_weights,
             encoder_freeze=freeze,
         )
 
@@ -103,7 +128,8 @@ def get_model(
             input_shape=(input_width, input_height, nb_channels),
             classes=nb_classes,
             activation=activation,
-            encoder_weights=init_weights_with,
+            weights_notop=weights_path,
+            encoder_weights=encoder_weights,
             encoder_freeze=freeze,
         )
 
@@ -267,6 +293,28 @@ def compile_model(
     return model
 
 
+def load_model_hyperparams(model_path: Path) -> dict:
+    """Load model hyperparameters from a json file.
+
+    Args:
+        model_path (Path): the path to the model file to load the hyperparameters for.
+
+    Returns:
+        dict: the loaded hyperparameters.
+    """
+    model_basestem = f"{'_'.join(model_path.stem.split('_')[0:2])}"
+    model_hyperparams_path = model_path.parent / f"{model_basestem}_hyperparams.json"
+    if not model_hyperparams_path.exists():
+        raise FileNotFoundError(
+            f"No hyperparams file found for model: {model_hyperparams_path}"
+        )
+
+    with model_hyperparams_path.open("r") as src:
+        hyperparams = json.load(src)
+
+    return hyperparams
+
+
 def load_model(
     model_to_use_filepath: Path, compile_model: bool = True
 ) -> tuple[keras.models.Model, Callable | None]:
@@ -295,24 +343,12 @@ def load_model(
     errors = []
     model = None
 
-    model_basestem = f"{'_'.join(model_to_use_filepath.stem.split('_')[0:2])}"
-
     # Load the hyperparams file
-    hyperparams_json_filepath = (
-        model_to_use_filepath.parent / f"{model_basestem}_hyperparams.json"
+    hyperparams = load_model_hyperparams(model_to_use_filepath)
+    nb_classes = len(hyperparams["architecture"]["classes"])
+    train_rescale_factor = hyperparams["train"]["image_augmentations"].get(
+        "rescale", None
     )
-    nb_classes = 1
-    if not hyperparams_json_filepath.exists():
-        raise FileNotFoundError(
-            f"No hyperparams file found for model: {hyperparams_json_filepath}"
-        )
-
-    with hyperparams_json_filepath.open("r") as src:
-        hyperparams = json.load(src)
-        nb_classes = len(hyperparams["architecture"]["classes"])
-        train_rescale_factor = hyperparams["train"]["image_augmentations"].get(
-            "rescale", None
-        )
 
     # If it is a file with the complete model, try loading it entirely...
     if not model_to_use_filepath.stem.endswith("_weights"):
@@ -411,10 +447,13 @@ def load_model(
     if model is None:
         # Load the architecture from a model.json file
         # Check if there is a specific model.json file for these weights
-        model_json_filepath = model_to_use_filepath.parent / (
-            model_to_use_filepath.stem.replace("_weights", "") + ".json"
+        stem = model_to_use_filepath.stem.replace("_weights", "").replace(
+            ".weights", ""
         )
+        model_json_filepath = model_to_use_filepath.parent / f"{stem}.json"
+
         if not model_json_filepath.exists():
+            model_basestem = f"{'_'.join(model_to_use_filepath.stem.split('_')[0:2])}"
             # If not, check if there is a model.json file for the training session
             model_json_filepath = (
                 model_to_use_filepath.parent / f"{model_basestem}_model.json"
