@@ -351,7 +351,7 @@ def load_model(
     )
 
     # If it is a file with the complete model, try loading it entirely...
-    if not model_to_use_filepath.stem.endswith("_weights"):
+    if not model_to_use_filepath.stem.endswith(("_weights", ".weights")):
         # iou_score = segmentation_models.metrics.IOUScore()
         # f1_score = segmentation_models.metrics.FScore()
         iou_score = keras.metrics.IoU(
@@ -484,8 +484,8 @@ def load_model(
                 )
             except Exception as ex:
                 errors.append(
-                    "Error in get_model() with params from: "
-                    f"{hyperparams_json_filepath}: {ex}"
+                    "Error in get_model() with params from hyperparams json for: "
+                    f"{model_to_use_filepath}: {ex}"
                 )
 
         # Now load the weights

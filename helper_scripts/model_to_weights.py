@@ -1,42 +1,45 @@
-"""Convert a model in .hdf5 file format to weights."""
+"""Convert a model to a weights file."""
 
 import logging
 from pathlib import Path
 
 # os.environ["CUDA_VISIBLE_DEVICES"] = "-1" # Disable using GPU
 import keras
+import segmodels_keras as smk
 
 import orthoseg.model.model_factory as mf
 
 
-def convert_model(model_path: Path, weights_dir: Path, include_top: bool = False):
-    """Convert model from .hdf5 to .h5.
+def convert_model(
+    model_path: Path,
+    weights_dir: Path,
+    include_top: bool = False,
+    overwrite: bool = True,
+):
+    """Convert a model to a weights file.
 
     Args:
         model_path (Path): Path to the hdf5 model.
         weights_dir (Path): Directory to save the weights.
-    """
-    # First load model metadata
-    model_hyperparams = mf.load_model_hyperparams(model_path)
-
-    # Try converting model
-    if include_top:
-        weights_path = weights_dir / f"{model_path.stem}.weights.h5"
-    else:
-        base_stem = model_hyperparams["architecture"]["architecture"]
-        weights_path = weights_dir / f"{base_stem}_notop.weights.h5"
-
-    if weights_path.exists():
-        raise FileExistsError(f"Model weights already exist at {weights_path}.")
-
+        include_top (bool, optional): Whether to include the top layers of the model.
+            Defaults to False.
+        overwrite (bool, optional): Whether to overwrite existing weights.
+            Defaults to True.
+    """    
     # Load and save it in .h5 format.
     model, _ = mf.load_model(model_path, compile_model=False)
-    if not include_top:
-        # Remove the top layers of the model (i.e. the model head) before saving
-        # weights.
-        model = keras.Model(model.input, model.layers[-2].output)
-    model.save_weights(weights_path)
-    del model
+    if include_top:
+        weights_path = weights_dir / f"{model_path.stem}.weights.h5"
+        model.save_weights(weights_path, overwrite=overwrite)
+    else:
+        # Save the weights without top layers for transfer learning.
+        model_hyperparams = mf.load_model_hyperparams(model_path)
+        architecture = model_hyperparams["architecture"]["architecture"]
+        weights_path = weights_dir / f"{architecture}_notop.weights.h5"
+        _encoder, decoder = architecture.split("+")
+        smk.utils.save_model_weights_notop(
+            model, decoder=decoder, path=weights_path, overwrite=overwrite
+        )
 
 
 # If the script is ran directly...
