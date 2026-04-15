@@ -311,8 +311,8 @@ def train(
     hyperparams_filepath.write_text(hyperparams.toJSON())
 
     try:
-        # If the encoder should be frozen for the first epochs, do so
         if hyperparams.train.nb_epoch_with_freeze > 0:
+            # First train only the top layers for a few epochs.
             logger.info(
                 f"First train for {hyperparams.train.nb_epoch_with_freeze} epochs with "
                 "frozen layers"

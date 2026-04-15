@@ -121,3 +121,24 @@ def test_get_model_unknown_encoder(architecture: str):
         ValueError, match="Backbone with name 'unknown' is not supported"
     ):
         _ = mf.get_model(architecture=architecture)
+
+
+@pytest.mark.parametrize(
+    "architecture, weights_type",
+    [
+        ("mobilenetv2+linknet", "aerial"),
+        ("inceptionresnetv2+unet", "aerial"),
+    ],
+)
+def test_get_model_weights(architecture: str, weights_type: str):
+    weights_path = mf._get_model_weights(
+        architecture=architecture, weights_type=weights_type
+    )
+    assert weights_path is not None
+    assert weights_path.exists()
+    assert weights_path.is_file()
+    assert weights_path.stat().st_size > 5 * 1024 * 1024  # > 5MB
+
+
+def test_get_model_weights_invalid_architecture():
+    assert mf._get_model_weights("invalid+architecture", "aerial") is None

@@ -15,8 +15,8 @@
     - Use [segmodels_keras](https://github.com/orthoseg/segmodels_keras) (#311)
     - Avoid unneeded direct use of tensorflow (#304, #313)
 - Use keras.applications `preprocess_input` functions to prepare inputs (#314)
-- Add support to finetune models using "orthoseg" weights, which becomes the default
-  for supported architectures (#)
+- Add support to finetune models using weights pretrained on aerial images. This becomes
+  the default for supported architectures (#)
 - Add support to reproject a local image layer (#290)
 - Improve handling of `switch_axes` and `ssl_verify` (#295)
 

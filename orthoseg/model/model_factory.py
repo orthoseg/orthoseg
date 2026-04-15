@@ -9,6 +9,8 @@ https://github.com/qubvel/segmentation_models
 
 import json
 import logging
+import tempfile
+import urllib.request
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -41,7 +43,7 @@ def get_model(
     nb_channels: int = 3,
     nb_classes: int = 1,
     activation: str = "softmax",
-    init_weights_with: str | None = "auto",
+    weights: str | None = "auto",
     freeze: bool = False,
 ) -> tuple[keras.models.Model, Callable | None]:
     """Get a model.
@@ -55,12 +57,15 @@ def get_model(
         nb_classes (int, optional): Nb of classes to be segmented to. Defaults to 1.
         activation (Activation, optional): Activation function of last layer.
             Defaults to 'softmax'.
-        init_weights_with (str | None, optional): Weights to init the network with.
+        weights (str | None, optional): Weights to pre-load the network with.
             If "auto", following weights will be used in order, depending on
-            availability: "orthoseg", "imagenet" or None.
-        freeze (bool, optional): Freeze the final layer weights during
-            training. It is usefull to use this option for the first few
-            epochs get a more robust network. Defaults to False.
+            availability: "aerial", "imagenet" or None.
+        freeze (bool, optional): Freeze the weights of all layers that were initialized
+            with pretrained values. If only encoder/backend weight are preloaded (e.g.
+            weights="imagenet"), only those layers are frozen, if all layers
+            are pre-loaded (e.g. weights="aerial"), all layers except the top
+            layers are frozen. It is useful to use this option for the first few
+            epochs to get a more robust network. Defaults to False.
 
     Returns:
         Model: the model.
@@ -74,51 +79,64 @@ def get_model(
 
     # Prepare the weights to be loaded
     encoder_weights = None
-    weights_path = None
-    if init_weights_with == "imagenet":
+    weights_notop_path = None
+    if weights == "imagenet":
         encoder_weights = "imagenet"
-    elif init_weights_with in ["auto", "orthoseg"]:
-        weights_dir = Path("X:/Monitoring/orthoseg/_weights")
-        if architecture.lower() == "inceptionresnetv2+unet":
-            weights_path = weights_dir / "inceptionresnetv2+unet_notop.weights.h5"
-        elif architecture.lower() == "mobilenetv2+linknet":
-            weights_path = weights_dir / "mobilenetv2+linknet_notop.weights.h5"
-        elif init_weights_with == "auto":
-            encoder_weights = "imagenet"
-        else:
-            raise ValueError(
-                f"Unsupported for init_weights_with='orthoseg': {architecture=}"
+    elif weights in ["auto", "aerial"]:
+        weights_notop_path = _get_model_weights(architecture, "aerial")
+        if weights_notop_path is not None:
+            logger.info(
+                f"Found aerial weights for {architecture} at {weights_notop_path}, "
+                "will use these to initialize the model."
             )
+        elif weights == "aerial":
+            raise ValueError(
+                f"{weights=} but no aerial weights found for {architecture}"
+            )
+        else:
+            # Fallback to imagenet weights
+            encoder_weights = "imagenet"
 
-        if weights_path is not None and not weights_path.exists():
-            raise FileNotFoundError(f"Weights file not found: {weights_path}")
+    encoder_freeze = freeze if encoder_weights is not None else False
+    freeze_notop = freeze if weights_notop_path is not None else False
 
+    # Remarks:
+    # - Normally it is recommended to put the encoder (backbone) in inference mode
+    #   when transfer learning/finetuning (https://keras.io/guides/transfer_learning/)
+    #   However, when I tried this by ~replacing a line in
+    #   `segmodels_keras.models.linknet.build_linknet` as shown below, the model
+    #   converged 10 times slower:
+    #       `x = backbone.output` -> `x = backbone(backbone.input, training=False)`
+    # - When freeze=True, `segmodels_keras.utils.freeze_model` sets all layers of the
+    #   backbone except BatchNormalization layers to `trainable=False`. Keeping the
+    #   BatchNormalization layers trainable when freezing the backbone is
+    #   a bit weird, but it seems to improve convergence during the (default) 20 epochs
+    #   the layers are frozen.
     if decoder.lower() == "unet":
-        # Architecture implemented using the segmentation_models library
         model = Unet(
             backbone_name=encoder.lower(),
             input_shape=(input_width, input_height, nb_channels),
             classes=nb_classes,
             activation=activation,
-            weights_notop=weights_path,
+            weights_notop=weights_notop_path,
+            freeze_notop=freeze_notop,
             encoder_weights=encoder_weights,
-            encoder_freeze=freeze,
+            encoder_freeze=encoder_freeze,
         )
 
     elif decoder.lower() == "pspnet":
-        # Architecture implemented using the segmentation_models library
         model = PSPNet(
             backbone_name=encoder.lower(),
             input_shape=(input_width, input_height, nb_channels),
             classes=nb_classes,
             activation=activation,
-            weights=weights_path,
+            weights_notop=weights_notop_path,
+            freeze_notop=freeze_notop,
             encoder_weights=encoder_weights,
-            encoder_freeze=freeze,
+            encoder_freeze=encoder_freeze,
         )
 
     elif decoder.lower() == "linknet":
-        # Architecture implemented using the segmentation_models library
         # First check if input size is compatible with linknet
         if input_width is not None and input_height is not None:
             check_image_size(architecture, input_width, input_height)
@@ -128,9 +146,10 @@ def get_model(
             input_shape=(input_width, input_height, nb_channels),
             classes=nb_classes,
             activation=activation,
-            weights_notop=weights_path,
+            weights_notop=weights_notop_path,
+            freeze_notop=freeze_notop,
             encoder_weights=encoder_weights,
-            encoder_freeze=freeze,
+            encoder_freeze=encoder_freeze,
         )
 
     else:
@@ -138,6 +157,38 @@ def get_model(
 
     model_preprocess_input = get_preprocess_input(architecture)
     return model, model_preprocess_input
+
+
+def _get_model_weights(architecture: str, weights_type: str) -> Path | None:
+    """Get weights to initialize the model with.
+
+    Args:
+        architecture (str): the architecture to get the weights for.
+        weights_type (str): the type of weights to get. Supported option is "aerial".
+
+    Returns:
+        Path | None: the path to the weights file, or None if no weights are available
+            for the given `architecture` and `weights_type`.
+    """
+    weights_path = None
+    aerial_weights_available = ["mobilenetv2+linknet", "inceptionresnetv2+unet"]
+
+    if weights_type == "aerial":
+        if architecture.lower() not in aerial_weights_available:
+            return None
+
+        url = "https://github.com/orthoseg/orthoseg_models/releases/download/v0.1.0/"
+        weights_url = f"{url}{architecture.lower()}_{weights_type}_notop_v1.weights.h5"
+
+        tmp_dir = Path(tempfile.gettempdir())
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+        weights_path = tmp_dir / Path(weights_url).name
+        if not weights_path.exists():
+            urllib.request.urlretrieve(weights_url, weights_path)
+
+        return weights_path
+
+    return None
 
 
 def get_custom_objects(architecture: str) -> dict[str, Callable]:
@@ -481,6 +532,7 @@ def load_model(
                     nb_channels=hyperparams["architecture"]["nb_channels"],
                     nb_classes=len(hyperparams["architecture"]["classes"]),
                     activation=hyperparams["architecture"]["activation_function"],
+                    weights=None,
                 )
             except Exception as ex:
                 errors.append(

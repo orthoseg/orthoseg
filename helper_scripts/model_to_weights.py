@@ -45,8 +45,10 @@ def convert_model(
 # If the script is ran directly...
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    model_path = Path(
-        r"X:\Monitoring\OrthoSeg\sealedsurfaces\models\sealedsurfaces_59.5.0_0.94113_214.keras"
-    )
+    model_dir = Path(r"X:\Monitoring\OrthoSeg\sealedsurfaces\models")
+    # mobilenetv2+linknet model
+    # model_path = model_dir / "sealedsurfaces_59.5.0_0.94113_214.keras"
+    # inceptionresnetv2+unet model
+    model_path = model_dir / "sealedsurfaces_60_0.97716_154.hdf5"
     weights_dir = Path(r"X:\Monitoring\OrthoSeg\_weights")
     convert_model(model_path, weights_dir=weights_dir, include_top=False)
