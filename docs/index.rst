@@ -45,6 +45,7 @@ detection of tree crowns on a 0.25 m/pixel aerial image:
 
    Installation <installation>
    User guide <user_guide>
+   Configuration <configuration>
    Examples <examples>
    FAQ <faq>
    Development <development>
