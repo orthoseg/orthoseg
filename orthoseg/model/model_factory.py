@@ -20,7 +20,6 @@ import keras
 import keras.models
 import segmodels_keras as smk
 import tensorflow as tf
-from keras import layers, models
 from segmodels_keras import Linknet, PSPNet, Unet
 
 from orthoseg._compat import KERAS_GTE_3
