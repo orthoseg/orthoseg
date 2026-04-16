@@ -47,6 +47,7 @@ General settings.
    Specify the way certificates of ssl requests are verified.
 
    Options:
+
    * True: use the default certificate bundle as installed on your system
    * False: disable certificate validation (NOT recommended!)
    * path to a certificate bundle file (.pem) to specify the certificate
@@ -234,37 +235,37 @@ Settings concerning the train process.
    train data to e.g. train on different resolutions.
 
    Examples:
+   
+   .. code :: python
 
-   label_datasources = {
-       "label_ds0_resolution1": {
-           "locations_path": "${dirs:labels_dir}/${general:segment_subject}_BEFL-2019_locations.gpkg",
-           "polygons_path": "${dirs:labels_dir}/${general:segment_subject}_BEFL-2019_polygons.gpkg",
-           "image_layer": "BEFL-2020",
-           "pixel_x_size": 0.5,
-           "pixel_y_size": 0.5,
-       },
-       "label_ds0_resolution2": {
-           "locations_path": "${dirs:labels_dir}/${general:segment_subject}_BEFL-2019_locations.gpkg",
-           "polygons_path": "${dirs:labels_dir}/${general:segment_subject}_BEFL-2019_polygons.gpkg",
-           "image_layer": "BEFL-2020",
-           "pixel_x_size": 0.25,
-           "pixel_y_size": 0.25,
-       }
-   }
+      label_datasources = {
+         "label_ds0_resolution1": {
+            "locations_path": "${dirs:labels_dir}/${general:segment_subject}_BEFL-2019_locations.gpkg",
+            "polygons_path": "${dirs:labels_dir}/${general:segment_subject}_BEFL-2019_polygons.gpkg",
+            "image_layer": "BEFL-2020",
+            "pixel_x_size": 0.5,
+            "pixel_y_size": 0.5,
+         },
+         "label_ds0_resolution2": {
+            "locations_path": "${dirs:labels_dir}/${general:segment_subject}_BEFL-2019_locations.gpkg",
+            "polygons_path": "${dirs:labels_dir}/${general:segment_subject}_BEFL-2019_polygons.gpkg",
+            "image_layer": "BEFL-2020",
+            "pixel_x_size": 0.25,
+            "pixel_y_size": 0.25,
+         }
+      }
 
 .. confval:: train.image_augmentations
    :type: ``dict``
-   :default:
-
-      {
-         "fill_mode": "constant",
-         "cval": 0,
-         "rotation_range": 359.0,
-         "width_shift_range": 0.05,
-         "height_shift_range": 0.05,
-         "zoom_range": 0.1,
-         "brightness_range": [0.95, 1.05]
-      }
+   :default:   ``{ 
+                  "fill_mode": "constant",
+                  "cval": 0,
+                  "rotation_range": 359.0,
+                  "width_shift_range": 0.05,
+                  "height_shift_range": 0.05,
+                  "zoom_range": 0.1,
+                  "brightness_range": [0.95, 1.05]
+               }``
 
    The augmentations to apply to the input images during training.
 
