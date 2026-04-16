@@ -19,10 +19,8 @@ present in the section.
 
 .. note::
 
-   An example `imagelayers.ini`_ is shipped with the sample projects so you
+   An example :doc:`file_viewers/imagelayers_ini_viewer` is shipped with the sample projects so you
    can use it as a starting point.
-
-.. _imagelayers.ini: _static/config_files/imagelayers.ini
 
 
 WMS layers

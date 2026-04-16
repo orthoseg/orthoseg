@@ -160,12 +160,11 @@ A "file layer" can be any local file in one of the many raster file types suppor
 by `GDAL <https://gdal.org/en/stable/drivers/raster>`_. Via the "file layer", you can 
 also use the `GDAL WMS driver <https://gdal.org/en/stable/drivers/raster/wms.html>`_ by
 creating an xml file with the necessary configuration. An example file to use a XYZ tile
-server (eg. OpenStreetMap) can be found here: `imagelayer_osm.xml`_.
+server (eg. OpenStreetMap) can be found here:
+:doc:`file_viewers/imagelayer_osm_xml_viewer`.
 
 A more elaborate example that can be used as a template for the configuration can be
-found here: :doc:`file_viewers/imagelayers_viewer`.
-
-.. _imagelayer_osm.xml: _static/config_files/imagelayer_osm.xml
+found here: :doc:`file_viewers/imagelayers_ini_viewer`.
 
 3. Project name
 ^^^^^^^^^^^^^^^
@@ -205,21 +204,17 @@ To avoid having to copy/paste and repeat a lot of parameters in many project fil
 you can define common project parameters in a common file and only put project-specific
 parameters in your project file.
 
-In the sample projects, a `project_defaults_overrule.ini`_ file is used to define
+In the sample projects, a :doc:`project_defaults_overrule_ini_viewer` file is used to define
 common differences for all projects compared to the default orthoseg values.
 
 For a specific project, only some project-specific parameter values are overruled, like
-you can see here: `footballfields.ini`_.
+you can see here: :doc:`file_viewers/footballfields_ini_viewer`.
 
 Finally, if you want e.g. a project file to run a detection on a specific image layer,
 you can add yet another file that overrules the project file yet again, like you can
-see here: `footballfields_BEFL-2019.ini`_. Note the
+see here: :doc:`file_viewers/footballfields_BEFL-2019_ini_viewer`. Note the
 :confval:`general.extra_config_files_to_load` property in the project file that allows
 you to specify all extra config files that will be loaded in the order listed.
-
-.. _project_defaults_overrule.ini: _static/config_files/project_defaults_overrule.ini
-.. _footballfields.ini: _static/config_files/footballfields.ini
-.. _footballfields_BEFL-2019.ini: _static/config_files/footballfields_BEFL-2019.ini
 
 6. Configure image layer(s)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^

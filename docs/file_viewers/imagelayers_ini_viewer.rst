@@ -10,4 +10,4 @@ Contents:
    :literal:
 
 
-.. _imagelayers-ini: _static/config_files/imagelayers.ini
+.. _imagelayers-ini: /_static/config_files/imagelayers.ini

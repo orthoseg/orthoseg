@@ -23,7 +23,8 @@ your project config files.
 
 The configuration used for an orthoseg project is loaded in the following order:
 
-1) the project defaults as "hardcoded" in the orthoseg package (`project_defaults.ini`_)
+1) the project defaults as "hardcoded" in the orthoseg package
+   (:doc:`file_viewers/project_defaults_ini_viewer`_)
 2) any .ini files specified in the :confval:`general.extra_config_files_to_load`
    parameter in your project config file, in the order specified.
 3) the parameters in your project config file.
@@ -31,9 +32,6 @@ The configuration used for an orthoseg project is loaded in the following order:
 Parameters specified in a config file loaded later in the order above
 overrule the corresponding parameter values specified in a previously
 loaded config file.
-
-.. _project_defaults.ini: _static/config_files/project_defaults.ini
-
 
 [general]
 ---------
