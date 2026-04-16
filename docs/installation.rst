@@ -12,7 +12,7 @@ Python package/environment manager
 If you don't have conda installed yet, you can install it using the
 `miniforge installer`_.
 
-Install orthoseg and depencencies
+Install orthoseg and dependencies
 ---------------------------------
 
 If you want to run orthoseg on a GPU (optional), make sure you have installed the
