@@ -2,6 +2,8 @@
 .. C:\Users\PIEROG\Projects\github\orthoseg\orthoseg\project_defaults.ini
 .. Do not edit manually.
 
+.. _project-configuration:
+
 =====================
 Project configuration
 =====================

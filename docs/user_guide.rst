@@ -93,16 +93,16 @@ try the following steps:
 2. Make a copy of `footballfields_BEFL-2019.ini` and change the `predict image_layer`
    parameter in the file to point to the new layer, e.g.::
 
-    [predict]
-    image_layer = BEFL-2020
+      [predict]
+      image_layer = BEFL-2020
 
 3. Run `orthoseg_load_images` to prepare the layer to predict on::
 
-   orthoseg_load_images --config ~/orthoseg/sample_projects/footballfields/footballfields_BEFL-2020.ini
+      orthoseg_load_images --config ~/orthoseg/sample_projects/footballfields/footballfields_BEFL-2020.ini
 
 4. Run the detection again with `orthoseg_predict`::
 
-   orthoseg_predict --config ~/orthoseg/sample_projects/footballfields/footballfields_BEFL-2020.ini
+      orthoseg_predict --config ~/orthoseg/sample_projects/footballfields/footballfields_BEFL-2020.ini
 
 
 Prepare a new project
@@ -462,23 +462,20 @@ If you ran the sample project, these steps will look very familiar:
 
 2. activate the orthoseg environment with::
    
-   conda activate orthoseg
-
+      conda activate orthoseg
 
 3. preload the images so they are ready to detect your `{segment_subject}` on, using the
    configuration file `{project_dir}{segment_subject}.ini`::
    
-   orthoseg_load_images --config {project_dir}{segment_subject}.ini
-
+      orthoseg_load_images --config {project_dir}{segment_subject}.ini
 
 4. train a neural network to detect football fields::
    
-   orthoseg_train --config {project_dir}{segment_subject}.ini
-
+      orthoseg_train --config {project_dir}{segment_subject}.ini
 
 5. detect the football fields::
 
-   orthoseg_predict --config {project_dir}{segment_subject}.ini
+      orthoseg_predict --config {project_dir}{segment_subject}.ini
 
 
 After this completes, the directory `{project_dir}/output_vector` will contain a .gpkg
