@@ -195,7 +195,7 @@ As you might have recognized from the small section above, orthoseg uses the goo
 "ExtendedInterpolation" extension. Based on the sample files and the examples in this
 manual you will probably be able to figure out how to use it, but if you want to dive
 deeper, you can have a look here:
-`ConfigParser-ExtendeInterpolation <https://docs.python.org/3.3/library/configparser.html#interpolation-of-values>`_.
+`ConfigParser-ExtendeInterpolation <https://docs.python.org/3.13/library/configparser.html#interpolation-of-values>`_.
 
 All possible parameters that can be used in the project configuration file, including
 their default values, are documented in :ref:`project-configuration`.
