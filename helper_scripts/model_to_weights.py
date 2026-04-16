@@ -12,7 +12,8 @@ def convert_model(
     model_path: Path,
     weights_dir: Path,
     weight_type: str,
-    include_top: bool = False,
+    include_top: bool,
+    version: int,
     overwrite: bool = True,
 ):
     """Convert a model to a weights file.
@@ -23,6 +24,7 @@ def convert_model(
         weight_type (str): Type of weights to save.
         include_top (bool, optional): Whether to include the top layers of the model.
             Defaults to False.
+        version (int): Version of the weights.
         overwrite (bool, optional): Whether to overwrite existing weights.
             Defaults to True.
     """
@@ -35,7 +37,9 @@ def convert_model(
         # Save the weights without top layers for transfer learning.
         model_hyperparams = mf.load_model_hyperparams(model_path)
         architecture = model_hyperparams["architecture"]["architecture"]
-        weights_path = weights_dir / f"{architecture}_{weight_type}_notop.weights.h5"
+        weights_path = (
+            weights_dir / f"{architecture}_{weight_type}_notop_v{version}.weights.h5"
+        )
         _encoder, decoder = architecture.split("+")
         smk.utils.save_model_weights_notop(
             model, decoder=decoder, path=weights_path, overwrite=overwrite
@@ -58,6 +62,7 @@ if __name__ == "__main__":
         model_path,
         weights_dir=weights_dir,
         weight_type="aerial",
+        version=1,
         include_top=False,
         overwrite=False,
     )
