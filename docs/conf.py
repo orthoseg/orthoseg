@@ -95,12 +95,13 @@ html_theme_options = {
 }
 
 html_sidebars: dict[str, list[str]] = {
-    "development": [],
-    "faq": [],
     "installation": [],
     "user_guide": [],
-    "examples": [],
     "reference": [],
+    "configuration": [],
+    "examples": [],
+    "faq": [],
+    "development": [],
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
