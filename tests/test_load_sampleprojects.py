@@ -151,7 +151,7 @@ def _assert_dirs_equal(
         if ignore_crlf_suffixes is not None and path1.suffix in ignore_crlf_suffixes:
             if not cmpfiles_no_crlf(path1, path2):
                 raise AssertionError(f"Files {path1} and {path2} do not match")
-        else:  # noqa: PLR5501
+        else:
             if not filecmp.cmp(path1, path2, shallow=False):
                 raise AssertionError(f"Files {path1} and {path2} do not match")
 

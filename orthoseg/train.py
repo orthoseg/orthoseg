@@ -197,7 +197,7 @@ def train(config_path: Path, config_overrules: list[str] | None = None):
                     "JUST PREDICT, no training: resume_train is false + model found"
                 )
                 train_needed = False
-        else:  # noqa: PLR5501
+        else:
             # We want to preload an existing model and models were found
             if best_model_curr_train_version is not None:
                 logger.info(
