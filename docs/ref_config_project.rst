@@ -2,6 +2,8 @@
 .. C:\Users\PIEROG\Projects\github\orthoseg\orthoseg\project_defaults.ini
 .. Do not edit manually.
 
+.. _project-configuration:
+
 =====================
 Project configuration
 =====================
@@ -30,7 +32,7 @@ Parameters specified in a config file loaded later in the order above
 overrule the corresponding parameter values specified in a previously
 loaded config file.
 
-.. _project_defaults.ini: docs/_static/config_files/project_defaults.ini
+.. _project_defaults.ini: _static/config_files/project_defaults.ini
 
 
 [general]

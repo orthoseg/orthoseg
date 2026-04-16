@@ -163,10 +163,9 @@ creating an xml file with the necessary configuration. An example file to use a 
 server (eg. OpenStreetMap) can be found here: `imagelayer_osm.xml`_.
 
 A more elaborate example that can be used as a template for the configuration can be
-found here: `imagelayers.ini`_.
+found here: :doc:`imagelayers_viewer`.
 
-.. _imagelayers.ini: docs/_static/config_files/imagelayers.ini
-.. _imagelayer_osm.xml: docs/_static/config_files/imagelayer_osm.xml
+.. _imagelayer_osm.xml: _static/config_files/imagelayer_osm.xml
 
 3. Project name
 ^^^^^^^^^^^^^^^
@@ -200,7 +199,7 @@ deeper, you can have a look here:
 `ConfigParser-ExtendeInterpolation <https://docs.python.org/3.3/library/configparser.html#interpolation-of-values>`_.
 
 All possible parameters that can be used in the project configuration file, including
-their default values, are documented in `ref_config_project`_.
+their default values, are documented in :ref:`project-configuration`.
 
 To avoid having to copy/paste and repeat a lot of parameters in many project files,
 you can define common project parameters in a common file and only put project-specific
@@ -218,16 +217,15 @@ see here: `footballfields_BEFL-2019.ini`_. Note the
 :confval:`general.extra_config_files_to_load` property in the project file that allows
 you to specify all extra config files that will be loaded in the order listed.
 
-.. _project_defaults_overrule.ini: docs/_static/config_files/project_defaults_overrule.ini
-.. _footballfields.ini: docs/_static/config_files/footballfields.ini
-.. _footballfields_BEFL-2019.ini: docs/_static/config_files/footballfields_BEFL-2019.ini
+.. _project_defaults_overrule.ini: _static/config_files/project_defaults_overrule.ini
+.. _footballfields.ini: _static/config_files/footballfields.ini
+.. _footballfields_BEFL-2019.ini: _static/config_files/footballfields_BEFL-2019.ini
 
 6. Configure image layer(s)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 If the image layers you want to train/predict on aren't configured yet, configure them
-in `{projects_dir}/imagelayers.ini <docs/_static/config_files/footballfields_BEFL-2019.ini/imagelayers.ini>`_,
-the same way as the default layers provided.
+in `{projects_dir}/imagelayers.ini`, the same way as the default layers provided.
 
 7. Prepare training data files
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

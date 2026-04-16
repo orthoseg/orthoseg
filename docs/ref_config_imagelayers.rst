@@ -22,7 +22,7 @@ present in the section.
    An example `imagelayers.ini`_ is shipped with the sample projects so you
    can use it as a starting point.
 
-.. _imagelayers.ini: docs/_static/config_files/imagelayers.ini
+.. _imagelayers.ini: _static/config_files/imagelayers.ini
 
 
 WMS layers
