@@ -163,7 +163,7 @@ creating an xml file with the necessary configuration. An example file to use a 
 server (eg. OpenStreetMap) can be found here: `imagelayer_osm.xml`_.
 
 A more elaborate example that can be used as a template for the configuration can be
-found here: :doc:`imagelayers_viewer`.
+found here: :doc:`file_viewers/imagelayers_viewer`.
 
 .. _imagelayer_osm.xml: _static/config_files/imagelayer_osm.xml
 
