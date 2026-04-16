@@ -19,6 +19,7 @@
   the default for supported architectures (#327)
 - Add support to reproject a local image layer (#290)
 - Improve handling of `switch_axes` and `ssl_verify` (#295)
+- Significant improvements to the documentation (#316, #330,...)
 
 ## 0.7.1 (2026-04-13)
 
