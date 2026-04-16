@@ -4,29 +4,37 @@
 User guide
 ==========
 
-The main objective of orthoseg is to make it accessible to automatically digitize
+The main objective of orthoseg is to make it easier to automatically digitize
 features on orthophotos. This manual will guide you through the process of setting up a
 new project, creating a training dataset, training a neural network and running a
 prediction on an orthophoto.
 
+Smaller projects are no problem to run on a regular laptop or desktop computer. Only
+if you want to use more complex models, train on larger training datasets and/or
+want to process large areas using a GPU will become very recommended to reduce waiting
+times.
 
 Run sample project  
 ------------------
 
-Once the installation of orthoseg and its dependencies is completed, you can run the
-sample project included. The sample project is an easy way to get started and should
-give a good idea on how you can start your own segmentation project. 
+Once the :doc:`installation` of orthoseg and its dependencies is completed, you can
+run the sample project included. The sample project is an easy way to get started and
+should give a good idea on how you can start your own segmentation project.
 
 It contains:
 
 * a training dataset that can be used to train a network to detect football fields
-* a sample of the basic configuration for a typical project
+* a sample of the basic configuration for a typical project that specifies using a
+  lightweight neural network so it should run smoothly on a regular computer
 * a sample of the default directory structure used by orthoseg
 * a QGIS project file with the training data + aerial images that will be used to train
   the neural network + to detect football fields on
 
-Remark: the training data included is meant to show how the process works, not to give
-perfect, or even decent, results.
+.. note::
+
+   The training data included and pretrained model based on it is meant to show how
+   the process works, not to give perfect, or even decent, results.
+
 
 Running the sample project is easy. If the installation was successful, the following
 steps should do the trick: 
@@ -66,20 +74,33 @@ as this was the pixel size the footballfields detection was trained on. It's bes
 first read `Prepare a new project`_ for some background information and then you could
 try the following steps:
 
-1. add the layer you want to predict on to the `imagelayer.ini` config file 
-2. make a copy of `footballfields_BEFL-2019.ini` and change the `predict image_layer`
-   parameter in the file to point to the new layer::
+1. Add the layer you want to predict on to the `imagelayer.ini` config file. E.g. an
+   image layer with orthophotos of 2020 on the same location as the 2019 layer above
+   can be configured as follows::
+
+      [BEFL-2020]
+      wms_server_url = https://geo.api.vlaanderen.be/omw/wms?
+      wms_layernames = OMWRGB20VL
+      wms_layerstyles = default
+      wms_version = 1.3.0
+      projection = epsg:31370
+      bbox = 174900, 176400, 175300, 176600
+
+   Detailed information on the different available options to configure image layers
+   can be found in `ref_config_imagelayers`_.
+2. Make a copy of `footballfields_BEFL-2019.ini` and change the `predict image_layer`
+   parameter in the file to point to the new layer, e.g.::
 
     [predict]
-    image_layer = BEFL-2019
+    image_layer = BEFL-2020
 
-3. run `orthoseg_load_images` to prepare the layer to predict on::
+3. Run `orthoseg_load_images` to prepare the layer to predict on::
 
-   orthoseg_load_images --config ~/orthoseg/sample_projects/footballfields/footballfields_BEFL-2019.ini
+   orthoseg_load_images --config ~/orthoseg/sample_projects/footballfields/footballfields_BEFL-2020.ini
 
-4. run the detection again with `orthoseg_predict`::
+4. Run the detection again with `orthoseg_predict`::
 
-   orthoseg_predict --config ~/orthoseg/sample_projects/footballfields/footballfields_BEFL-2019.ini
+   orthoseg_predict --config ~/orthoseg/sample_projects/footballfields/footballfields_BEFL-2020.ini
 
 
 Prepare a new project
@@ -115,11 +136,13 @@ This way your projects directory immediately contains:
 
 The configuration for the image layers is located in `{projects_dir}/imagelayers.ini`.
 
-Layers can be accessed from a WMS server, a WMTS server or via a file (= a `GDAL raster dataset <https://gdal.org/en/stable/drivers/raster>`_).
-The basic structure of this configuration file is as follows: every section in the .ini file
-(eg. `[BEFL-2019]`) contains the configuration of one `image layer`. In later steps of
-this tutorial you well need to use the "image layer names" (for these examples
-`BEFL-2019` and `BEFL-2020`), they are referred to with `{image_layer_name}`::
+Layers can be accessed from a WMS server, a WMTS server or via a file
+(= a `GDAL raster dataset <https://gdal.org/en/stable/drivers/raster>`_).
+The basic structure of this configuration file is as follows: every section in the
+.ini file (eg. `[BEFL-2019]`) contains the configuration of one `image layer`.
+In later steps of this tutorial you well need to use the "image layer names"
+(for these examples `BEFL-2019` and `BEFL-2020`), they are referred to with
+`{image_layer_name}`::
 
     # In this file, the image layers we can use in segmentations are configured. 
 
@@ -135,11 +158,13 @@ A "file layer" can be any local file in one of the many raster file types suppor
 by `GDAL <https://gdal.org/en/stable/drivers/raster>`_. Via the "file layer", you can 
 also use the `GDAL WMS driver <https://gdal.org/en/stable/drivers/raster/wms.html>`_ by
 creating an xml file with the necessary configuration. An example file to use a XYZ tile
-server (eg. OpenStreetMap) can be found here: 
-`imagelayer_osm.xml <https://github.com/orthoseg/orthoseg/tree/main/sample_projects/imagelayer_osm.xml>`_.
+server (eg. OpenStreetMap) can be found here: `imagelayer_osm.xml`_.
 
 A more elaborate example that can be used as a template for the configuration can be
-found here: `imagelayers.ini <https://github.com/orthoseg/orthoseg/blob/main/sample_projects/imagelayers.ini>`_.
+found here: `imagelayers.ini`_.
+
+.. _imagelayers.ini: docs/_static/config_files/imagelayers.ini
+.. _imagelayer_osm.xml: docs/_static/config_files/imagelayer_osm.xml
 
 3. Project name
 ^^^^^^^^^^^^^^^
@@ -166,32 +191,40 @@ parameter:::
 
 
 As you might have recognized from the small section above, orthoseg uses the good old
-.ini file format for its configuration, with "ExtendedInterpolation". General
-information about this file format can be found here:
+.ini file format for its configuration. A special detail is that it makes use of the
+"ExtendedInterpolation" extension. Based on the sample files and the examples in this
+manual you will probably be able to figure out how to use it, but if you want to dive
+deeper, you can have a look here:
 `ConfigParser-ExtendeInterpolation <https://docs.python.org/3.3/library/configparser.html#interpolation-of-values>`_.
 
-The configuration can be found + modified in the following files: 
+All possible parameters that can be used in the project configuration file, including
+their default values, are documented in `ref_config_project`_.
 
-1. All existing sections and parameters + their **default values** can be found in the
-   following file: `orthoseg_install_dir/orthoseg/project_defaults.ini <https://github.com/orthoseg/orthoseg/blob/main/orthoseg/project_defaults.ini>`_.
-   It is highly recommended not to change anything in this file, as it will be
-   overwritten when installing a new version of orthoseg anyway. But if you want to
-   overrule any setting, this is the perfect spot to find all existing sections +
-   parameters and copy/paste the section + parameter to one of the next files and change
-   the value there to overrule it for your project(s).
-2. If you want to **overrule** a parameter for all the projects in your project
-   directory, add the section + parameter to the `project_defaults_overrule.ini` file in
-   your projects directory, eg:
-   `{projects_dir}/project_defaults_overrule.ini <https://github.com/orthoseg/orthoseg/blob/main/sample_projects/project_defaults_overrule.ini>`_.
-3. If you want to **overrule** parameters for a specific project, you can do so in the
-   project-specific config file: eg.
-   `{projects_dir}/{segment_subject}/{segment_subject}.ini <https://github.com/orthoseg/orthoseg/blob/main/sample_projects/project_template/projectfile.ini>`_.
+To avoid having to copy/paste and repeat a lot of parameters in many project files,
+you can define common project parameters in a common file and only put project-specific
+parameters in your project file.
+
+In the sample projects, a `project_defaults_overrule.ini`_ file is used to define
+common differences for all projects compared to the default orthoseg values.
+
+For a specific project, only some project-specific parameter values are overruled, like
+you can see here: `footballfields.ini`_.
+
+Finally, if you want e.g. a project file to run a detection on a specific image layer,
+you can add yet another file that overrules the project file yet again, like you can
+see here: `footballfields_BEFL-2019.ini`_. Note the
+:confval:`general.extra_config_files_to_load` property in the project file that allows
+you to specify all extra config files that will be loaded in the order listed.
+
+.. _project_defaults_overrule.ini: docs/_static/config_files/project_defaults_overrule.ini
+.. _footballfields.ini: docs/_static/config_files/footballfields.ini
+.. _footballfields_BEFL-2019.ini: docs/_static/config_files/footballfields_BEFL-2019.ini
 
 6. Configure image layer(s)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 If the image layers you want to train/predict on aren't configured yet, configure them
-in `{projects_dir}/imagelayers.ini <https://github.com/orthoseg/orthoseg/blob/main/sample_projects/imagelayers.ini>`_,
+in `{projects_dir}/imagelayers.ini <docs/_static/config_files/footballfields_BEFL-2019.ini/imagelayers.ini>`_,
 the same way as the default layers provided.
 
 7. Prepare training data files
@@ -400,13 +433,14 @@ If you find good examples, you can add them to the training dataset as such:
    subject is present on this location, but it isn't, you are already ready and can look
    for another example.
 3. If you are adding a 'false negative', or any new example, now you need to digitize
-   the actual subject in the `{subject}_labeldata` file. It is important to digitize all
-   samples of the subject in the location area added in the previous step, as any
-   surface that isn't digitized will be treated (and trained) as a 'false positive'. 
+   the actual subject in the `{subject}_{image_layer_name}_polygons` file. It is
+   important to digitize all samples of the subject in the location area added in the
+   previous step, as any surface that isn't digitized will be treated (and trained)
+   as a 'false positive'.
 
    The following properties need to be filled out:
 
-     * label_name (text): the content of the label data digitized. The label names you
+     * classname (text): the content of the label data digitized. The label names you
        can use are defined in the subjects configuration file. If it is different than
        the ones specified there, it will be ignored.
      * description (text): optional: a description of the feature digitized.
@@ -461,6 +495,6 @@ automate this further...
 Remark:
 ^^^^^^^
 Because tasks often take quite a while, orthoseg maximally tries to resume work that
-was started but was not finished yet. Eg. when predicting a large area, OrthoSeg will
+was started but was not finished yet. Eg. when predicting a large area, orthoseg will
 save the prediction per image, so if the prediction process is stopped for any reason
 and restarted, it will continue where it stopped.

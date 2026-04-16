@@ -18,7 +18,10 @@ build:
       - mkdir --parents docs/_static/config_files
       - cp orthoseg/project_defaults.ini docs/_static/config_files/
       - cp sample_projects/imagelayers.ini docs/_static/config_files/
+      - cp sample_projects/imagelayer_osm.xml docs/_static/config_files/
+      - cp sample_projects/project_defaults_overrule.ini docs/_static/config_files/
       - cp sample_projects/footballfields/footballfields.ini docs/_static/config_files/
+      - cp sample_projects/footballfields/footballfields_BEFL-2019.ini docs/_static/config_files/
     post_install:
       - mamba list
 
