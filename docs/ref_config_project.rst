@@ -2,8 +2,9 @@
 .. C:\Users\PIEROG\Projects\github\orthoseg\orthoseg\project_defaults.ini
 .. Do not edit manually.
 
-Project Defaults
-================
+=====================
+Project configuration
+=====================
 
 The configuration of a project is managed via .ini files.
 
@@ -29,21 +30,7 @@ Parameters specified in a config file loaded later in the order above
 overrule the corresponding parameter values specified in a previously
 loaded config file.
 
-An absolute minimalistic project config file that uses only defaults would look
-like this:
-
-.. code :: ini
-
-   [general]
-   segment_subject = footballfields
-
-
-A more realistic example is shipped with the sample projects to be used as a starting
-point: `footballfields.ini`_
-
-
 .. _project_defaults.ini: docs/_static/config_files/project_defaults.ini
-.. _footballfields.ini: docs/_static/config_files/footballfields.ini
 
 
 [general]

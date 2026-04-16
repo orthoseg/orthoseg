@@ -269,10 +269,18 @@ def _generate(
     out: list[str] = []
 
     # ---- Page title --------------------------------------------------------
-    title = ini_path.stem.replace("_", " ").title()
-    out.append(title)
-    out.append("=" * len(title))
-    out.append("")
+    # Skip the title if the first or second comment in the INI file consists
+    # only of `=` characters (e.g. `# ===`).
+    _skip_title = any(
+        bool(c) and all(ch == "=" for ch in c)
+        for c in (s.strip() for s in pre_section_comments[:2])
+    )
+    if not _skip_title:
+        title = ini_path.stem.replace("_", " ").title()
+        out.append("=" * len(title))
+        out.append(title)
+        out.append("=" * len(title))
+        out.append("")
 
     # Pre-section comments become an intro paragraph.
     intro = _comment_to_rst(pre_section_comments)
