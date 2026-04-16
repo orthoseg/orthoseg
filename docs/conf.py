@@ -98,7 +98,6 @@ html_sidebars: dict[str, list[str]] = {
     "installation": [],
     "user_guide": [],
     "reference": [],
-    "configuration": [],
     "examples": [],
     "faq": [],
     "development": [],

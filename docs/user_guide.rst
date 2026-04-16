@@ -11,8 +11,8 @@ prediction on an orthophoto.
 
 Smaller projects are no problem to run on a regular laptop or desktop computer. Only
 if you want to use more complex models, train on larger training datasets and/or
-want to process large areas using a GPU will become very recommended to reduce waiting
-times.
+want to process large areas using a decent CUDA GPU will become very recommended to
+reduce waiting times.
 
 Run sample project  
 ------------------
