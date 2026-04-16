@@ -1,4 +1,4 @@
-# mypy: ignore-errors
+"""Script to get Sentinel-2 images for fields from openeo."""
 
 import logging
 from datetime import datetime
@@ -10,7 +10,15 @@ import pyproj
 from osgeo import gdal
 
 
-def get_s2_for_fields(output_dir: Path):
+def get_s2_for_fields(output_dir: Path) -> Path:
+    """Get sentinel 2 images for a hardcoded area.
+
+    Args:
+        output_dir (Path): Directory where the output files will be saved.
+
+    Returns:
+        Path: The path to the generated Sentinel-2 image file.
+    """
     roi_name = "BEFL"
     roi = {"west": 469110.0, "south": 5613690.0, "east": 707210.0, "north": 5709000.0}
     roi_name = "BEFL-TEST"
@@ -143,7 +151,7 @@ def get_s2_for_fields(output_dir: Path):
 if __name__ == "__main__":
     # Init logging
     logging.basicConfig(level=logging.INFO)
-    global logger
+    global logger  # noqa: PLW0603, PLW0604
     logger = logging.getLogger(__name__)
 
     # Set some variables
@@ -154,7 +162,11 @@ if __name__ == "__main__":
 
     # Convert image from uint16 to byte
     output_path = output_dir / f"{output_uint16_path.stem}_byte.tif"
-    scaleParams = [(0, 5000, 0, 255), (0, 2000, 0, 255), (0, 2000, 0, 255)]
+    scaleParams: list[tuple] | None = [
+        (0, 5000, 0, 255),
+        (0, 2000, 0, 255),
+        (0, 2000, 0, 255),
+    ]
     scaleParams = None
     params = gdal.TranslateOptions(
         outputType=gdal.GDT_Byte,
