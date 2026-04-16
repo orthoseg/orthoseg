@@ -204,8 +204,9 @@ To avoid having to copy/paste and repeat a lot of parameters in many project fil
 you can define common project parameters in a common file and only put project-specific
 parameters in your project file.
 
-In the sample projects, a :doc:`project_defaults_overrule_ini_viewer` file is used to define
-common differences for all projects compared to the default orthoseg values.
+In the sample projects, a :doc:`file_viewers/project_defaults_overrule_ini_viewer` file
+is used to define common overrules of the default configuration values for all projects
+in the project directory.
 
 For a specific project, only some project-specific parameter values are overruled, like
 you can see here: :doc:`file_viewers/footballfields_ini_viewer`.
