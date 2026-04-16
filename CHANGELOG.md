@@ -17,6 +17,7 @@
     - Use [segmodels_keras](https://github.com/orthoseg/segmodels_keras) (#311)
     - Avoid unneeded direct use of tensorflow (#304, #313)
 - Use keras.applications `preprocess_input` functions to prepare inputs (#314)
+- Significant improvements to the documentation (#316, #330,...)
 
 ## 0.7.1 (2026-04-13)
 
