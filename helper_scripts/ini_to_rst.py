@@ -40,7 +40,7 @@ def _comment_to_rst(comment_lines: list[str]) -> list[str]:
 def _rst_default(type_str: str, repr_str: str) -> str:
     """Return a concise RST-formatted default value string."""
     if type_str == "dict":
-        return "``{}`` (see description)"
+        return "``{}`` (see description)" if repr_str == "{}" else "see description"
     if type_str in ("int", "float", "bool"):
         return f"``{repr_str}``"
     if repr_str == "None":
@@ -108,6 +108,7 @@ def _generate(ini_path: Path, pre_section_comments: list[str], sections: list[di
             if value is None:
                 type_str = "str"
                 default_rst = "``None``"
+                repr_str = None
             else:
                 type_str, repr_str = _infer_type_and_repr(value)
                 default_rst = _rst_default(type_str, repr_str)
@@ -115,6 +116,16 @@ def _generate(ini_path: Path, pre_section_comments: list[str], sections: list[di
             out.append(f"   :type: ``{type_str}``")
             out.append(f"   :default: {default_rst}")
             out.append("")
+
+            # For dict defaults with a non-trivial value, prepend a code block.
+            if type_str == "dict" and repr_str and repr_str != "{}":
+                code_lines = repr_str.splitlines()
+                doc_lines = (
+                    ["Default value:", "", ".. code-block:: python", ""]
+                    + [f"   {line}" for line in code_lines]
+                    + [""]
+                    + doc_lines
+                )
 
             if doc_lines:
                 for line in doc_lines:
@@ -167,4 +178,5 @@ def main(argv: list[str] | None = None) -> None:
 
 
 if __name__ == "__main__":
-    main()
+    #main()
+    main(["orthoseg/project_defaults.ini", "docs/configuration.rst"])

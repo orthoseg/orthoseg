@@ -235,7 +235,7 @@ Settings concerning the train process.
    train data to e.g. train on different resolutions.
 
    Examples:
-   
+
    .. code :: python
 
       label_datasources = {
@@ -257,18 +257,24 @@ Settings concerning the train process.
 
 .. confval:: train.image_augmentations
    :type: ``dict``
-   :default:   
-      ``{`` |br|
-      ``   "fill_mode": "constant",``|br|
-      ``   "cval": 0,`` |br|
-      ``   "rotation_range": 359.0,`` |br|
-      ``   "width_shift_range": 0.05,`` |br|
-      ``   "height_shift_range": 0.05,`` |br|
-      ``   "zoom_range": 0.1,`` |br|
-      ``   "brightness_range": [0.95, 1.05],`` |br|
-      ``   "horizontal_flip": True,`` |br|
-      ``   "vertical_flip": True,`` |br|
-      ``}``
+   :default: see description
+
+   Default value:
+
+   .. code-block:: python
+
+      {
+          "fill_mode": "constant",
+          "cval": 0,
+          "rotation_range": 359.0,
+          "width_shift_range": 0.05,
+          "height_shift_range": 0.05,
+          "zoom_range": 0.1,
+          "brightness_range": [
+              0.95,
+              1.05
+          ]
+      }
 
    The augmentations to apply to the input images during training.
 
@@ -284,7 +290,24 @@ Settings concerning the train process.
 
 .. confval:: train.mask_augmentations
    :type: ``dict``
-   :default: ``{}`` (see description)
+   :default: see description
+
+   Default value:
+
+   .. code-block:: python
+
+      {
+          "fill_mode": "constant",
+          "cval": 0,
+          "rotation_range": 359.0,
+          "width_shift_range": 0.05,
+          "height_shift_range": 0.05,
+          "zoom_range": 0.1,
+          "brightness_range": [
+              1.0,
+              1.0
+          ]
+      }
 
    The augmentations to apply to the label masks during training.
 
@@ -300,7 +323,27 @@ Settings concerning the train process.
 
 .. confval:: train.classes
    :type: ``dict``
-   :default: ``{}`` (see description)
+   :default: see description
+
+   Default value:
+
+   .. code-block:: python
+
+      {
+          "background": {
+              "labelnames": [
+                  "ignore_for_train",
+                  "background"
+              ],
+              "weight": 1
+          },
+          "${general:segment_subject}": {
+              "labelnames": [
+                  "${general:segment_subject}"
+              ],
+              "weight": 1
+          }
+      }
 
    The classes to be trained to.
 
@@ -333,7 +376,15 @@ Settings concerning the train process.
 
 .. confval:: train.optimizer_params
    :type: ``dict``
-   :default: ``{}`` (see description)
+   :default: see description
+
+   Default value:
+
+   .. code-block:: python
+
+      {
+          "learning_rate": 0.0001
+      }
 
    Parameters to use for the optimizer.
 
@@ -870,7 +921,65 @@ Logging configuration.
 
 .. confval:: logging.logconfig
    :type: ``dict``
-   :default: ``{}`` (see description)
+   :default: see description
+
+   Default value:
+
+   .. code-block:: python
+
+      {
+          "version": 1,
+          "disable_existing_loggers": True,
+          "formatters": {
+              "console": {
+                  "format": "%(asctime)s.%(msecs)03d|%(levelname)s|%(name)s|%(message)s",
+                  "datefmt": "%H:%M:%S"
+              },
+              "file": {
+                  "format": "%(asctime)s|%(levelname)s|%(name)s|%(message)s",
+                  "datefmt": None
+              }
+          },
+          "handlers": {
+              "console": {
+                  "level": "INFO",
+                  "class": "logging.StreamHandler",
+                  "formatter": "console",
+                  "stream": "ext://sys.stdout"
+              },
+              "file": {
+                  "level": "INFO",
+                  "class": "logging.handlers.RotatingFileHandler",
+                  "formatter": "file",
+                  "filename": "_log/{iso_datetime}.log",
+                  "maxBytes": 10000000,
+                  "backupCount": 3
+              }
+          },
+          "loggers": {
+              "geofile_ops": {
+                  "level": "INFO",
+                  "handlers": [
+                      "console"
+                  ],
+                  "propagate": False
+              },
+              "geofile_ops.geofile_ops": {
+                  "level": "DEBUG",
+                  "handlers": [
+                      "console"
+                  ],
+                  "propagate": False
+              }
+          },
+          "root": {
+              "level": "INFO",
+              "handlers": [
+                  "console",
+                  "file"
+              ]
+          }
+      }
 
    Config to use for the logging.
 
@@ -915,7 +1024,3 @@ Config to manage the cleanup of old models, trainings and predictions.
    The number of versions to retain the prediction files for.
 
    If <0, all versions are retained.
-
-.. |br| raw:: html
-
-  <br/>
