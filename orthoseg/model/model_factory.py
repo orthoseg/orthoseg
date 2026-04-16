@@ -85,7 +85,7 @@ def get_model(
         weights_notop_path = _get_model_weights(architecture, "aerial")
         if weights_notop_path is not None:
             logger.info(
-                f"Found aerial weights for {architecture} at {weights_notop_path}, "
+                f"Found weights for {architecture}: {weights_notop_path.name}, "
                 "will use these to initialize the model."
             )
         elif weights == "aerial":
