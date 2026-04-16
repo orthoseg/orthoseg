@@ -258,15 +258,15 @@ Settings concerning the train process.
 .. confval:: train.image_augmentations
    :type: ``dict``
    :default:   
-      ``{ |br|
-            "fill_mode": "constant", |br|
-            "cval": 0, |br|
-            "rotation_range": 359.0, |br|
-            "width_shift_range": 0.05, |br|
-            "height_shift_range": 0.05, |br|
-            "zoom_range": 0.1, |br|
-            "brightness_range": [0.95, 1.05], |br|
-      }``
+      { |br|
+         "fill_mode": "constant", |br|
+         "cval": 0, |br|
+         "rotation_range": 359.0, |br|
+         "width_shift_range": 0.05, |br|
+         "height_shift_range": 0.05, |br|
+         "zoom_range": 0.1, |br|
+         "brightness_range": [0.95, 1.05], |br|
+      }
 
    The augmentations to apply to the input images during training.
 
