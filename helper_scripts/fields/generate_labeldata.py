@@ -1,12 +1,9 @@
-"""
-Convert models in hdf5 file format to tf savedmodel.
-"""
+"""Convert models in hdf5 file format to tf savedmodel."""
 
 from pathlib import Path
 
 import geopandas as gpd
 import shapely
-
 
 # Set some variables
 output_dir = Path("X:/Monitoring/orthoseg/boundaries")
