@@ -269,11 +269,12 @@ def _generate(
     out: list[str] = []
 
     # ---- Page title --------------------------------------------------------
-    # Skip the title if the first or second comment in the INI file consists
-    # only of `=` characters (e.g. `# ===`).
+    # Skip the title if one of the first 3 lines in the INI file consists only of
+    # `=` characters (e.g. `# ===`), as this implies the file pre-section already
+    # contains a section heading.
     _skip_title = any(
         bool(c) and all(ch == "=" for ch in c)
-        for c in (s.strip() for s in pre_section_comments[:2])
+        for c in (s.strip() for s in pre_section_comments[:3])
     )
     if not _skip_title:
         title = ini_path.stem.replace("_", " ").title()

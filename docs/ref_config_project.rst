@@ -2,8 +2,6 @@
 .. C:\Users\PIEROG\Projects\github\orthoseg\orthoseg\project_defaults.ini
 .. Do not edit manually.
 
-.. _project-configuration:
-
 =====================
 Project configuration
 =====================
@@ -14,9 +12,8 @@ For each project there needs to be a project config file, located in the
 project dir.
 
 For starters, a project will inherit all default settings from the
-:doc:`file_viewers/project_defaults_ini_viewer` file. This file is included in
-the orthoseg installation and is not supposed to be changed, as it will be
-overwritten when a new version of orthoseg is installed.
+:doc:`file_viewers/project_defaults_ini_viewer` file, which is included in the
+orthoseg installation and is not supposed to be changed.
 
 In addition, you can create additional .ini files to combine shared settings
 so you can minimize the amount of settings you need to specify/copy-paste in
@@ -33,6 +30,7 @@ The configuration used for an orthoseg project is loaded in the following order:
 Parameters specified in a config file loaded later in the order above
 overrule the corresponding parameter values specified in a previously
 loaded config file.
+
 
 [general]
 ---------
