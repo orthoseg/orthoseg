@@ -1,9 +1,7 @@
-"""
-Delete a directory faster (in windows)
-"""
+"""Delete a directory faster (in windows)."""
 
-import shutil
 import datetime as dt
+import shutil
 
 del_dir = "X:/Monitoring/OrthoSeg/trees"
 

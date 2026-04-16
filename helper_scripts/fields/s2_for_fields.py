@@ -1,13 +1,13 @@
 # mypy: ignore-errors
 
-from datetime import datetime
 import logging
+from datetime import datetime
 from pathlib import Path
 
-from osgeo import gdal
 import openeo
 import openeo.processes
 import pyproj
+from osgeo import gdal
 
 
 def get_s2_for_fields(output_dir: Path):

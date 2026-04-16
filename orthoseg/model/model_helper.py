@@ -158,7 +158,7 @@ class TrainParams:
         if loss_function is None:
             if KERAS_GTE_3:
                 self.loss_function = "categorical_focal_crossentropy"
-            else:  # noqa: PLR5501
+            else:
                 if self.class_weights is not None:
                     self.loss_function = "weighted_categorical_crossentropy"
                 else:
@@ -941,7 +941,7 @@ def save_and_clean_models(
                             new_model.save_weights(
                                 str(new_model_path), save_format=save_format
                             )
-                    else:  # noqa: PLR5501
+                    else:
                         if model_template_for_save is not None:
                             model_template_for_save.save(
                                 str(new_model_path), save_format=save_format

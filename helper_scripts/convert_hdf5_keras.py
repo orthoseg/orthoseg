@@ -1,6 +1,5 @@
-"""
-Convert models in .hdf5 file format to .keras.
-"""
+"""Convert models in .hdf5 file format to .keras."""
+
 import logging
 from pathlib import Path
 
@@ -11,8 +10,7 @@ import orthoseg.model.model_factory as mf
 
 
 def convert_model(model_path: Path):
-    """
-    Convert model from .hdf5 to .keras.
+    """Convert model from .hdf5 to .keras.
 
     Args:
         model_path (Path): Path to the hdf5 model.
