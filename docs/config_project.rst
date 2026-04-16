@@ -1,7 +1,5 @@
-Project Defaults
-================
-
-The `project_defaults.ini` file contains default settings for projects.
+Project Configuration
+=====================
 
 The config used for an orthoseg project is loaded in the following order:
 

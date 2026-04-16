@@ -4,7 +4,7 @@ Configuration Reference
 As already mentioned in the :doc:`user_guide`, orthoseg can be configured via
 ``.ini`` files rather than by writing Python code.
 
-There are two types of configuration files:
+There are two main types of configuration files:
 
 - **Project configuration**: a file that defines all settings for a segmentation
   project such as which image layers to use, model architecture, training
@@ -14,6 +14,6 @@ There are two types of configuration files:
   be reused in multiple project configurations.
 
 
-.. include:: config_project_defaults.rst
+.. include:: config_project.rst
 
 .. include:: config_imagelayers.rst
