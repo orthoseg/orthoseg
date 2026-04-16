@@ -267,10 +267,11 @@ Settings concerning the train process.
    via the patterns. In this case, (only) the locations_path is mandatory.
    It will be used as link key. All other properties specified will add/overrule:
 
-   - properties extracted from the file path, e.g. image_layer
-   - more general properties: train.image_pixel_x_size, train.image_pixel_y_size.
+   - properties extracted from the file path, e.g. `image_layer`
+   - more general properties: :confval:`train.image_pixel_x_size`,
+     :confval:`train.image_pixel_y_size`.
 
-   A typical use case is to overrule the general project `pixel_size`s for one
+   A typical use case is to overrule the general project `pixel_size` s for one
    or more datasources to be able to train the model on different resolutions.
    It is possible to list the same datasource multiple times to use the same
    train data to e.g. train on different resolutions.
