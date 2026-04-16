@@ -185,42 +185,64 @@ Settings concerning the train process.
    :type: ``int``
    :default: ``512``
 
-   Parameters regarding the size/resolution of the images used to train on.
+   The width of the images to train on in pixels.
 
-   The size the label_location boxes need to be digitized depends on these values.
-   E.g. with `image_pixel_width` = 512 and `image_pixel_x_size` = 0.25, the boxes
-   need to be 512 pixels * 0.25 meter/pixel = 128 meter wide.
+   .. note::
 
-   For some model architectures there are limitations on the image sizes supported.
-   E.g. if you use the linknet decoder, the images pixel width and height
-   has to be divisible by factor 32.
+      These parameters (image_pixel_width, image_pixel_height, image_pixel_x_size
+      and image_pixel_y_size) will determine the size the label location boxes will
+      need to be digitized.
+
+      E.g. if `image_pixel_width` = 512 and `image_pixel_x_size` = 0.25, the boxes
+      need to be 512 pixels * 0.25 meter/pixel = 128 meter wide.
+
+   .. note::
+
+      For some model architectures there are limitations on the image sizes supported.
+      E.g. if you use the linknet decoder, the images pixel width and height
+      has to be divisible by factor 32.
 
 .. confval:: train.image_pixel_height
    :type: ``int``
    :default: ``512``
 
+   The height of the images to train on in pixels.
 
 .. confval:: train.image_pixel_x_size
    :type: ``float``
    :default: ``0.25``
 
+   The size of a pixel in the x direction.
+
+   The size is in the units of the coordinate system the layer is in. This will in
+   most cases be in meters.
 
 .. confval:: train.image_pixel_y_size
    :type: ``float``
    :default: ``0.25``
 
+   The size of a pixel in the y direction.
+
+   The size is in the units of the coordinate system the layer is in. This will in
+   most cases be in meters.
 
 .. confval:: train.labelpolygons_pattern
    :type: ``str``
    :default: ``${dirs:labels_dir}/${general:segment_subject}_{image_layer}_polygons.gpkg``
 
-   Pattern how the file paths of the label files should be formatted.
-   The image_layer to get the images from is extracted from the file path.
+   Pattern how the file paths of the `polygons` label files should be formatted.
+
+   The `image_layer` to get the images from is extracted from the file path. Hence,
+   the image layer will need to be configured in the :doc:`/ref_config_imagelayers`.
 
 .. confval:: train.labellocations_pattern
    :type: ``str``
    :default: ``${dirs:labels_dir}/${general:segment_subject}_{image_layer}_locations.gpkg``
 
+   Pattern how the file paths of the `locations` label files should be formatted.
+
+   The `image_layer` to get the images from is extracted from the file path. Hence,
+   the image layer will need to be configured in the :doc:`/ref_config_imagelayers`.
 
 .. confval:: train.labelname_column
    :type: ``str``
@@ -228,8 +250,8 @@ Settings concerning the train process.
 
    Column where the labels for each training polygon is available.
 
-   If the column name configured here is not available columns "label_name"
-   is tried as well.
+   For backwards compatibility, if the column name configured here is not available,
+   column "label_name" is used if it exists.
 
 .. confval:: train.label_datasources
    :type: ``str``
@@ -365,10 +387,15 @@ Settings concerning the train process.
 
    The classes to be trained to.
 
-   For each class:
+   They should be specified using a dictionary with the class names to be detected
+   as keys. For each class following properties need to be specified:
 
-   * a list of label names in the training data to use for this class
+   * a list of label names in the training data to use for this class. Because this
+     is a list, you can easily map multiple label names in the training data to the
+     same class.
    * the weight to use when training
+
+   The class name "background" is mandatory and is reserved for the background class.
 
 .. confval:: train.batch_size_fit
    :type: ``int``
@@ -376,7 +403,7 @@ Settings concerning the train process.
 
    The batch size to use during fit of model.
 
-   A proper values depends on available hardware, model used and image size.
+   A proper value depends on available hardware, model used and image size.
 
 .. confval:: train.batch_size_predict
    :type: ``int``
@@ -384,7 +411,7 @@ Settings concerning the train process.
 
    The batch size to use while predicting in the train process.
 
-   A proper values depends on available hardware, model used and image size.
+   A proper value depends on available hardware, model used and image size.
 
 .. confval:: train.optimizer
    :type: ``str``
@@ -553,31 +580,48 @@ Settings concerning the prediction process.
    :type: ``int``
    :default: ``2048``
 
-   Parameters regarding the size/resolution of the images to run predict on.
+   Image width in pixels to use when running a prediction.
 
-   For some model architectures there are limitations on the image sizes
-   supported. E.g. if you use the linknet decoder, the images pixel width
-   and height has to be divisible by factor 32.
+   .. note::
+
+      For some model architectures there are limitations on the image sizes
+      supported. E.g. if you use the linknet decoder, the images pixel width
+      and height has to be divisible by factor 32.
 
 .. confval:: predict.image_pixel_height
    :type: ``int``
    :default: ``2048``
 
+   Image height in pixels to use when running a prediction.
 
 .. confval:: predict.image_pixel_x_size
    :type: ``float``
    :default: ``0.25``
 
+   The size of a pixel in the x direction.
+
+   The size is in the units of the coordinate system the layer is in. This will in
+   most cases be in meters.
 
 .. confval:: predict.image_pixel_y_size
    :type: ``float``
    :default: ``0.25``
 
+   The size of a pixel in the y direction.
+
+   The size is in the units of the coordinate system the layer is in. This will in
+   most cases be in meters.
 
 .. confval:: predict.image_pixels_overlap
    :type: ``int``
    :default: ``128``
 
+   The number of pixels to overlap between the image tiles for prediction.
+
+   This is needed to avoid edge effects in the prediction. The optimal value depends
+   on the amount of context needed to accurately segment the subject involved.
+   E.g. for small opjects to be segmented, typically a smaller overlap will be enough,
+   while for large objects, a larger overlap might be needed.
 
 .. confval:: predict.min_probability
    :type: ``float``
@@ -704,11 +748,31 @@ Settings concerning the postprocessing after the prediction.
 
    Dissolve the result.
 
+   Because the predictions are done on tiled input images, the "raw" result
+   will be tiled in the size of the prediction images.
+
+   If dissolve is True, adjacent polygons of the same class are merged to one
+   polygon, but no multipolygons are created.
+
+   For some subjects, dissolving can lead to huge polygons that are hard to
+   handle and visualize because they are entirely connected. Examples are e.g.
+   road networks, water bodies,... For these subjects, it can be better to disable
+   dissolve or use a `dissolve_tiles_path`.
+
 .. confval:: postprocess.dissolve_tiles_path
    :type: ``str``
    :default: ``None``
 
    Tile the result of the dissolve using the grid in the file specified.
+
+   This parameter is only applicable if `dissolve` is True.
+
+   If specified, the result of the dissolve will be tiled using the grid in the
+   file provided.
+
+   This is useful if you want the result to be tiled to avoid huge polygons, but
+   when you would like to have another tiling scheme used in the output than the
+   tiles used during the prediction.
 
 .. confval:: postprocess.reclassify_to_neighbour_query
    :type: ``str``
@@ -774,15 +838,16 @@ Remarks:
    :type: ``str``
    :default: ``..``
 
-   The base projects dir.
+   The base projects directory.
 
    Here, multiple orthoseg projects can be stored. Can either be:
+
    * an absolute path
    * OR a relative path starting from the location of the specific projectconfig
      file of the project
 
    Eg.: ".." means: projects_dir is the parent dir of the dir containing the
-   project config file
+   project config file.
 
 .. confval:: dirs.project_dir
    :type: ``str``
@@ -794,71 +859,86 @@ Remarks:
    :type: ``str``
    :default: ``${project_dir}/log``
 
-   Log dir.
+   The log directory for the project.
 
 .. confval:: dirs.labels_dir
    :type: ``str``
    :default: ``${project_dir}/labels``
 
-   Dir containing the label data.
+   The directory containing the label data.
 
 .. confval:: dirs.training_dir
    :type: ``str``
    :default: ``${project_dir}/training``
 
-   Dirs used to put data during training .
+   Directories used to put data during training .
 
 .. confval:: dirs.model_dir
    :type: ``str``
    :default: ``${project_dir}/models``
 
-   Model dir.
+   The directory where models are saved².
 
 .. confval:: dirs.output_vector_dir
    :type: ``str``
    :default: ``${project_dir}/output_vector/${predict:image_layer}``
 
-   Output vector dir.
+   Output vector directory.
 
 .. confval:: dirs.base_image_dir
    :type: ``str``
    :default: ``${projects_dir}/_image_cache``
 
-   Dir with the images we want predictions for.
+   The base directory to cache images we want predictions for.
 
 .. confval:: dirs.predict_image_input_subdir
    :type: ``str``
    :default: ``${predict:image_pixel_width}x${predict:image_pixel_height}_${predict:image_pixels_overlap}pxOverlap``
 
+   The directory name for the cached tiled images we want predictions for.
 
 .. confval:: dirs.predict_image_input_dir
    :type: ``str``
    :default: ``${base_image_dir}/${predict:image_layer}/${predict_image_input_subdir}``
 
+   The full directory path for the cached tiled images we want predictions for.
 
 .. confval:: dirs.predict_image_output_basedir
    :type: ``str``
    :default: ``${predict_image_input_dir}``
 
+   The base directory where predictions are saved.
+
+   .. note::
+
+      In recent version of orthoseg, the output is saved directly to vector files
+      rather than (first) to raster files.
 
 .. confval:: dirs.predictsample_image_input_subdir
    :type: ``str``
    :default: ``${train:image_pixel_width}x${train:image_pixel_height}``
 
-   Dir with sample images for use during training.
+   Directory name to save prediction of the images used during training to.
 
-   Remark: these samples are meant to check the training quality, so by default
-           the train image size is used!!!
+   These prediction are a convenient way to find errors in the training dataset
+   and check the training quality.
+
+   .. note::
+
+      Because the images predicted here are images used for training, the train
+      image size is used by default.
 
 .. confval:: dirs.predictsample_image_input_dir
    :type: ``str``
    :default: ``${base_image_dir}/${predict:image_layer}_testsample/${predictsample_image_input_subdir}``
 
+   The full directory path to save the predictions on the training images to.
 
 .. confval:: dirs.predictsample_image_output_basedir
    :type: ``str``
    :default: ``${predictsample_image_input_dir}``
 
+   The base directory to save the predictions on the training images to.
 
 
 [files]
@@ -876,6 +956,7 @@ Settings concerning some specific file paths.
    :type: ``str``
    :default: ``${dirs:projects_dir}/imagelayers.ini``
 
+   File path where the image layers configuration file is located.
 
 .. confval:: files.cancel_filepath
    :type: ``str``
@@ -1005,13 +1086,11 @@ Logging configuration.
    logging.dictConfig.
    https://docs.python.org/3/library/logging.config.html#logging-config-dictschema
 
-   Mind: the location for file logging.
-
 
 [cleanup]
 ---------
 
-Config to manage the cleanup of old models, trainings and predictions.
+Configuration to manage the cleanup of old models, trainings and predictions.
 
 .. confval:: cleanup.simulate
    :type: ``bool``
