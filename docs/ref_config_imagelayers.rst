@@ -16,131 +16,10 @@ present in the section.
 
 .. note::
 
-   A minimal ``imagelayers.ini`` is shipped with the sample projects so you
+   An example `imagelayers.ini`_ is shipped with the sample projects so you
    can use it as a starting point.
 
-
-Common parameters
------------------
-
-The following parameters apply to all layer types.
-
-.. confval:: use_cache
-
-   :type: ``str``
-   :required: no
-   :default: ``yes``
-
-   Whether to cache downloaded images on disk.
-
-   Possible values:
-
-   - ``yes``: always use the on-disk cache.
-   - ``no``: never cache; re-download every time.
-   - ``ifavailable``: use the cache when it exists, otherwise download.
-
-.. confval:: projection
-
-   :type: ``str``
-   :required: yes
-   :default: *(none)*
-
-   The CRS of the layer expressed as an EPSG code, e.g. ``epsg:31370``.
-
-.. confval:: switch_axes
-
-   :type: ``bool``
-   :required: no
-   :default: *(auto-detected)*
-
-   Set to ``True`` if the x and y axes of bounding boxes must be swapped when
-   querying the service. When left empty orthoseg determines this
-   automatically from the projection.
-
-.. confval:: layername
-
-   :type: ``str``
-   :required: no
-   :default: *(section name)*
-
-   Override the layer name used internally. Defaults to the INI section name.
-
-.. confval:: image_format
-
-   :type: ``str``
-   :required: no
-   :default: ``image/jpeg``
-
-   MIME type for the images that are requested and stored, e.g.
-   ``image/png``.
-
-.. confval:: bbox
-
-   :type: ``str``
-   :required: no
-   :default: *(none)*
-
-   Bounding box of the region of interest as four comma-separated coordinates
-   in the layer's projection: ``xmin, ymin, xmax, ymax``. Only images that
-   intersect the ROI are downloaded when building a prediction cache.
-
-   Example::
-
-      bbox = 174900, 176400, 175300, 176600
-
-.. confval:: roi_filepath
-
-   :type: ``str``
-   :required: no
-   :default: *(none)*
-
-   Path to a vector file whose geometry defines the region of interest.
-   Use this as an alternative to :confval:`bbox` when you need an irregular
-   boundary.
-
-.. confval:: grid_xmin
-
-   :type: ``float``
-   :required: no
-   :default: ``0``
-
-   X-coordinate of the grid origin used when tiling the prediction cache.
-
-.. confval:: grid_ymin
-
-   :type: ``float``
-   :required: no
-   :default: ``0``
-
-   Y-coordinate of the grid origin used when tiling the prediction cache.
-
-.. confval:: nb_concurrent_calls
-
-   :type: ``int``
-   :required: no
-   :default: ``1``
-
-   Maximum number of parallel requests sent to the image source.
-
-.. confval:: random_sleep
-
-   :type: ``float``
-   :required: no
-   :default: *(none)*
-
-   When set, a random delay of up to this many seconds is inserted between
-   consecutive requests to reduce server load.
-
-.. confval:: image_pixels_ignore_border
-
-   :type: ``int``
-   :required: no
-   :default: *(none)*
-
-   When the image source adds a watermark or artefact on the border, set this
-   to the number of border pixels to strip. orthoseg requests an image that
-   is this many pixels larger in all directions and then crops the border
-   before saving.
+.. _imagelayers.ini: docs/_static/config_files/imagelayers.ini
 
 
 WMS layers
@@ -305,3 +184,126 @@ you connect to XYZ/TMS tile services and other GDAL-supported web sources.
 See the `GDAL WMS driver documentation
 <https://gdal.org/drivers/raster/wms.html>`_ for details on how to write the
 ``.xml`` file.
+
+
+Common parameters
+-----------------
+
+The following parameters apply to all layer types.
+
+.. confval:: use_cache
+
+   :type: ``str``
+   :required: no
+   :default: ``yes``
+
+   Whether to cache downloaded images on disk.
+
+   Possible values:
+
+   - ``yes``: always use the on-disk cache.
+   - ``no``: never cache; re-download every time.
+   - ``ifavailable``: use the cache when it exists, otherwise download.
+
+.. confval:: projection
+
+   :type: ``str``
+   :required: yes
+   :default: *(none)*
+
+   The CRS of the layer expressed as an EPSG code, e.g. ``epsg:31370``.
+
+.. confval:: switch_axes
+
+   :type: ``bool``
+   :required: no
+   :default: *(auto-detected)*
+
+   Set to ``True`` if the x and y axes of bounding boxes must be swapped when
+   querying the service. When left empty orthoseg determines this
+   automatically from the projection.
+
+.. confval:: layername
+
+   :type: ``str``
+   :required: no
+   :default: *(section name)*
+
+   Override the layer name used internally. Defaults to the INI section name.
+
+.. confval:: image_format
+
+   :type: ``str``
+   :required: no
+   :default: ``image/jpeg``
+
+   MIME type for the images that are requested and stored, e.g.
+   ``image/png``.
+
+.. confval:: bbox
+
+   :type: ``str``
+   :required: no
+   :default: *(none)*
+
+   Bounding box of the region of interest as four comma-separated coordinates
+   in the layer's projection: ``xmin, ymin, xmax, ymax``. Only images that
+   intersect the ROI are downloaded when building a prediction cache.
+
+   Example::
+
+      bbox = 174900, 176400, 175300, 176600
+
+.. confval:: roi_filepath
+
+   :type: ``str``
+   :required: no
+   :default: *(none)*
+
+   Path to a vector file whose geometry defines the region of interest.
+   Use this as an alternative to :confval:`bbox` when you need an irregular
+   boundary.
+
+.. confval:: grid_xmin
+
+   :type: ``float``
+   :required: no
+   :default: ``0``
+
+   X-coordinate of the grid origin used when tiling the prediction cache.
+
+.. confval:: grid_ymin
+
+   :type: ``float``
+   :required: no
+   :default: ``0``
+
+   Y-coordinate of the grid origin used when tiling the prediction cache.
+
+.. confval:: nb_concurrent_calls
+
+   :type: ``int``
+   :required: no
+   :default: ``1``
+
+   Maximum number of parallel requests sent to the image source.
+
+.. confval:: random_sleep
+
+   :type: ``float``
+   :required: no
+   :default: *(none)*
+
+   When set, a random delay of up to this many seconds is inserted between
+   consecutive requests to reduce server load.
+
+.. confval:: image_pixels_ignore_border
+
+   :type: ``int``
+   :required: no
+   :default: *(none)*
+
+   When the image source adds a watermark or artefact on the border, set this
+   to the number of border pixels to strip. orthoseg requests an image that
+   is this many pixels larger in all directions and then crops the border
+   before saving.

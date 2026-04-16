@@ -15,6 +15,10 @@ build:
     pre_install:
       - mkdir --parents docs/_static/conda_envs
       - cp ci/envs/*.yml docs/_static/conda_envs/
+      - mkdir --parents docs/_static/config_files
+      - cp orthoseg/project_defaults.ini docs/_static/config_files/
+      - cp sample_projects/imagelayers.ini docs/_static/config_files/
+      - cp sample_projects/footballfields/footballfields.ini docs/_static/config_files/
     post_install:
       - mamba list
 
