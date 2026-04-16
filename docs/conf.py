@@ -70,6 +70,8 @@ exclude_patterns = [
     "../install_scripts",
     "../benchmark",
     "../orthoseg/util",
+    "ref_config_project.rst",      # file is included in reference.rst
+    "ref_config_imagelayers.rst",  # file is included in reference.rst
 ]
 
 # -- Options for HTML output -------------------------------------------------
@@ -95,12 +97,12 @@ html_theme_options = {
 }
 
 html_sidebars: dict[str, list[str]] = {
-    "development": [],
-    "faq": [],
     "installation": [],
     "user_guide": [],
-    "examples": [],
     "reference": [],
+    "examples": [],
+    "faq": [],
+    "development": [],
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
