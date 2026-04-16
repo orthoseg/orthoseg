@@ -74,9 +74,11 @@ as this was the pixel size the footballfields detection was trained on. It's bes
 first read `Prepare a new project`_ for some background information and then you could
 try the following steps:
 
-1. Add the layer you want to predict on to the `imagelayer.ini` config file. E.g. an
-   image layer with orthophotos of 2020 on the same location as the 2019 layer above
-   can be configured as follows::
+1. Add the layer you want to predict on to the `imagelayer.ini` config file located in
+   your projects directory (`~/orthoseg/sample_projects`).
+   Not a very interesting example, but if you don't have a lot of inspiration you could
+   use a layer with orthophotos of 2020 on the same location as the 2019 layer above.
+   This can be configured as follows::
 
       [BEFL-2020]
       wms_server_url = https://geo.api.vlaanderen.be/omw/wms?
@@ -87,7 +89,7 @@ try the following steps:
       bbox = 174900, 176400, 175300, 176600
 
    Detailed information on the different available options to configure image layers
-   can be found in `ref_config_imagelayers`_.
+   can be found in :doc:`image-layers-configuration`.
 2. Make a copy of `footballfields_BEFL-2019.ini` and change the `predict image_layer`
    parameter in the file to point to the new layer, e.g.::
 
@@ -121,9 +123,9 @@ can give you some inspiration:
 * on linux: `~/orthoseg/projects` 
 * on windows: `c:/users/{username}/orthoseg/projects`
 
-The easiest way to create it is by starting from a copy of the
-`sample_projects <https://github.com/orthoseg/orthoseg/tree/main/sample_projects>`_
-directory to eg. your personal `orthoseg` directory and rename it to `projects`.
+The easiest way to create it is by starting from a copy of the `sample_projects`
+you downloaded in the steps above to eg. your personal `orthoseg` directory and rename
+it to `projects`.
 
 This way your projects directory immediately contains:
 
