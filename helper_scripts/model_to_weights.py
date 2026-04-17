@@ -50,12 +50,15 @@ def convert_model(
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     os_dir = Path(r"X:\Monitoring\OrthoSeg")
+
+    # inceptionresnetv2+unet models
+
     # mobilenetv2+linknet model
-    # model_path = model_dir / "sealedsurfaces_59.5.0_0.94113_214.keras"
-    # inceptionresnetv2+unet model
-    model_path = (
-        os_dir / "recreationfields/models/recreationfields_34.2.0_0.88137_79.keras"
-    )
+    # rpath = "sealedsurfaces/models/sealedsurfaces_59.5.0_0.94113_214.keras"
+    # rpath = "recreationfields/models/recreationfields_34.2.0_0.88137_79.keras"
+    rpath = "greenhouses2/models/greenhouses2_26.2.0_0.82914_112.keras"
+
+    model_path = os_dir / rpath
 
     weights_dir = os_dir / "_weights"
     convert_model(
