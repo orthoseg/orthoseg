@@ -38,10 +38,9 @@ file with the features found.
 Of course it is also possible to script this in your scripting language of choice to
 automate this further...
 
-Remark
-------
+.. note::
 
-Because tasks often take quite a while, orthoseg maximally tries to resume work that
-was started but was not finished yet. Eg. when predicting a large area, orthoseg will
-save the prediction per image, so if the prediction process is stopped for any reason
-and restarted, it will continue where it stopped.
+   Because tasks often take quite a while, orthoseg maximally tries to resume work that
+   was started but was not finished yet. Eg. when predicting a large area, orthoseg will
+   save the prediction per image, so if the prediction process is stopped for any reason
+   and restarted, it will continue where it stopped.

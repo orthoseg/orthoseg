@@ -16,6 +16,7 @@ reduce waiting times.
 
 .. toctree::
    :maxdepth: 2
+   :numbered:
 
    Run sample project <user_guide/run_sample_project>
    Prepare a new project <user_guide/prepare_new_project>
