@@ -1,20 +1,36 @@
 .. currentmodule:: orthoseg
 
-===
-FAQ
-===
+.. _finetune-your-project:
 
-.. _FAQ-standalone-scripts:
+=====================
+Finetune your project
+=====================
 
-What model should I use?
-------------------------
+The default configuration of orthoseg is meant to be a good starting point for most
+projects.
+
+An overview of all parameters that can be finetuned can be found in the
+:doc:`/reference` section of the documentation.
+
+In this section you can find some more in depth information on some specific parameters
+that can help you finetune the configuration to your specific project and needs.
+
+What model architecture should I use?
+-------------------------------------
 
 For image segmentation, often an encoder-decoder architecture is used, where the encoder
-is a pretrained DNN that extracts features from the input image, and the decoder
+is a (pretrained) DNN that extracts features from the input image, and the decoder
 reconstructs the segmentation map from these features.
 
 Both the encoder and decoder can be implemented using different neural network
 architectures.
+
+The default configuration uses a `UNet` decoder with an `InceptionResNetV2` encoder as
+backbone because this gives a good balance of accuracy and inference speed. However,
+if you don't have a CUDA GPU available, you might want to switch to a lighter model to
+reduce the training and inference time. The sample project uses a `Linknet` with
+`MobileNetV2` backbone, which is significantly faster and uses less memory, but will
+give less accurate results.
 
 Decoder
 ^^^^^^^
@@ -28,18 +44,13 @@ For the decoder, following model architectures are supported:
 Based on practical tests, `UNet` and `LinkNet` give the best results. Both in terms of
 accuracy and inference speed, they are very similar. There are many variants on e.g.
 `UNet` as well, but it seems that most give marginal accuracy improvements for
-significant increases in complexity resulting in worse inference/train speed. Hence,
-the default in orthoseg is the classic `UNet`.
+significant increases in complexity resulting in worse inference/train speed.
 
 Encoder
 ^^^^^^^
 
-For the encoder there are even more options. Based on the information found and some
-practical tests, `InceptionResnetV2` gives the best combination of quality and
-performance as a backbone to segment orthophotos, so this is the default in orthoseg.
-
-In the table below some models that were considered are listed and compared to
-`InceptionResnetV2`:
+For the encoder there are even more options. In the table below some models that were
+considered are listed and compared to `InceptionResnetV2`:
 
 * **Model**: the name of the model
 * **Acc@1**: the top 1 classification accuracy on imagenet
