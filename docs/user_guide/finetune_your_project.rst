@@ -113,12 +113,17 @@ EfficientNetV2L    85.7
 ================== ===== ===== ======= =======
 
 
-Test details
-^^^^^^^^^^^^
+Full segmentation models
+^^^^^^^^^^^^^^^^^^^^^^^^
 
-TernausNet + Unet
-"""""""""""""""""
-* Both standard `Unet` and `TernausNet` (`Unet` with `vgg11` backbone) were tested on
+Because orthoseg is about semantic segmentation, in the end it is the full segmentation
+model that matters. There is less information available on the performance of full
+segmentation models, so in the following overview only some of the full models
+that were tested with orthoseg are listed.
+
+TernausNet/Vanilla Unet
+"""""""""""""""""""""""
+* Both vanilla `Unet` and `TernausNet` (=`Unet` with `vgg11` backbone) were tested on
   the detection of greenhouses. The accuracy of both was very similar and was decent,
   but clearly worse than `InceptionResNetV2`.
 * Support for these models was removed from orthoseg to avoid having to upgrade them to
