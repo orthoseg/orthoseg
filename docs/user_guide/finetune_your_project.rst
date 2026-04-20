@@ -129,15 +129,16 @@ TernausNet/Vanilla Unet
 * Support for these models was removed from orthoseg to avoid having to upgrade them to
   stay supported with newer keras versions.
 
-EfficientNetV2M
-"""""""""""""""
-* The classification accuracy on imagenet is significantly better than
-  `InceptionResNetV2` (85.3% vs 80.3% top 1 accuracy)
+EfficientNetV2M+Unet
+""""""""""""""""""""
+* The classification accuracy of just `EfficientNetV2M` on imagenet is significantly
+  better than `InceptionResNetV2` (85.3% vs 80.3% top 1 accuracy), so you would expect
+  the segmentation performance to be better as well.
 * The number of weights is similar, and train/inference speed is reported to be a lot
-  faster than v1 of the EfficientNet family.
+  faster than v1 of the first generation EfficientNet family.
 * The train/inference speed for a segmentation was about the same as
   `InceptionResNetV2`: training was a few % slower, but inference was a few % faster.
-  Both tested on the same hardware (NVidia Quadro P5000).
+  Both tested on the CUDA GPU (NVidia Quadro P5000).
 * The IOU score from the training obtained on a "sealed surfaces" detection was slightly
   higher than `InceptionResNetV2` (0.9791 vs 0.9765). When running an actual detection
   and reviewing the results on-screen though, it seeemed like types of sealed areas that
