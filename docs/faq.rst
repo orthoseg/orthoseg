@@ -114,7 +114,7 @@ TernausNet + Unet
 
 EfficientNetV2M
 """""""""""""""
-* The classification accuracy on imagenet is significantly better than
+* The documented classification accuracy on imagenet is significantly better than
   `InceptionResNetV2` (85.3% vs 80.3% top 1 accuracy)
 * The number of weights is similar, and train/inference speed is reported to be a lot
   faster than v1 of the EfficientNet family.
