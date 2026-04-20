@@ -133,7 +133,7 @@ If you want to create one segmentation with training examples based on multiple 
 layers, you can create a seperate pair of .gpkg files per image layer.
 
 Prepare GIS project
-^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^
 
 Start your prefered GIS application (eg. QGIS), and create a new project. Add the .gpkg
 files from the labels directory and add the layers you want to digitize the training
