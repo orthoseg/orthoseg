@@ -1,25 +1,42 @@
 .. currentmodule:: orthoseg
 
-===
-FAQ
-===
+.. _finetune-your-project:
 
-.. _FAQ-standalone-scripts:
+=====================
+Finetune your project
+=====================
 
-What model should I use?
-------------------------
+The default configuration of orthoseg is meant to be a good starting point for most
+projects.
+
+An overview of all parameters that can be finetuned can be found in the
+:doc:`/reference` section of the documentation.
+
+In this section you can find some more in depth information on some specific parameters
+that can help you finetune the configuration to your specific project and needs.
+
+What model architecture should I use?
+-------------------------------------
 
 For image segmentation, often an encoder-decoder architecture is used, where the encoder
-is a pretrained DNN that extracts features from the input image, and the decoder
+is a (pretrained) DNN that extracts features from the input image, and the decoder
 reconstructs the segmentation map from these features.
 
 Both the encoder and decoder can be implemented using different neural network
 architectures.
 
+The default configuration uses a `UNet` decoder with an `InceptionResNetV2` encoder as
+backbone because this gives a good balance of accuracy and inference speed. However,
+if you don't have a CUDA GPU available, you might want to switch to a lighter model to
+reduce the training and inference time. The sample project uses a `Linknet` with
+`MobileNetV2` backbone, which is significantly faster and uses less memory, but will
+give less accurate results.
+
 Decoder
 ^^^^^^^
 
 For the decoder, following model architectures are supported:
+
 - `UNet`
 - `LinkNet`
 - `FPN`
@@ -28,18 +45,13 @@ For the decoder, following model architectures are supported:
 Based on practical tests, `UNet` and `LinkNet` give the best results. Both in terms of
 accuracy and inference speed, they are very similar. There are many variants on e.g.
 `UNet` as well, but it seems that most give marginal accuracy improvements for
-significant increases in complexity resulting in worse inference/train speed. Hence,
-the default in orthoseg is the classic `UNet`.
+significant increases in complexity resulting in worse inference/train speed.
 
 Encoder
 ^^^^^^^
 
-For the encoder there are even more options. Based on the information found and some
-practical tests, `InceptionResnetV2` gives the best combination of quality and
-performance as a backbone to segment orthophotos, so this is the default in orthoseg.
-
-In the table below some models that were considered are listed and compared to
-`InceptionResnetV2`:
+For the encoder there are even more options. In the table below some models that were
+considered are listed and compared to `InceptionResnetV2`:
 
 * **Model**: the name of the model
 * **Acc@1**: the top 1 classification accuracy on imagenet
@@ -101,26 +113,32 @@ EfficientNetV2L    85.7
 ================== ===== ===== ======= =======
 
 
-Test details
-^^^^^^^^^^^^
+Full segmentation models
+^^^^^^^^^^^^^^^^^^^^^^^^
 
-TernausNet + Unet
-"""""""""""""""""
-* Both standard `Unet` and `TernausNet` (`Unet` with `vgg11` backbone) were tested on
+Because orthoseg is about semantic segmentation, in the end it is the full segmentation
+model that matters. There is less information available on the performance of full
+segmentation models, so in the following overview only some of the full models
+that were tested with orthoseg are listed.
+
+TernausNet/Vanilla Unet
+"""""""""""""""""""""""
+* Both vanilla `Unet` and `TernausNet` (=`Unet` with `vgg11` backbone) were tested on
   the detection of greenhouses. The accuracy of both was very similar and was decent,
   but clearly worse than `InceptionResNetV2`.
 * Support for these models was removed from orthoseg to avoid having to upgrade them to
   stay supported with newer keras versions.
 
-EfficientNetV2M
-"""""""""""""""
-* The classification accuracy on imagenet is significantly better than
-  `InceptionResNetV2` (85.3% vs 80.3% top 1 accuracy)
+EfficientNetV2M+Unet
+""""""""""""""""""""
+* The classification accuracy of just `EfficientNetV2M` on imagenet is significantly
+  better than `InceptionResNetV2` (85.3% vs 80.3% top 1 accuracy), so you would expect
+  the segmentation performance to be better as well.
 * The number of weights is similar, and train/inference speed is reported to be a lot
-  faster than v1 of the EfficientNet family.
+  faster than v1 of the first generation EfficientNet family.
 * The train/inference speed for a segmentation was about the same as
   `InceptionResNetV2`: training was a few % slower, but inference was a few % faster.
-  Both tested on the same hardware (NVidia Quadro P5000).
+  Both tested on the CUDA GPU (NVidia Quadro P5000).
 * The IOU score from the training obtained on a "sealed surfaces" detection was slightly
   higher than `InceptionResNetV2` (0.9791 vs 0.9765). When running an actual detection
   and reviewing the results on-screen though, it seeemed like types of sealed areas that
