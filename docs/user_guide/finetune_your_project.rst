@@ -36,6 +36,7 @@ Decoder
 ^^^^^^^
 
 For the decoder, following model architectures are supported:
+
 - `UNet`
 - `LinkNet`
 - `FPN`
