@@ -26,6 +26,7 @@ def train(
     segment_subject: str,
     traindata_id: int,
     hyperparams: mh.HyperParams,
+    weights_dir: Path | None = None,
     model_preload_filepath: Path | None = None,
     image_width: int = 512,
     image_height: int = 512,
@@ -53,6 +54,7 @@ def train(
         segment_subject (str): segment subject
         traindata_id (int): train data version
         hyperparams (mh.HyperParams): the hyper parameters to use for the model
+        weights_dir: directory where pretrained weights are cached and read from
         model_preload_filepath: filepath to the model to continue training on,
             or None if you want to start from scratch
         image_width: width the input images will be rescaled to for training
@@ -108,6 +110,7 @@ def train(
             nb_channels=hyperparams.architecture.nb_channels,
             nb_classes=len(hyperparams.architecture.classes),
             activation=hyperparams.architecture.activation_function,
+            weights_dir=weights_dir,
             freeze=freeze,
         )
 

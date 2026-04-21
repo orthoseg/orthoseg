@@ -312,6 +312,7 @@ def train(config_path: Path, config_overrules: list[str] | None = None):
                 segment_subject=segment_subject,
                 traindata_id=traindata_id,
                 hyperparams=hyperparams,
+                weights_dir=conf.dirs.getpath("weights_dir"),
                 model_preload_filepath=model_preload_filepath,
                 image_width=conf.train.getint("image_pixel_width"),
                 image_height=conf.train.getint("image_pixel_height"),

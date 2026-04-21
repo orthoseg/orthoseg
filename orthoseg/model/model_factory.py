@@ -43,6 +43,7 @@ def get_model(
     nb_classes: int = 1,
     activation: str = "softmax",
     weights: str | None = "auto",
+    weights_dir: Path | None = None,
     freeze: bool = False,
 ) -> tuple[keras.models.Model, Callable | None]:
     """Get a model.
@@ -59,6 +60,8 @@ def get_model(
         weights (str | None, optional): Weights to pre-load the network with.
             If "auto", following weights will be used in order, depending on
             availability: "aerial", "imagenet" or None.
+        weights_dir (Path | None, optional): Directory where pretrained weights are
+            cached to and read from. If None, the system temp directory is used.
         freeze (bool, optional): Freeze the weights of all layers that were initialized
             with pretrained values. If only encoder/backend weight are preloaded (e.g.
             weights="imagenet"), only those layers are frozen, if all layers
@@ -82,11 +85,11 @@ def get_model(
     if weights == "imagenet":
         encoder_weights = "imagenet"
     elif weights in ["auto", "aerial"]:
-        weights_notop_path = _get_model_weights(architecture, "aerial")
+        weights_notop_path = _get_model_weights(architecture, "aerial", weights_dir)
         if weights_notop_path is not None:
             logger.info(
                 f"Found weights for {architecture}: {weights_notop_path.name}, "
-                "will use these to initialize the model."
+                f"will use these to initialize the model from {weights_notop_path.parent}."
             )
         elif weights == "aerial":
             raise ValueError(
@@ -158,12 +161,16 @@ def get_model(
     return model, model_preprocess_input
 
 
-def _get_model_weights(architecture: str, weights_type: str) -> Path | None:
+def _get_model_weights(
+    architecture: str, weights_type: str, weights_dir: Path | None = None
+) -> Path | None:
     """Get weights to initialize the model with.
 
     Args:
         architecture (str): the architecture to get the weights for.
         weights_type (str): the type of weights to get. Supported option is "aerial".
+        weights_dir (Path | None): directory where pretrained weights are cached to
+            and read from. If None, the system temp directory is used.
 
     Returns:
         Path | None: the path to the weights file, or None if no weights are available
@@ -179,9 +186,15 @@ def _get_model_weights(architecture: str, weights_type: str) -> Path | None:
         url = "https://github.com/orthoseg/orthoseg_models/releases/download/v0.1.0/"
         weights_url = f"{url}{architecture.lower()}_{weights_type}_notop_v1.weights.h5"
 
-        tmp_dir = Path(tempfile.gettempdir())
-        tmp_dir.mkdir(parents=True, exist_ok=True)
-        weights_path = tmp_dir / Path(weights_url).name
+        if weights_dir is None:
+            weights_dir = Path(tempfile.gettempdir())
+            logger.info(
+                "No weights_dir specified, so cache pretrained weights in the "
+                f"system temp directory: {weights_dir}"
+            )
+        weights_dir.mkdir(parents=True, exist_ok=True)
+
+        weights_path = weights_dir / Path(weights_url).name
         if not weights_path.exists():
             urllib.request.urlretrieve(weights_url, weights_path)
 
