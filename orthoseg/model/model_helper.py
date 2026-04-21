@@ -66,6 +66,7 @@ class TrainParams:
         image_augmentations: dict,
         mask_augmentations: dict,
         trainparams_id: int = 0,
+        weights: str | None = "auto",
         class_weights: list | None = None,
         batch_size: int = 4,
         optimizer: str = "adam",
@@ -93,6 +94,10 @@ class TrainParams:
                 during training.
             architecture_id (int, optional): id of the architecture. Defaults to 0.
             trainparams_id (int, optional): id of the hyperparams. Defaults to 0.
+            weights (str | None, optional): pretrained weights to initialize the
+                model with. Supported values are "auto", "aerial", "imagenet"
+                or None. If "auto", following weights will be used in order, depending
+                on availability: "aerial", "imagenet" or None. Defaults to "auto".
             class_weights (list, optional): the weights to use for each class.
                 Defaults to None.
             batch_size (int, optional): batch size to use while training. This must be
@@ -144,6 +149,7 @@ class TrainParams:
         self.trainparams_id = trainparams_id
         self.image_augmentations = image_augmentations
         self.mask_augmentations = mask_augmentations
+        self.weights = weights
 
         self.class_weights = class_weights
         self.batch_size = batch_size
