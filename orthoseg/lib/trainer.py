@@ -64,25 +64,38 @@ def train(
         save_augmented_subdir: (str, optional): the subdirectory to save the augmented
             images to. If None, the images aren't saved. Defaults to None.
     """
-    # Get the max epoch number from log file if it exists...
-    start_epoch = 0
+    # First if there exists a model already for the traindata_id,...
+    curr_best_model = mh.get_best_model(
+        model_dir=model_save_dir,
+        segment_subject=segment_subject,
+        traindata_id=traindata_id,
+        architecture_id=hyperparams.architecture.architecture_id,
+        trainparams_id=hyperparams.train.trainparams_id,
+    )
     model_save_base_filename = mh.format_model_basefilename(
         segment_subject=segment_subject,
         traindata_id=traindata_id,
         architecture_id=hyperparams.architecture.architecture_id,
         trainparams_id=hyperparams.train.trainparams_id,
     )
-    csv_log_filepath = model_save_dir / (model_save_base_filename + "_log.csv")
-    if csv_log_filepath.exists() and csv_log_filepath.stat().st_size > 0:
+
+    # If there is an existing model and we want to continue training on that, recuperate
+    # the epoch.
+    start_epoch = 0
+    csv_log_path = model_save_dir / f"{model_save_base_filename}_train_log.csv"
+    model_json_path = model_save_dir / f"{model_save_base_filename}_model.json"
+    hyperparams_path = model_save_dir / f"{model_save_base_filename}_hyperparams.json"
+
+    if curr_best_model is not None:
         if not model_preload_filepath:
             message = (
-                "log file exists but preload model file not specified: "
-                f"{csv_log_filepath}"
+                "Model exists but preload model file not specified: "
+                f"{curr_best_model['model_filepath']}"
             )
             logger.critical(message)
             raise ValueError(message)
 
-        train_log_df = pd.read_csv(csv_log_filepath, sep=";", usecols=["epoch", "lr"])
+        train_log_df = pd.read_csv(csv_log_path, sep=";", usecols=["epoch", "lr"])
         assert isinstance(train_log_df, pd.DataFrame)
         logger.debug(f"train_log csv contents:\n{train_log_df}")
         start_epoch = train_log_df["epoch"].max()
@@ -93,6 +106,12 @@ def train(
         f"start_epoch: {start_epoch}, learning_rate: "
         f"{hyperparams.train.optimizer_params['learning_rate']}"
     )
+
+    if start_epoch == 0:
+        # No existing model, so clean any existing files that might exist
+        csv_log_path.unlink(missing_ok=True)
+        model_json_path.unlink(missing_ok=True)
+        hyperparams_path.unlink(missing_ok=True)
 
     # If no existing model provided, create it from scratch
     if not model_preload_filepath:
@@ -112,12 +131,10 @@ def train(
         )
 
         # Save the model architecture to json
-        model_json_filepath = model_save_dir / f"{model_save_base_filename}_model.json"
-        if not model_save_dir.exists():
-            model_save_dir.mkdir(parents=True)
-        if not model_json_filepath.exists():
-            with model_json_filepath.open("w") as dst:
-                dst.write(str(model.to_json()))
+        model_save_dir.mkdir(parents=True, exist_ok=True)
+        with model_json_path.open("w") as dst:
+            dst.write(str(model.to_json()))
+
     else:
         # If a preload model is provided, load that if it exists...
         if not model_preload_filepath.exists():
@@ -258,7 +275,7 @@ def train(
         train_callbacks.append(tensorboard_logger)
     if hyperparams.train.log_csv is True:
         csv_logger = keras.callbacks.CSVLogger(
-            str(csv_log_filepath), append=True, separator=";"
+            str(csv_log_path), append=True, separator=";"
         )
         train_callbacks.append(csv_logger)
 
@@ -305,10 +322,7 @@ def train(
     )
 
     logger.info(f"{hyperparams.toJSON()}")
-    hyperparams_filepath = (
-        model_save_dir / f"{model_save_base_filename}_hyperparams.json"
-    )
-    hyperparams_filepath.write_text(hyperparams.toJSON())
+    hyperparams_path.write_text(hyperparams.toJSON())
 
     try:
         # If the encoder should be frozen for the first epochs, do so
@@ -352,7 +366,7 @@ def train(
 
         # Write some reporting
         train_report_path = model_save_dir / (model_save_base_filename + "_report.pdf")
-        train_log_df = pd.read_csv(csv_log_filepath, sep=";")
+        train_log_df = pd.read_csv(csv_log_path, sep=";")
         assert isinstance(train_log_df, pd.DataFrame)
         columns_to_keep = []
         for column in train_log_df.columns:
