@@ -417,9 +417,15 @@ Settings concerning the train process.
 
 .. confval:: train.optimizer
    :type: ``str``
-   :default: ``adam``
+   :default: ``Adam``
 
    Optimizer to use for training.
+
+   You can specify any optimizer supported by keras (case-sensitive!):
+   https://keras.io/2/api/optimizers/.
+
+   Based on some tests of some optimizers (including AdamW), Adam gave best results.
+   The default is Adam.
 
 .. confval:: train.optimizer_params
    :type: ``dict``
