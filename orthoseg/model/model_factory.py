@@ -340,9 +340,9 @@ def compile_model(
         loss_func = loss
 
     # Create optimizer
-    if optimizer == "adam":
-        optimizer_func = keras.optimizers.Adam(**optimizer_params)
-    else:
+    class_ = getattr(keras.optimizers, optimizer)
+    optimizer_func = class_(**optimizer_params)
+    if optimizer_func is None:
         raise ValueError(
             f"Error creating optimizer: {optimizer}, with params {optimizer_params}"
         )
