@@ -251,8 +251,18 @@ def compile_model(
         loss_func = loss
 
     # Create optimizer
-    class_ = getattr(keras.optimizers, optimizer)
-    optimizer_func = class_(**optimizer_params)
+    if hasattr(keras.optimizers, optimizer):
+        optimizer_class = getattr(keras.optimizers, optimizer)
+    elif hasattr(keras.optimizers.experimental, optimizer):
+        optimizer_class = getattr(keras.optimizers.experimental, optimizer)
+    else:
+        raise ValueError(
+            f"Optimizer {optimizer} not found in keras.optimizers nor "
+            "keras.optimizers.experimental. Note that the optimizer name "
+            "is case-sensitive!"
+        )
+
+    optimizer_func = optimizer_class(**optimizer_params)
     if optimizer_func is None:
         raise ValueError(
             f"Error creating optimizer: {optimizer}, with params {optimizer_params}"
