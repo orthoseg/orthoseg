@@ -68,7 +68,7 @@ class TrainParams:
         trainparams_id: int = 0,
         class_weights: list | None = None,
         batch_size: int = 4,
-        optimizer: str = "adam",
+        optimizer: str = "Adam",
         optimizer_params: dict | None = None,
         loss_function: str | None = None,
         monitor_metric: str | None = None,
@@ -99,7 +99,7 @@ class TrainParams:
                 choosen depending on the neural network architecture
                 and available memory on you GPU. Defaults to 4.
             optimizer (str, optional): Optimizer to use for training.
-                Defaults to 'adam'.
+                Defaults to 'Adam'.
             optimizer_params (dict, optional): Optimizer params to use.
                 Defaults to { 'learning_rate': 0.0001 }.
             loss_function (str, optional): Loss function to use for training.

@@ -78,7 +78,7 @@ def test_get_compile_save_load_model(
     # Compile model
     model = mf.compile_model(
         model,
-        optimizer="adam",
+        optimizer="Adam",
         optimizer_params={"learning_rate": 0.0001},
         loss="categorical_crossentropy",
         class_weights=None,

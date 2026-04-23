@@ -7,6 +7,8 @@
 - Using `rescale` as augmentation is not allowed anymore as the rescaling of input
   images will now be done via the keras.application `preprocess_input' function of the
   backbone model used (#314).
+- Support for all optimizers offered by keras was added, but the setting has now become 
+  case sensitive (#334).
 
 ### Improvements
 
