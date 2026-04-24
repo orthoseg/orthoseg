@@ -150,10 +150,10 @@ def test_get_loss_func_error():
 
 @pytest.mark.parametrize("optimizer", ["Adam", "AdamW", "SGD"])
 def test_get_optimizer_func(optimizer):
-    opt = mf._get_optimizer_func(optimizer)
+    opt = mf._get_optimizer_func(optimizer, params={"learning_rate": 0.0001})
     assert opt is not None
 
 
 def test_get_optimizer_func_unknown():
     with pytest.raises(ValueError, match="Unknown optimizer:"):
-        _ = mf._get_optimizer_func("unknown")
+        _ = mf._get_optimizer_func("unknown", params={"learning_rate": 0.0001})

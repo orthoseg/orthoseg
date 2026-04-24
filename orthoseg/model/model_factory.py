@@ -230,12 +230,9 @@ def compile_model(
     loss_func = _get_loss_func(loss, class_weights)
 
     # Create optimizer
-    optimizer_func = _get_optimizer_func(optimizer, optimizer_params)
+    optimizer_func = _get_optimizer_func(optimizer, params=optimizer_params)
 
-    logger.info(
-        f"Compile model, optimizer: {optimizer}, loss: {loss}, "
-        f"class_weights: {class_weights}"
-    )
+    logger.info(f"Compile model, {optimizer=}, {loss=}, {class_weights=}")
     model.compile(optimizer=optimizer_func, loss=loss_func, metrics=metric_funcs)
 
     return model
@@ -280,12 +277,12 @@ def _get_loss_func(
     return loss_func
 
 
-def _get_optimizer_func(optimizer: str, optimizer_params: dict) -> Callable:
+def _get_optimizer_func(optimizer: str, params: dict) -> Callable:
     """Get the optimizer function for a given optimizer name.
 
     Args:
         optimizer (str): the name of the optimizer to get the function for.
-        optimizer_params (dict): parameters to use for optimizer.
+        params (dict): parameters to use for optimizer.
 
     Returns:
         Callable: the optimizer function.
@@ -306,11 +303,9 @@ def _get_optimizer_func(optimizer: str, optimizer_params: dict) -> Callable:
                 "name is case-sensitive!"
             )
 
-    optimizer_func = optimizer_class(**optimizer_params)
+    optimizer_func = optimizer_class(**params)
     if optimizer_func is None:
-        raise ValueError(
-            f"Error creating optimizer: {optimizer}, with params {optimizer_params}"
-        )
+        raise ValueError(f"Error creating optimizer: {optimizer}, with params {params}")
 
     return optimizer_func
 
