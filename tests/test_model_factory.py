@@ -4,6 +4,7 @@ import os
 
 import pytest
 
+from orthoseg._compat import KERAS_GTE_3
 from orthoseg.model import model_factory as mf, model_helper as mh
 
 
@@ -78,7 +79,7 @@ def test_get_compile_save_load_model(
     # Compile model
     model = mf.compile_model(
         model,
-        optimizer="Adam",
+        optimizer="AdamW",
         optimizer_params={"learning_rate": 0.0001},
         loss="categorical_crossentropy",
         class_weights=None,
@@ -121,3 +122,38 @@ def test_get_model_unknown_encoder(architecture: str):
         ValueError, match="Backbone with name 'unknown' is not supported"
     ):
         _ = mf.get_model(architecture=architecture)
+
+
+@pytest.mark.parametrize(
+    "loss, class_weights",
+    [
+        ("categorical_crossentropy", None),
+        ("categorical_focal_crossentropy", None),
+        ("categorical_focal_crossentropy", [1, 2, 3, 4, 5]),
+    ],
+)
+def test_get_loss_func(loss, class_weights):
+    if not KERAS_GTE_3:
+        pytest.skip("loss function is not supported in keras < 3: {loss}")
+
+    loss_func = mf._get_loss_func(loss, class_weights=class_weights)
+    assert loss_func is not None
+
+
+def test_get_loss_func_error():
+    with pytest.raises(
+        ValueError,
+        match="With loss=categorical_crossentropy, class_weights cannot be None!",
+    ):
+        _ = mf._get_loss_func("weighted_categorical_crossentropy", class_weights=None)
+
+
+@pytest.mark.parametrize("optimizer", ["Adam", "AdamW", "SGD"])
+def test_get_optimizer_func(optimizer):
+    opt = mf._get_optimizer_func(optimizer)
+    assert opt is not None
+
+
+def test_get_optimizer_func_unknown():
+    with pytest.raises(ValueError, match="Unknown optimizer:"):
+        _ = mf._get_optimizer_func("unknown")
