@@ -143,6 +143,9 @@ def test_get_model_weights(architecture: str, weights_type: str):
 
 def test_get_model_weights_invalid_architecture():
     assert mf._get_model_weights("invalid+architecture", "aerial") is None
+
+
+@pytest.mark.parametrize(
     "loss, class_weights",
     [
         ("categorical_crossentropy", None),
