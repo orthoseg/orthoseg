@@ -302,6 +302,11 @@ def _get_optimizer_func(optimizer: str, params: dict) -> Callable:
                 "tensorflow.keras.optimizers.experimental. Note that the optimizer "
                 "name is case-sensitive!"
             )
+    else:
+        raise ValueError(
+            f"Optimizer {optimizer} not found in keras.optimizers. Note that the "
+            "optimizer name is case-sensitive!"
+        )
 
     optimizer_func = optimizer_class(**params)
     if optimizer_func is None:

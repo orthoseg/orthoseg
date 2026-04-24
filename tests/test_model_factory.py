@@ -141,11 +141,9 @@ def test_get_loss_func(loss, class_weights):
 
 
 def test_get_loss_func_error():
-    with pytest.raises(
-        ValueError,
-        match="With loss=categorical_crossentropy, class_weights cannot be None!",
-    ):
-        _ = mf._get_loss_func("weighted_categorical_crossentropy", class_weights=None)
+    loss = "weighted_categorical_crossentropy"
+    with pytest.raises(ValueError, match=f"With {loss=}, class_weights cannot be None"):
+        _ = mf._get_loss_func(loss, class_weights=None)
 
 
 @pytest.mark.parametrize("optimizer", ["Adam", "AdamW", "SGD"])
@@ -155,5 +153,6 @@ def test_get_optimizer_func(optimizer):
 
 
 def test_get_optimizer_func_unknown():
-    with pytest.raises(ValueError, match="Unknown optimizer:"):
-        _ = mf._get_optimizer_func("unknown", params={"learning_rate": 0.0001})
+    optimizer = "unknown"
+    with pytest.raises(ValueError, match=f"Optimizer {optimizer} not found"):
+        _ = mf._get_optimizer_func(optimizer, params={"learning_rate": 0.0001})
