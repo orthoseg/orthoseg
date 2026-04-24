@@ -256,10 +256,10 @@ def compile_model(
     else:
         # In older keras versions, some optimizers (e.g. AdamW) are in
         # keras.optimizers.experimental, so also check there.
-        import keras.optimizers.experimental  # noqa: PLC0415
+        from keras.optimizers import experimental as optimizers_exp  # noqa: PLC0415
 
-        if hasattr(keras.optimizers.experimental, optimizer):
-            optimizer_class = getattr(keras.optimizers.experimental, optimizer)
+        if hasattr(optimizers_exp, optimizer):
+            optimizer_class = getattr(optimizers_exp, optimizer)
         else:
             raise ValueError(
                 f"Optimizer {optimizer} not found in keras.optimizers nor "
