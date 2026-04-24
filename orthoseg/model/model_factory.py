@@ -253,14 +253,19 @@ def compile_model(
     # Create optimizer
     if hasattr(keras.optimizers, optimizer):
         optimizer_class = getattr(keras.optimizers, optimizer)
-    elif hasattr(keras.optimizers.experimental, optimizer):
-        optimizer_class = getattr(keras.optimizers.experimental, optimizer)
     else:
-        raise ValueError(
-            f"Optimizer {optimizer} not found in keras.optimizers nor "
-            "keras.optimizers.experimental. Note that the optimizer name "
-            "is case-sensitive!"
-        )
+        # In older keras versions, some optimizers (e.g. AdamW) are in
+        # keras.optimizers.experimental, so also check there.
+        import keras.optimizers.experimental  # noqa: PLC0415
+
+        if hasattr(keras.optimizers.experimental, optimizer):
+            optimizer_class = getattr(keras.optimizers.experimental, optimizer)
+        else:
+            raise ValueError(
+                f"Optimizer {optimizer} not found in keras.optimizers nor "
+                "keras.optimizers.experimental. Note that the optimizer name "
+                "is case-sensitive!"
+            )
 
     optimizer_func = optimizer_class(**optimizer_params)
     if optimizer_func is None:
