@@ -226,7 +226,31 @@ def compile_model(
     else:
         raise ValueError("Specifying metrics not yet implemented")
 
-    # Check loss function
+    # Get loss function
+    loss_func = _get_loss_func(loss, class_weights)
+
+    # Create optimizer
+    optimizer_func = _get_optimizer_func(optimizer, params=optimizer_params)
+
+    logger.info(f"Compile model, {optimizer=}, {loss=}, {class_weights=}")
+    model.compile(optimizer=optimizer_func, loss=loss_func, metrics=metric_funcs)
+
+    return model
+
+
+def _get_loss_func(
+    loss: str, class_weights: list[float] | None = None
+) -> Callable | str:
+    """Get the loss function for a given loss name.
+
+    Args:
+        loss (str): the name of the loss to get the function for.
+        class_weights (list[float], optional): class weights to use for the loss
+            function. Defaults to None.
+
+    Returns:
+        Callable | str: the loss function.
+    """
     loss_func: Callable | str
     if loss == "bcedice":
         loss_func = dice_coef_loss_bce
@@ -242,7 +266,7 @@ def compile_model(
         # you typically have 3D+ input data, so it doesn't work.
         # Hence: use a custom weighted loss function!
         if class_weights is None:
-            raise ValueError(f"With loss == {loss}, class_weights cannot be None!")
+            raise ValueError(f"With {loss=}, class_weights cannot be None!")
         loss_func = weighted_categorical_crossentropy(class_weights)
     elif loss == "categorical_focal_crossentropy":
         kwargs = {"alpha": class_weights} if class_weights is not None else {}
@@ -250,21 +274,45 @@ def compile_model(
     else:
         loss_func = loss
 
-    # Create optimizer
-    class_ = getattr(keras.optimizers, optimizer)
-    optimizer_func = class_(**optimizer_params)
-    if optimizer_func is None:
+    return loss_func
+
+
+def _get_optimizer_func(optimizer: str, params: dict) -> Callable:
+    """Get the optimizer function for a given optimizer name.
+
+    Args:
+        optimizer (str): the name of the optimizer to get the function for.
+        params (dict): parameters to use for optimizer.
+
+    Returns:
+        Callable: the optimizer function.
+    """
+    if hasattr(keras.optimizers, optimizer):
+        optimizer_class = getattr(keras.optimizers, optimizer)
+    elif not KERAS_GTE_3:
+        # In older keras versions, some optimizers (e.g. AdamW) are in
+        # keras.optimizers.experimental, so also check there.
+        from tensorflow.keras.optimizers import experimental as opt_exp  # noqa: PLC0415
+
+        if hasattr(opt_exp, optimizer):
+            optimizer_class = getattr(opt_exp, optimizer)
+        else:
+            raise ValueError(
+                f"Optimizer {optimizer} not found in keras.optimizers nor "
+                "tensorflow.keras.optimizers.experimental. Note that the optimizer "
+                "name is case-sensitive!"
+            )
+    else:
         raise ValueError(
-            f"Error creating optimizer: {optimizer}, with params {optimizer_params}"
+            f"Optimizer {optimizer} not found in keras.optimizers. Note that the "
+            "optimizer name is case-sensitive!"
         )
 
-    logger.info(
-        f"Compile model, optimizer: {optimizer}, loss: {loss}, "
-        f"class_weights: {class_weights}"
-    )
-    model.compile(optimizer=optimizer_func, loss=loss_func, metrics=metric_funcs)
+    optimizer_func = optimizer_class(**params)
+    if optimizer_func is None:
+        raise ValueError(f"Error creating optimizer: {optimizer}, with params {params}")
 
-    return model
+    return optimizer_func
 
 
 def load_model(
