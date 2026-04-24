@@ -20,7 +20,6 @@ script like this:
 
 import logging
 import os
-import sys
 from pathlib import Path
 
 import numpy as np
@@ -33,7 +32,6 @@ import keras
 # _SMK_SRC = Path(r"C:\Users\PIEROG\Projects\github\segmodels_keras")
 # if _SMK_SRC.exists() and str(_SMK_SRC) not in sys.path:
 #    sys.path.insert(0, str(_SMK_SRC))
-
 import segmodels_keras as smk
 
 logger = logging.getLogger(__name__)
@@ -49,7 +47,7 @@ def _to_np(tensor) -> np.ndarray:
 
 
 def _set_conv(model: keras.Model, layer_name: str, pt_weight, pt_bias=None) -> None:
-    """Set Conv2D weights, transposing from PyTorch [out,in,H,W] → Keras [H,W,in,out]."""
+    """Set Conv2D weights, transpose from PyTorch [out,in,H,W] -> Keras [H,W,in,out]."""
     layer = model.get_layer(layer_name)
     kernel = np.transpose(_to_np(pt_weight), (2, 3, 1, 0))
     layer.set_weights([kernel] if pt_bias is None else [kernel, _to_np(pt_bias)])
@@ -83,9 +81,10 @@ def _map_resnet34_unet_weights(
     This function is specific to resnet34+unet architecture.
 
     Mapping logic:
-      - Encoder naming: PyTorch encoder.layer{L}.{B}  →  Keras conv{L+1}_block{B+1}
-      - Decoder naming: PyTorch decoder.blocks.{i}.conv{j}  →  Keras decoder_stage{i}[a|b]
-      - Head: PyTorch segmentation_head.0  →  Keras final_conv
+      - Encoder naming: PyTorch encoder.layer{L}.{B} -> Keras conv{L+1}_block{B+1}
+      - Decoder naming: PyTorch decoder.blocks.{i}.conv{j}
+          -> Keras decoder_stage{i}[a|b]
+      - Head: PyTorch segmentation_head.0 -> Keras final_conv
     """
     sd = {
         k.removeprefix(pt_prefix): v
