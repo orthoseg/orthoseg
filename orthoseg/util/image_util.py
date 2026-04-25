@@ -1078,6 +1078,8 @@ def load_image(
                     # Set the GDAL_HTTP_UNSAFESSL environment variable
                     os.environ["GDAL_HTTP_UNSAFESSL"] = "YES"
 
+                if layersource.path.is_dir():
+                    _create_vrt_from_dir(layersource.path, layersource.file_patterns)
                 image_file = rio.open(str(layersource.path))
                 if layersource.bands is not None:
                     nb_bands = len(layersource.bands)
@@ -1221,6 +1223,28 @@ def load_image(
     image_profile_output["width"] = image_data_output.shape[2]
 
     return (image_data_output, image_profile_output)
+
+
+def _create_vrt_from_dir(path: Path, patterns: str | list[str]) -> Path:
+    """Create a vrt file for the directory.
+
+    Args:
+        path (Path): The path to the directory to create the vrt for.
+        patterns (str | list[str]): The pattern(s) to match raster files.
+    """
+    vrt_path = path / "orthoseg.vrt"
+    if not vrt_path.exists():
+        if isinstance(patterns, str):
+            patterns = [patterns]
+        paths: list[str] = []
+        for pattern in patterns:
+            paths.extend(str(p) for p in path.glob(pattern))
+        if len(paths) == 0:
+            raise ValueError(f"No files found in directory {path} with {patterns=}")
+
+        gdal.BuildVRT(destName=str(vrt_path), srcDSOrSrcDSTab=paths)
+
+    return vrt_path
 
 
 def create_filename(
