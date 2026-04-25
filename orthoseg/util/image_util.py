@@ -1107,7 +1107,9 @@ def load_image(
                             f"file_patterns should be specified if path points to a "
                             f"directory {layersource.path}"
                         )
-                    _create_vrt_from_dir(layersource.path, layersource.file_patterns)
+                    layersource.path = _create_vrt_from_dir(
+                        layersource.path, layersource.file_patterns
+                    )
                 image_file = rio.open(str(layersource.path))
                 if layersource.bands is not None:
                     nb_bands = len(layersource.bands)
