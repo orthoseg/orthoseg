@@ -38,7 +38,7 @@ def test_load_images_error_handling():
     ):
         load_images(
             config_path=test_helper.SampleProjectFootball.predict_config_path,
-            config_overrules=["predict.image_pixel_width=INVALID_TYPE"],
+            config_overrules=["predict.image_pixel_x_size=INVALID_TYPE"],
         )
 
 
