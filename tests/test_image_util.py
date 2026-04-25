@@ -48,10 +48,10 @@ def test_filelayersource_dir():
     assert file_source.file_patterns == ["**/*.tif"]
 
 
-def test_filelayersource_dir_no_pattern():
+def test_filelayersource_dir_no_pattern(tmp_path):
     with pytest.raises(ValueError, match="is a directory, but no file_pattern"):
         image_util.FileLayerSource(
-            path="/fields/input_raster",
+            path=tmp_path,
             layernames=["S1"],
             file_patterns=None,
         )

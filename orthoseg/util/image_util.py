@@ -1102,6 +1102,11 @@ def load_image(
                     os.environ["GDAL_HTTP_UNSAFESSL"] = "YES"
 
                 if layersource.path.is_dir():
+                    if layersource.file_patterns is None:
+                        raise ValueError(
+                            f"file_patterns should be specified if path points to a "
+                            f"directory {layersource.path}"
+                        )
                     _create_vrt_from_dir(layersource.path, layersource.file_patterns)
                 image_file = rio.open(str(layersource.path))
                 if layersource.bands is not None:
