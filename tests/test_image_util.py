@@ -1,5 +1,7 @@
 """Tests for functionalities in image_util."""
 
+from pathlib import Path
+
 import pandas as pd
 import pyproj
 import pytest
@@ -33,6 +35,26 @@ def test_create_vrt_from_dir(tmp_path):
         assert vrt_file.count == 3
     vrt_df = pd.read_xml(vrt_path, xpath="VRTRasterBand/SimpleSource")
     assert len(vrt_df) == 9 * 3  # 9 files with 3 bands each
+
+
+def test_filelayersource_dir():
+    file_source = image_util.FileLayerSource(
+        path="/fields/input_raster",
+        layernames=["S1"],
+        file_patterns="**/*.tif",
+    )
+    assert file_source.path == Path("/fields/input_raster")
+    assert file_source.layernames == ["S1"]
+    assert file_source.file_patterns == ["**/*.tif"]
+
+
+def test_filelayersource_dir_no_pattern():
+    with pytest.raises(ValueError, match="is a directory, but no file_pattern"):
+        image_util.FileLayerSource(
+            path="/fields/input_raster",
+            layernames=["S1"],
+            file_patterns=None,
+        )
 
 
 @pytest.mark.parametrize(

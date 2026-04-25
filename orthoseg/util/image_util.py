@@ -113,17 +113,33 @@ class FileLayerSource:
         path: str | Path,
         layernames: list[str],
         bands: list[int] | None = None,
+        file_patterns: list[str] | None = None,
     ):
         """Contructor for FileLayerSource.
 
         Args:
             path (Union[str, Path]): Path to the layer.
             layernames (list[str]): list of layer names.
-            bands (Optional[list[int]], optional): list of bands. Defaults to None.
+            bands (list[int], optional): list of bands. Defaults to None.
+            file_patterns (list[str] or str, optional): (list of) file patterns. Is
+                mandatory if the path is a directory, to specify which files in the
+                directory should be used for the layer. Defaults to None.
         """
         self.path = Path(path)
         self.layernames = layernames
         self.bands = bands
+        self.file_patterns = file_patterns
+
+        # Some additional validations on file_patterns.
+        if isinstance(self.file_patterns, str):
+            self.file_patterns = [self.file_patterns]
+        if isinstance(self.file_patterns, list) and len(self.file_patterns) == 0:
+            self.file_patterns = None
+        if self.path.is_dir() and self.file_patterns is None:
+            raise ValueError(
+                f"FileLayerSource with path {self.path} is a directory, but no "
+                f"file_pattern(s) specified."
+            )
 
 
 def get_images_for_grid(

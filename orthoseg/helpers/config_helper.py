@@ -396,10 +396,12 @@ def _read_layer_config(layer_config_filepath: Path) -> dict:
                         # Resolve relative path based on layer_config_filepath.parent
                         path = layer_config_filepath.parent / layersource["path"]
                         path = path.resolve()
+
                     layersource_object = FileLayerSource(
                         path=path,
                         layernames=_str2list(layersource["layername"]),
                         bands=_str2intlist(layersource.get("bands", None)),
+                        file_patterns=_str2list(layersource.get("file_patterns")),
                     )
                 else:
                     raise ValueError(
