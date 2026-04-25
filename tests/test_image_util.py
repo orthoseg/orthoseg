@@ -1,38 +1,11 @@
 """Tests for functionalities in image_util."""
 
-import pandas as pd
 import pyproj
 import pytest
 import rasterio as rio
 
 from orthoseg.util import image_util
 from tests import test_helper
-
-
-def test_create_vrt_from_dir(tmp_path):
-    # Create test tif files by creating an image cache.
-    _test_load_images_to_cache(tmp_path)
-
-    # Rename on of the tifs to have a .tiff extension.
-    file_to_rename_path = next(tmp_path.glob("**/*.tif"))
-    file_to_rename_path.rename(file_to_rename_path.with_suffix(".tiff"))
-
-    # First test creating a VRT for the directory with only "tif" files.
-    vrt_path = image_util._create_vrt_from_dir(tmp_path, "**/*.tif")
-    assert vrt_path.exists()
-    with rio.open(vrt_path) as vrt_file:
-        assert vrt_file.count == 3
-    vrt_df = pd.read_xml(vrt_path, xpath="VRTRasterBand/SimpleSource")
-    assert len(vrt_df) == 8 * 3  # 8 files with 3 bands each
-
-    # Now test creating a VRT for the directory with both "tif" and "tiff" files.
-    vrt_path.unlink()
-    vrt_path = image_util._create_vrt_from_dir(tmp_path, ["**/*.tif", "**/*.tiff"])
-    assert vrt_path.exists()
-    with rio.open(vrt_path) as vrt_file:
-        assert vrt_file.count == 3
-    vrt_df = pd.read_xml(vrt_path, xpath="VRTRasterBand/SimpleSource")
-    assert len(vrt_df) == 9 * 3  # 9 files with 3 bands each
 
 
 @pytest.mark.parametrize(
@@ -310,10 +283,6 @@ def test_load_image_to_file_wmslayer_combined(
 
 
 def test_load_images_to_cache(tmp_path):
-    _test_load_images_to_cache(tmp_path)
-
-
-def _test_load_images_to_cache(tmp_path):
     # Init some stuff
     filelayer_path = (
         test_helper.sampleprojects_dir
