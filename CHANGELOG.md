@@ -13,6 +13,7 @@
 ### Improvements
 
 - Add support to reproject a local image layer (#290)
+- Add support to configure an image layer based on a simple dir with images (#337)
 - Improve handling of `switch_axes` and `ssl_verify` (#295)
 - Add proper support for keras 3:
     - Use `categorical_focal_crossentropy` by default on keras 3 (#312)
