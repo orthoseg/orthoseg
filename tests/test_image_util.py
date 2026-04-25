@@ -1,5 +1,6 @@
 """Tests for functionalities in image_util."""
 
+import geopandas as gpd
 import pandas as pd
 import pyproj
 import pytest
@@ -7,6 +8,42 @@ import rasterio as rio
 
 from orthoseg.util import image_util
 from tests import test_helper
+
+
+def test_create_roi_from_dir(tmp_path):
+    # Create test tif files by creating an image cache.
+    _test_load_images_to_cache(tmp_path)
+
+    # Rename on of the tifs to have a .tiff extension.
+    file_to_rename_path = next(tmp_path.glob("**/*.tif"))
+    file_to_rename_path.rename(file_to_rename_path.with_suffix(".tiff"))
+
+    # First test creating a VRT for the directory with only "tif" files.
+    rois_path = image_util.create_roi_for_dir(tmp_path, "**/*.tif")
+    assert rois_path.exists()
+    rois_gdf = gpd.read_file(rois_path)
+    assert len(rois_gdf) == 8
+
+    # Check if the file is reused if it exists already by using a pattern that should
+    # return no files. If the .gpkg file is reused, it should still contain the same
+    # number of rois.
+    rois_path = image_util.create_roi_for_dir(tmp_path, "**/*.jpg")
+    assert rois_path.exists()
+    rois_gdf = gpd.read_file(rois_path)
+    assert len(rois_gdf) == 8
+
+    # Now test creating a VRT for the directory with both "tif" and "tiff" files.
+    rois_all_path = image_util.create_roi_for_dir(
+        tmp_path, ["**/*.tif", "**/*.tiff"], output_path=tmp_path / "rois_all.gpkg"
+    )
+    assert rois_all_path.exists()
+    rois_gdf = gpd.read_file(rois_all_path)
+    assert len(rois_gdf) == 9
+
+
+def test_create_roi_from_dir_empty_dir(tmp_path):
+    with pytest.raises(ValueError, match="No files found in directory"):
+        image_util.create_roi_for_dir(tmp_path, "**/*.tif")
 
 
 def test_create_vrt_from_dir(tmp_path):
@@ -25,13 +62,23 @@ def test_create_vrt_from_dir(tmp_path):
     vrt_df = pd.read_xml(vrt_path, xpath="VRTRasterBand/SimpleSource")
     assert len(vrt_df) == 8 * 3  # 8 files with 3 bands each
 
-    # Now test creating a VRT for the directory with both "tif" and "tiff" files.
-    vrt_path.unlink()
-    vrt_path = image_util.create_vrt_for_dir(tmp_path, ["**/*.tif", "**/*.tiff"])
-    assert vrt_path.exists()
+    # Check if the file is reused if it exists already by using a pattern that should
+    # return no files. If the .vrt file is reused, it should still contain the same
+    # number of bands and sources.
+    vrt_path = image_util.create_vrt_for_dir(tmp_path, "**/*.jpg")
     with rio.open(vrt_path) as vrt_file:
         assert vrt_file.count == 3
     vrt_df = pd.read_xml(vrt_path, xpath="VRTRasterBand/SimpleSource")
+    assert len(vrt_df) == 8 * 3  # 8 files with 3 bands each
+
+    # Now test creating a VRT for the directory with both "tif" and "tiff" files.
+    vrt_all_path = image_util.create_vrt_for_dir(
+        tmp_path, ["**/*.tif", "**/*.tiff"], output_path=tmp_path / "vrt_all.vrt"
+    )
+    assert vrt_all_path.exists()
+    with rio.open(vrt_all_path) as vrt_file:
+        assert vrt_file.count == 3
+    vrt_df = pd.read_xml(vrt_all_path, xpath="VRTRasterBand/SimpleSource")
     assert len(vrt_df) == 9 * 3  # 9 files with 3 bands each
 
 
