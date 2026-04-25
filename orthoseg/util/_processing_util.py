@@ -26,6 +26,7 @@ class PooledExecutorFactory:
             deadlocks. Defaults to None.
 
     """
+
     def __init__(
         self,
         worker_type: str = "processes",
