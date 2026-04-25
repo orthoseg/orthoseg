@@ -7,7 +7,6 @@ import random
 import tempfile
 import time
 import warnings
-from concurrent import futures
 from pathlib import Path
 from typing import Any
 
@@ -34,7 +33,7 @@ from rasterio import (
 from rasterio._err import CPLE_AppDefinedError
 from shapely.geometry import box
 
-from . import progress_util
+from . import _processing_util, progress_util
 
 FORMAT_GEOTIFF = "image/geotiff"
 FORMAT_GEOTIFF_DRIVER = "Gtiff"
@@ -379,7 +378,15 @@ def load_images_to_cache(
     if switch_axes is None:
         switch_axes = has_switched_axes(crs)
 
-    with futures.ProcessPoolExecutor(nb_concurrent_calls) as pool:
+    worker_type = "processes"
+    if "PYTEST_CURRENT_TEST" in os.environ and os.name == "nt":
+        # On windows, this pool doesn't exit properly when running in pytest if it is a
+        # process pool, so use a thread pool in that case.
+        worker_type = "threads"
+
+    with _processing_util.PooledExecutorFactory(
+        worker_type=worker_type, max_workers=nb_concurrent_calls
+    ) as pool:
         # Loop through all columns and get the images...
         nb_total = len(tiles_to_download_gdf)
         nb_processed = 0
