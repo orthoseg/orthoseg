@@ -25,7 +25,7 @@ import rasterio.plot as rio_plot
 import tensorflow as tf
 
 import orthoseg.lib.postprocess_predictions as postp
-from orthoseg.util import general_util, image_util
+from orthoseg.util import _processing_util, image_util
 from orthoseg.util.progress_util import ProgressLogger
 
 # Get a logger...
@@ -456,7 +456,7 @@ def _predict_layer(
     # We don't want the postprocess workers to block the entire system,
     # so make them a bit nicer
     def init_postprocess_worker():
-        general_util.setprocessnice(15)
+        _processing_util.setprocessnice(15)
 
     with (
         futures.ThreadPoolExecutor(nb_parallel_read) as read_pool,
