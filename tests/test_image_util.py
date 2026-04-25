@@ -1,8 +1,5 @@
 """Tests for functionalities in image_util."""
 
-import shutil
-from pathlib import Path
-
 import pandas as pd
 import pyproj
 import pytest
@@ -21,7 +18,7 @@ def test_create_vrt_from_dir(tmp_path):
     file_to_rename_path.rename(file_to_rename_path.with_suffix(".tiff"))
 
     # First test creating a VRT for the directory with only "tif" files.
-    vrt_path = image_util._create_vrt_from_dir(tmp_path, "**/*.tif")
+    vrt_path = image_util.create_vrt_for_dir(tmp_path, "**/*.tif")
     assert vrt_path.exists()
     with rio.open(vrt_path) as vrt_file:
         assert vrt_file.count == 3
@@ -30,7 +27,7 @@ def test_create_vrt_from_dir(tmp_path):
 
     # Now test creating a VRT for the directory with both "tif" and "tiff" files.
     vrt_path.unlink()
-    vrt_path = image_util._create_vrt_from_dir(tmp_path, ["**/*.tif", "**/*.tiff"])
+    vrt_path = image_util.create_vrt_for_dir(tmp_path, ["**/*.tif", "**/*.tiff"])
     assert vrt_path.exists()
     with rio.open(vrt_path) as vrt_file:
         assert vrt_file.count == 3
@@ -40,27 +37,7 @@ def test_create_vrt_from_dir(tmp_path):
 
 def test_create_vrt_from_dir_empty_dir(tmp_path):
     with pytest.raises(ValueError, match="No files found in directory"):
-        image_util._create_vrt_from_dir(tmp_path, "**/*.tif")
-
-
-def test_filelayersource_dir():
-    file_source = image_util.FileLayerSource(
-        path="/fields/input_raster",
-        layernames=["S1"],
-        file_patterns="**/*.tif",
-    )
-    assert file_source.path == Path("/fields/input_raster")
-    assert file_source.layernames == ["S1"]
-    assert file_source.file_patterns == ["**/*.tif"]
-
-
-def test_filelayersource_dir_no_pattern(tmp_path):
-    with pytest.raises(ValueError, match="is a directory, but no file_pattern"):
-        image_util.FileLayerSource(
-            path=tmp_path,
-            layernames=["S1"],
-            file_patterns=None,
-        )
+        image_util.create_vrt_for_dir(tmp_path, "**/*.tif")
 
 
 @pytest.mark.parametrize(
@@ -92,58 +69,16 @@ def test_load_image_invalid_layersource():
 def test_load_image_to_file_filelayer(
     tmp_path, width_pix, height_pix, image_format, image_pixels_ignore_border
 ):
-    _test_load_image_to_file_filelayer(
-        tmp_path=tmp_path,
-        dir_layer=False,
-        width_pix=width_pix,
-        height_pix=height_pix,
-        image_format=image_format,
-        image_pixels_ignore_border=image_pixels_ignore_border,
-    )
-
-
-def test_load_image_to_file_filelayer_dir(tmp_path):
-    _test_load_image_to_file_filelayer(
-        tmp_path=tmp_path,
-        dir_layer=True,
-        width_pix=256,
-        height_pix=256,
-        image_format=image_util.FORMAT_GEOTIFF,
-        image_pixels_ignore_border=0,
-    )
-
-
-def _test_load_image_to_file_filelayer(
-    tmp_path: Path,
-    dir_layer: bool,
-    width_pix: int,
-    height_pix: int,
-    image_format: str,
-    image_pixels_ignore_border: int,
-):
     # Init some stuff
-    file_path = (
+    filelayer_path = (
         test_helper.sampleprojects_dir
         / "fields/input_raster"
         / "BEFL-TEST-s2_2023-05-01_2023-07-01_B08-B04-B03_min_byte.tif"
     )
-    if dir_layer:
-        filelayer_path = tmp_path / "input_raster"
-        filelayer_path.mkdir()
-        shutil.copy(file_path, filelayer_path)
-        file_patterns = ["**/*.tif"]
-    else:
-        filelayer_path = file_path
-        file_patterns = None
-
-    output_dir = tmp_path / "output_raster"
-    output_dir.mkdir()
-
     # File bounds: left: 484500, bottom: 5642970, right: 499500, top: 5651030
-    with rio.open(file_path) as file:
-        layer_bounds = file.bounds
+    with rio.open(filelayer_path) as filelayer:
+        file_bounds = filelayer.bounds
 
-    # Init some stuff
     crs = "epsg:32631"
     pixsize_x = 5
     pixsize_y = pixsize_x
@@ -156,20 +91,18 @@ def _test_load_image_to_file_filelayer(
     # Align box to pixel size + make sure width stays the asked number of pixels
     bbox = image_util._align_bbox_to_grid(
         bbox,
-        grid_xmin=layer_bounds[0],
-        grid_ymin=layer_bounds[1],
+        grid_xmin=file_bounds[0],
+        grid_ymin=file_bounds[1],
         pixel_size_x=pixsize_x,
         pixel_size_y=pixsize_y,
     )
     bbox = (bbox[0], bbox[1], bbox[0] + width_crs, bbox[1] + height_crs)
 
     # Load a standard 3 band image from the file layer
-    layersource_rgb = image_util.FileLayerSource(
-        path=filelayer_path, layernames=["S1"], file_patterns=file_patterns
-    )
+    layersource_rgb = image_util.FileLayerSource(path=filelayer_path, layernames=["S1"])
     image_path = image_util.load_image_to_file(
         layersources=layersource_rgb,
-        output_dir=output_dir,
+        output_dir=tmp_path,
         crs=crs,
         bbox=bbox,
         size=(width_pix, height_pix),

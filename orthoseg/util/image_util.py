@@ -22,6 +22,7 @@ import pyproj
 import rasterio as rio
 import rasterio.enums
 import rasterio.errors as rio_errors
+import shapely
 import urllib3
 from osgeo import gdal
 from rasterio import (
@@ -113,33 +114,18 @@ class FileLayerSource:
         path: str | Path,
         layernames: list[str],
         bands: list[int] | None = None,
-        file_patterns: list[str] | None = None,
     ):
-        """Contructor for FileLayerSource.
+        """Constructor for FileLayerSource.
 
         Args:
             path (Union[str, Path]): Path to the layer.
             layernames (list[str]): list of layer names.
             bands (list[int], optional): list of bands. Defaults to None.
-            file_patterns (list[str] or str, optional): (list of) file patterns. Is
-                mandatory if the path is a directory, to specify which files in the
-                directory should be used for the layer. Defaults to None.
+
         """
         self.path = Path(path)
         self.layernames = layernames
         self.bands = bands
-        self.file_patterns = file_patterns
-
-        # Some additional validations on file_patterns.
-        if isinstance(self.file_patterns, str):
-            self.file_patterns = [self.file_patterns]
-        if isinstance(self.file_patterns, list) and len(self.file_patterns) == 0:
-            self.file_patterns = None
-        if self.path.is_dir() and self.file_patterns is None:
-            raise ValueError(
-                f"FileLayerSource with path {self.path} is a directory, but no "
-                f"file_pattern(s) specified."
-            )
 
 
 def get_images_for_grid(
@@ -1101,15 +1087,6 @@ def load_image(
                     # Set the GDAL_HTTP_UNSAFESSL environment variable
                     os.environ["GDAL_HTTP_UNSAFESSL"] = "YES"
 
-                if layersource.path.is_dir():
-                    if layersource.file_patterns is None:
-                        raise ValueError(
-                            f"file_patterns should be specified if path points to a "
-                            f"directory {layersource.path}"
-                        )
-                    layersource.path = _create_vrt_from_dir(
-                        layersource.path, layersource.file_patterns
-                    )
                 image_file = rio.open(str(layersource.path))
                 if layersource.bands is not None:
                     nb_bands = len(layersource.bands)
@@ -1255,28 +1232,6 @@ def load_image(
     return (image_data_output, image_profile_output)
 
 
-def _create_vrt_from_dir(path: Path, patterns: str | list[str]) -> Path:
-    """Create a vrt file for the directory.
-
-    Args:
-        path (Path): The path to the directory to create the vrt for.
-        patterns (str | list[str]): The pattern(s) to match raster files.
-    """
-    vrt_path = path / "orthoseg.vrt"
-    if not vrt_path.exists():
-        if isinstance(patterns, str):
-            patterns = [patterns]
-        paths: list[str] = []
-        for pattern in patterns:
-            paths.extend(str(p) for p in path.glob(pattern))
-        if len(paths) == 0:
-            raise ValueError(f"No files found in directory {path} with {patterns=}")
-
-        gdal.BuildVRT(destName=str(vrt_path), srcDSOrSrcDSTab=paths)
-
-    return vrt_path
-
-
 def create_filename(
     crs: pyproj.CRS, bbox, size, image_format: str, layername: str | None = None
 ) -> str:
@@ -1315,6 +1270,79 @@ def create_filename(
     output_filename += image_ext
 
     return output_filename
+
+
+def create_roi_for_dir(
+    dir_path: Path, patterns: str | list[str], output_path: Path | None = None
+) -> Path:
+    """Create a roi file for the directory.
+
+    Args:
+        dir_path (Path): The path to the directory to create the roi for.
+        patterns (str | list[str]): The pattern(s) to match raster files.
+        output_path (Path | None): The path to save the roi file. If None, the roi file
+        will be saved in the directory with the name "orthoseg.gpkg". Defaults to None.
+
+    """
+    if output_path is None:
+        roi_path = dir_path / "orthoseg.gpkg"
+    else:
+        roi_path = output_path
+
+    if roi_path.exists():
+        return roi_path
+
+    if isinstance(patterns, str):
+        patterns = [patterns]
+
+    bounds_list = []
+    crs = None
+    for pattern in patterns:
+        for p in dir_path.glob(pattern):
+            with rio.open(str(p)) as image_file:
+                bounds_list.append(shapely.box(*image_file.bounds))
+                if crs is None:
+                    crs = image_file.crs
+
+    if len(bounds_list) == 0:
+        raise ValueError(f"No files found in directory {dir_path} with {patterns=}")
+
+    bound_gdf = gpd.GeoDataFrame(geometry=gpd.GeoSeries(bounds_list), crs=crs)
+    bound_gdf.to_file(roi_path)
+
+    return roi_path
+
+
+def create_vrt_for_dir(
+    dir_path: Path, patterns: str | list[str], output_path: Path | None = None
+) -> Path:
+    """Create a vrt file for the directory.
+
+    Args:
+        dir_path (Path): The path to the directory to create the vrt for.
+        patterns (str | list[str]): The pattern(s) to match raster files.
+        output_path (Path | None): The path to save the vrt file. If None, the vrt file
+        will be saved in the directory with the name "orthoseg.vrt". Defaults to None.
+    """
+    if output_path is None:
+        vrt_path = dir_path / "orthoseg.vrt"
+    else:
+        vrt_path = output_path
+
+    if vrt_path.exists():
+        return vrt_path
+
+    if isinstance(patterns, str):
+        patterns = [patterns]
+    paths: list[str] = []
+    for pattern in patterns:
+        paths.extend(str(p) for p in dir_path.glob(pattern))
+    if len(paths) == 0:
+        raise ValueError(f"No files found in directory {dir_path} with {patterns=}")
+
+    gdal.BuildVRT(destName=str(vrt_path), srcDSOrSrcDSTab=paths)
+
+    return vrt_path
 
 
 def has_switched_axes(crs: pyproj.CRS):

@@ -20,7 +20,13 @@ from osgeo import gdal
 from orthoseg._compat import KERAS_GTE_3
 from orthoseg.lib.prepare_traindatasets import LabelInfo
 from orthoseg.util import config_util
-from orthoseg.util.image_util import FileLayerSource, WMSLayerSource, has_switched_axes
+from orthoseg.util.image_util import (
+    FileLayerSource,
+    WMSLayerSource,
+    create_roi_for_dir,
+    create_vrt_for_dir,
+    has_switched_axes,
+)
 
 # Get a logger...
 logger = logging.getLogger(__name__)
@@ -397,11 +403,29 @@ def _read_layer_config(layer_config_filepath: Path) -> dict:
                         path = layer_config_filepath.parent / layersource["path"]
                         path = path.resolve()
 
+                    # The path is a directory, so we need to create a VRT file for it.
+                    if path.is_dir():
+                        file_patterns = _str2list(layersource.get("file_patterns"))
+                        if file_patterns is None:
+                            raise ValueError(
+                                f"file_patterns should be specified if path points to "
+                                f"a directory {layersource.path}"
+                            )
+                        path = create_vrt_for_dir(path, file_patterns)
+
+                        # If no roi is specified, create one based on the dir contents.
+                        if (
+                            layersource.get("roi_filepath") is None
+                            and layersource.get("bbox") is None
+                        ):
+                            layersource["roi_filepath"] = create_roi_for_dir(
+                                path, file_patterns
+                            )
+
                     layersource_object = FileLayerSource(
                         path=path,
                         layernames=_str2list(layersource["layername"]),
                         bands=_str2intlist(layersource.get("bands", None)),
-                        file_patterns=_str2list(layersource.get("file_patterns")),
                     )
                 else:
                     raise ValueError(
