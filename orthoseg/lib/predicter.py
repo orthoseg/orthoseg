@@ -700,11 +700,7 @@ def _predict_layer(
 
                         if output_vector_path is None:
                             # No vector output, so we are ready with this image
-                            with images_done_log_filepath.open(
-                                "a+"
-                            ) as image_donelog_file:
-                                image_donelog_file.write(f"{image_path.name}\n")
-
+                            _write_to_done_log(image_path, images_done_log_filepath)
                             nb_done += 1
                         else:
                             # Schedule `_write_vector_result` to move the result of the
@@ -849,8 +845,26 @@ def _write_vector_result(
             gfo.remove(partial_vector_path)
 
     # Write filepath to file with files that are done
-    with images_done_log_filepath.open("a+") as image_donelog_file:
-        image_donelog_file.write(f"{image_path.name}\n")
+    _write_to_done_log(image_path, images_done_log_filepath)
+
+
+def _write_to_done_log(image_path: Path, images_done_log_filepath: Path):
+    nb_tries = 0
+    while True:
+        try:
+            with images_done_log_filepath.open("a+") as image_donelog_file:
+                image_donelog_file.write(f"{image_path.name}\n")
+            break
+
+        except Exception as ex:  # pragma: no cover
+            nb_tries += 1
+            time.sleep(0.1)
+
+            if nb_tries >= 5:
+                message = (
+                    f"Write to done log failed {nb_tries} times for {image_path}: {ex}"
+                )
+                raise RuntimeError(message) from ex
 
 
 def _handle_error(image_path: Path, ex: Exception, log_path: Path):

@@ -22,6 +22,7 @@ import pyproj
 import rasterio as rio
 import rasterio.enums
 import rasterio.errors as rio_errors
+import shapely
 import urllib3
 from osgeo import gdal
 from rasterio import (
@@ -114,12 +115,13 @@ class FileLayerSource:
         layernames: list[str],
         bands: list[int] | None = None,
     ):
-        """Contructor for FileLayerSource.
+        """Constructor for FileLayerSource.
 
         Args:
             path (Union[str, Path]): Path to the layer.
             layernames (list[str]): list of layer names.
-            bands (Optional[list[int]], optional): list of bands. Defaults to None.
+            bands (list[int], optional): list of bands. Defaults to None.
+
         """
         self.path = Path(path)
         self.layernames = layernames
@@ -1268,6 +1270,95 @@ def create_filename(
     output_filename += image_ext
 
     return output_filename
+
+
+def create_roi_for_dir(
+    dir_path: Path,
+    patterns: str | list[str],
+    crs: str | pyproj.CRS | None = None,
+    output_path: Path | None = None,
+) -> Path:
+    """Create a roi file for the directory.
+
+    Args:
+        dir_path (Path): The path to the directory to create the roi for.
+        patterns (str | list[str]): The pattern(s) to match raster files.
+        crs (str | CRS | None): The coordinate reference system for the roi file.
+            If None, the CRS of the first file with a crs other than None will be used.
+            Defaults to None.
+        output_path (Path | None): The path to save the roi file. If None, the roi file
+            will be saved in the directory with the name "orthoseg.gpkg".
+            Defaults to None.
+
+    """
+    if output_path is None:
+        roi_path = dir_path / "orthoseg.gpkg"
+    else:
+        roi_path = output_path
+
+    if roi_path.exists():
+        return roi_path
+
+    if isinstance(patterns, str):
+        patterns = [patterns]
+    if crs is not None and isinstance(crs, str):
+        crs = pyproj.CRS(crs)
+
+    bounds_list = []
+    for pattern in patterns:
+        for p in dir_path.glob(pattern):
+            with rio.open(str(p)) as image_file:
+                bounds_list.append(shapely.box(*image_file.bounds))
+                if crs is None:
+                    crs = image_file.crs
+                elif image_file.crs is not None and image_file.crs != crs:
+                    logger.warning(
+                        f"CRS of file {p} is different from specified CRS or a "
+                        f"previous crs: {image_file.crs} vs {crs}"
+                    )
+
+    if len(bounds_list) == 0:
+        raise ValueError(f"No files found in directory {dir_path} with {patterns=}")
+
+    bound_gdf = gpd.GeoDataFrame(geometry=gpd.GeoSeries(bounds_list), crs=crs)
+    bound_gdf.to_file(roi_path)
+
+    return roi_path
+
+
+def create_vrt_for_dir(
+    dir_path: Path, patterns: str | list[str], crs: str, output_path: Path | None = None
+) -> Path:
+    """Create a vrt file for the directory.
+
+    Args:
+        dir_path (Path): The path to the directory to create the vrt for.
+        patterns (str | list[str]): The pattern(s) to match raster files.
+        crs (str): The coordinate reference system for the VRT.
+        output_path (Path | None): The path to save the vrt file. If None, the vrt file
+            will be saved in the directory with the name "orthoseg.vrt".
+            Defaults to None.
+    """
+    if output_path is None:
+        vrt_path = dir_path / "orthoseg.vrt"
+    else:
+        vrt_path = output_path
+
+    if vrt_path.exists():
+        return vrt_path
+
+    if isinstance(patterns, str):
+        patterns = [patterns]
+    paths: list[str] = []
+    for pattern in patterns:
+        paths.extend(str(p) for p in dir_path.glob(pattern))
+    if len(paths) == 0:
+        raise ValueError(f"No files found in directory {dir_path} with {patterns=}")
+
+    options = gdal.BuildVRTOptions(outputSRS=crs, allowProjectionDifference=True)
+    gdal.BuildVRT(destName=str(vrt_path), srcDSOrSrcDSTab=paths, options=options)
+
+    return vrt_path
 
 
 def has_switched_axes(crs: pyproj.CRS):
