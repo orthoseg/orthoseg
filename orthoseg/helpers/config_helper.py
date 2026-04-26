@@ -441,7 +441,11 @@ def _read_layer_config(layer_config_filepath: Path) -> dict:
                             and image_layers[image_layer].get("bbox") is None
                         ):
                             image_layers[image_layer]["roi_filepath"] = (
-                                create_roi_for_dir(path.parent, file_patterns)
+                                create_roi_for_dir(
+                                    path.parent,
+                                    file_patterns,
+                                    crs=layersource.get("projection"),
+                                )
                             )
 
                     layersource_object = FileLayerSource(

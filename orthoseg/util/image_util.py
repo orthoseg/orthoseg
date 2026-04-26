@@ -1273,15 +1273,22 @@ def create_filename(
 
 
 def create_roi_for_dir(
-    dir_path: Path, patterns: str | list[str], output_path: Path | None = None
+    dir_path: Path,
+    patterns: str | list[str],
+    crs: str | pyproj.CRS | None = None,
+    output_path: Path | None = None,
 ) -> Path:
     """Create a roi file for the directory.
 
     Args:
         dir_path (Path): The path to the directory to create the roi for.
         patterns (str | list[str]): The pattern(s) to match raster files.
+        crs (str | CRS | None): The coordinate reference system for the roi file. If None, the
+            CRS of the first file with a crs other than None will be used.
+            Defaults to None.
         output_path (Path | None): The path to save the roi file. If None, the roi file
-        will be saved in the directory with the name "orthoseg.gpkg". Defaults to None.
+            will be saved in the directory with the name "orthoseg.gpkg".
+            Defaults to None.
 
     """
     if output_path is None:
@@ -1294,15 +1301,21 @@ def create_roi_for_dir(
 
     if isinstance(patterns, str):
         patterns = [patterns]
+    if crs is not None and isinstance(crs, str):
+        crs = pyproj.CRS(crs)
 
     bounds_list = []
-    crs = None
     for pattern in patterns:
         for p in dir_path.glob(pattern):
             with rio.open(str(p)) as image_file:
                 bounds_list.append(shapely.box(*image_file.bounds))
                 if crs is None:
                     crs = image_file.crs
+                elif image_file.crs is not None and image_file.crs != crs:
+                    logger.warning(
+                        f"CRS of file {p} is different from specified CRS or a "
+                        f"previous crs: {image_file.crs} vs {crs}"
+                    )
 
     if len(bounds_list) == 0:
         raise ValueError(f"No files found in directory {dir_path} with {patterns=}")
