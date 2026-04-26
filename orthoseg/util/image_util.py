@@ -1314,13 +1314,14 @@ def create_roi_for_dir(
 
 
 def create_vrt_for_dir(
-    dir_path: Path, patterns: str | list[str], output_path: Path | None = None
+    dir_path: Path, patterns: str | list[str], crs: str, output_path: Path | None = None
 ) -> Path:
     """Create a vrt file for the directory.
 
     Args:
         dir_path (Path): The path to the directory to create the vrt for.
         patterns (str | list[str]): The pattern(s) to match raster files.
+        crs (str): The coordinate reference system for the VRT.
         output_path (Path | None): The path to save the vrt file. If None, the vrt file
         will be saved in the directory with the name "orthoseg.vrt". Defaults to None.
     """
@@ -1340,7 +1341,8 @@ def create_vrt_for_dir(
     if len(paths) == 0:
         raise ValueError(f"No files found in directory {dir_path} with {patterns=}")
 
-    gdal.BuildVRT(destName=str(vrt_path), srcDSOrSrcDSTab=paths)
+    options = gdal.BuildVRTOptions(outputSRS=crs, allowProjectionDifference=True)
+    gdal.BuildVRT(destName=str(vrt_path), srcDSOrSrcDSTab=paths, options=options)
 
     return vrt_path
 

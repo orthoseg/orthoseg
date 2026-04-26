@@ -431,7 +431,9 @@ def _read_layer_config(layer_config_filepath: Path) -> dict:
                                 f"file_patterns should be specified if path points to "
                                 f"a directory {path}"
                             )
-                        path = create_vrt_for_dir(path, file_patterns)
+                        path = create_vrt_for_dir(
+                            path, file_patterns, crs=layersource.get("projection")
+                        )
 
                         # If no roi is specified, create one based on the dir contents.
                         if (
