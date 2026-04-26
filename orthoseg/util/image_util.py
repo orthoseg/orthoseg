@@ -1323,7 +1323,8 @@ def create_vrt_for_dir(
         patterns (str | list[str]): The pattern(s) to match raster files.
         crs (str): The coordinate reference system for the VRT.
         output_path (Path | None): The path to save the vrt file. If None, the vrt file
-        will be saved in the directory with the name "orthoseg.vrt". Defaults to None.
+            will be saved in the directory with the name "orthoseg.vrt".
+            Defaults to None.
     """
     if output_path is None:
         vrt_path = dir_path / "orthoseg.vrt"

@@ -55,7 +55,7 @@ def test_create_vrt_from_dir(tmp_path):
     file_to_rename_path.rename(file_to_rename_path.with_suffix(".tiff"))
 
     # First test creating a VRT for the directory with only "tif" files.
-    vrt_path = image_util.create_vrt_for_dir(tmp_path, "**/*.tif")
+    vrt_path = image_util.create_vrt_for_dir(tmp_path, "**/*.tif", crs="epsg:32631")
     assert vrt_path.exists()
     with rio.open(vrt_path) as vrt_file:
         assert vrt_file.count == 3
@@ -65,7 +65,7 @@ def test_create_vrt_from_dir(tmp_path):
     # Check if the file is reused if it exists already by using a pattern that should
     # return no files. If the .vrt file is reused, it should still contain the same
     # number of bands and sources.
-    vrt_path = image_util.create_vrt_for_dir(tmp_path, "**/*.jpg")
+    vrt_path = image_util.create_vrt_for_dir(tmp_path, "**/*.jpg", crs="epsg:32631")
     with rio.open(vrt_path) as vrt_file:
         assert vrt_file.count == 3
     vrt_df = pd.read_xml(vrt_path, xpath="VRTRasterBand/SimpleSource")
@@ -73,7 +73,10 @@ def test_create_vrt_from_dir(tmp_path):
 
     # Now test creating a VRT for the directory with both "tif" and "tiff" files.
     vrt_all_path = image_util.create_vrt_for_dir(
-        tmp_path, ["**/*.tif", "**/*.tiff"], output_path=tmp_path / "vrt_all.vrt"
+        tmp_path,
+        ["**/*.tif", "**/*.tiff"],
+        output_path=tmp_path / "vrt_all.vrt",
+        crs="epsg:32631",
     )
     assert vrt_all_path.exists()
     with rio.open(vrt_all_path) as vrt_file:
@@ -84,7 +87,7 @@ def test_create_vrt_from_dir(tmp_path):
 
 def test_create_vrt_from_dir_empty_dir(tmp_path):
     with pytest.raises(ValueError, match="No files found in directory"):
-        image_util.create_vrt_for_dir(tmp_path, "**/*.tif")
+        image_util.create_vrt_for_dir(tmp_path, "**/*.tif", crs="EPSG:31370")
 
 
 @pytest.mark.parametrize(
