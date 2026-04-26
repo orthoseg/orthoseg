@@ -1283,8 +1283,8 @@ def create_roi_for_dir(
     Args:
         dir_path (Path): The path to the directory to create the roi for.
         patterns (str | list[str]): The pattern(s) to match raster files.
-        crs (str | CRS | None): The coordinate reference system for the roi file. If None, the
-            CRS of the first file with a crs other than None will be used.
+        crs (str | CRS | None): The coordinate reference system for the roi file.
+            If None, the CRS of the first file with a crs other than None will be used.
             Defaults to None.
         output_path (Path | None): The path to save the roi file. If None, the roi file
             will be saved in the directory with the name "orthoseg.gpkg".
