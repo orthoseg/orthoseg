@@ -194,6 +194,14 @@ def read_orthoseg_config(config_path: Path, overrules: list[str] | None = None):
             "Valid options are 'keras', 'h5', or 'tf'."
         )
 
+    # Some version specific checks and overrules.
+    if train.get("optimizer") is None:
+        if KERAS_GTE_3:
+            train["optimizer"] = "AdamW"
+        else:
+            # On keras 2, AdamW gives an error when training starts.
+            train["optimizer"] = "Adam"
+
     # Read the layer config
     layer_config_filepath = files.getpath("image_layers_config_filepath")
     global layer_config_filepath_used
