@@ -2,9 +2,6 @@
 
 import datetime
 import logging
-import os
-
-import psutil
 
 logger = logging.getLogger(__name__)
 
@@ -106,66 +103,3 @@ def formatbytes(nb_bytes: float) -> str:
         return f"{bytes_float / GB:.2f} GB"
     else:
         return f"{bytes_float / TB:.2f} TB"
-
-
-def process_nice_to_priority_class(nice_value: int) -> int:
-    """Convert a linux nice value to a windows priority class.
-
-    Args:
-        nice_value (int): nice value between -20 and 20.
-
-    Returns:
-        int: windows priority class.
-    """
-    if nice_value <= -15:
-        return psutil.REALTIME_PRIORITY_CLASS
-    elif nice_value <= -10:
-        return psutil.HIGH_PRIORITY_CLASS
-    elif nice_value <= -5:
-        return psutil.ABOVE_NORMAL_PRIORITY_CLASS
-    elif nice_value <= 0:
-        return psutil.NORMAL_PRIORITY_CLASS
-    elif nice_value <= 10:
-        return psutil.BELOW_NORMAL_PRIORITY_CLASS
-    else:
-        return psutil.IDLE_PRIORITY_CLASS
-
-
-def setprocessnice(nice_value: int):
-    """Make the process nicer to other processes.
-
-    Args:
-        nice_value (int): Value between -20 (highest priority) and 20 (lowest priority)
-    """
-    p = psutil.Process(os.getpid())
-    if os.name == "nt":
-        p.nice(process_nice_to_priority_class(nice_value))
-    else:
-        p.nice(nice_value)
-
-
-def getprocessnice() -> int:
-    """Get the niceness of the process.
-
-    Returns:
-        int: Value between -20 (highest priority) and 20 (lowest priority)
-    """
-    p = psutil.Process(os.getpid())
-    nice_value = p.nice()
-    if os.name == "nt":
-        if nice_value == psutil.REALTIME_PRIORITY_CLASS:
-            return -20
-        elif nice_value == psutil.HIGH_PRIORITY_CLASS:
-            return -10
-        elif nice_value == psutil.ABOVE_NORMAL_PRIORITY_CLASS:
-            return -5
-        elif nice_value == psutil.NORMAL_PRIORITY_CLASS:
-            return 0
-        elif nice_value == psutil.BELOW_NORMAL_PRIORITY_CLASS:
-            return 10
-        elif nice_value == psutil.IDLE_PRIORITY_CLASS:
-            return 20
-        else:
-            return 0
-    else:
-        return int(nice_value)

@@ -20,7 +20,13 @@ from osgeo import gdal
 from orthoseg._compat import KERAS_GTE_3
 from orthoseg.lib.prepare_traindatasets import LabelInfo
 from orthoseg.util import config_util
-from orthoseg.util.image_util import FileLayerSource, WMSLayerSource, has_switched_axes
+from orthoseg.util.image_util import (
+    FileLayerSource,
+    WMSLayerSource,
+    create_roi_for_dir,
+    create_vrt_for_dir,
+    has_switched_axes,
+)
 
 # Get a logger...
 logger = logging.getLogger(__name__)
@@ -188,6 +194,14 @@ def read_orthoseg_config(config_path: Path, overrules: list[str] | None = None):
             "Valid options are 'keras', 'h5', or 'tf'."
         )
 
+    # Some version specific checks and overrules.
+    if train.get("optimizer") is None:
+        if KERAS_GTE_3:
+            train["optimizer"] = "AdamW"
+        else:
+            # On keras 2, AdamW gives an error when training starts.
+            train["optimizer"] = "Adam"
+
     # Read the layer config
     layer_config_filepath = files.getpath("image_layers_config_filepath")
     global layer_config_filepath_used
@@ -331,88 +345,6 @@ def _read_layer_config(layer_config_filepath: Path) -> dict:
             switch_axes = has_switched_axes(crs)
         image_layers[image_layer]["switch_axes"] = switch_axes
 
-        # If the layer source(s) are specified in a json parameter, parse it
-        if "layersources" in image_layers[image_layer]:
-            image_layers[image_layer]["layersources"] = layer_config[
-                image_layer
-            ].getdict("layersources")
-        else:
-            # If not, the layersource is specified in some top-level parameters
-            layersource = {}
-            layersource_keys = [
-                "wms_server_url",
-                "wms_version",
-                "wms_layernames",
-                "wms_layerstyles",
-                "bands",
-                "wms_username",
-                "wms_password",
-                "random_sleep",
-                "wms_ignore_capabilities_url",
-                "path",
-                "layername",
-                "wmts_server_url",
-                "wmts_version",
-                "wmts_layernames",
-                "wmts_layerstyles",
-                "wmts_tile_matrix_set",
-                "wmts_xyz",
-            ]
-            for key in layersource_keys:
-                if key in layer_config[image_layer]:
-                    layersource[key] = layer_config[image_layer][key]
-            image_layers[image_layer]["layersources"] = [layersource]
-
-        # Convert the layersource dicts to layersource objects
-        layersource_objects = []
-        for layersource in image_layers[image_layer]["layersources"]:
-            layersource_object: WMSLayerSource | FileLayerSource
-            try:
-                # If not, the layersource should be specified in seperate parameters
-                if "wms_server_url" in layersource:
-                    layersource_object = WMSLayerSource(
-                        wms_server_url=layersource["wms_server_url"],
-                        wms_version=layersource.get("wms_version", "1.3.0"),
-                        layernames=_str2list(layersource["wms_layernames"]),
-                        layerstyles=_str2list(layersource.get("wms_layerstyles")),
-                        bands=_str2intlist(layersource.get("bands", None)),
-                        username=layersource.get("wms_username", None),
-                        password=layersource.get("wms_password", None),
-                        random_sleep=int(layersource.get("random_sleep", 0)),
-                        wms_ignore_capabilities_url=_str2bool(
-                            layersource.get("wms_ignore_capabilities_url", "False")
-                        ),
-                    )
-                elif "wmts_server_url" in layersource:
-                    path = _gdal_virtual_file_path(layersource)
-                    layersource_object = FileLayerSource(
-                        path=path,
-                        layernames=_str2list(layersource["layername"]),
-                        bands=_str2intlist(layersource.get("bands", None)),
-                    )
-                elif "path" in layersource:
-                    path = Path(layersource["path"])
-                    if not path.is_absolute():
-                        # Resolve relative path based on layer_config_filepath.parent
-                        path = layer_config_filepath.parent / layersource["path"]
-                        path = path.resolve()
-                    layersource_object = FileLayerSource(
-                        path=path,
-                        layernames=_str2list(layersource["layername"]),
-                        bands=_str2intlist(layersource.get("bands", None)),
-                    )
-                else:
-                    raise ValueError(
-                        f"Invalid layersource, should be WMS or file: {layersource}"
-                    )
-            except Exception as ex:
-                raise ValueError(
-                    f"Missing parameter in image_layer {image_layer}, layersource "
-                    f"{layersource}: {ex}"
-                ) from ex
-            layersource_objects.append(layersource_object)
-        image_layers[image_layer]["layersources"] = layersource_objects
-
         # Read nb_concurrent calls param
         image_layers[image_layer]["nb_concurrent_calls"] = layer_config[
             image_layer
@@ -453,6 +385,93 @@ def _read_layer_config(layer_config_filepath: Path) -> dict:
         image_layers[image_layer]["pixel_y_size"] = layer_config[image_layer].getfloat(
             "pixel_y_size"
         )
+
+        # If the layer source(s) are specified in a json parameter, parse it
+        if "layersources" in image_layers[image_layer]:
+            image_layers[image_layer]["layersources"] = layer_config[
+                image_layer
+            ].getdict("layersources")
+        else:
+            # If not, the layersource should be specified in the top-level parameters
+            image_layers[image_layer]["layersources"] = [
+                dict(layer_config[image_layer])
+            ]
+
+        # Convert the layersource dicts to layersource objects
+        layersource_objects = []
+        for layersource in image_layers[image_layer]["layersources"]:
+            layersource_object: WMSLayerSource | FileLayerSource
+            try:
+                # If not, the layersource should be specified in separate parameters
+                if "wms_server_url" in layersource:
+                    layersource_object = WMSLayerSource(
+                        wms_server_url=layersource["wms_server_url"],
+                        wms_version=layersource.get("wms_version", "1.3.0"),
+                        layernames=_str2list(layersource["wms_layernames"]),
+                        layerstyles=_str2list(layersource.get("wms_layerstyles")),
+                        bands=_str2intlist(layersource.get("bands", None)),
+                        username=layersource.get("wms_username", None),
+                        password=layersource.get("wms_password", None),
+                        random_sleep=int(layersource.get("random_sleep", 0)),
+                        wms_ignore_capabilities_url=_str2bool(
+                            layersource.get("wms_ignore_capabilities_url", "False")
+                        ),
+                    )
+                elif "wmts_server_url" in layersource:
+                    path = _gdal_virtual_file_path(layersource)
+                    layersource_object = FileLayerSource(
+                        path=path,
+                        layernames=_str2list(layersource["layername"]),
+                        bands=_str2intlist(layersource.get("bands", None)),
+                    )
+                elif "path" in layersource:
+                    path = Path(layersource["path"])
+                    if not path.is_absolute():
+                        # Resolve relative path based on layer_config_filepath.parent
+                        path = layer_config_filepath.parent / layersource["path"]
+                        path = path.resolve()
+
+                    # The path is a directory, so we need to create a VRT file for it.
+                    if path.is_dir():
+                        file_patterns = _str2list(layersource.get("file_patterns"))
+                        if file_patterns is None:
+                            raise ValueError(
+                                f"file_patterns should be specified if path points to "
+                                f"a directory {path}"
+                            )
+                        path = create_vrt_for_dir(
+                            path, file_patterns, crs=layersource.get("projection")
+                        )
+
+                        # If no roi is specified, create one based on the dir contents.
+                        if (
+                            image_layers[image_layer].get("roi_filepath") is None
+                            and image_layers[image_layer].get("bbox") is None
+                        ):
+                            image_layers[image_layer]["roi_filepath"] = (
+                                create_roi_for_dir(
+                                    path.parent,
+                                    file_patterns,
+                                    crs=layersource.get("projection"),
+                                )
+                            )
+
+                    layersource_object = FileLayerSource(
+                        path=path,
+                        layernames=_str2list(layersource["layername"]),
+                        bands=_str2intlist(layersource.get("bands", None)),
+                    )
+                else:
+                    raise ValueError(
+                        f"Invalid layersource, should be WMS or file: {layersource}"
+                    )
+            except Exception as ex:
+                raise ValueError(
+                    f"Missing parameter in image_layer {image_layer}, layersource "
+                    f"{layersource}: {ex}"
+                ) from ex
+            layersource_objects.append(layersource_object)
+        image_layers[image_layer]["layersources"] = layersource_objects
 
     return image_layers
 

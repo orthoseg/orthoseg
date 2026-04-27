@@ -5,14 +5,15 @@ Image Layers Configuration
 ==========================
 
 Image layers are configured in an ``imagelayers.ini`` file. Each INI section
-defines one layer; the section name is used as the layer identifier.
+defines one layer. The section name is used as the layer identifier.
 
 There are three types of image sources supported by orthoseg:
 
 - **WMS**: a standard OGC Web Map Service.
 - **WMTS**: a standard OGC Web Map Tile Service.
-- **File / GDAL**: a local raster file or any source supported by the GDAL
-  WMS driver (including XYZ tile services configured via an ``.xml`` file).
+- **File / GDAL**: a local raster file, a directory containing multiple raster files,
+  or any source supported by the GDAL WMS driver (including e.g. XYZ tile services
+  configured via an ``.xml`` file).
 
 The layer type is determined automatically based on which parameters are
 present in the section.
@@ -151,10 +152,13 @@ A section is treated as a WMTS layer when ``wmts_server_url`` is present.
 File and GDAL layers
 --------------------
 
-A section is treated as a file-based layer when ``path`` is present. This
+A section is treated as a file-based layer when parameter ``path`` is present. This
 covers both local raster files (GeoTIFF, etc.) and any source supported by the
 GDAL WMS driver, which is configured via an ``.xml`` file. The latter lets
 you connect to XYZ/TMS tile services and other GDAL-supported web sources.
+The path can also point to a directory containing multiple raster files, in which
+case the ``file_patterns`` parameter must be used to specify which files in the
+directory belong to the layer.
 
 .. confval:: path
 
@@ -162,7 +166,18 @@ you connect to XYZ/TMS tile services and other GDAL-supported web sources.
    :required: yes
    :default: *(none)*
 
-   Path to a local raster file or to a GDAL WMS ``.xml`` configuration file.
+   Path to a local raster file, a directory containing multiple raster files, or to a
+   GDAL WMS ``.xml`` configuration file.
+
+.. confval:: file_patterns
+
+   :type: ``str``
+   :required: no
+   :default: *(none)*
+
+   Comma-separated list of glob patterns to select files when ``path`` points to a
+   directory. For example, ``**/*.tif, **/*.jpg`` to include all TIFF and JPEG files
+   in the directory and its subdirectories.
 
 **Example: local raster file** ::
 
@@ -182,6 +197,15 @@ you connect to XYZ/TMS tile services and other GDAL-supported web sources.
    bbox = 525500, 6603100, 525600, 6603200
    nb_concurrent_calls = 4
 
+**Example: directory of raster files** ::
+
+   [RANDOM-RASTER-FILES]
+   path = ./random_raster_files/
+   file_patterns = **/*.tif, **/*.jpg
+   projection = epsg:32631
+   image_format = image/jpeg
+   bbox = 174900, 176200, 175300, 176700
+
 See the `GDAL WMS driver documentation
 <https://gdal.org/drivers/raster/wms.html>`_ for details on how to write the
 ``.xml`` file.
@@ -190,7 +214,7 @@ See the `GDAL WMS driver documentation
 Common parameters
 -----------------
 
-The following parameters apply to all layer types.
+The following parameters can be used for all layer types.
 
 .. confval:: use_cache
 
