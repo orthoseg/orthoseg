@@ -9,6 +9,7 @@ https://github.com/qubvel/segmentation_models
 
 import json
 import logging
+import re
 import tempfile
 import urllib.request
 from collections.abc import Callable
@@ -33,6 +34,17 @@ else:
 
 # Get a logger...
 logger = logging.getLogger(__name__)
+
+WEIGHTS_NOTOP_BASE_URL = (
+    "https://github.com/orthoseg/orthoseg_models/releases/download/v0.1.0/"
+)
+
+# Listing of available notop weights.
+# A dict of architecture -> weights type -> weights versions available.
+WEIGHTS_NOTOP_AVAILABLE: dict[str, dict[str, list[int]]] = {
+    "mobilenetv2+linknet": {"aerial": [1]},
+    "inceptionresnetv2+unet": {"aerial": [1]},
+}
 
 
 def get_model(
@@ -82,22 +94,27 @@ def get_model(
     # Prepare the weights to be loaded
     encoder_weights = None
     weights_notop_path = None
-    if weights == "imagenet":
+    if weights is None:
+        pass
+    elif weights == "imagenet":
         encoder_weights = "imagenet"
-    elif weights in ["auto", "aerial"]:
-        weights_notop_path = _get_model_weights(architecture, "aerial", weights_dir)
+    else:
+        if weights == "auto":
+            weights_notop_path = _get_model_weights(architecture, "aerial", weights_dir)
+        else:
+            weights_notop_path = _get_model_weights(architecture, weights, weights_dir)
+
         if weights_notop_path is not None:
             logger.info(
                 f"Found weights for {architecture}: {weights_notop_path.name}, will "
                 f"use these to initialize the model from {weights_notop_path.parent}."
             )
-        elif weights == "aerial":
-            raise ValueError(
-                f"{weights=} but no aerial weights found for {architecture}"
-            )
-        else:
+        elif weights == "auto":
             # Fallback to imagenet weights
             encoder_weights = "imagenet"
+        else:
+            # Specific type of weights specified but not found, so raise an error.
+            raise ValueError(f"No weights found with {architecture=}, {weights=}")
 
     encoder_freeze = freeze if encoder_weights is not None else False
     freeze_notop = freeze if weights_notop_path is not None else False
@@ -162,13 +179,15 @@ def get_model(
 
 
 def _get_model_weights(
-    architecture: str, weights_type: str, weights_dir: Path | None = None
+    architecture: str,
+    weights_type: str,
+    weights_dir: Path | None = None,
 ) -> Path | None:
     """Get weights to initialize the model with.
 
     Args:
         architecture (str): the architecture to get the weights for.
-        weights_type (str): the type of weights to get. Supported option is "aerial".
+        weights_type (str): the type of weights to get.
         weights_dir (Path | None): directory where pretrained weights are cached to
             and read from. If None, the system temp directory is used.
 
@@ -176,31 +195,51 @@ def _get_model_weights(
         Path | None: the path to the weights file, or None if no weights are available
             for the given `architecture` and `weights_type`.
     """
-    weights_path = None
-    aerial_weights_available = ["mobilenetv2+linknet", "inceptionresnetv2+unet"]
+    weights_parts = weights_type.split("-")
+    weights_type_base = weights_parts[0]  # e.g. "aerial" from "aerial-v1"
+    if re.match(r"^v\d+$", weights_parts[-1]) is not None:
+        # If the last part of the weights type is a version number (e.g. "v1"), split
+        # base type and version number.
+        weights_type_version = int(weights_parts[-1].lstrip("v"))
+        weights_type_base = "-".join(weights_parts[:-1])
+    else:
+        # If no version number specified, use None for now.
+        weights_type_version = None
+        weights_type_base = weights_type
 
-    if weights_type == "aerial":
-        if architecture.lower() not in aerial_weights_available:
-            return None
+    weights_versions: list[int] = WEIGHTS_NOTOP_AVAILABLE.get(architecture, {}).get(
+        weights_type_base, []
+    )
 
-        url = "https://github.com/orthoseg/orthoseg_models/releases/download/v0.1.0/"
-        weights_url = f"{url}{architecture.lower()}_{weights_type}_notop_v1.weights.h5"
+    # There are no weights available, so return None.
+    if weights_versions is None or len(weights_versions) == 0:
+        return None
 
-        if weights_dir is None:
-            weights_dir = Path(tempfile.gettempdir())
-            logger.info(
-                "No weights_dir specified, so cache pretrained weights in the "
-                f"system temp directory: {weights_dir}"
-            )
-        weights_dir.mkdir(parents=True, exist_ok=True)
+    if weights_type_version is None:
+        weights_type_version = max(weights_versions)
 
-        weights_path = weights_dir / Path(weights_url).name
-        if not weights_path.exists():
+    weights_name = (
+        f"{architecture}_{weights_type_base}-v{weights_type_version}_notop.weights.h5"
+    )
+    if weights_dir is None:
+        weights_dir = Path(tempfile.gettempdir())
+        logger.info(
+            "No weights_dir specified, so cache pretrained weights in the "
+            f"system temp directory: {weights_dir}"
+        )
+    weights_dir.mkdir(parents=True, exist_ok=True)
+
+    weights_path = weights_dir / weights_name
+    if not weights_path.exists():
+        weights_url = f"{WEIGHTS_NOTOP_BASE_URL}{weights_name}"
+        try:
             urllib.request.urlretrieve(weights_url, weights_path)
+        except Exception as ex:
+            raise RuntimeError(
+                f"Error downloading weights from {weights_url} to {weights_path}: {ex}"
+            ) from ex
 
-        return weights_path
-
-    return None
+    return weights_path
 
 
 def get_custom_objects(architecture: str) -> dict[str, Callable]:
