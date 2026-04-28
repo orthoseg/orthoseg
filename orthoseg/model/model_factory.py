@@ -500,10 +500,10 @@ def load_model(
         # Now load the weights
         if model is not None:
             try:
-                model.load_weights(str(model_to_use_filepath))
+                smk.utils.load_weights(model, model_to_use_filepath)
             except RuntimeError as ex:
                 errors.append(
-                    f"Error trying model.load_weights on: {model_to_use_filepath}: {ex}"
+                    f"Error trying load_weights on: {model_to_use_filepath}: {ex}"
                 )
 
     if model is None:
