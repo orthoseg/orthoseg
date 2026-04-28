@@ -66,7 +66,7 @@ class TrainParams:
         image_augmentations: dict,
         mask_augmentations: dict,
         trainparams_id: int = 0,
-        weights: str | None = "auto",
+        weights_type: str | None = "auto",
         class_weights: list | None = None,
         batch_size: int = 4,
         optimizer: str = "Adam",
@@ -149,7 +149,7 @@ class TrainParams:
         self.trainparams_id = trainparams_id
         self.image_augmentations = image_augmentations
         self.mask_augmentations = mask_augmentations
-        self.weights = weights
+        self.weights = weights_type
 
         self.class_weights = class_weights
         self.batch_size = batch_size
