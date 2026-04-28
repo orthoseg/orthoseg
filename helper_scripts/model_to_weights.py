@@ -53,11 +53,15 @@ if __name__ == "__main__":
     os_dir = Path(r"X:\Monitoring\OrthoSeg")
 
     # inceptionresnetv2+unet models
+    # rpath = "sportsfields-sample/models/sportsfields-sample_03.4.0_0.88187_169.keras"
+    # rpath = "recreationfields/models/recreationfields_34.2.0_0.92718_143.hdf5"
+    # rpath = "hedges/models/hedges_13.1.0_0.71852_110.hdf5"
+    # rpath = "greenhouses2/models/greenhouses2_26.2.0_0.95529_180.hdf5"
 
     # mobilenetv2+linknet model
     # rpath = "sealedsurfaces/models/sealedsurfaces_59.5.0_0.94113_214.keras"
     # rpath = "recreationfields/models/recreationfields_34.2.0_0.88137_79.keras"
-    rpath = "greenhouses2/models/greenhouses2_26.2.0_0.82914_112.keras"
+    # rpath = "greenhouses2/models/greenhouses2_26.2.0_0.82914_112.keras"
     rpath = "greenhouses2/models/greenhouses2_25_0.96655_124.hdf5"
 
     model_path = os_dir / rpath
