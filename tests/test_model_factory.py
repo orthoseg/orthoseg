@@ -3,6 +3,7 @@
 import os
 
 import pytest
+import segmodels_keras as smk
 
 from orthoseg._compat import KERAS_GTE_3
 from orthoseg.model import model_factory as mf, model_helper as mh
@@ -105,7 +106,7 @@ def test_get_compile_save_load_model(
     assert model is not None
 
     # Load only model weights from the saved file
-    model.load_weights(str(model_path))
+    smk.utils.load_weights(model, model_path)
     assert model is not None
 
 
