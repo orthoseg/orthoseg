@@ -17,6 +17,8 @@
     - Use `categorical_focal_crossentropy` by default on keras 3 (#312)
     - Use [segmodels_keras](https://github.com/orthoseg/segmodels_keras) (#311)
     - Avoid unneeded direct use of tensorflow (#304, #313)
+    - Use ``segmodels_keras.utils.load_weights`` for forward and backward compatibility
+      when loading cross-keras-version weights (#339)
 - Use keras.applications `preprocess_input` functions to prepare inputs (#314)
 - Add support to finetune models using weights pretrained on aerial images. This becomes
   the default for supported architectures (#327)
