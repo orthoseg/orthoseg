@@ -3,7 +3,7 @@
 import os
 
 import pytest
-import smk
+import segmodels_keras as smk
 
 from orthoseg._compat import KERAS_GTE_3
 from orthoseg.model import model_factory as mf, model_helper as mh
