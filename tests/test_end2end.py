@@ -1,6 +1,4 @@
-"""
-Tests for functionalities in orthoseg.train.
-"""
+"""End to end tests for the entire orthoseg process."""
 
 import os
 import shutil
@@ -34,7 +32,7 @@ def test_1_init_testproject():
 @pytest.mark.order(after="test_1_init_testproject")
 def test_2_load_images():
     # Load project config to init some vars.
-    config_path = footballfields_dir / "footballfields_BEFL-2019_test.ini"
+    config_path = footballfields_dir / "footballfields_BEFL-2019.ini"
     conf.read_orthoseg_config(config_path)
     image_cache_dir = conf.dirs.getpath("predict_image_input_dir")
 
@@ -60,8 +58,25 @@ def test_2_load_images():
 @pytest.mark.order(after="test_1_init_testproject")
 def test_3_train():
     # Load project config to init some vars.
-    config_path = footballfields_dir / "footballfields_train_test.ini"
-    conf.read_orthoseg_config(config_path)
+    config_path = footballfields_dir / "footballfields.ini"
+
+    # Overrule config so small images are used, only one epoch is ran,... to speed up
+    # the test.
+    overrules = [
+        "train.image_pixel_width=32",
+        "train.image_pixel_height=32",
+        "train.preload_with_previous_traindata=False",
+        "train.force_model_traindata_id=-1",
+        "train.resume_train=False",
+        "train.force_train=False",
+        "train.batch_size_fit=1",
+        "train.batch_size_predict=1",
+        "train.save_best_only=False",
+        "train.save_min_accuracy=0",
+        "train.nb_epoch_with_freeze=0",
+        "train.max_epoch=1",
+    ]
+    conf.read_orthoseg_config(config_path, overrules=overrules)
 
     # Init + cleanup result dirs
     traindata_id_result = 2
@@ -82,7 +97,41 @@ def test_3_train():
     os.utime(label_01_path, (timestamp_old, timestamp_old))
 
     # Run train session
-    orthoseg.train(config_path)
+    orthoseg.train(config_path, config_overrules=overrules)
+
+    # Check if the training (image) data was created
+    assert training_id_dir.exists()
+
+    # Check if the new model was created
+    best_model = mh.get_best_model(
+        model_dir=conf.dirs.getpath("model_dir"),
+        segment_subject=conf.general["segment_subject"],
+        traindata_id=2,
+    )
+
+    assert best_model is not None
+    assert best_model["traindata_id"] == traindata_id_result
+    assert best_model["epoch"] == 0
+    # Init + cleanup result dirs
+    traindata_id_result = 2
+    training_dir = conf.dirs.getpath("training_dir")
+    training_id_dir = training_dir / f"{traindata_id_result:02d}"
+    if training_id_dir.exists():
+        shutil.rmtree(training_id_dir)
+    model_dir = conf.dirs.getpath("model_dir")
+    if model_dir.exists():
+        modelfile_paths = model_dir.glob(f"footballfields_{traindata_id_result:02d}_*")
+        for modelfile_path in modelfile_paths:
+            modelfile_path.unlink()
+
+    # Make sure the label files in version 01 are older than those in the label dir
+    # so a new model will be trained
+    label_01_path = training_dir / "01/footballfields_BEFL-2019_polygons.gpkg"
+    timestamp_old = datetime(year=2020, month=1, day=1).timestamp()
+    os.utime(label_01_path, (timestamp_old, timestamp_old))
+
+    # Run train session
+    orthoseg.train(config_path, config_overrules=overrules)
 
     # Check if the training (image) data was created
     assert training_id_dir.exists()
@@ -106,8 +155,10 @@ def test_3_train():
 @pytest.mark.order(after="test_2_load_images")
 def test_4_predict():
     # Load project config to init some vars.
-    config_path = footballfields_dir / "footballfields_BEFL-2019_test.ini"
-    conf.read_orthoseg_config(config_path)
+    config_path = footballfields_dir / "footballfields_BEFL-2019.ini"
+    overrules = ["train.force_model_traindata_id=1"]
+
+    conf.read_orthoseg_config(config_path, overrules=overrules)
 
     # Cleanup result if it isn't empty yet
     predict_image_output_dir = Path(
@@ -129,7 +180,7 @@ def test_4_predict():
     test_helper.SampleProjectFootball.download_model(model_dir)
 
     # Run task to predict
-    orthoseg.predict(config_path)
+    orthoseg.predict(config_path, config_overrules=overrules)
 
     # Check results
     result_vector_path = result_vector_dir / "footballfields_01_201_BEFL-2019.gpkg"
@@ -148,8 +199,10 @@ def test_4_predict():
 @pytest.mark.order(after="test_4_predict")
 def test_5_postprocess():
     # Load project config to init some vars.
-    config_path = footballfields_dir / "footballfields_BEFL-2019_test.ini"
-    conf.read_orthoseg_config(config_path)
+    config_path = footballfields_dir / "footballfields_BEFL-2019.ini"
+    overrules = ["train.force_model_traindata_id=1"]
+
+    conf.read_orthoseg_config(config_path, overrules=overrules)
 
     # Cleanup result if it isn't empty yet
     result_vector_dir = conf.dirs.getpath("output_vector_dir")
@@ -160,7 +213,7 @@ def test_5_postprocess():
         gfo.remove(result_diss_path)
 
     # Run task to postprocess
-    orthoseg.postprocess(config_path)
+    orthoseg.postprocess(config_path, config_overrules=overrules)
 
     # Check results
     assert result_diss_path.exists()

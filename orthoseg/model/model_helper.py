@@ -68,7 +68,7 @@ class TrainParams:
         trainparams_id: int = 0,
         class_weights: list | None = None,
         batch_size: int = 4,
-        optimizer: str = "adam",
+        optimizer: str = "Adam",
         optimizer_params: dict | None = None,
         loss_function: str | None = None,
         monitor_metric: str | None = None,
@@ -99,7 +99,7 @@ class TrainParams:
                 choosen depending on the neural network architecture
                 and available memory on you GPU. Defaults to 4.
             optimizer (str, optional): Optimizer to use for training.
-                Defaults to 'adam'.
+                Defaults to 'Adam'.
             optimizer_params (dict, optional): Optimizer params to use.
                 Defaults to { 'learning_rate': 0.0001 }.
             loss_function (str, optional): Loss function to use for training.
@@ -158,7 +158,7 @@ class TrainParams:
         if loss_function is None:
             if KERAS_GTE_3:
                 self.loss_function = "categorical_focal_crossentropy"
-            else:  # noqa: PLR5501
+            else:
                 if self.class_weights is not None:
                     self.loss_function = "weighted_categorical_crossentropy"
                 else:
@@ -941,7 +941,7 @@ def save_and_clean_models(
                             new_model.save_weights(
                                 str(new_model_path), save_format=save_format
                             )
-                    else:  # noqa: PLR5501
+                    else:
                         if model_template_for_save is not None:
                             model_template_for_save.save(
                                 str(new_model_path), save_format=save_format

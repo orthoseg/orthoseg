@@ -1,4 +1,5 @@
 import re
+import shutil
 import tempfile
 from pathlib import Path
 
@@ -7,7 +8,7 @@ import pytest
 
 from orthoseg.helpers import config_helper as conf
 from orthoseg.lib.prepare_traindatasets import LabelInfo
-from tests.test_helper import SampleProjectFootball, TestData
+from tests.test_helper import SampleProjectFootball, TestData, sampleprojects_dir
 
 
 @pytest.mark.parametrize(
@@ -48,6 +49,64 @@ def test_read_orthoseg_config_image_layers():
     assert layer is not None
     assert layer.get("projection") == pyproj.CRS.from_user_input("epsg:31370")
     assert layer.get("switch_axes") is False
+
+
+def test_read_orthoseg_config_image_layers_filelayer_dir(tmp_path):
+    # Create a directory with a tif file as a directory layer.
+    file_path = (
+        sampleprojects_dir
+        / "fields/input_raster"
+        / "BEFL-TEST-s2_2023-05-01_2023-07-01_B08-B04-B03_min_byte.tif"
+    )
+    tif_dir = tmp_path / "tif_dir"
+    tif_dir.mkdir()
+    shutil.copy(file_path, tif_dir)
+
+    # Create a config with a directory layer.
+    imagelayers_str = f"""
+        [TEST-IMAGE-LAYER]
+        path = {tif_dir.as_posix()}
+        layername = TEST-IMAGE-LAYER
+        file_patterns = **/*.tif
+        projection = epsg:31370
+    """
+    imagelayers_path = tmp_path / "imagelayers.ini"
+    with imagelayers_path.open("w") as f:
+        for line in imagelayers_str.splitlines():
+            f.write(f"{line.strip()}\n")
+
+    # Now read the config.
+    imagelayers_config = conf._read_layer_config(imagelayers_path)
+
+    # Check if the directory layer was handled correctly.
+    vrt_path = tif_dir / "orthoseg.vrt"
+    assert vrt_path.exists()
+    assert imagelayers_config.get("TEST-IMAGE-LAYER") is not None
+    assert imagelayers_config["TEST-IMAGE-LAYER"]["layersources"][0].path == vrt_path
+
+    rois_path = tif_dir / "orthoseg.gpkg"
+    assert rois_path.exists()
+    assert Path(imagelayers_config["TEST-IMAGE-LAYER"].get("roi_filepath")) == rois_path
+
+
+def test_read_orthoseg_config_image_layers_filelayer_dir_no_file_patterns(tmp_path):
+    # Create a config with a directory layer, but without file_patterns parameter.
+    imagelayers_str = f"""
+        [TEST-IMAGE-LAYER]
+        path = {tmp_path.as_posix()}
+        projection = epsg:31370
+    """
+    imagelayers_path = tmp_path / "imagelayers.ini"
+    with imagelayers_path.open("w") as f:
+        for line in imagelayers_str.splitlines():
+            f.write(f"{line.strip()}\n")
+
+    # The file_patterns parameter is missing, so an error should be raised.
+    with pytest.raises(
+        ValueError,
+        match="file_patterns should be specified if path points to a directory",
+    ):
+        conf._read_layer_config(imagelayers_path)
 
 
 @pytest.mark.parametrize(
@@ -95,7 +154,7 @@ def test_read_orthoseg_config_train_overrules(overrules, expected_image_layer):
     kwargs = {}
     if overrules is not None:
         kwargs["overrules"] = overrules
-    conf.read_orthoseg_config(SampleProjectFootball.train_config_path, **kwargs)
+    conf.read_orthoseg_config(SampleProjectFootball.config_path, **kwargs)
 
     image_layer = conf.train.get("image_layer")
     if expected_image_layer is None:

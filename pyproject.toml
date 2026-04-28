@@ -5,13 +5,13 @@ ignore = ["*"]
 exclude = ["local_ignore"]
 
 [[tool.mypy.overrides]]
-module = "gdown.*,geopandas.*,h5py.*,keras.*,matplotlib.*,owslib.*,psutil.*,pycron.*,rasterio.*,segmentation_models.*,setuptools.*,openeo.*,osgeo.*"
+module = "gdown.*,geopandas.*,h5py.*,keras.*,matplotlib.*,openeo.*,osgeo.*,owslib.*,psutil.*,pycron.*,rasterio.*,segmentation_models.*,setuptools.*,torch.*"
 ignore_missing_imports = true
 
 [tool.ruff]
 target-version = "py310"
 line-length = 88
-extend-exclude = ["docs/*", "helper_scripts/*", "local_ignore/*"]
+extend-exclude = ["docs/*", "local_ignore/*"]
 
 [tool.ruff.lint]
 select = [
@@ -50,6 +50,7 @@ ignore = [
     "PLR0912",  # Too many branches
     "PLR0915",  # Too many statements
     "PLR2004",  # Magic number
+    "PLR5501",  # Use `elif` instead of `else` then `if`, to reduce indentation
     "PLW0108",  # Lambda may be unnecessary
     "PLW2901",  # loop variable overwritten by assignment target
 ]

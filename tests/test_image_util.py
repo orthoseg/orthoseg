@@ -1,11 +1,93 @@
 """Tests for functionalities in image_util."""
 
+import geopandas as gpd
+import pandas as pd
 import pyproj
 import pytest
 import rasterio as rio
 
 from orthoseg.util import image_util
 from tests import test_helper
+
+
+def test_create_roi_from_dir(tmp_path):
+    # Create test tif files by creating an image cache.
+    _test_load_images_to_cache(tmp_path)
+
+    # Rename on of the tifs to have a .tiff extension.
+    file_to_rename_path = next(tmp_path.glob("**/*.tif"))
+    file_to_rename_path.rename(file_to_rename_path.with_suffix(".tiff"))
+
+    # First test creating a VRT for the directory with only "tif" files.
+    rois_path = image_util.create_roi_for_dir(tmp_path, "**/*.tif")
+    assert rois_path.exists()
+    rois_gdf = gpd.read_file(rois_path)
+    assert len(rois_gdf) == 8
+
+    # Check if the file is reused if it exists already by using a pattern that should
+    # return no files. If the .gpkg file is reused, it should still contain the same
+    # number of rois.
+    rois_path = image_util.create_roi_for_dir(tmp_path, "**/*.jpg")
+    assert rois_path.exists()
+    rois_gdf = gpd.read_file(rois_path)
+    assert len(rois_gdf) == 8
+
+    # Now test creating a VRT for the directory with both "tif" and "tiff" files.
+    rois_all_path = image_util.create_roi_for_dir(
+        tmp_path, ["**/*.tif", "**/*.tiff"], output_path=tmp_path / "rois_all.gpkg"
+    )
+    assert rois_all_path.exists()
+    rois_gdf = gpd.read_file(rois_all_path)
+    assert len(rois_gdf) == 9
+
+
+def test_create_roi_from_dir_empty_dir(tmp_path):
+    with pytest.raises(ValueError, match="No files found in directory"):
+        image_util.create_roi_for_dir(tmp_path, "**/*.tif")
+
+
+def test_create_vrt_from_dir(tmp_path):
+    # Create test tif files by creating an image cache.
+    _test_load_images_to_cache(tmp_path)
+
+    # Rename on of the tifs to have a .tiff extension.
+    file_to_rename_path = next(tmp_path.glob("**/*.tif"))
+    file_to_rename_path.rename(file_to_rename_path.with_suffix(".tiff"))
+
+    # First test creating a VRT for the directory with only "tif" files.
+    vrt_path = image_util.create_vrt_for_dir(tmp_path, "**/*.tif", crs="epsg:32631")
+    assert vrt_path.exists()
+    with rio.open(vrt_path) as vrt_file:
+        assert vrt_file.count == 3
+    vrt_df = pd.read_xml(vrt_path, xpath="VRTRasterBand/SimpleSource")
+    assert len(vrt_df) == 8 * 3  # 8 files with 3 bands each
+
+    # Check if the file is reused if it exists already by using a pattern that should
+    # return no files. If the .vrt file is reused, it should still contain the same
+    # number of bands and sources.
+    vrt_path = image_util.create_vrt_for_dir(tmp_path, "**/*.jpg", crs="epsg:32631")
+    with rio.open(vrt_path) as vrt_file:
+        assert vrt_file.count == 3
+    vrt_df = pd.read_xml(vrt_path, xpath="VRTRasterBand/SimpleSource")
+    assert len(vrt_df) == 8 * 3  # 8 files with 3 bands each
+
+    # Now test creating a VRT for the directory with both "tif" and "tiff" files.
+    vrt_all_path = image_util.create_vrt_for_dir(
+        tmp_path,
+        ["**/*.tif", "**/*.tiff"],
+        output_path=tmp_path / "vrt_all.vrt",
+        crs="epsg:32631",
+    )
+    assert vrt_all_path.exists()
+    with rio.open(vrt_all_path) as vrt_file:
+        assert vrt_file.count == 3
+    vrt_df = pd.read_xml(vrt_all_path, xpath="VRTRasterBand/SimpleSource")
+    assert len(vrt_df) == 9 * 3  # 9 files with 3 bands each
+
+
+def test_create_vrt_from_dir_empty_dir(tmp_path):
+    with pytest.raises(ValueError, match="No files found in directory"):
+        image_util.create_vrt_for_dir(tmp_path, "**/*.tif", crs="EPSG:31370")
 
 
 @pytest.mark.parametrize(
@@ -31,10 +113,11 @@ def test_load_image_invalid_layersource():
         )
 
 
-@pytest.mark.parametrize("width_pix, height_pix", [(512, 256), (256, 512), (512, 512)])
-@pytest.mark.parametrize("image_pixels_ignore_border", [0, 64])
+@pytest.mark.parametrize("image_format", [image_util.FORMAT_GEOTIFF])
+@pytest.mark.parametrize("width_pix, height_pix", [(256, 128), (128, 256), (256, 256)])
+@pytest.mark.parametrize("image_pixels_ignore_border", [0, 32])
 def test_load_image_to_file_filelayer(
-    tmp_path, width_pix, height_pix, image_pixels_ignore_border
+    tmp_path, width_pix, height_pix, image_format, image_pixels_ignore_border
 ):
     # Init some stuff
     filelayer_path = (
@@ -73,6 +156,7 @@ def test_load_image_to_file_filelayer(
         crs=crs,
         bbox=bbox,
         size=(width_pix, height_pix),
+        image_format=image_format,
         image_pixels_ignore_border=image_pixels_ignore_border,
         transparent=False,
         layername_in_filename=True,
@@ -87,10 +171,11 @@ def test_load_image_to_file_filelayer(
         assert tuple(image_file.bounds) == bbox
 
 
-@pytest.mark.parametrize("width_pix, height_pix", [(512, 256), (256, 512), (512, 512)])
-@pytest.mark.parametrize("image_pixels_ignore_border", [0, 64])
+@pytest.mark.parametrize("image_format", [image_util.FORMAT_PNG])
+@pytest.mark.parametrize("width_pix, height_pix", [(256, 128), (128, 256), (256, 256)])
+@pytest.mark.parametrize("image_pixels_ignore_border", [0, 32])
 def test_load_image_to_file_filelayer_xyz_reproject(
-    tmp_path, width_pix, height_pix, image_pixels_ignore_border
+    tmp_path, width_pix, height_pix, image_format, image_pixels_ignore_border
 ):
     """Test getting an image from a EPSG:3857 XYZ layer with reprojection."""
     # Init some stuff
@@ -113,7 +198,7 @@ def test_load_image_to_file_filelayer_xyz_reproject(
         crs=projection,
         bbox=bbox,
         size=(width_pix, height_pix),
-        image_format=image_util.FORMAT_PNG,
+        image_format=image_format,
         image_pixels_ignore_border=image_pixels_ignore_border,
         transparent=False,
         layername_in_filename=True,
@@ -121,17 +206,18 @@ def test_load_image_to_file_filelayer_xyz_reproject(
 
     assert image_path is not None
     assert image_path.exists()
-    assert image_path.stat().st_size > 10000, "Image should be larger than 10kB"
+    assert image_path.stat().st_size > 5000, "Image should be larger than 5kB"
     with rio.open(image_path) as image_file:
         # assert tuple(image_file.bounds) == bbox
         assert image_file.width == width_pix
         assert image_file.height == height_pix
 
 
-@pytest.mark.parametrize("width_pix, height_pix", [(512, 256), (256, 512), (512, 512)])
-@pytest.mark.parametrize("image_pixels_ignore_border", [0, 64])
+@pytest.mark.parametrize("image_format", [image_util.FORMAT_JPEG])
+@pytest.mark.parametrize("width_pix, height_pix", [(256, 128), (128, 256), (256, 256)])
+@pytest.mark.parametrize("image_pixels_ignore_border", [0, 32])
 def test_load_image_to_file_wmslayer_rgb(
-    tmp_path, width_pix, height_pix, image_pixels_ignore_border
+    tmp_path, width_pix, height_pix, image_format, image_pixels_ignore_border
 ):
     # Init some stuff
     projection = "epsg:31370"
@@ -156,7 +242,7 @@ def test_load_image_to_file_wmslayer_rgb(
         crs=projection,
         bbox=bbox,
         size=(width_pix, height_pix),
-        image_format=image_util.FORMAT_PNG,
+        image_format=image_format,
         image_pixels_ignore_border=image_pixels_ignore_border,
         transparent=False,
         layername_in_filename=True,
@@ -164,17 +250,18 @@ def test_load_image_to_file_wmslayer_rgb(
 
     assert image_path is not None
     assert image_path.exists()
-    assert image_path.stat().st_size > 50000, "Image should be larger than 50kB"
+    assert image_path.stat().st_size > 5000, "Image should be larger than 5kB"
     with rio.open(image_path) as image_file:
         # assert tuple(image_file.bounds) == bbox
         assert image_file.width == width_pix
         assert image_file.height == height_pix
 
 
-@pytest.mark.parametrize("width_pix, height_pix", [(512, 256), (256, 512), (512, 512)])
-@pytest.mark.parametrize("image_pixels_ignore_border", [0, 64])
+@pytest.mark.parametrize("image_format", [image_util.FORMAT_JPEG])
+@pytest.mark.parametrize("width_pix, height_pix", [(256, 128), (128, 256), (256, 256)])
+@pytest.mark.parametrize("image_pixels_ignore_border", [0, 32])
 def test_load_image_to_file_wmslayer_grayscale(
-    tmp_path, width_pix, height_pix, image_pixels_ignore_border
+    tmp_path, width_pix, height_pix, image_format, image_pixels_ignore_border
 ):
     # Init some stuff
     projection = "epsg:31370"
@@ -200,7 +287,7 @@ def test_load_image_to_file_wmslayer_grayscale(
         crs=projection,
         bbox=bbox,
         size=(width_pix, height_pix),
-        image_format=image_util.FORMAT_PNG,
+        image_format=image_format,
         # image_format_save=image_util.FORMAT_TIFF,
         image_pixels_ignore_border=image_pixels_ignore_border,
         transparent=False,
@@ -208,17 +295,19 @@ def test_load_image_to_file_wmslayer_grayscale(
     )
 
     assert image_path is not None
-    assert image_path.exists() is True
+    assert image_path.exists()
+    assert image_path.stat().st_size > 4500, "Image should be larger than 4.5kB"
     with rio.open(image_path) as image_file:
         # assert tuple(image_file.bounds) == bbox
         assert image_file.width == width_pix
         assert image_file.height == height_pix
 
 
-@pytest.mark.parametrize("width_pix, height_pix", [(512, 256), (256, 512), (512, 512)])
-@pytest.mark.parametrize("image_pixels_ignore_border", [0, 64])
+@pytest.mark.parametrize("image_format", [image_util.FORMAT_PNG])
+@pytest.mark.parametrize("width_pix, height_pix", [(256, 128), (128, 256), (256, 256)])
+@pytest.mark.parametrize("image_pixels_ignore_border", [0, 32])
 def test_load_image_to_file_wmslayer_combined(
-    tmp_path, width_pix, height_pix, image_pixels_ignore_border
+    tmp_path, width_pix, height_pix, image_format, image_pixels_ignore_border
 ):
     # Init some stuff
     projection = "epsg:31370"
@@ -261,15 +350,14 @@ def test_load_image_to_file_wmslayer_combined(
         crs=projection,
         bbox=bbox,
         size=(width_pix, height_pix),
-        image_format=image_util.FORMAT_PNG,
-        # image_format_save=image_util.FORMAT_TIFF,
+        image_format=image_format,
         image_pixels_ignore_border=image_pixels_ignore_border,
         transparent=False,
         layername_in_filename=True,
     )
 
     assert image_path is not None
-    assert image_path.exists() is True
+    assert image_path.exists()
     with rio.open(image_path) as image_file:
         # assert tuple(image_file.bounds) == bbox
         assert image_file.width == width_pix
@@ -277,6 +365,10 @@ def test_load_image_to_file_wmslayer_combined(
 
 
 def test_load_images_to_cache(tmp_path):
+    _test_load_images_to_cache(tmp_path)
+
+
+def _test_load_images_to_cache(tmp_path):
     # Init some stuff
     filelayer_path = (
         test_helper.sampleprojects_dir

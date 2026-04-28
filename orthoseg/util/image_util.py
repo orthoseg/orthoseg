@@ -7,7 +7,6 @@ import random
 import tempfile
 import time
 import warnings
-from concurrent import futures
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +22,7 @@ import pyproj
 import rasterio as rio
 import rasterio.enums
 import rasterio.errors as rio_errors
+import shapely
 import urllib3
 from osgeo import gdal
 from rasterio import (
@@ -34,7 +34,7 @@ from rasterio import (
 from rasterio._err import CPLE_AppDefinedError
 from shapely.geometry import box
 
-from . import progress_util
+from . import _processing_util, progress_util
 
 FORMAT_GEOTIFF = "image/geotiff"
 FORMAT_GEOTIFF_DRIVER = "Gtiff"
@@ -115,12 +115,13 @@ class FileLayerSource:
         layernames: list[str],
         bands: list[int] | None = None,
     ):
-        """Contructor for FileLayerSource.
+        """Constructor for FileLayerSource.
 
         Args:
             path (Union[str, Path]): Path to the layer.
             layernames (list[str]): list of layer names.
-            bands (Optional[list[int]], optional): list of bands. Defaults to None.
+            bands (list[int], optional): list of bands. Defaults to None.
+
         """
         self.path = Path(path)
         self.layernames = layernames
@@ -379,7 +380,15 @@ def load_images_to_cache(
     if switch_axes is None:
         switch_axes = has_switched_axes(crs)
 
-    with futures.ProcessPoolExecutor(nb_concurrent_calls) as pool:
+    worker_type = "processes"
+    if "PYTEST_CURRENT_TEST" in os.environ and os.name == "nt":
+        # On windows, this pool doesn't exit properly when running in pytest if it is a
+        # process pool, so use a thread pool in that case.
+        worker_type = "threads"
+
+    with _processing_util.PooledExecutorFactory(
+        worker_type=worker_type, max_workers=nb_concurrent_calls
+    ) as pool:
         # Loop through all columns and get the images...
         nb_total = len(tiles_to_download_gdf)
         nb_processed = 0
@@ -960,6 +969,7 @@ def load_image(
     image_data_output = None
     image_profile_output: dict[str, Any] | None = None
     response = None
+    nb_retries = 5
     for layersource in layersources:
         window = None
         memfile = None
@@ -991,7 +1001,7 @@ def load_image(
                             ] = layersource.wms_server_url
                     layersource.wms_service = wms_service
 
-                # Get image from server, and retry up to 10 times...
+                # Get image from server, and retry up to nb_retries times...
                 retry_count = 0
                 time_sleep = 5
                 image_retrieved = False
@@ -1038,8 +1048,8 @@ def load_image(
                                 message = f"WMS error for bbox {bbox_with_border}: {ex}"
                                 raise RuntimeError(message) from ex
 
-                        # If the exception isn't handled yet, retry 10 times...
-                        if retry_count < 10:
+                        # If the exception isn't handled yet, retry nb_retries times...
+                        if retry_count < nb_retries:
                             time.sleep(time_sleep)
 
                             # Increase sleep time every
@@ -1049,7 +1059,7 @@ def load_image(
                             continue
                         else:
                             message = (
-                                "Retried 10 times and didn't work, with "
+                                f"Retried {nb_retries} times and didn't work, with "
                                 f"layers: {layersource.layernames}, "
                                 f"styles: {layersource.layerstyles}, "
                                 f"for bbox: {bbox_with_border}"
@@ -1133,11 +1143,11 @@ def load_image(
 
             # If the driver is VRT, use retries for the read as it sometimes fails
             # reading remote files.
-            nb_retries = 10 if image_file.profile["driver"] == "VRT" else 0
+            nb_retries_read = nb_retries if image_file.profile["driver"] == "VRT" else 0
 
             if layersource.bands is None:
                 # If no specific bands specified, read them all...
-                image_data_cur = _rio_read(image_file, rio_read_kwargs, nb_retries)
+                image_data_cur = _rio_read(image_file, rio_read_kwargs, nb_retries_read)
                 if image_data_output is None:
                     image_data_output = image_data_cur
                 else:
@@ -1147,7 +1157,7 @@ def load_image(
             elif len(layersource.bands) == 1 and layersource.bands[0] == -1:
                 # If 1 band, -1 specified: dirty hack to use greyscale
                 # version of rgb image
-                image_data_tmp = _rio_read(image_file, rio_read_kwargs, nb_retries)
+                image_data_tmp = _rio_read(image_file, rio_read_kwargs, nb_retries_read)
                 image_data_grey = np.mean(image_data_tmp, axis=0).astype(
                     image_data_tmp.dtype
                 )
@@ -1165,7 +1175,9 @@ def load_image(
                     # Read the band needed + reshape. Remark: rasterio uses
                     # 1-based indexing instead of 0-based
                     rio_read_kwargs["indexes"] = band + 1
-                    image_data_curr = _rio_read(image_file, rio_read_kwargs, nb_retries)
+                    image_data_curr = _rio_read(
+                        image_file, rio_read_kwargs, nb_retries_read
+                    )
                     new_shape = (1, image_data_curr.shape[0], image_data_curr.shape[1])
                     image_data_curr = np.reshape(image_data_curr, new_shape)
 
@@ -1258,6 +1270,95 @@ def create_filename(
     output_filename += image_ext
 
     return output_filename
+
+
+def create_roi_for_dir(
+    dir_path: Path,
+    patterns: str | list[str],
+    crs: str | pyproj.CRS | None = None,
+    output_path: Path | None = None,
+) -> Path:
+    """Create a roi file for the directory.
+
+    Args:
+        dir_path (Path): The path to the directory to create the roi for.
+        patterns (str | list[str]): The pattern(s) to match raster files.
+        crs (str | CRS | None): The coordinate reference system for the roi file.
+            If None, the CRS of the first file with a crs other than None will be used.
+            Defaults to None.
+        output_path (Path | None): The path to save the roi file. If None, the roi file
+            will be saved in the directory with the name "orthoseg.gpkg".
+            Defaults to None.
+
+    """
+    if output_path is None:
+        roi_path = dir_path / "orthoseg.gpkg"
+    else:
+        roi_path = output_path
+
+    if roi_path.exists():
+        return roi_path
+
+    if isinstance(patterns, str):
+        patterns = [patterns]
+    if crs is not None and isinstance(crs, str):
+        crs = pyproj.CRS(crs)
+
+    bounds_list = []
+    for pattern in patterns:
+        for p in dir_path.glob(pattern):
+            with rio.open(str(p)) as image_file:
+                bounds_list.append(shapely.box(*image_file.bounds))
+                if crs is None:
+                    crs = image_file.crs
+                elif image_file.crs is not None and image_file.crs != crs:
+                    logger.warning(
+                        f"CRS of file {p} is different from specified CRS or a "
+                        f"previous crs: {image_file.crs} vs {crs}"
+                    )
+
+    if len(bounds_list) == 0:
+        raise ValueError(f"No files found in directory {dir_path} with {patterns=}")
+
+    bound_gdf = gpd.GeoDataFrame(geometry=gpd.GeoSeries(bounds_list), crs=crs)
+    bound_gdf.to_file(roi_path)
+
+    return roi_path
+
+
+def create_vrt_for_dir(
+    dir_path: Path, patterns: str | list[str], crs: str, output_path: Path | None = None
+) -> Path:
+    """Create a vrt file for the directory.
+
+    Args:
+        dir_path (Path): The path to the directory to create the vrt for.
+        patterns (str | list[str]): The pattern(s) to match raster files.
+        crs (str): The coordinate reference system for the VRT.
+        output_path (Path | None): The path to save the vrt file. If None, the vrt file
+            will be saved in the directory with the name "orthoseg.vrt".
+            Defaults to None.
+    """
+    if output_path is None:
+        vrt_path = dir_path / "orthoseg.vrt"
+    else:
+        vrt_path = output_path
+
+    if vrt_path.exists():
+        return vrt_path
+
+    if isinstance(patterns, str):
+        patterns = [patterns]
+    paths: list[str] = []
+    for pattern in patterns:
+        paths.extend(str(p) for p in dir_path.glob(pattern))
+    if len(paths) == 0:
+        raise ValueError(f"No files found in directory {dir_path} with {patterns=}")
+
+    options = gdal.BuildVRTOptions(outputSRS=crs, allowProjectionDifference=True)
+    gdal.BuildVRT(destName=str(vrt_path), srcDSOrSrcDSTab=paths, options=options)
+
+    return vrt_path
 
 
 def has_switched_axes(crs: pyproj.CRS):
