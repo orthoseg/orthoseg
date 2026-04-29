@@ -10,6 +10,7 @@ import pprint
 import re
 import shutil
 import tempfile
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +20,7 @@ from osgeo import gdal
 
 from orthoseg._compat import KERAS_GTE_3
 from orthoseg.lib.prepare_traindatasets import LabelInfo
+from orthoseg.model.model_factory import WEIGHTS_NOTOP_AVAILABLE
 from orthoseg.util import config_util
 from orthoseg.util.image_util import (
     FileLayerSource,
@@ -180,7 +182,7 @@ def read_orthoseg_config(config_path: Path, overrules: list[str] | None = None):
         )
         dirs["projects_dir"] = projects_dir_absolute.as_posix()
 
-    # Apply some defaults that need some logic.
+    # Some version-specific defaults
     if train.get("save_format") is None:
         train["save_format"] = "keras" if KERAS_GTE_3 else "h5"
     elif train.get("save_format") == "keras" and not KERAS_GTE_3:
@@ -194,13 +196,30 @@ def read_orthoseg_config(config_path: Path, overrules: list[str] | None = None):
             "Valid options are 'keras', 'h5', or 'tf'."
         )
 
-    # Some version specific checks and overrules.
     if train.get("optimizer") is None:
         if KERAS_GTE_3:
             train["optimizer"] = "AdamW"
         else:
             # On keras 2, AdamW gives an error when training starts.
             train["optimizer"] = "Adam"
+
+    # Some defaults that need some logic.
+    if train.get("weights_type") == "aerial_if_available":
+        # If aerial weights are available for the architecture, use them, otherwise use
+        # imagenet weights.
+        architecture = model.get("architecture")
+        weight_type_versions = WEIGHTS_NOTOP_AVAILABLE.get(architecture, {}).get(
+            "aerial", []
+        )
+        if len(weight_type_versions) > 0:
+            train["weights_type"] = "aerial"
+        else:
+            warnings.warn(
+                f"No aerial pretrained weights available for {architecture=}, so "
+                f"falling back to imagenet pretrained weights.",
+                stacklevel=2,
+            )
+            train["weights_type"] = "imagenet"
 
     # Read the layer config
     layer_config_filepath = files.getpath("image_layers_config_filepath")

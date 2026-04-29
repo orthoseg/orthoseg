@@ -111,30 +111,42 @@ def test_get_compile_save_load_model(
     assert model is not None
 
 
-@pytest.mark.parametrize("architecture", ["mobilenetv2+unknown"])
-def test_get_model_unknown_decoder(architecture: str):
-    with pytest.raises(ValueError, match="Unknown decoder architecture:"):
+@pytest.mark.parametrize(
+    "architecture, err_msg",
+    [
+        ("mobilenetv2+unknown", "Unknown decoder architecture"),
+        ("unknown+unet", "Backbone with name 'unknown' is not supported"),
+        ("unknown", "Unsupported architecture"),
+    ],
+)
+def test_get_model_unknown_architecture(architecture: str, err_msg: str):
+    with pytest.raises(ValueError, match=err_msg):
         _ = mf.get_model(architecture=architecture)
 
 
-@pytest.mark.parametrize("architecture", ["unknown+unet"])
-def test_get_model_unknown_encoder(architecture: str):
-    # Error is raised by segmentation_models library
-    with pytest.raises(
-        ValueError, match="Backbone with name 'unknown' is not supported"
-    ):
-        _ = mf.get_model(architecture=architecture)
+def test_get_model_invalid_weights_type():
+    architecture = "mobilenetv2+linknet"
+    weights_type = "invalid"
+    with pytest.raises(ValueError, match="No weights available for"):
+        _ = mf.get_model(
+            architecture=architecture,
+            input_width=256,
+            input_height=256,
+            nb_classes=5,
+            weights_type=weights_type,
+        )
 
 
 @pytest.mark.parametrize(
     "architecture, weights_type",
     [
         ("mobilenetv2+linknet", "aerial"),
+        ("mobilenetv2+linknet", "aerial-v1"),
         ("inceptionresnetv2+unet", "aerial"),
     ],
 )
-def test_get_model_weights(architecture: str, weights_type: str):
-    weights_path = mf._get_model_weights(
+def test_get_model_weights_path(architecture: str, weights_type: str):
+    weights_path = mf._get_model_weights_path(
         architecture=architecture, weights_type=weights_type
     )
     assert weights_path is not None
@@ -143,8 +155,30 @@ def test_get_model_weights(architecture: str, weights_type: str):
     assert weights_path.stat().st_size > 5 * 1024 * 1024  # > 5MB
 
 
-def test_get_model_weights_invalid_architecture():
-    assert mf._get_model_weights("invalid+architecture", "aerial") is None
+def test_get_model_weights_path_localfile(tmp_path):
+    """Test using a local weights file in the weights dir."""
+    architecture = "mobilenetv2+linknet"
+    weights_type = "custom-weights"
+    local_weights_path = tmp_path / f"{architecture}_{weights_type}_notop.weights.h5"
+    local_weights_path.touch()
+
+    weights_path = mf._get_model_weights_path(
+        architecture=architecture, weights_type=weights_type, weights_dir=tmp_path
+    )
+
+    assert weights_path == local_weights_path
+
+
+@pytest.mark.parametrize(
+    "architecture, weights_type",
+    [
+        ("mobilenetv2+linknet", "invalid"),
+        ("unknown+unet", "aerial"),
+    ],
+)
+def test_get_model_weights_path_invalid_param(architecture, weights_type):
+    with pytest.raises(ValueError, match="No weights available for"):
+        _ = mf._get_model_weights_path(architecture, weights_type)
 
 
 @pytest.mark.parametrize(

@@ -2,9 +2,6 @@
 
 Offers a common interface, regardless of the underlying model implementation
 and contains extra metrics, callbacks,...
-
-Many models are supported by using this segmentation model zoo:
-https://github.com/qubvel/segmentation_models
 """
 
 import json
@@ -105,16 +102,14 @@ def get_model(
     elif weights_type == "imagenet":
         encoder_weights = "imagenet"
     else:
-        weights_notop_path = _get_model_weights(architecture, weights_type, weights_dir)
+        weights_notop_path = _get_model_weights_path(
+            architecture, weights_type, weights_dir
+        )
 
-        if weights_notop_path is not None:
-            logger.info(
-                f"Found weights for {architecture}: {weights_notop_path.name}, will "
-                f"use these to initialize the model from {weights_notop_path.parent}."
-            )
-        else:
-            # Specific type of weights specified but not found, so warn.
-            warnings.warn(f"No weights found with {architecture=}, {weights_type=}")
+        logger.info(
+            f"Found weights for {architecture}: {weights_notop_path.name}, will "
+            f"use these to initialize the model from {weights_notop_path.parent}."
+        )
 
     encoder_freeze = freeze if encoder_weights is not None else False
     freeze_notop = freeze if weights_notop_path is not None else False
@@ -178,12 +173,17 @@ def get_model(
     return model, model_preprocess_input
 
 
-def _get_model_weights(
+def _get_model_weights_path(
     architecture: str,
     weights_type: str,
     weights_dir: Path | None = None,
-) -> Path | None:
+) -> Path:
     """Get weights to initialize the model with.
+
+    Check first in the `weights_dir` if a weights file of the following format can be
+    found: `{architecture}_{weights_type}_notop.weights.h5`.
+    If not found, look further for weights of the given type for the given architecture
+    in the `WEIGHTS_NOTOP_AVAILABLE` listing.
 
     Args:
         architecture (str): the architecture to get the weights for.
@@ -191,10 +191,23 @@ def _get_model_weights(
         weights_dir (Path | None): directory where pretrained weights are cached to
             and read from. If None, the system temp directory is used.
 
+    Raises:
+        ValueError: if no weights are available/found for the given architecture and
+            weights type.
+
     Returns:
-        Path | None: the path to the weights file, or None if no weights are available
-            for the given `architecture` and `weights_type`.
+        Path: the path to the weights file.
+
+
     """
+    # First check if the weights file can be easily found in the weights dir.
+    if weights_dir is not None:
+        weights_name = f"{architecture}_{weights_type}_notop.weights.h5"
+        weights_path = weights_dir / weights_name
+        if weights_path.exists():
+            return weights_path
+
+    # Weights not directly found, so look further.
     weights_parts = weights_type.split("-")
     weights_type_base = weights_parts[0]  # e.g. "aerial" from "aerial-v1"
     if re.match(r"^v\d+$", weights_parts[-1]) is not None:
@@ -211,9 +224,12 @@ def _get_model_weights(
         weights_type_base, []
     )
 
-    # There are no weights available, so return None.
+    # There are no weights configured for this situation, so return None.
     if weights_versions is None or len(weights_versions) == 0:
-        return None
+        raise ValueError(
+            f"No weights available for {architecture=}, {weights_type=}, only for "
+            f"{WEIGHTS_NOTOP_AVAILABLE}"
+        )
 
     if weights_type_version is None:
         weights_type_version = max(weights_versions)
@@ -221,23 +237,33 @@ def _get_model_weights(
     weights_name = (
         f"{architecture}_{weights_type_base}-v{weights_type_version}_notop.weights.h5"
     )
+
     if weights_dir is None:
         weights_dir = Path(tempfile.gettempdir())
+        tmp_weights_dir = True
+    else:
+        weights_dir.mkdir(parents=True, exist_ok=True)
+        tmp_weights_dir = False
+
+    weights_path = weights_dir / weights_name
+    if weights_path.exists():
+        return weights_path
+
+    # Download the weights and save them in the weights dir.
+    if tmp_weights_dir:
         logger.info(
             "No weights_dir specified, so cache pretrained weights in the "
             f"system temp directory: {weights_dir}"
         )
-    weights_dir.mkdir(parents=True, exist_ok=True)
 
-    weights_path = weights_dir / weights_name
-    if not weights_path.exists():
-        weights_url = f"{WEIGHTS_NOTOP_BASE_URL}{weights_name}"
-        try:
-            urllib.request.urlretrieve(weights_url, weights_path)
-        except Exception as ex:
-            raise RuntimeError(
-                f"Error downloading weights from {weights_url} to {weights_path}: {ex}"
-            ) from ex
+    weights_url = f"{WEIGHTS_NOTOP_BASE_URL}{weights_name}"
+    try:
+        logger.info(f"Downloading weights from {weights_url} to {weights_path}")
+        urllib.request.urlretrieve(weights_url, weights_path)
+    except Exception as ex:
+        raise RuntimeError(
+            f"Error downloading weights from {weights_url} to {weights_path}: {ex}"
+        ) from ex
 
     return weights_path
 
