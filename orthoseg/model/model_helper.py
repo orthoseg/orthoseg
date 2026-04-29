@@ -94,10 +94,19 @@ class TrainParams:
                 during training.
             architecture_id (int, optional): id of the architecture. Defaults to 0.
             trainparams_id (int, optional): id of the hyperparams. Defaults to 0.
-            weights (str | None, optional): pretrained weights to initialize the
-                model with. Supported values are "auto", "aerial", "imagenet"
-                or None. If "auto", following weights will be used in order, depending
-                on availability: "aerial", "imagenet" or None. Defaults to "auto".
+            weights_type (str | None, optional): the type of pretrained weights to
+                initialize the model with. Supported values are:
+
+                  - **auto**: preload the model with weights depending on
+                    availability: in this order: "aerial", "imagenet" or None.
+                  - **aerial**: preload the entire model with weights pre-trained on
+                    aerial data. These are only available for a limited number of
+                    models.
+                  - **imagenet**: preload the encoder/backend of the model using weights
+                    pretrained on ImageNet. These are available for most models.
+                  - **None**: do not use any pretrained weights.
+
+                Defaults to "auto".
             class_weights (list, optional): the weights to use for each class.
                 Defaults to None.
             batch_size (int, optional): batch size to use while training. This must be
