@@ -129,7 +129,7 @@ def train(
             nb_channels=hyperparams.architecture.nb_channels,
             nb_classes=len(hyperparams.architecture.classes),
             activation=hyperparams.architecture.activation_function,
-            weights=hyperparams.train.weights_type,
+            weights_type=hyperparams.train.weights_type,
             weights_dir=weights_dir,
             freeze=freeze,
         )

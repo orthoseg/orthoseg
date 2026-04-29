@@ -54,7 +54,7 @@ def get_model(
     nb_channels: int = 3,
     nb_classes: int = 1,
     activation: str = "softmax",
-    weights: str | None = "aerial",
+    weights_type: str | None = None,
     weights_dir: Path | None = None,
     freeze: bool = False,
 ) -> tuple[keras.models.Model, Callable | None]:
@@ -69,8 +69,8 @@ def get_model(
         nb_classes (int, optional): Nb of classes to be segmented to. Defaults to 1.
         activation (Activation, optional): Activation function of last layer.
             Defaults to 'softmax'.
-        weights (str | None, optional): Weights to pre-load the network with.
-            Supported options:
+        weights_type (str | None, optional): Type of weights to pre-load the network
+            with. Supported options:
 
               - **aerial**: initialize the entire model with weights of a model
                 pretrained on aerial images.
@@ -100,12 +100,12 @@ def get_model(
     # Prepare the weights to be loaded
     encoder_weights = None
     weights_notop_path = None
-    if weights is None:
+    if weights_type is None:
         pass
-    elif weights == "imagenet":
+    elif weights_type == "imagenet":
         encoder_weights = "imagenet"
     else:
-        weights_notop_path = _get_model_weights(architecture, weights, weights_dir)
+        weights_notop_path = _get_model_weights(architecture, weights_type, weights_dir)
 
         if weights_notop_path is not None:
             logger.info(
@@ -113,8 +113,8 @@ def get_model(
                 f"use these to initialize the model from {weights_notop_path.parent}."
             )
         else:
-            # Specific type of weights specified but not found, so raise an error.
-            raise ValueError(f"No weights found with {architecture=}, {weights=}")
+            # Specific type of weights specified but not found, so warn.
+            warnings.warn(f"No weights found with {architecture=}, {weights_type=}")
 
     encoder_freeze = freeze if encoder_weights is not None else False
     freeze_notop = freeze if weights_notop_path is not None else False
@@ -631,7 +631,7 @@ def load_model(
                     nb_channels=hyperparams["architecture"]["nb_channels"],
                     nb_classes=len(hyperparams["architecture"]["classes"]),
                     activation=hyperparams["architecture"]["activation_function"],
-                    weights=None,
+                    weights_type=None,
                 )
             except Exception as ex:
                 errors.append(

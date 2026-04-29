@@ -70,6 +70,7 @@ def test_get_compile_save_load_model(
         input_width=input_width,
         input_height=input_height,
         nb_classes=len(classes),
+        weights_type=None,
     )
     assert model is not None
 
