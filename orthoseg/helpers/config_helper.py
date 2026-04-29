@@ -20,7 +20,7 @@ from osgeo import gdal
 
 from orthoseg._compat import KERAS_GTE_3
 from orthoseg.lib.prepare_traindatasets import LabelInfo
-from orthoseg.model.model_factory import WEIGHTS_NOTOP_AVAILABLE
+from orthoseg.model.model_weights_helper import get_weights_types_for_architecture
 from orthoseg.util import config_util
 from orthoseg.util.image_util import (
     FileLayerSource,
@@ -208,10 +208,8 @@ def read_orthoseg_config(config_path: Path, overrules: list[str] | None = None):
         # If aerial weights are available for the architecture, use them, otherwise use
         # imagenet weights.
         architecture = model.get("architecture")
-        weight_type_versions = WEIGHTS_NOTOP_AVAILABLE.get(architecture, {}).get(
-            "aerial", []
-        )
-        if len(weight_type_versions) > 0:
+        weight_types = get_weights_types_for_architecture(architecture)
+        if len(weight_types) > 0 and "aerial" in weight_types:
             train["weights_type"] = "aerial"
         else:
             warnings.warn(
