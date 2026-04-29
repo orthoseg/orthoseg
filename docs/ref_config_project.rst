@@ -417,7 +417,7 @@ Settings concerning the train process.
 
 .. confval:: train.weights_type
    :type: ``str``
-   :default: ``aerial``
+   :default: ``aerial_if_available``
 
    The type of pretrained weights to initialize the model with.
 
@@ -430,6 +430,8 @@ Settings concerning the train process.
      The supported architectures are: `inceptionresnetv2+unet`, `mobilenetv2+linknet`.
    - **imagenet**: use imagenet pretrained weights for the encoder/backend of the model.
      The segmentation head/decoder is initialized with random weights.
+   - **aerial_if_available**: use aerial pretrained weights if they are available for the
+     architecture configured, otherwise use `imagenet` pretrained weights.
    - **None**: if you specify an empty `weights_type` parameter, no pretrained
      weights are used.
 
@@ -529,15 +531,16 @@ Settings concerning the train process.
 
 .. confval:: train.nb_epoch_with_freeze
    :type: ``int``
-   :default: ``3``
+   :default: ``5``
 
    Number of epochs to train with the pretrained layers frozen.
 
    Keeps pretrained layers intact, which is useful for the first few (2-10) epochs when
    big adjustments are made to the untrained layers of the network. For architectures
-   with pretrained weigts available for the entire model, the default (3) is a good
-   value. For architectures with pretrained weights only for the encoder, covergence is
-   and values up to 20 can be useful. Training is also 20% faster during these epochs.
+   with pretrained weights available for the entire model, the default (5) is often
+   sufficient. For architectures with pretrained weights only for the encoder, covergence
+   is slower and values up to 20 can be useful. Training is also 20% faster during the
+   epochs with frozen layers.
 
 .. confval:: train.max_epoch
    :type: ``int``
