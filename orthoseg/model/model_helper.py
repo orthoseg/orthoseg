@@ -66,7 +66,7 @@ class TrainParams:
         image_augmentations: dict,
         mask_augmentations: dict,
         trainparams_id: int = 0,
-        weights_type: str | None = "auto",
+        weights_type: str | None = "aerial",
         class_weights: list | None = None,
         batch_size: int = 4,
         optimizer: str = "Adam",
@@ -97,8 +97,6 @@ class TrainParams:
             weights_type (str | None, optional): the type of pretrained weights to
                 initialize the model with. Supported values are:
 
-                  - **auto**: preload the model with weights depending on
-                    availability: in this order: "aerial", "imagenet" or None.
                   - **aerial**: preload the entire model with weights pre-trained on
                     aerial data. These are only available for a limited number of
                     models.
@@ -106,7 +104,7 @@ class TrainParams:
                     pretrained on ImageNet. These are available for most models.
                   - **None**: do not use any pretrained weights.
 
-                Defaults to "auto".
+                Defaults to "aerial".
             class_weights (list, optional): the weights to use for each class.
                 Defaults to None.
             batch_size (int, optional): batch size to use while training. This must be
@@ -158,7 +156,7 @@ class TrainParams:
         self.trainparams_id = trainparams_id
         self.image_augmentations = image_augmentations
         self.mask_augmentations = mask_augmentations
-        self.weights = weights_type
+        self.weights_type = weights_type
 
         self.class_weights = class_weights
         self.batch_size = batch_size

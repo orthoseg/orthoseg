@@ -129,7 +129,7 @@ def train(
             nb_channels=hyperparams.architecture.nb_channels,
             nb_classes=len(hyperparams.architecture.classes),
             activation=hyperparams.architecture.activation_function,
-            weights=hyperparams.train.weights,
+            weights=hyperparams.train.weights_type,
             weights_dir=weights_dir,
             freeze=freeze,
         )
@@ -380,7 +380,7 @@ def train(
         train_log_vis_df = train_log_df[columns_to_keep]
         fig = train_log_vis_df.plot().get_figure()
         if fig is not None:
-            fig.savefig(str(train_report_path))
+            fig.savefig(str(train_report_path))  # type: ignore[union-attr]
 
     finally:
         # Release the memory from the GPU...

@@ -54,7 +54,7 @@ def get_model(
     nb_channels: int = 3,
     nb_classes: int = 1,
     activation: str = "softmax",
-    weights: str | None = "auto",
+    weights: str | None = "aerial",
     weights_dir: Path | None = None,
     freeze: bool = False,
 ) -> tuple[keras.models.Model, Callable | None]:
@@ -70,8 +70,14 @@ def get_model(
         activation (Activation, optional): Activation function of last layer.
             Defaults to 'softmax'.
         weights (str | None, optional): Weights to pre-load the network with.
-            If "auto", following weights will be used in order, depending on
-            availability: "aerial", "imagenet" or None.
+            Supported options:
+
+              - **aerial**: initialize the entire model with weights of a model
+                pretrained on aerial images.
+              - **imagenet**: initialize the encoder/backbone with weights of a model
+                pretrained on imagenet, the decoder/backend is initialized randomly.
+              - **None**: no weights are loaded, the model is initialized randomly.
+
         weights_dir (Path | None, optional): Directory where pretrained weights are
             cached to and read from. If None, the system temp directory is used.
         freeze (bool, optional): Freeze the weights of all layers that were initialized
@@ -99,19 +105,13 @@ def get_model(
     elif weights == "imagenet":
         encoder_weights = "imagenet"
     else:
-        if weights == "auto":
-            weights_notop_path = _get_model_weights(architecture, "aerial", weights_dir)
-        else:
-            weights_notop_path = _get_model_weights(architecture, weights, weights_dir)
+        weights_notop_path = _get_model_weights(architecture, weights, weights_dir)
 
         if weights_notop_path is not None:
             logger.info(
                 f"Found weights for {architecture}: {weights_notop_path.name}, will "
                 f"use these to initialize the model from {weights_notop_path.parent}."
             )
-        elif weights == "auto":
-            # Fallback to imagenet weights
-            encoder_weights = "imagenet"
         else:
             # Specific type of weights specified but not found, so raise an error.
             raise ValueError(f"No weights found with {architecture=}, {weights=}")
