@@ -403,7 +403,7 @@ def format_model_filename(
     return filename
 
 
-def parse_model_filename(filepath: Path) -> dict | None:
+def parse_model_filename(filepath: Path) -> dict:
     """Parse a model_filename to a dict with the properties of the model.
 
     These are the properties:
@@ -419,15 +419,22 @@ def parse_model_filename(filepath: Path) -> dict | None:
 
     Args:
         filepath: the filepath to the model file
+
+    Raises:
+        ValueError: when the filepath is not valid, e.g. does not end with .keras,
+            .hdf5, .h5, or _tf, or when the filename does not contain enough fields
+            to extract the necessary info.
+
+    Returns:
+        dict: a dict with the properties of the model as explained above.
     """
     # Prepare filepath to extract info
     if filepath.is_dir():
         # If it is a dir, it should end on _tf
         if not filepath.name.endswith("_tf"):
-            logger.warning(
+            raise ValueError(
                 f"Not a valid path for a model, dir needs to end on _tf: {filepath}"
             )
-            return None
         save_format = "tf"
         filename = filepath.name
     else:
@@ -437,16 +444,15 @@ def parse_model_filename(filepath: Path) -> dict | None:
         elif filepath.suffix == ".keras":
             save_format = "keras"
         else:
-            logger.warning(
+            raise ValueError(
                 f"Model file should have .h5, .hdf5, or .keras as suffix: {filepath}"
             )
-            return None
 
     # Now extract the fields...
     param_values = filename.split("_")
-    if len(param_values) < 3:
-        logger.warning(
-            f"Model file name nok, split('_') must result in >= 2 fields: {filepath}"
+    if len(param_values) < 4:
+        raise ValueError(
+            f"Model file name nok, split('_') must result in >= 4 fields: {filepath}"
         )
 
     segment_subject = param_values[0]
@@ -514,9 +520,12 @@ def get_models(
     # Loop through all models and extract necessary info...
     model_info_list = []
     for model_path in model_paths:
-        model_info = parse_model_filename(model_path)
-        if model_info is not None:
+        try:
+            model_info = parse_model_filename(model_path)
             model_info_list.append(model_info)
+        except ValueError as e:
+            logger.warning(f"Skipping model {model_path}: {e}")
+            continue
 
     # Filter, if filters provided
     if len(model_info_list) > 0:

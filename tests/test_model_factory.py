@@ -230,3 +230,9 @@ def test_get_optimizer_func_unknown():
     optimizer = "unknown"
     with pytest.raises(ValueError, match=f"Optimizer {optimizer} not found"):
         _ = mf._get_optimizer_func(optimizer, params={"learning_rate": 0.0001})
+
+
+def test_load_model_hyperparams_invalid_path(tmp_path):
+    invalid_path = tmp_path / "subject_1_0.86_5.keras"
+    with pytest.raises(FileNotFoundError, match="No hyperparams file found for model"):
+        _ = mf.load_model_hyperparams(invalid_path)

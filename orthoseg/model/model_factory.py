@@ -21,6 +21,7 @@ import tensorflow as tf
 from segmodels_keras import Linknet, PSPNet, Unet
 
 from orthoseg._compat import KERAS_GTE_3
+from orthoseg.model import model_helper as mh
 
 if KERAS_GTE_3:
     import keras
@@ -478,8 +479,9 @@ def load_model_hyperparams(model_path: Path) -> dict:
     Returns:
         dict: the loaded hyperparameters.
     """
-    model_basestem = f"{'_'.join(model_path.stem.split('_')[0:2])}"
-    model_hyperparams_path = model_path.parent / f"{model_basestem}_hyperparams.json"
+    model_info = mh.parse_model_filename(model_path)
+    stem = f"{model_info['segment_subject']}_{model_info['traindata_id']}_hyperparams"
+    model_hyperparams_path = model_path.parent / f"{stem}.json"
     if not model_hyperparams_path.exists():
         raise FileNotFoundError(
             f"No hyperparams file found for model: {model_hyperparams_path}"
