@@ -112,6 +112,23 @@ def test_get_compile_save_load_model(
 
 
 @pytest.mark.parametrize(
+    "architecture, weights_type",
+    [
+        ["mobilenetv2+linknet", None],
+        ["mobilenetv2+linknet", "imagenet"],
+        ["mobilenetv2+linknet", "aerial"],
+        ["inceptionresnetv2+unet", "aerial"],
+    ],
+)
+def test_get_model(architecture: str, weights_type: str):
+    model, preprocess_input = mf.get_model(
+        architecture=architecture, weights_type=weights_type
+    )
+    assert model is not None
+    assert preprocess_input is not None
+
+
+@pytest.mark.parametrize(
     "architecture, err_msg",
     [
         ("mobilenetv2+unknown", "Unknown decoder architecture"),
@@ -119,14 +136,14 @@ def test_get_compile_save_load_model(
         ("unknown", "Unsupported architecture"),
     ],
 )
-def test_get_model_unknown_architecture(architecture: str, err_msg: str):
+def test_get_model_architecture_unknown(architecture: str, err_msg: str):
     with pytest.raises(ValueError, match=err_msg):
         _ = mf.get_model(architecture=architecture)
 
 
-def test_get_model_invalid_weights_type():
+def test_get_model_weights_type_unknown():
     architecture = "mobilenetv2+linknet"
-    weights_type = "invalid"
+    weights_type = "unknown"
     with pytest.raises(ValueError, match="No weights available for"):
         _ = mf.get_model(
             architecture=architecture,
