@@ -89,7 +89,7 @@ def test_get_compile_save_load_model(
     assert model is not None
 
     # Now save model + hyperparams.
-    model_path = tmp_path / f"{architecture}.keras"
+    model_path = tmp_path / "subject_01.keras"
     model.save(str(model_path))
 
     augmentations = {"rescale": 1 / 255.0, "fill_mode": "constant", "cval": 0}

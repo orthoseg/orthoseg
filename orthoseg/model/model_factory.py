@@ -372,8 +372,9 @@ def load_model_hyperparams(model_path: Path) -> dict:
         dict: the loaded hyperparameters.
     """
     model_info = mh.parse_model_filename(model_path)
-    stem = f"{model_info['segment_subject']}_{model_info['traindata_id']}_hyperparams"
-    model_hyperparams_path = model_path.parent / f"{stem}.json"
+    model_hyperparams_path = (
+        model_path.parent / f"{model_info['basefilename']}_hyperparams.json"
+    )
     if not model_hyperparams_path.exists():
         raise FileNotFoundError(
             f"No hyperparams file found for model: {model_hyperparams_path}"

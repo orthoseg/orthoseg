@@ -450,9 +450,9 @@ def parse_model_filename(filepath: Path) -> dict:
 
     # Now extract the fields...
     param_values = filename.split("_")
-    if len(param_values) < 4:
+    if len(param_values) <= 1:
         raise ValueError(
-            f"Model file name nok, split('_') must result in >= 4 fields: {filepath}"
+            f"Model file name nok, split('_') must result in >= 2 fields: {filepath}"
         )
 
     segment_subject = param_values[0]
@@ -467,8 +467,8 @@ def parse_model_filename(filepath: Path) -> dict:
         if len(model_info_values) > 2:
             trainparams_id = int(model_info_values[2])
 
-    monitor_metric_accuracy = float(param_values[2])
-    epoch = int(param_values[3])
+    monitor_metric_accuracy = float(param_values[2]) if len(param_values) > 2 else None
+    epoch = int(param_values[3]) if len(param_values) > 3 else None
 
     basefilename = format_model_basefilename(
         segment_subject=segment_subject,
