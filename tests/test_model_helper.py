@@ -86,8 +86,6 @@ def test_get_best_model(tmp_path, input_names, expected_name):
                 "save_format": "tf",
             },
         ),
-        ("subj_3_0.85_15.invalid", None),
-        ("subj_3_0.85_15_invalid", None),
     ],
 )
 def test_parse_model_filename(tmp_path, filename, expected_info):
@@ -104,6 +102,31 @@ def test_parse_model_filename(tmp_path, filename, expected_info):
     else:
         for key, value in expected_info.items():
             assert model_info[key] == value
+
+
+@pytest.mark.parametrize(
+    "filename, err_msg",
+    [
+        (
+            "subj_3_0.85_15.invalid",
+            "Model file should have .h5, .hdf5, or .keras as suffix",
+        ),
+        (
+            "subj_3_0.85_15_invalid",
+            "Not a valid path for a model, dir needs to end on _tf",
+        ),
+    ],
+)
+def test_parse_model_filename_invalid(tmp_path, filename, err_msg):
+    # Create dummy model file/directory.
+    tmp_file = tmp_path / filename
+    if tmp_file.suffix in (".keras", ".hdf5", ".invalid"):
+        tmp_file.touch()
+    else:
+        tmp_file.mkdir()
+
+    with pytest.raises(ValueError, match=re.escape(err_msg)):
+        _ = model_helper.parse_model_filename(tmp_file)
 
 
 @pytest.mark.parametrize("class_weights", [None, {0: 1.0, 1: 2.0}])
