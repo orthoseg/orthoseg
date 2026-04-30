@@ -2,9 +2,6 @@
 
 Offers a common interface, regardless of the underlying model implementation
 and contains extra metrics, callbacks,...
-
-Many models are supported by using this segmentation model zoo:
-https://github.com/qubvel/segmentation_models
 """
 
 import json
@@ -21,6 +18,8 @@ import tensorflow as tf
 from segmodels_keras import Linknet, PSPNet, Unet
 
 from orthoseg._compat import KERAS_GTE_3
+from orthoseg.model import model_helper as mh
+from orthoseg.model.model_weights_helper import get_model_weights_path
 
 if KERAS_GTE_3:
     import keras
@@ -40,7 +39,8 @@ def get_model(
     nb_channels: int = 3,
     nb_classes: int = 1,
     activation: str = "softmax",
-    init_weights_with: str = "imagenet",
+    weights_type: str | None = None,
+    weights_dir: Path | None = None,
     freeze: bool = False,
 ) -> tuple[keras.models.Model, Callable | None]:
     """Get a model.
@@ -54,11 +54,23 @@ def get_model(
         nb_classes (int, optional): Nb of classes to be segmented to. Defaults to 1.
         activation (Activation, optional): Activation function of last layer.
             Defaults to 'softmax'.
-        init_weights_with (str, optional): Weights to init the network with.
-            Defaults to 'imagenet'.
-        freeze (bool, optional): Freeze the final layer weights during
-            training. It is usefull to use this option for the first few
-            epochs get a more robust network. Defaults to False.
+        weights_type (str | None, optional): Type of weights to pre-load the network
+            with. Supported options:
+
+              - **aerial**: initialize the entire model with weights of a model
+                pretrained on aerial images.
+              - **imagenet**: initialize the encoder/backbone with weights of a model
+                pretrained on imagenet, the decoder/backend is initialized randomly.
+              - **None**: no weights are loaded, the model is initialized randomly.
+
+        weights_dir (Path | None, optional): Directory where pretrained weights are
+            cached to and read from. If None, the system temp directory is used.
+        freeze (bool, optional): Freeze the weights of all layers that were initialized
+            with pretrained values. If only encoder/backend weight are preloaded (e.g.
+            weights="imagenet"), only those layers are frozen, if all layers
+            are pre-loaded (e.g. weights="aerial"), all layers except the top
+            layers are frozen. It is useful to use this option for the first few
+            epochs to get a more robust network. Defaults to False.
 
     Returns:
         Model: the model.
@@ -66,34 +78,67 @@ def get_model(
     # Check architecture
     segment_architecture_parts = architecture.split("+")
     if len(segment_architecture_parts) < 2:
-        raise Exception(f"Unsupported architecture: {architecture}")
+        raise ValueError(f"Unsupported architecture: {architecture}")
     encoder = segment_architecture_parts[0]
     decoder = segment_architecture_parts[1]
 
+    # Prepare the weights to be loaded
+    encoder_weights = None
+    weights_notop_path = None
+    if weights_type is None:
+        pass
+    elif weights_type == "imagenet":
+        encoder_weights = "imagenet"
+    else:
+        weights_notop_path = get_model_weights_path(
+            architecture, weights_type, weights_dir
+        )
+
+        logger.info(
+            f"Found weights for {architecture}: {weights_notop_path.name}, will "
+            f"use these to initialize the model from {weights_notop_path.parent}."
+        )
+
+    encoder_freeze = freeze if encoder_weights is not None else False
+    freeze_notop = freeze if weights_notop_path is not None else False
+
+    # Remarks:
+    # - Normally it is recommended to put the encoder (backbone) in inference mode
+    #   when transfer learning/finetuning (https://keras.io/guides/transfer_learning/)
+    #   However, when I tried this by ~replacing a line in
+    #   `segmodels_keras.models.linknet.build_linknet` as shown below, the model
+    #   converged 10 times slower:
+    #       `x = backbone.output` -> `x = backbone(backbone.input, training=False)`
+    # - When freeze=True, `segmodels_keras.utils.freeze_model` sets all layers of the
+    #   backbone except BatchNormalization layers to `trainable=False`. Keeping the
+    #   BatchNormalization layers trainable when freezing the backbone is
+    #   a bit weird, but it seems to improve convergence during the (default) 20 epochs
+    #   the layers are frozen.
     if decoder.lower() == "unet":
-        # Architecture implemented using the segmentation_models library
         model = Unet(
             backbone_name=encoder.lower(),
             input_shape=(input_width, input_height, nb_channels),
             classes=nb_classes,
             activation=activation,
-            encoder_weights=init_weights_with,
-            encoder_freeze=freeze,
+            weights_notop=weights_notop_path,
+            freeze_notop=freeze_notop,
+            encoder_weights=encoder_weights,
+            encoder_freeze=encoder_freeze,
         )
 
     elif decoder.lower() == "pspnet":
-        # Architecture implemented using the segmentation_models library
         model = PSPNet(
             backbone_name=encoder.lower(),
             input_shape=(input_width, input_height, nb_channels),
             classes=nb_classes,
             activation=activation,
-            encoder_weights=init_weights_with,
-            encoder_freeze=freeze,
+            weights_notop=weights_notop_path,
+            freeze_notop=freeze_notop,
+            encoder_weights=encoder_weights,
+            encoder_freeze=encoder_freeze,
         )
 
     elif decoder.lower() == "linknet":
-        # Architecture implemented using the segmentation_models library
         # First check if input size is compatible with linknet
         if input_width is not None and input_height is not None:
             check_image_size(architecture, input_width, input_height)
@@ -103,8 +148,10 @@ def get_model(
             input_shape=(input_width, input_height, nb_channels),
             classes=nb_classes,
             activation=activation,
-            encoder_weights=init_weights_with,
-            encoder_freeze=freeze,
+            weights_notop=weights_notop_path,
+            freeze_notop=freeze_notop,
+            encoder_weights=encoder_weights,
+            encoder_freeze=encoder_freeze,
         )
 
     else:
@@ -315,6 +362,30 @@ def _get_optimizer_func(optimizer: str, params: dict) -> Callable:
     return optimizer_func
 
 
+def load_model_hyperparams(model_path: Path) -> dict:
+    """Load model hyperparameters from a json file.
+
+    Args:
+        model_path (Path): the path to the model file to load the hyperparameters for.
+
+    Returns:
+        dict: the loaded hyperparameters.
+    """
+    model_info = mh.parse_model_filename(model_path)
+    model_hyperparams_path = (
+        model_path.parent / f"{model_info['basefilename']}_hyperparams.json"
+    )
+    if not model_hyperparams_path.exists():
+        raise FileNotFoundError(
+            f"No hyperparams file found for model: {model_hyperparams_path}"
+        )
+
+    with model_hyperparams_path.open("r") as src:
+        hyperparams = json.load(src)
+
+    return hyperparams
+
+
 def load_model(
     model_to_use_filepath: Path, compile_model: bool = True
 ) -> tuple[keras.models.Model, Callable | None]:
@@ -343,27 +414,15 @@ def load_model(
     errors = []
     model = None
 
-    model_basestem = f"{'_'.join(model_to_use_filepath.stem.split('_')[0:2])}"
-
     # Load the hyperparams file
-    hyperparams_json_filepath = (
-        model_to_use_filepath.parent / f"{model_basestem}_hyperparams.json"
+    hyperparams = load_model_hyperparams(model_to_use_filepath)
+    nb_classes = len(hyperparams["architecture"]["classes"])
+    train_rescale_factor = hyperparams["train"]["image_augmentations"].get(
+        "rescale", None
     )
-    nb_classes = 1
-    if not hyperparams_json_filepath.exists():
-        raise FileNotFoundError(
-            f"No hyperparams file found for model: {hyperparams_json_filepath}"
-        )
-
-    with hyperparams_json_filepath.open("r") as src:
-        hyperparams = json.load(src)
-        nb_classes = len(hyperparams["architecture"]["classes"])
-        train_rescale_factor = hyperparams["train"]["image_augmentations"].get(
-            "rescale", None
-        )
 
     # If it is a file with the complete model, try loading it entirely...
-    if not model_to_use_filepath.stem.endswith("_weights"):
+    if not model_to_use_filepath.stem.endswith(("_weights", ".weights")):
         # iou_score = segmentation_models.metrics.IOUScore()
         # f1_score = segmentation_models.metrics.FScore()
         iou_score = keras.metrics.IoU(
@@ -459,10 +518,13 @@ def load_model(
     if model is None:
         # Load the architecture from a model.json file
         # Check if there is a specific model.json file for these weights
-        model_json_filepath = model_to_use_filepath.parent / (
-            model_to_use_filepath.stem.replace("_weights", "") + ".json"
+        stem = model_to_use_filepath.stem.replace("_weights", "").replace(
+            ".weights", ""
         )
+        model_json_filepath = model_to_use_filepath.parent / f"{stem}.json"
+
         if not model_json_filepath.exists():
+            model_basestem = f"{'_'.join(model_to_use_filepath.stem.split('_')[0:2])}"
             # If not, check if there is a model.json file for the training session
             model_json_filepath = (
                 model_to_use_filepath.parent / f"{model_basestem}_model.json"
@@ -490,11 +552,12 @@ def load_model(
                     nb_channels=hyperparams["architecture"]["nb_channels"],
                     nb_classes=len(hyperparams["architecture"]["classes"]),
                     activation=hyperparams["architecture"]["activation_function"],
+                    weights_type=None,
                 )
             except Exception as ex:
                 errors.append(
-                    "Error in get_model() with params from: "
-                    f"{hyperparams_json_filepath}: {ex}"
+                    "Error in get_model() with params from hyperparams json for: "
+                    f"{model_to_use_filepath}: {ex}"
                 )
 
         # Now load the weights

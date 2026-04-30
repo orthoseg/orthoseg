@@ -70,6 +70,7 @@ def test_get_compile_save_load_model(
         input_width=input_width,
         input_height=input_height,
         nb_classes=len(classes),
+        weights_type=None,
     )
     assert model is not None
 
@@ -88,7 +89,7 @@ def test_get_compile_save_load_model(
     assert model is not None
 
     # Now save model + hyperparams.
-    model_path = tmp_path / f"{architecture}.keras"
+    model_path = tmp_path / "subject_01.keras"
     model.save(str(model_path))
 
     augmentations = {"rescale": 1 / 255.0, "fill_mode": "constant", "cval": 0}
@@ -110,19 +111,47 @@ def test_get_compile_save_load_model(
     assert model is not None
 
 
-@pytest.mark.parametrize("architecture", ["mobilenetv2+unknown"])
-def test_get_model_unknown_decoder(architecture: str):
-    with pytest.raises(ValueError, match="Unknown decoder architecture:"):
+@pytest.mark.parametrize(
+    "architecture, weights_type",
+    [
+        ["mobilenetv2+linknet", None],
+        ["mobilenetv2+linknet", "imagenet"],
+        ["mobilenetv2+linknet", "aerial"],
+        ["inceptionresnetv2+unet", "aerial"],
+    ],
+)
+def test_get_model(architecture: str, weights_type: str):
+    model, preprocess_input = mf.get_model(
+        architecture=architecture, weights_type=weights_type
+    )
+    assert model is not None
+    assert preprocess_input is not None
+
+
+@pytest.mark.parametrize(
+    "architecture, err_msg",
+    [
+        ("mobilenetv2+unknown", "Unknown decoder architecture"),
+        ("unknown+unet", "Backbone with name 'unknown' is not supported"),
+        ("unknown", "Unsupported architecture"),
+    ],
+)
+def test_get_model_architecture_unknown(architecture: str, err_msg: str):
+    with pytest.raises(ValueError, match=err_msg):
         _ = mf.get_model(architecture=architecture)
 
 
-@pytest.mark.parametrize("architecture", ["unknown+unet"])
-def test_get_model_unknown_encoder(architecture: str):
-    # Error is raised by segmentation_models library
-    with pytest.raises(
-        ValueError, match="Backbone with name 'unknown' is not supported"
-    ):
-        _ = mf.get_model(architecture=architecture)
+def test_get_model_weights_type_unknown():
+    architecture = "mobilenetv2+linknet"
+    weights_type = "unknown"
+    with pytest.raises(ValueError, match="No weights available for"):
+        _ = mf.get_model(
+            architecture=architecture,
+            input_width=256,
+            input_height=256,
+            nb_classes=5,
+            weights_type=weights_type,
+        )
 
 
 @pytest.mark.parametrize(
@@ -157,3 +186,9 @@ def test_get_optimizer_func_unknown():
     optimizer = "unknown"
     with pytest.raises(ValueError, match=f"Optimizer {optimizer} not found"):
         _ = mf._get_optimizer_func(optimizer, params={"learning_rate": 0.0001})
+
+
+def test_load_model_hyperparams_invalid_path(tmp_path):
+    invalid_path = tmp_path / "subject_1_0.86_5.keras"
+    with pytest.raises(FileNotFoundError, match="No hyperparams file found for model"):
+        _ = mf.load_model_hyperparams(invalid_path)

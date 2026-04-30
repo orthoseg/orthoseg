@@ -1,0 +1,15 @@
+name: pth2keras
+# This development environment installs TensorFlow from pip as for e.g. for windows it
+# is not available on conda-forge.
+channels:
+  - conda-forge
+dependencies:
+  - python =3.12
+  - pip
+  - pip:
+    - keras
+    - tensorflow
+    - torch
+    - torchvision
+    - segmentation_models_pytorch
+    - segmodels-keras

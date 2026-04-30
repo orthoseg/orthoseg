@@ -163,6 +163,30 @@ def test_read_orthoseg_config_train_overrules(overrules, expected_image_layer):
         assert image_layer == expected_image_layer
 
 
+def test_read_orthoseg_config_train_weights_type():
+    """Test if the weights_type parameter is correctly set."""
+    # With the default architecture, aerial weights should be available, so weights_type
+    # should be set to aerial.
+    conf.read_orthoseg_config(SampleProjectFootball.config_path)
+    assert conf.train.get("weights_type") == "aerial"
+
+    # With an architecture for which aerial weights are available, weights_type should
+    # be set to aerial.
+    conf.read_orthoseg_config(
+        SampleProjectFootball.config_path,
+        overrules=["model.architecture=inceptionresnetv2+unet"],
+    )
+    assert conf.train.get("weights_type") == "aerial"
+
+    # With a non-existing architecture, no aerial weights should be available, so
+    # weights_type should fall back to imagenet.
+    conf.read_orthoseg_config(
+        SampleProjectFootball.config_path,
+        overrules=["model.architecture=no-weigths+no-weights"],
+    )
+    assert conf.train.get("weights_type") == "imagenet"
+
+
 def test_prepare_train_label_infos():
     labelpolygons_pattern = TestData.dir / "footballfields_{image_layer}_data.gpkg"
     labellocations_pattern = (
