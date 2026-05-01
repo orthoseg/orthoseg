@@ -21,6 +21,9 @@ There are two main types of configuration files:
   be reused in multiple project configurations.
 
 
+Contents
+~~~~~~~~
+
 .. toctree::
    :maxdepth: 1
 
