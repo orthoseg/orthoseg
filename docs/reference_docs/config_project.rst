@@ -290,7 +290,7 @@ Settings concerning the train process.
 
    Examples:
 
-   .. code :: python
+   .. code-block:: python
 
       label_datasources = {
          "label_ds0_resolution1": {
