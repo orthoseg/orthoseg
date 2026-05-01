@@ -53,6 +53,8 @@ General settings.
 
    Example:
 
+   .. code-block:: ini
+
       # Load a single extra config file to overrule defaults before this one:
       extra_config_files_to_load = ../project_defaults_overrule.ini
 
