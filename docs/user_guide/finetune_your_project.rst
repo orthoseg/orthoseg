@@ -1,7 +1,5 @@
 .. currentmodule:: orthoseg
 
-.. _finetune-your-project:
-
 =====================
 Finetune your project
 =====================

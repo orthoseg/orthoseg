@@ -243,6 +243,26 @@ def _comment_to_rst(comment_lines: list[str]) -> list[str]:
     return [(c[1:] if c.startswith(" ") else c).rstrip() for c in comment_lines]
 
 
+def _extract_type_override(doc_lines: list[str]) -> tuple[str | None, list[str]]:
+    """Extract type override from doc_lines if last line starts with 'type:'.
+
+    If the last line of doc_lines starts with 'type:' (case insensitive),
+    extract the type value and return (type_str, updated_doc_lines).
+    Otherwise, return (None, doc_lines).
+    """
+    if not doc_lines:
+        return None, doc_lines
+
+    last_line = doc_lines[-1].strip()
+    if last_line.lower().startswith("type:"):
+        # Extract the type value after 'type:' and strip whitespace
+        type_value = last_line[5:].strip()
+        # Return the type and doc_lines without the last line
+        return type_value, doc_lines[:-1]
+
+    return None, doc_lines
+
+
 def _rst_default(type_str: str, repr_str: str) -> str:
     """Return a concise RST-formatted default value string."""
     if type_str == "dict":
@@ -321,14 +341,18 @@ def _generate(
             while doc_lines and not doc_lines[-1].strip():
                 doc_lines.pop()
 
+            # Extract type override from the last line if it starts with "type:"
+            type_override, doc_lines = _extract_type_override(doc_lines)
+
             out.append(f".. confval:: {section_name}.{name}")
 
             if value is None:
-                type_str = "str"
+                type_str = type_override if type_override else "str"
                 default_rst = "``None``"
                 repr_str = None
             else:
-                type_str, repr_str = _infer_type_and_repr(value)
+                inferred_type_str, repr_str = _infer_type_and_repr(value)
+                type_str = type_override if type_override else inferred_type_str
                 default_rst = _rst_default(type_str, repr_str)
 
             out.append(f"   :type: ``{type_str}``")

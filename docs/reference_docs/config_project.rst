@@ -40,7 +40,7 @@ loaded config file.
 General settings.
 
 .. confval:: general.extra_config_files_to_load
-   :type: ``str``
+   :type: ``string or list of strings``
    :default: ``""``
 
    Extra config files to load for the project.
@@ -62,6 +62,7 @@ General settings.
       extra_config_files_to_load =
           ../project_defaults_overrule.ini,
           ../sportsfields-sample.ini
+
 
 .. confval:: general.segment_subject
    :type: ``str``
@@ -100,12 +101,23 @@ General settings.
 Settings regarding the download action.
 
 .. confval:: download.cron_schedule
-   :type: ``str``
+   :type: ``string in cron format```
    :default: ``None``
 
    Schedule to control when images can be downloaded.
 
-   If not specified there is no time limitation.
+   The schedule is specified in `cron format <https://en.wikipedia.org/wiki/Cron>`_,
+   which is a string with 5 fields separated by spaces: minute, hour, day of month,
+   month, day of week. Each field can be either a single value, a range of values,
+   a list of values, a list of ranges, or a wildcard (*).
+
+   If no schedule is specified there is no time limitation.
+
+   Example:
+
+      # Images are fetched every day, but only from 16:00 till 8:59.
+      cron_schedule = * 16-23,0-8 * * *
+
 
 
 [model]
@@ -267,47 +279,66 @@ Settings concerning the train process.
    column "label_name" is used if it exists.
 
 .. confval:: train.label_datasources
-   :type: ``str``
+   :type: ``dict``
    :default: ``None``
 
    The datasources to use for the train labels.
 
-   It is configured as a dictionary. It can be used to add label datasources
-   in addition to the ones found via the patterns above.
+   Typically, this property does not need to be set, as the datasources used for training
+   are found automatically in the :confval:`dirs.labels_dir` via the patterns specified
+   in :confval:`train.labelpolygons_pattern` and :confval:`train.labellocations_pattern`.
 
-   It is also possible to overrule/add properties to label datasources found
-   via the patterns. In this case, (only) the locations_path is mandatory.
-   It will be used as link key. All other properties specified will add/overrule:
+   However, this property can be used to add label datasources in addition to the ones
+   found via the patterns.
 
-   - properties extracted from the file path, e.g. `image_layer`
-   - more general properties: :confval:`train.image_pixel_x_size`,
-     :confval:`train.image_pixel_y_size`.
+   The datasources are specified in a dict of dicts, with the datasource names as keys
+   and for each datasource a dict with the following properties as value:
 
-   A typical use case is to overrule the general project `pixel_size` s for one
-   or more datasources to be able to train the model on different resolutions.
-   It is possible to list the same datasource multiple times to use the same
-   train data to e.g. train on different resolutions.
+     `locations_path`: the file path to the label locations file of this datasource.
+     `polygons_path`: the file path to the label polygons file of this datasource.
+     `image_layer`: the image layer to use for this datasource.
+     `pixel_x_size`: the size of a pixel in the x direction for this datasource.
+     `pixel_y_size`: the size of a pixel in the y direction for this datasource.
 
-   Examples:
+   It is also possible to overrule properties of label datasources found
+   via the patterns. In this case, (only) the ``locations_path`` is mandatory and
+   it will be used to link the datasource here with the corresponding one found via
+   the patterns. All other properties specified will overrule the default values for
+   this datasource found via the patterns. The properties that can be overruled are:
+
+   - `pixel_x_size`: overrules :confval:`train.image_pixel_x_size` for this datasource.
+   - `pixel_y_size`: overrules :confval:`train.image_pixel_y_size` for this datasource.
+   - `image_layer`: overrule the image layer found in the file path of the locations
+     file for this datasource.
+
+   It is possible to specify the same file multiple times as datasource. This way, the
+   same locations/polygons files can be used multiple times to train the model. This can
+   be used to train the model in multiple resolutions.
+
+   Note that even though it is also possible to overrule the image layer, typically the
+   train polygons will be digitized for/on a specific image layer. Hence, overruling
+   the image layer most often won't make sense.
+
+   Example:
 
    .. code-block:: python
 
+      # Add overrules for the "..._BEFL-2019_locations.gpkg" train locations file found
+      # in :confval:`dirs.labels_dir` so the train locations/polygons will be used twice
+      # for training: once in 0.5 meter/pixel and once in 0.25 meter/pixel
       label_datasources = {
-         "label_ds0_resolution1": {
+         "label_ds0_2019_res1": {
             "locations_path": "${dirs:labels_dir}/${general:segment_subject}_BEFL-2019_locations.gpkg",
-            "polygons_path": "${dirs:labels_dir}/${general:segment_subject}_BEFL-2019_polygons.gpkg",
-            "image_layer": "BEFL-2020",
             "pixel_x_size": 0.5,
             "pixel_y_size": 0.5,
          },
-         "label_ds0_resolution2": {
+         "label_ds0_2020_res2": {
             "locations_path": "${dirs:labels_dir}/${general:segment_subject}_BEFL-2019_locations.gpkg",
-            "polygons_path": "${dirs:labels_dir}/${general:segment_subject}_BEFL-2019_polygons.gpkg",
-            "image_layer": "BEFL-2020",
             "pixel_x_size": 0.25,
             "pixel_y_size": 0.25,
          }
       }
+
 
 .. confval:: train.image_augmentations
    :type: ``dict``
@@ -407,7 +438,7 @@ Settings concerning the train process.
    * a list of label names in the training data to use for this class. Because this
      is a list, you can easily map multiple label names in the training data to the
      same class.
-   * the weight to use when training
+   * the weight to use for the class when training
 
    The class name "background" is mandatory and is reserved for the background class.
 
@@ -491,10 +522,10 @@ Settings concerning the train process.
 
    If not specified, the defaults are:
 
-   - For keras 3+: categorical_focal_crossentropy
-   - For keras <3:
-       - If weights specified in the classes: weighted_categorical_crossentropy
-       - If no weights are specified: categorical_crossentropy
+   - **For keras 3+**: ``categorical_focal_crossentropy``
+   - **For keras <3**:
+       - If weights specified in the classes: ``weighted_categorical_crossentropy``
+       - If no weights are specified: ``categorical_crossentropy``
 
 .. confval:: train.monitor_metric
    :type: ``str``
@@ -505,10 +536,10 @@ Settings concerning the train process.
    This can be a single metric or a formula with placeholders
    to calculate a value based on multiple metrics. Available metrics:
 
-   - one_hot_mean_iou: intersection over union on the training dataset
-   - val_one_hot_mean_iou: intersection over union on the validation dataset
-   - categorical_accuracy: accuracy on the training dataset
-   - val_categorical_accuracy: accuracy on the validation dataset
+   - ``one_hot_mean_iou``: intersection over union on the training dataset
+   - ``val_one_hot_mean_iou``: intersection over union on the validation dataset
+   - ``categorical_accuracy``: accuracy on the training dataset
+   - ``val_categorical_accuracy``: accuracy on the validation dataset
 
 .. confval:: train.monitor_metric_mode
    :type: ``str``
