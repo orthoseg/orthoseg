@@ -70,8 +70,6 @@ exclude_patterns = [
     "../install_scripts",
     "../benchmark",
     "../orthoseg/util",
-    "ref_config_project.rst",      # file is included in reference.rst
-    "ref_config_imagelayers.rst",  # file is included in reference.rst
 ]
 
 # -- Options for HTML output -------------------------------------------------

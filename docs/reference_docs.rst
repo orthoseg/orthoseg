@@ -1,3 +1,5 @@
+.. currentmodule:: orthoseg
+
 =======================
 Configuration Reference
 =======================
@@ -19,6 +21,8 @@ There are two main types of configuration files:
   be reused in multiple project configurations.
 
 
-.. include:: ref_config_project.rst
+.. toctree::
+   :maxdepth: 2
 
-.. include:: ref_config_imagelayers.rst
+   Project configuration <reference_docs/config_project>
+   Image layer configuration <reference_docs/config_imagelayers>
