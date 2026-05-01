@@ -408,4 +408,4 @@ def main(argv: list[str] | None = None) -> None:
 
 if __name__ == "__main__":
     # main()
-    main(["orthoseg/project_defaults.ini", "docs/ref_config_project.rst"])
+    main(["orthoseg/project_defaults.ini", "docs/reference_docs/config_project.rst"])
