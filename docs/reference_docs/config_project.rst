@@ -101,7 +101,7 @@ General settings.
 Settings regarding the download action.
 
 .. confval:: download.cron_schedule
-   :type: ``string in cron format```
+   :type: ``str (cron schedule)```
    :default: ``None``
 
    Schedule to control when images can be downloaded.
@@ -154,8 +154,8 @@ Settings concerning the model you want to use for the segmentation.
    To configure an encoder/decoder architecture, specify it in
    the following way: architecture = {encoder}+{decoder}
 
-   The supported encoder and decoders can be found in the orthoseg
-   documentation.
+   The supported encoder and decoders can be found in
+   :doc:`../user_guide/finetune_your_project`.
 
 .. confval:: model.nb_channels
    :type: ``int``
