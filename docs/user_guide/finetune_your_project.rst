@@ -10,7 +10,7 @@ The default configuration of orthoseg is meant to be a good starting point for m
 projects.
 
 An overview of all parameters that can be finetuned can be found in the
-:doc:`/reference` section of the documentation.
+:doc:`/reference_docs` section of the documentation.
 
 In this section you can find some more in depth information on some specific parameters
 that can help you finetune the configuration to your specific project and needs.

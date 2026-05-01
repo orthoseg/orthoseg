@@ -20,7 +20,7 @@ present in the section.
 
 .. note::
 
-   An example :doc:`file_viewers/imagelayers_ini_viewer` is shipped with the sample projects so you
+   An example :doc:`/file_viewers/imagelayers_ini_viewer` is shipped with the sample projects so you
    can use it as a starting point.
 
 

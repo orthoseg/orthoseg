@@ -14,7 +14,7 @@ For each project there needs to be a project config file, located in the
 project dir.
 
 For starters, a project will inherit all default settings from the
-:doc:`file_viewers/project_defaults_ini_viewer` file, which is included in the
+:doc:`/file_viewers/project_defaults_ini_viewer` file, which is included in the
 orthoseg installation and is not supposed to be changed.
 
 In addition, you can create additional .ini files to combine shared settings
@@ -24,7 +24,7 @@ your project config files.
 The configuration used for an orthoseg project is loaded in the following order:
 
 1) the project defaults as "hardcoded" in the orthoseg package
-   (:doc:`file_viewers/project_defaults_ini_viewer`)
+   (:doc:`/file_viewers/project_defaults_ini_viewer`)
 2) any .ini files specified in the :confval:`general.extra_config_files_to_load`
    parameter in your project config file, in the order specified.
 3) the parameters in your project config file.
