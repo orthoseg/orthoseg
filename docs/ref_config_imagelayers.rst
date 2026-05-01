@@ -11,7 +11,7 @@ There are three types of image sources supported by orthoseg:
 
 - **WMS**: a standard OGC Web Map Service.
 - **WMTS**: a standard OGC Web Map Tile Service.
-- **File / GDAL**: a local raster file, a directory containing multiple raster files,
+- **File / GDAL**: a local raster file, a directory containing raster files,
   or any source supported by the GDAL WMS driver (including e.g. XYZ tile services
   configured via an ``.xml`` file).
 
@@ -152,13 +152,17 @@ A section is treated as a WMTS layer when ``wmts_server_url`` is present.
 File and GDAL layers
 --------------------
 
-A section is treated as a file-based layer when parameter ``path`` is present. This
-covers both local raster files (GeoTIFF, etc.) and any source supported by the
-GDAL WMS driver, which is configured via an ``.xml`` file. The latter lets
-you connect to XYZ/TMS tile services and other GDAL-supported web sources.
-The path can also point to a directory containing multiple raster files, in which
-case the ``file_patterns`` parameter must be used to specify which files in the
-directory belong to the layer.
+A section is treated as a file-based layer when parameter ``path`` is present.
+
+The path can point to:
+   
+- any georeference raster file, like a geotiff, a virtual raster (.vrt), or any other
+  format that can be read by GDAL.
+- a GDAL WMS ``.xml`` configuration file. This can be used to connect to web sources
+  supported by GDAL, such as XYZ/TMS tile services.
+- a directory containing georeferenced raster files that can be read by GDAL.
+
+More details on these options are given below.
 
 .. confval:: path
 
@@ -166,8 +170,24 @@ directory belong to the layer.
    :required: yes
    :default: *(none)*
 
-   Path to a local raster file, a directory containing multiple raster files, or to a
-   GDAL WMS ``.xml`` configuration file.
+   Path to a local raster layer.
+   
+   This can be:
+   
+   - any georeference raster file, like a geotiff, a virtual raster (.vrt), or any other
+     format that can be read by GDAL.
+   - a GDAL WMS ``.xml`` configuration file. This can be used to connect to web sources
+     supported by GDAL, such as XYZ/TMS tile services. See the
+     `GDAL WMS driver documentation <https://gdal.org/drivers/raster/wms.html>`_ for
+     details on how to write the ``.xml`` file.
+   - a directory containing georeferenced raster files that can be read by GDAL.
+     In this case, the ``file_patterns`` parameter must be used to specify which
+     files belong to the layer.
+     Orthoseg will create a virtual raster, ``orthoseg.vrt``, with all files that match
+     the patterns specified in ``file_patterns`` and use it as the source for the layer.
+     In addition, orthoseg will create a file called ``orthoseg.gpkg`` containing the
+     footprints of all the individual files that match the patterns. This file will be
+     used as the region of interest file (:confval:`roi_filepath`) for the layer.
 
 .. confval:: file_patterns
 
@@ -176,8 +196,15 @@ directory belong to the layer.
    :default: *(none)*
 
    Comma-separated list of glob patterns to select files when ``path`` points to a
-   directory. For example, ``**/*.tif, **/*.jpg`` to include all TIFF and JPEG files
-   in the directory and its subdirectories.
+   directory.
+
+   Examples::
+
+      # This selects all .tif in the directory, excluding subdirectories
+      file_patterns = *.tif
+
+      # This selects all .tif and .jpg files in the directory and all its subdirectories
+      file_patterns = **/*.tif, **/*.jpg
 
 **Example: local raster file** ::
 
@@ -197,6 +224,9 @@ directory belong to the layer.
    bbox = 525500, 6603100, 525600, 6603200
    nb_concurrent_calls = 4
 
+See the `GDAL WMS driver documentation <https://gdal.org/drivers/raster/wms.html>`_ for
+details on how to write the ``.xml`` file.
+
 **Example: directory of raster files** ::
 
    [RANDOM-RASTER-FILES]
@@ -204,11 +234,6 @@ directory belong to the layer.
    file_patterns = **/*.tif, **/*.jpg
    projection = epsg:32631
    image_format = image/jpeg
-   bbox = 174900, 176200, 175300, 176700
-
-See the `GDAL WMS driver documentation
-<https://gdal.org/drivers/raster/wms.html>`_ for details on how to write the
-``.xml`` file.
 
 
 Common parameters
@@ -262,7 +287,7 @@ The following parameters can be used for all layer types.
    :required: no
    :default: ``image/jpeg``
 
-   MIME type for the images that are requested and stored, e.g.
+   MIME type for the images that are requested and stored, e.g. ``image/jpeg``,
    ``image/png``.
 
 .. confval:: bbox
@@ -271,9 +296,17 @@ The following parameters can be used for all layer types.
    :required: no
    :default: *(none)*
 
-   Bounding box of the region of interest as four comma-separated coordinates
-   in the layer's projection: ``xmin, ymin, xmax, ymax``. Only images that
-   intersect the ROI are downloaded when building a prediction cache.
+   Bounding box of the region of interest (ROI) for the layer.
+   
+   IT needs to be specified as four comma-separated coordinates in the layer's
+   projection: ``xmin, ymin, xmax, ymax``.
+   
+   When creating a prediction cache or running a prediction without cache, only tiles
+   of the prediction grid that intersect the ROI are downloaded/predicted.
+
+   If your ROI is not a simple rectangle, you can use :confval:`roi_filepath` as an
+   alternative, as this supports complex and/or multiple geometries.
+   When both are specified, :confval:`bbox` takes precedence.
 
    Example::
 
@@ -285,9 +318,17 @@ The following parameters can be used for all layer types.
    :required: no
    :default: *(none)*
 
-   Path to a vector file whose geometry defines the region of interest.
-   Use this as an alternative to :confval:`bbox` when you need an irregular
-   boundary.
+   Path to a vector file that defines the region of interest (ROI) for the layer.
+
+   When creating a prediction cache or running a prediction without cache, only tiles
+   of the prediction grid that intersect the ROI are downloaded/predicted.
+
+   When the ROI is a simple rectangle, you can use :confval:`bbox` as an alternative.
+   When both are specified, :confval:`bbox` takes precedence.
+
+   Example::
+
+      roi_filepath = ./roi_files/my_layer_roi.gpkg
 
 .. confval:: grid_xmin
 
@@ -319,8 +360,8 @@ The following parameters can be used for all layer types.
    :required: no
    :default: *(none)*
 
-   When set, a random delay of up to this many seconds is inserted between
-   consecutive requests to reduce server load.
+   When set, a random delay of up to this many seconds is used between consecutive
+   requests to reduce server load.
 
 .. confval:: image_pixels_ignore_border
 
