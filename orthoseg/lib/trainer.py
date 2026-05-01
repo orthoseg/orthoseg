@@ -26,6 +26,7 @@ def train(
     segment_subject: str,
     traindata_id: int,
     hyperparams: mh.HyperParams,
+    weights_dir: Path | None = None,
     model_preload_filepath: Path | None = None,
     image_width: int = 512,
     image_height: int = 512,
@@ -53,6 +54,7 @@ def train(
         segment_subject (str): segment subject
         traindata_id (int): train data version
         hyperparams (mh.HyperParams): the hyper parameters to use for the model
+        weights_dir: directory where pretrained weights are cached and read from
         model_preload_filepath: filepath to the model to continue training on,
             or None if you want to start from scratch
         image_width: width the input images will be rescaled to for training
@@ -127,6 +129,8 @@ def train(
             nb_channels=hyperparams.architecture.nb_channels,
             nb_classes=len(hyperparams.architecture.classes),
             activation=hyperparams.architecture.activation_function,
+            weights_type=hyperparams.train.weights_type,
+            weights_dir=weights_dir,
             freeze=freeze,
         )
 
@@ -325,8 +329,8 @@ def train(
     hyperparams_path.write_text(hyperparams.toJSON())
 
     try:
-        # If the encoder should be frozen for the first epochs, do so
         if hyperparams.train.nb_epoch_with_freeze > 0:
+            # First train only the top layers for a few epochs.
             logger.info(
                 f"First train for {hyperparams.train.nb_epoch_with_freeze} epochs with "
                 "frozen layers"
@@ -376,7 +380,7 @@ def train(
         train_log_vis_df = train_log_df[columns_to_keep]
         fig = train_log_vis_df.plot().get_figure()
         if fig is not None:
-            fig.savefig(str(train_report_path))
+            fig.savefig(str(train_report_path))  # type: ignore[union-attr]
 
     finally:
         # Release the memory from the GPU...

@@ -66,6 +66,7 @@ class TrainParams:
         image_augmentations: dict,
         mask_augmentations: dict,
         trainparams_id: int = 0,
+        weights_type: str | None = "aerial",
         class_weights: list | None = None,
         batch_size: int = 4,
         optimizer: str = "Adam",
@@ -93,6 +94,17 @@ class TrainParams:
                 during training.
             architecture_id (int, optional): id of the architecture. Defaults to 0.
             trainparams_id (int, optional): id of the hyperparams. Defaults to 0.
+            weights_type (str | None, optional): the type of pretrained weights to
+                initialize the model with. Supported values are:
+
+                  - **aerial**: preload the entire model with weights pre-trained on
+                    aerial data. These are only available for a limited number of
+                    models.
+                  - **imagenet**: preload the encoder/backend of the model using weights
+                    pretrained on ImageNet. These are available for most models.
+                  - **None**: do not use any pretrained weights.
+
+                Defaults to "aerial".
             class_weights (list, optional): the weights to use for each class.
                 Defaults to None.
             batch_size (int, optional): batch size to use while training. This must be
@@ -144,6 +156,7 @@ class TrainParams:
         self.trainparams_id = trainparams_id
         self.image_augmentations = image_augmentations
         self.mask_augmentations = mask_augmentations
+        self.weights_type = weights_type
 
         self.class_weights = class_weights
         self.batch_size = batch_size
@@ -390,7 +403,7 @@ def format_model_filename(
     return filename
 
 
-def parse_model_filename(filepath: Path) -> dict | None:
+def parse_model_filename(filepath: Path) -> dict:
     """Parse a model_filename to a dict with the properties of the model.
 
     These are the properties:
@@ -406,15 +419,22 @@ def parse_model_filename(filepath: Path) -> dict | None:
 
     Args:
         filepath: the filepath to the model file
+
+    Raises:
+        ValueError: when the filepath is not valid, e.g. does not end with .keras,
+            .hdf5, .h5, or _tf, or when the filename does not contain enough fields
+            to extract the necessary info.
+
+    Returns:
+        dict: a dict with the properties of the model as explained above.
     """
     # Prepare filepath to extract info
     if filepath.is_dir():
         # If it is a dir, it should end on _tf
         if not filepath.name.endswith("_tf"):
-            logger.warning(
+            raise ValueError(
                 f"Not a valid path for a model, dir needs to end on _tf: {filepath}"
             )
-            return None
         save_format = "tf"
         filename = filepath.name
     else:
@@ -424,15 +444,14 @@ def parse_model_filename(filepath: Path) -> dict | None:
         elif filepath.suffix == ".keras":
             save_format = "keras"
         else:
-            logger.warning(
+            raise ValueError(
                 f"Model file should have .h5, .hdf5, or .keras as suffix: {filepath}"
             )
-            return None
 
     # Now extract the fields...
     param_values = filename.split("_")
-    if len(param_values) < 3:
-        logger.warning(
+    if len(param_values) <= 1:
+        raise ValueError(
             f"Model file name nok, split('_') must result in >= 2 fields: {filepath}"
         )
 
@@ -448,8 +467,8 @@ def parse_model_filename(filepath: Path) -> dict | None:
         if len(model_info_values) > 2:
             trainparams_id = int(model_info_values[2])
 
-    monitor_metric_accuracy = float(param_values[2])
-    epoch = int(param_values[3])
+    monitor_metric_accuracy = float(param_values[2]) if len(param_values) > 2 else None
+    epoch = int(param_values[3]) if len(param_values) > 3 else None
 
     basefilename = format_model_basefilename(
         segment_subject=segment_subject,
@@ -501,9 +520,12 @@ def get_models(
     # Loop through all models and extract necessary info...
     model_info_list = []
     for model_path in model_paths:
-        model_info = parse_model_filename(model_path)
-        if model_info is not None:
+        try:
+            model_info = parse_model_filename(model_path)
             model_info_list.append(model_info)
+        except ValueError as e:
+            logger.warning(f"Skipping model {model_path}: {e}")
+            continue
 
     # Filter, if filters provided
     if len(model_info_list) > 0:

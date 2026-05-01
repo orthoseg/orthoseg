@@ -415,6 +415,36 @@ Settings concerning the train process.
 
    A proper value depends on available hardware, model used and image size.
 
+.. confval:: train.weights_type
+   :type: ``str``
+   :default: ``aerial_if_available``
+
+   The type of pretrained weights to initialize the model with.
+
+   Options are:
+
+   - **aerial**: the entire model (except the top layer) is initialized with weights
+     that were the result of training the model on aerial images. These weights are
+     only available for a limited number of model architectures. If they are not
+     available for the :confval:`model.architecture` configured, an error is raised.
+     The supported architectures are: `inceptionresnetv2+unet`, `mobilenetv2+linknet`.
+   - **imagenet**: use imagenet pretrained weights for the encoder/backend of the model.
+     The segmentation head/decoder is initialized with random weights.
+   - **aerial_if_available**: use aerial pretrained weights if they are available for the
+     architecture configured, otherwise use `imagenet` pretrained weights.
+   - **None**: if you specify an empty `weights_type` parameter, no pretrained
+     weights are used.
+
+   .. note::
+
+      You can also specify your own pretrained weights by putting them in the
+      :confval:`dirs.weights_dir` and specifying your own custom weights type here.
+      The file name of the weights file needs to follow the following format:
+      ``{architecture}_{weights_type}_notop.weights.h5``, e.g.
+      ``inceptionresnetv2+unet_customweights_notop.weights.h5``.
+      You can use the ``segmodels_keras.utils.save_model_weights_notop`` function
+      to save the weights of an existing model in the correct format.
+
 .. confval:: train.optimizer
    :type: ``str``
    :default: ``None``
@@ -501,13 +531,16 @@ Settings concerning the train process.
 
 .. confval:: train.nb_epoch_with_freeze
    :type: ``int``
-   :default: ``20``
+   :default: ``5``
 
    Number of epochs to train with the pretrained layers frozen.
 
-   Keeps pretrained layers intact, which is useful for the first few (2-10)
-   epochs when big adjustments are made to the network. Training is also 20%
-   faster during these epochs.
+   Keeps pretrained layers intact, which is useful for the first few (2-10) epochs when
+   big adjustments are made to the untrained layers of the network. For architectures
+   with pretrained weights available for the entire model, the default (5) is often
+   sufficient. For architectures with pretrained weights only for the encoder, covergence
+   is slower and values up to 20 can be useful. Training is also 20% faster during the
+   epochs with frozen layers.
 
 .. confval:: train.max_epoch
    :type: ``int``
@@ -857,41 +890,18 @@ Remarks:
    Eg.: ".." means: projects_dir is the parent dir of the dir containing the
    project config file.
 
-.. confval:: dirs.project_dir
+.. confval:: dirs.weights_dir
    :type: ``str``
-   :default: ``${projects_dir}/${general:segment_subject}``
+   :default: ``${projects_dir}/_weights``
 
-   The project directory for this subject.
+   The directory where the pretrained weights are cached.
 
-.. confval:: dirs.log_dir
-   :type: ``str``
-   :default: ``${project_dir}/log``
-
-   The log directory for the project.
-
-.. confval:: dirs.labels_dir
-   :type: ``str``
-   :default: ``${project_dir}/labels``
-
-   The directory containing the label data.
-
-.. confval:: dirs.training_dir
-   :type: ``str``
-   :default: ``${project_dir}/training``
-
-   Directories used to put data during training .
-
-.. confval:: dirs.model_dir
-   :type: ``str``
-   :default: ``${project_dir}/models``
-
-   The directory where models are saved².
-
-.. confval:: dirs.output_vector_dir
-   :type: ``str``
-   :default: ``${project_dir}/output_vector/${predict:image_layer}``
-
-   Output vector directory.
+   The weights specified in the :confval:`train.weights_type` parameter will be
+   downloaded and cached in this directory if they aren't available yet. If you want to
+   use your own pretrained weights, you can put them in this directory and specify the
+   weights type name of the file in the :confval:`train.weights_type` parameter.
+   More information on this can be found in the documentation of the
+   :confval:`train.weights_type` parameter.
 
 .. confval:: dirs.base_image_dir
    :type: ``str``
@@ -947,6 +957,42 @@ Remarks:
    :default: ``${predictsample_image_input_dir}``
 
    The base directory to save the predictions on the training images to.
+
+.. confval:: dirs.project_dir
+   :type: ``str``
+   :default: ``${projects_dir}/${general:segment_subject}``
+
+   The project directory for this subject.
+
+.. confval:: dirs.log_dir
+   :type: ``str``
+   :default: ``${project_dir}/log``
+
+   The log directory for the project.
+
+.. confval:: dirs.labels_dir
+   :type: ``str``
+   :default: ``${project_dir}/labels``
+
+   The directory containing the label data.
+
+.. confval:: dirs.training_dir
+   :type: ``str``
+   :default: ``${project_dir}/training``
+
+   Directories used to put data during training .
+
+.. confval:: dirs.model_dir
+   :type: ``str``
+   :default: ``${project_dir}/models``
+
+   The directory where models are saved².
+
+.. confval:: dirs.output_vector_dir
+   :type: ``str``
+   :default: ``${project_dir}/output_vector/${predict:image_layer}``
+
+   Output vector directory.
 
 
 [files]

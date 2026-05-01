@@ -13,9 +13,6 @@
 
 ### Improvements
 
-- Add support to reproject a local image layer (#290)
-- Add support to configure an image layer based on a simple dir with images (#337)
-- Improve handling of `switch_axes` and `ssl_verify` (#295)
 - Add proper support for keras 3:
     - Use `categorical_focal_crossentropy` by default on keras 3 (#312)
     - Use [segmodels_keras](https://github.com/orthoseg/segmodels_keras) (#311)
@@ -23,6 +20,11 @@
     - Use ``segmodels_keras.utils.load_weights`` for forward and backward compatibility
       when loading cross-keras-version weights (#339)
 - Use keras.applications `preprocess_input` functions to prepare inputs (#314)
+- Add support to finetune models using weights pretrained on aerial images. This becomes
+  the default for supported architectures (#327)
+- Add support to reproject a local image layer (#290)
+- Add support to configure an image layer based on a simple dir with images (#337)
+- Improve handling of `switch_axes` and `ssl_verify` (#295)
 - Significant improvements to the documentation (#316, #330,...)
 
 ## 0.7.1 (2026-04-13)
