@@ -26,11 +26,11 @@ The configuration used for an orthoseg project is loaded in the following order:
 1) the project defaults as "hardcoded" in the orthoseg package
    (:doc:`/file_viewers/project_defaults_ini_viewer`)
 2) any .ini files specified in the :confval:`general.extra_config_files_to_load`
-   parameter in your project config file, in the order specified.
-3) the parameters in your project config file.
+   key in your project config file, in the order specified.
+3) the keys in your project config file.
 
-Parameters specified in a config file loaded later in the order above
-overrule the corresponding parameter values specified in a previously
+Keys specified in a config file loaded later in the order above
+overrule the corresponding key values specified in a previously
 loaded config file.
 
 
@@ -48,6 +48,10 @@ General settings.
    They will be loaded in the order specified and can be specified one
    path per line, comma seperated.
 
+   Only the `extra_config_files_to_load` key of the .ini file being passed to
+   orthoseg is used. If .ini files referenced in `extra_config_files_to_load` also
+   define an `extra_config_files_to_load` key, it will be ignored.
+
    If a relative path is used it will be resolved towards the parent dir of
    the project config file.
 
@@ -61,7 +65,7 @@ General settings.
       # Load two extra config files to overrule defaults before this one:
       extra_config_files_to_load =
           ../project_defaults_overrule.ini,
-          ../sportsfields-sample.ini
+          ./sportsfields-sample.ini
 
 
 .. confval:: general.segment_subject
@@ -214,8 +218,8 @@ Settings concerning the train process.
 
    .. note::
 
-      These parameters (image_pixel_width, image_pixel_height, image_pixel_x_size
-      and image_pixel_y_size) will determine the size the label location boxes will
+      The keys image_pixel_width, image_pixel_height, image_pixel_x_size
+      and image_pixel_y_size will determine the size the label location boxes will
       need to be digitized.
 
       E.g. if `image_pixel_width` = 512 and `image_pixel_x_size` = 0.25, the boxes
@@ -327,12 +331,12 @@ Settings concerning the train process.
       # in :confval:`dirs.labels_dir` so the train locations/polygons will be used twice
       # for training: once in 0.5 meter/pixel and once in 0.25 meter/pixel
       label_datasources = {
-         "label_ds0_2019_res1": {
+         "label_2019_res1": {
             "locations_path": "${dirs:labels_dir}/${general:segment_subject}_BEFL-2019_locations.gpkg",
             "pixel_x_size": 0.5,
             "pixel_y_size": 0.5,
          },
-         "label_ds0_2020_res2": {
+         "label_2019_res2": {
             "locations_path": "${dirs:labels_dir}/${general:segment_subject}_BEFL-2019_locations.gpkg",
             "pixel_x_size": 0.25,
             "pixel_y_size": 0.25,
@@ -475,8 +479,8 @@ Settings concerning the train process.
      The segmentation head/decoder is initialized with random weights.
    - **aerial_if_available**: use aerial pretrained weights if they are available for the
      architecture configured, otherwise use `imagenet` pretrained weights.
-   - **None**: if you specify an empty `weights_type` parameter, no pretrained
-     weights are used.
+   - **None**: if you specify an empty `weights_type` key, no pretrained weights are
+     used.
 
    .. note::
 
@@ -764,22 +768,22 @@ Settings concerning the prediction process.
    prediction. Options are:
 
    * RAMER_DOUGLAS_PEUCKER:
-       * simplify_tolerance: extra, mandatory parameter: specifies the distance
+       * `simplify_tolerance`: extra, mandatory key: specifies the distance
          tolerance to be used.
    * VISVALINGAM_WHYATT:
-       * simplify_tolerance: extra, mandatory parameter: specifies the area
+       * `simplify_tolerance`: extra, mandatory key: specifies the area
          tolerance to be used.
    * LANG: gives few deformations and removes many points
-       * simplify_tolerance: extra, mandatory parameter: specifies the distance
+       * `simplify_tolerance`: extra, mandatory key: specifies the distance
          tolerance to be used.
-       * simplify_lookahead: extra, mandatory parameter: specifies the number
+       * `simplify_lookahead`: extra, mandatory key: specifies the number
          of points the algorithm looks ahead during simplify.
    * LANG+: gives few deformations while removeing the most points.
-       * simplify_tolerance: extra, mandatory parameter: specifies the distance
+       * `simplify_tolerance`: extra, mandatory key: specifies the distance
          tolerance to be used.
-       * simplify_lookahead: extra, mandatory parameter: specifies the number
+       * `simplify_lookahead`: extra, mandatory key: specifies the number
          of points the algorithm looks ahead during simplify.
-   * If simplify_algorithm is not specified, no simplification is applied.
+   * If `simplify_algorithm` is not specified, no simplification is applied.
 
 .. confval:: predict.simplify_tolerance
    :type: ``str``
@@ -849,7 +853,7 @@ Settings concerning the postprocessing after the prediction.
 
    Tile the result of the dissolve using the grid in the file specified.
 
-   This parameter is only applicable if `dissolve` is True.
+   This key is only applicable if `dissolve` is True.
 
    If specified, the result of the dissolve will be tiled using the grid in the
    file provided.
@@ -886,8 +890,7 @@ Settings concerning the postprocessing after the prediction.
 
    Apply simplify (also) after dissolve.
 
-   For more information, check out the documentation at parameter
-   predict:simplify_algorithm.
+   For more information, check out :confval:`predict.simplify_algorithm`.
 
 .. confval:: postprocess.simplify_tolerance
    :type: ``str``
@@ -895,7 +898,7 @@ Settings concerning the postprocessing after the prediction.
 
    Tolerance to use for the postprocess simplification.
 
-   Remark: you can use simple math expressions, eg. 1.5*5
+   Remark: you can use simple math expressions, eg. `1.5*5`.
 
 .. confval:: postprocess.simplify_lookahead
    :type: ``int``
@@ -903,7 +906,7 @@ Settings concerning the postprocessing after the prediction.
 
    The number of points to look ahead during simplify.
 
-   Only applicable for the LANG algorithm.
+   Only applicable if :confval:`postprocess.simplify_algorithm` is LANG.
 
 
 [dirs]
@@ -939,12 +942,12 @@ Remarks:
 
    The directory where the pretrained weights are cached.
 
-   The weights specified in the :confval:`train.weights_type` parameter will be
+   The weights specified in the :confval:`train.weights_type` key will be
    downloaded and cached in this directory if they aren't available yet. If you want to
    use your own pretrained weights, you can put them in this directory and specify the
-   weights type name of the file in the :confval:`train.weights_type` parameter.
+   weights type name of the file in the :confval:`train.weights_type` key.
    More information on this can be found in the documentation of the
-   :confval:`train.weights_type` parameter.
+   :confval:`train.weights_type` key.
 
 .. confval:: dirs.base_image_dir
    :type: ``str``

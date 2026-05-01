@@ -15,7 +15,7 @@ There are three types of image sources supported by orthoseg:
   or any source supported by the GDAL WMS driver (including e.g. XYZ tile services
   configured via an ``.xml`` file).
 
-The layer type is determined automatically based on which parameters are
+The layer type is determined automatically based on which keys are
 present in the section.
 
 .. note::
@@ -152,7 +152,7 @@ A section is treated as a WMTS layer when ``wmts_server_url`` is present.
 File and GDAL layers
 --------------------
 
-A section is treated as a file-based layer when parameter ``path`` is present.
+A section is treated as a file-based layer when the ``path`` key is present.
 
 The path can point to:
    
@@ -181,7 +181,7 @@ More details on these options are given below.
      `GDAL WMS driver documentation <https://gdal.org/drivers/raster/wms.html>`_ for
      details on how to write the ``.xml`` file.
    - a directory containing georeferenced raster files that can be read by GDAL.
-     In this case, the ``file_patterns`` parameter must be used to specify which
+     In this case, the ``file_patterns`` key must be used to specify which
      files belong to the layer.
      Orthoseg will create a virtual raster, ``orthoseg.vrt``, with all files that match
      the patterns specified in ``file_patterns`` and use it as the source for the layer.
@@ -236,10 +236,10 @@ details on how to write the ``.xml`` file.
    image_format = image/jpeg
 
 
-Common parameters
------------------
+Common keys
+-----------
 
-The following parameters can be used for all layer types.
+The following keys can be used for all layer types.
 
 .. confval:: use_cache
 
