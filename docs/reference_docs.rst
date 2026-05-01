@@ -22,7 +22,7 @@ There are two main types of configuration files:
 
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    Project configuration <reference_docs/config_project>
    Image layer configuration <reference_docs/config_imagelayers>
