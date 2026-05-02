@@ -84,6 +84,7 @@ class TrainParams:
         earlystop_monitor_metric_mode: Literal["auto", "min", "max"] = "auto",
         log_tensorboard: bool = False,
         log_csv: bool = True,
+        **kwargs: dict[str, Any],
     ):
         """Class containing the hyper parameters needed to perform a training.
 
@@ -146,6 +147,7 @@ class TrainParams:
                 logging. Defaults to False.
             log_csv (bool, optional): True to activate logging to a csv.
                 Defaults to True
+            kwargs: dict, optional: to allow for deprecated parameters.
 
         Raises:
             Exception: [description]
@@ -156,7 +158,12 @@ class TrainParams:
         self.trainparams_id = trainparams_id
         self.image_augmentations = image_augmentations
         self.mask_augmentations = mask_augmentations
-        self.weights_type = weights_type
+        if "weights" in kwargs:
+            # When loading old hyperparams, the weights type was stored in a parameter
+            # called "weights", so check for this for backwards compatibility.
+            self.weights_type = kwargs["weights"]
+        else:
+            self.weights_type = weights_type
 
         self.class_weights = class_weights
         self.batch_size = batch_size
