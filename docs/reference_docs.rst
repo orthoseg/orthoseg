@@ -27,5 +27,6 @@ Contents
 .. toctree::
    :maxdepth: 1
 
+   Orthoseg CLI <reference_docs/orthoseg_cli>
    Image layer configuration <reference_docs/image_layers_config>
    Project configuration <reference_docs/project_config>

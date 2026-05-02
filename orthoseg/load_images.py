@@ -40,8 +40,7 @@ def _load_images_args(args) -> argparse.Namespace:
         "config_overrules",
         nargs="*",
         help=(
-            "Supply any number of config overrules like this: "
-            "<section>.<parameter>=<value>"
+            "Supply any number of config overrules like this: <section>.<key>=<value>"
         ),
     )
 
@@ -61,7 +60,7 @@ def load_images(
             images. Defaults to False.
         config_overrules (list[str], optional): list of config options that will
             overrule other ways to supply configuration. They should be specified in the
-            form of "<section>.<parameter>=<value>". Defaults to None.
+            form of "<section>.<key>=<value>". Defaults to None.
     """
     # Init
     # Load the config and save in a bunch of global variables zo it
