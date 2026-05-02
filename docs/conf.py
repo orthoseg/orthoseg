@@ -96,10 +96,7 @@ html_theme_options = {
 
 html_sidebars: dict[str, list[str]] = {
     "installation": [],
-    "user_guide": [],
-    "reference": [],
     "examples": [],
-    "faq": [],
     "development": [],
 }
 
