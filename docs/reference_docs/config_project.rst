@@ -855,7 +855,7 @@ Settings concerning the postprocessing after the prediction.
 
    Tile the result of the dissolve using the grid in the file specified.
 
-   This key is only applicable if :confval:`dissolve` is True.
+   This key is only applicable if :confval:`postprocess.dissolve` is True.
 
    If specified, the result of the dissolve will be tiled using the grid in the
    file provided.
