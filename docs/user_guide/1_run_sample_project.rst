@@ -58,7 +58,7 @@ contain a .gpkg file with the football fields found.
 An interesting exercise might be to detect football fields on another layer (on another
 location). To get reasonable results, this should be a layer with 0.25 meter pixel size,
 as this was the pixel size the footballfields detection was trained on. It's best to
-first read :doc:`prepare_new_project` for some background information and then you could
+first read :doc:`2_prepare_new_project` for some background information and then you could
 try the following steps:
 
 1. Add the layer you want to predict on to the `imagelayer.ini` config file located in

@@ -161,7 +161,7 @@ Settings concerning the model you want to use for the segmentation.
    the following way: architecture = {encoder}+{decoder}
 
    The supported encoder and decoders can be found in
-   :doc:`../user_guide/finetune_your_project`.
+   :doc:`../user_guide/3_finetune_your_project`.
 
 .. confval:: model.nb_channels
    :type: ``int``
@@ -847,7 +847,7 @@ Settings concerning the postprocessing after the prediction.
    For some subjects, dissolving can lead to huge polygons that are hard to
    handle and visualize because they are entirely connected. Examples are e.g.
    road networks, water bodies,... For these subjects, it can be better to disable
-   dissolve or use a :confval:`dissolve_tiles_path`.
+   dissolve or use a :confval:`postprocess.dissolve_tiles_path`.
 
 .. confval:: postprocess.dissolve_tiles_path
    :type: ``str``

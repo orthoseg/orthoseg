@@ -195,4 +195,4 @@ If you find good examples, you can add them to the training dataset as such:
 Run training + (optionally) a (full) prediction
 ------------------------------------------------
 
-Instructions to run a train, predict,... session can be found in :doc:`run_session`.
+Instructions to run a train, predict,... session can be found in :doc:`5_run_session`.
