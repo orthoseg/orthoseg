@@ -161,7 +161,10 @@ class TrainParams:
         if "weights" in kwargs:
             # When loading old hyperparams, the weights type was stored in a parameter
             # called "weights", so check for this for backwards compatibility.
-            self.weights_type = kwargs["weights"]
+            weights = kwargs["weights"]
+            self.weights_type: str | None = (
+                str(weights) if weights is not None else None
+            )
         else:
             self.weights_type = weights_type
 
