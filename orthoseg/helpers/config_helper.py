@@ -83,7 +83,7 @@ def read_orthoseg_config(config_path: Path, overrules: list[str] | None = None):
         config_path (Path): path to the configuration file to read.
         overrules (list[str], optional): list of config options that will overrule other
             ways to supply configuration. They should be specified as a list of
-            "<section>.<parameter>=<value>" strings. Defaults to None.
+            "<section>.<key>=<value>" strings. Defaults to None.
     """
     # Set the temporary directory
     _set_tmp_dir()

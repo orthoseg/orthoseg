@@ -1,7 +1,5 @@
 .. currentmodule:: orthoseg
 
-.. _finetune-your-project:
-
 =====================
 Finetune your project
 =====================
@@ -10,7 +8,7 @@ The default configuration of orthoseg is meant to be a good starting point for m
 projects.
 
 An overview of all parameters that can be finetuned can be found in the
-:doc:`/reference` section of the documentation.
+:doc:`/reference_docs` section of the documentation.
 
 In this section you can find some more in depth information on some specific parameters
 that can help you finetune the configuration to your specific project and needs.
@@ -37,15 +35,17 @@ Decoder
 
 For the decoder, following model architectures are supported:
 
-- `UNet`
-- `LinkNet`
-- `FPN`
-- `PSPNet`
+* `UNet`
+* `LinkNet`
+* `FPN`
+* `PSPNet`
 
 Based on practical tests, `UNet` and `LinkNet` give the best results. Both in terms of
 accuracy and inference speed, they are very similar. There are many variants on e.g.
-`UNet` as well, but it seems that most give marginal accuracy improvements for
-significant increases in complexity resulting in worse inference/train speed.
+`UNet` as well, but based on the literature found it seems that most give relatively
+small accuracy improvements for significant increases in complexity, resulting in worse
+inference/train speed. Hence only the architectures listed above are supported, and the
+default in orthoseg is the classic `UNet`.
 
 Encoder
 ^^^^^^^

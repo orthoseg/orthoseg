@@ -45,14 +45,21 @@ version = release = orthoseg.__version__
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    "sphinx.ext.autodoc",
     "sphinx.ext.napoleon",
     "sphinx_automodapi.automodapi",
     "sphinx.ext.autosummary",
     "sphinx_copybutton",
 ]
 
-autosummary_generate = True
+# autodoc configuration
 autodoc_member_order = "bysource"
+autodoc_typehints = "description"
+autodoc_preserve_defaults = True
+
+# autosummary configuration
+autosummary_generate = True
+autosummary_imported_members = True
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -70,8 +77,6 @@ exclude_patterns = [
     "../install_scripts",
     "../benchmark",
     "../orthoseg/util",
-    "ref_config_project.rst",      # file is included in reference.rst
-    "ref_config_imagelayers.rst",  # file is included in reference.rst
 ]
 
 # -- Options for HTML output -------------------------------------------------
@@ -98,10 +103,7 @@ html_theme_options = {
 
 html_sidebars: dict[str, list[str]] = {
     "installation": [],
-    "user_guide": [],
-    "reference": [],
     "examples": [],
-    "faq": [],
     "development": [],
 }
 

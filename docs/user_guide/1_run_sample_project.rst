@@ -58,7 +58,7 @@ contain a .gpkg file with the football fields found.
 An interesting exercise might be to detect football fields on another layer (on another
 location). To get reasonable results, this should be a layer with 0.25 meter pixel size,
 as this was the pixel size the footballfields detection was trained on. It's best to
-first read :doc:`prepare_new_project` for some background information and then you could
+first read :doc:`2_prepare_new_project` for some background information and then you could
 try the following steps:
 
 1. Add the layer you want to predict on to the `imagelayer.ini` config file located in
@@ -76,12 +76,20 @@ try the following steps:
       bbox = 174900, 176400, 175300, 176600
 
    Detailed information on the different available options to configure image layers
-   can be found in :ref:`image-layers-configuration`.
+   can be found in :doc:`/reference_docs/image_layers_config`.
 2. Make a copy of `footballfields_BEFL-2019.ini` and change the `predict image_layer`
    parameter in the file to point to the new layer, e.g.::
 
       [predict]
       image_layer = BEFL-2020
+   
+   As an alternative to having to create a specific .ini file for each layer you want to
+   predict on, you can also overrule a key (or keys) by passing overrules as extra
+   parameters to e.g. `orthoseg_predict`. For this case, to overrule
+   :confval:`predict.image_layer`, you can add parameter
+   ``predict.image_layer=BEFL-2020``::
+
+      orthoseg_predict --config ~/orthoseg/sample_projects/footballfields/footballfields.ini predict.image_layer=BEFL-2020
 
 3. Run `orthoseg_load_images` to prepare the layer to predict on::
 

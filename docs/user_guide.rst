@@ -14,12 +14,15 @@ if you want to use more complex models, train on larger training datasets and/or
 want to process large areas using a decent CUDA GPU will become very recommended to
 reduce waiting times.
 
+Contents
+~~~~~~~~
+
 .. toctree::
    :maxdepth: 2
    :numbered:
 
-   Run sample project <user_guide/run_sample_project>
-   Prepare a new project <user_guide/prepare_new_project>
-   Finetune your project <user_guide/finetune_your_project>
-   Create training data <user_guide/create_training_data>
-   Run train, predict, session <user_guide/run_session>
+   Run sample project <user_guide/1_run_sample_project>
+   Prepare a new project <user_guide/2_prepare_new_project>
+   Finetune your project <user_guide/3_finetune_your_project>
+   Create training data <user_guide/4_create_training_data>
+   Run train, predict, session <user_guide/5_run_session>
