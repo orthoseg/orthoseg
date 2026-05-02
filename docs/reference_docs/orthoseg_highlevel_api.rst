@@ -23,14 +23,9 @@ from the top-level :py:mod:`orthoseg` module:
    load_images
    validate
 
-Detailed API
-============
-
-.. automodule:: orthoseg
-   :members: train, predict, postprocess, load_images, validate
-   :member-order: bysource
-   :undoc-members:
-   :show-inheritance:
+The entries above generate the detailed API pages automatically during the Sphinx build.
+Each function gets its own page under the API toctree, which avoids having multiple
+indexed descriptions of the same object.
 
 Low-level API note
 ==================
