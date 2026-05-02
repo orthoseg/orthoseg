@@ -67,8 +67,8 @@ def get_model(
             cached to and read from. If None, the system temp directory is used.
         freeze (bool, optional): Freeze the weights of all layers that were initialized
             with pretrained values. If only encoder/backend weight are preloaded (e.g.
-            weights="imagenet"), only those layers are frozen, if all layers
-            are pre-loaded (e.g. weights="aerial"), all layers except the top
+            weights_type="imagenet"), only those layers are frozen, if all layers
+            are pre-loaded (e.g. weights_type="aerial"), all layers except the top
             layers are frozen. It is useful to use this option for the first few
             epochs to get a more robust network. Defaults to False.
 

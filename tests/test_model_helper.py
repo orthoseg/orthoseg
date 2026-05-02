@@ -129,6 +129,24 @@ def test_parse_model_filename_invalid(tmp_path, filename, err_msg):
         _ = model_helper.parse_model_filename(tmp_file)
 
 
+def test_trainparams_backwards_compatibility():
+    """Test if the TrainParams class can still load old hyperparams.
+
+    In orthoseg < 0.8, `weights_type` was stored in a parameter called `weights`. Check
+    if this parameter can still be used for backwards compatibility.
+    """
+    old_hyperparams = {
+        "trainparams_id": 1,
+        "image_augmentations": {"cval": 0, "fill_mode": "constant", "rescale": 1},
+        "mask_augmentations": {"cval": 0, "fill_mode": "constant", "rescale": 1},
+        "weights": "old_weights_type",
+        "class_weights": None,
+        "batch_size": 32,
+    }
+    params = model_helper.TrainParams(**old_hyperparams)
+    assert params.weights_type == "old_weights_type"
+
+
 @pytest.mark.parametrize("class_weights", [None, {0: 1.0, 1: 2.0}])
 def test_trainparams_defaults(class_weights):
     params = model_helper.TrainParams(
