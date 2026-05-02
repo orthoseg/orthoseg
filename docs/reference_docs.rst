@@ -28,5 +28,6 @@ Contents
    :maxdepth: 1
 
    Orthoseg CLI <reference_docs/orthoseg_cli>
+   Orthoseg high level API <reference_docs/orthoseg_highlevel_api>
    Image layer configuration <reference_docs/image_layers_config>
    Project configuration <reference_docs/project_config>

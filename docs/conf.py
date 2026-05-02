@@ -45,14 +45,21 @@ version = release = orthoseg.__version__
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    "sphinx.ext.autodoc",
     "sphinx.ext.napoleon",
     "sphinx_automodapi.automodapi",
     "sphinx.ext.autosummary",
     "sphinx_copybutton",
 ]
 
-autosummary_generate = True
+# autodoc configuration
 autodoc_member_order = "bysource"
+autodoc_typehints = "description"
+autodoc_preserve_defaults = True
+
+# autosummary configuration
+autosummary_generate = True
+autosummary_imported_members = True
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
