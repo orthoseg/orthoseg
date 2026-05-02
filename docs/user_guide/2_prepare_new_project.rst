@@ -94,7 +94,7 @@ deeper, you can have a look here:
 `ConfigParser-ExtendeInterpolation <https://docs.python.org/3.13/library/configparser.html#interpolation-of-values>`_.
 
 All possible parameters that can be used in the project configuration file, including
-their default values, are documented in :ref:`project-configuration`.
+their default values, are documented in :doc:`/reference_docs/project_config`.
 
 To avoid having to copy/paste and repeat a lot of parameters in many project files,
 you can define common project parameters in a common file and only put project-specific

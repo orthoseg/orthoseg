@@ -2,8 +2,6 @@
 .. C:\Users\pierog\projects\github\orthoseg\orthoseg\project_defaults.ini
 .. Do not edit manually.
 
-.. _project-configuration:
-
 =====================
 Project configuration
 =====================
@@ -264,7 +262,7 @@ Settings concerning the train process.
    Pattern how the file paths of the `polygons` label files should be formatted.
 
    The `image_layer` to get the images from is extracted from the file path. Hence,
-   the image layer will need to be configured in the :ref:`image-layers-configuration`.
+   the image layer will need to be configured in the :doc:`/reference_docs/image_layers_config`.
 
 .. confval:: train.labellocations_pattern
    :type: ``str``
@@ -273,7 +271,7 @@ Settings concerning the train process.
    Pattern how the file paths of the `locations` label files should be formatted.
 
    The `image_layer` to get the images from is extracted from the file path. Hence,
-   the image layer will need to be configured in the :ref:`image-layers-configuration`.
+   the image layer will need to be configured in the :doc:`/reference_docs/image_layers_config`.
 
 .. confval:: train.labelname_column
    :type: ``str``

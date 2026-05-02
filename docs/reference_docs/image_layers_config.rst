@@ -1,5 +1,3 @@
-.. _image-layers-configuration:
-
 ==========================
 Image Layers Configuration
 ==========================

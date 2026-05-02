@@ -76,7 +76,7 @@ try the following steps:
       bbox = 174900, 176400, 175300, 176600
 
    Detailed information on the different available options to configure image layers
-   can be found in :ref:`image-layers-configuration`.
+   can be found in :doc:`/reference_docs/image_layers_config`.
 2. Make a copy of `footballfields_BEFL-2019.ini` and change the `predict image_layer`
    parameter in the file to point to the new layer, e.g.::
 
