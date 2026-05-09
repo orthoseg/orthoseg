@@ -51,7 +51,6 @@ def get_model_weights_path(
     Returns:
         Path: the path to the weights file.
 
-
     """
     # First check if the weights file can be easily found in the weights dir.
     if weights_dir is not None:
