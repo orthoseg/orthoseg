@@ -5,7 +5,9 @@ import math
 import pprint
 import shutil
 import warnings
+from concurrent import futures
 from pathlib import Path
+from typing import Any
 
 import geofileops as gfo
 import geopandas as gpd
@@ -18,7 +20,7 @@ import shapely
 import shapely.geometry as sh_geom
 from PIL import Image
 
-from orthoseg.util import image_util, vector_util
+from orthoseg.util import _processing_util, image_util, vector_util
 from orthoseg.util.progress_util import ProgressLogger
 
 # Get a logger...
@@ -144,6 +146,7 @@ def prepare_traindatasets(
     ssl_verify: bool | str = True,
     only_validate: bool = False,
     force: bool = False,
+    nb_concurrent_calls: int = 4,
 ) -> tuple[Path, int]:
     """This function prepares training data for the vector labels provided.
 
@@ -181,13 +184,27 @@ def prepare_traindatasets(
         only_validate (bool, optional): True to only validate the input label data.
         force (bool, opitional): True to force recreation of output files.
             Defaults to False.
+        nb_concurrent_calls (int, optional): Number of concurrent worker threads used
+            to prepare images/masks per traindata type. A conservative upper bound is
+            enforced to avoid overwhelming remote image services. Defaults to 4.
     """
+    if nb_concurrent_calls < 1:
+        raise ValueError("nb_concurrent_calls should be >= 1")
+
+    # Keep concurrency bounded to reduce the risk of overloading remote WMS services.
+    nb_concurrent_calls_effective = min(nb_concurrent_calls, 8)
+    if nb_concurrent_calls_effective != nb_concurrent_calls:
+        logger.info(
+            "nb_concurrent_calls capped to 8 for service safety: "
+            f"{nb_concurrent_calls} -> {nb_concurrent_calls_effective}"
+        )
+
     # Check if the first class is named "background"
     if len(classes) == 0:
-        raise Exception("No classes specified")
+        raise ValueError("No classes specified")
     elif next(iter(classes)).lower() != "background":
         classes_str = pprint.pformat(classes, sort_dicts=False, width=50)
-        raise Exception(
+        raise ValueError(
             f"By convention, the first class must be called background!\n{classes_str}"
         )
 
@@ -295,6 +312,7 @@ def prepare_traindatasets(
     logger.info(f"Get images for {nb_todo} labels")
 
     for traindata_type in traindata_types:
+        previous_imagedata_image_dir = None
         if dataversion_mostrecent is not None:
             previous_dataversion_dir = training_dir / f"{dataversion_mostrecent:02d}"
             previous_imagedata_image_dir = (
@@ -312,99 +330,66 @@ def prepare_traindatasets(
             if output_dir and not output_dir.exists():
                 output_dir.mkdir(parents=True, exist_ok=True)
 
-        for labellocations_gdf, labels_to_burn_gdf in labeldata:
-            # Get the label locations for this traindata type
-            labellocations_curr_gdf = labellocations_gdf[
-                labellocations_gdf["traindata_type"] == traindata_type
-            ]
+        future_queue: dict[futures.Future, tuple[str, int]] = {}
+        with _processing_util.PooledExecutorFactory(
+            worker_type="processes",
+            max_workers=nb_concurrent_calls_effective,
+        ) as pool:
+            for labeldata_idx, (labellocations_gdf, labels_to_burn_gdf) in enumerate(
+                labeldata
+            ):
+                # Get the label locations for this traindata type
+                labellocations_curr_gdf = labellocations_gdf[
+                    labellocations_gdf["traindata_type"] == traindata_type
+                ]
 
-            # Loop trough all locations labels to get an image for each of them
-            for label_tuple in labellocations_curr_gdf.itertuples():
-                img_bbox = label_tuple.geometry
-                image_layer = label_tuple.image_layer
-
-                # Prepare file name for the image
-                assert labellocations_gdf.crs is not None
-                output_filename = image_util.create_filename(
-                    crs=labellocations_gdf.crs,
-                    bbox=img_bbox.bounds,
-                    size=(image_pixel_width, image_pixel_height),
-                    image_format=image_util.FORMAT_PNG,
-                    layername="_".join(
-                        image_layers[image_layer]["layersources"][0].layernames
-                    ),
-                )
-
-                # If the image exists already in the previous version, reuse it.
-                if (
-                    dataversion_mostrecent is not None
-                    and (previous_imagedata_image_dir / output_filename).exists()
-                ):
-                    image_filepath: Path | None = Path(
-                        shutil.copy(
-                            src=previous_imagedata_image_dir / output_filename,
-                            dst=output_imagedata_image_dir / output_filename,
-                        )
-                    )
-                    pgw_filename = output_filename.replace(".png", ".pgw")
-                    if (previous_imagedata_image_dir / pgw_filename).exists():
-                        shutil.copy(
-                            src=previous_imagedata_image_dir / pgw_filename,
-                            dst=output_imagedata_image_dir / pgw_filename,
-                        )
-                else:
-                    # Get the image from the WMS service.
-                    image_filepath = image_util.load_image_to_file(
-                        layersources=image_layers[image_layer]["layersources"],
-                        output_dir=output_imagedata_image_dir,
-                        crs=labellocations_gdf.crs,
-                        bbox=img_bbox.bounds,
-                        size=(image_pixel_width, image_pixel_height),
+                # Loop trough all locations labels to get an image for each of them
+                for label_tuple in labellocations_curr_gdf.itertuples():
+                    assert labellocations_gdf.crs is not None
+                    future = pool.submit(
+                        _prepare_image_and_mask,
+                        img_bbox=label_tuple.geometry,
+                        image_layer=label_tuple.image_layer,
+                        image_crs=labellocations_gdf.crs,
+                        labels_to_burn_gdf=labels_to_burn_gdf,
+                        image_layers=image_layers,
+                        output_imagedata_image_dir=output_imagedata_image_dir,
+                        output_imagedata_mask_dir=output_imagedata_mask_dir,
+                        previous_imagedata_image_dir=previous_imagedata_image_dir,
+                        image_pixel_width=image_pixel_width,
+                        image_pixel_height=image_pixel_height,
                         ssl_verify=ssl_verify,
-                        image_format=image_util.FORMAT_PNG,
-                        # image_format_save=image_util.FORMAT_TIFF,
-                        image_pixels_ignore_border=image_layers[image_layer][
-                            "image_pixels_ignore_border"
-                        ],
-                        transparent=False,
-                        layername_in_filename=True,
-                        output_filename=output_filename,
+                        force=force,
                     )
+                    future_queue[future] = (traindata_type, labeldata_idx)
 
-                if image_filepath is None:
-                    logger.warning(f"Could not get image at {img_bbox.wkt}")
-                    continue
-
-                # Create a mask corresponding with the image file
-                # Mask should never be in a lossy format -> png!
-                mask_filepath = Path(
-                    str(image_filepath)
-                    .replace(
-                        str(output_imagedata_image_dir),
-                        str(output_imagedata_mask_dir),
-                    )
-                    .replace(".jpg", ".png")
-                )
-
-                # Only keep the labels that are meant for this image layer
-                if "image_layer" not in labels_to_burn_gdf.columns:
-                    print("odd")
-                labels_for_layer_gdf = (
-                    labels_to_burn_gdf.loc[
-                        labels_to_burn_gdf["image_layer"] == image_layer
-                    ]
-                ).copy()
-                if len(labels_for_layer_gdf) == 0:
-                    logger.info(f"No polygons to burn for {image_layer=}!")
-                _create_mask(
-                    input_image_filepath=image_filepath,
-                    output_mask_filepath=mask_filepath,
-                    labels_to_burn_gdf=labels_for_layer_gdf,
-                    force=force,
-                )
-
-                # Log the progress estimated time remaining.
+            future_errors = []
+            for future in futures.as_completed(future_queue):
+                # ProgressLogger is not thread-safe, so only update it in the main
+                # thread when a future is completed.
                 progress.step()
+
+                try:
+                    future.result()
+                except Exception as ex:
+                    current_traindata_type, labeldata_idx = future_queue[future]
+                    future_errors.append(
+                        (
+                            current_traindata_type,
+                            labeldata_idx,
+                            ex,
+                        )
+                    )
+
+            if len(future_errors) > 0:
+                error_messages = [
+                    (f"[{traindata_type_error}] labeldata_idx={labeldata_idx}: {error}")
+                    for traindata_type_error, labeldata_idx, error in future_errors
+                ]
+                raise RuntimeError(
+                    "Errors while preparing training images/masks:\n"
+                    + "\n".join(error_messages)
+                )
 
     # If everything went fine, rename output_tmp_dir to the final output_dir
     output_tmp_dir.rename(training_dataversion_dir)
@@ -768,6 +753,95 @@ def create_tmp_dir(
         )
 
     return tmp_dir
+
+
+def _prepare_image_and_mask(
+    img_bbox: sh_geom.base.BaseGeometry,
+    image_layer: str,
+    image_crs: Any,
+    labels_to_burn_gdf: gpd.GeoDataFrame,
+    image_layers: dict,
+    output_imagedata_image_dir: Path,
+    output_imagedata_mask_dir: Path,
+    previous_imagedata_image_dir: Path | None,
+    image_pixel_width: int,
+    image_pixel_height: int,
+    ssl_verify: bool | str,
+    force: bool,
+) -> None:
+    """Prepare one training image and its mask."""
+    # Prepare file name for the image
+    output_filename = image_util.create_filename(
+        crs=image_crs,
+        bbox=img_bbox.bounds,
+        size=(image_pixel_width, image_pixel_height),
+        image_format=image_util.FORMAT_PNG,
+        layername="_".join(image_layers[image_layer]["layersources"][0].layernames),
+    )
+
+    # If the image exists already in the previous version, reuse it.
+    if (
+        previous_imagedata_image_dir is not None
+        and (previous_imagedata_image_dir / output_filename).exists()
+    ):
+        image_filepath: Path | None = Path(
+            shutil.copy(
+                src=previous_imagedata_image_dir / output_filename,
+                dst=output_imagedata_image_dir / output_filename,
+            )
+        )
+        pgw_filename = output_filename.replace(".png", ".pgw")
+        if (previous_imagedata_image_dir / pgw_filename).exists():
+            shutil.copy(
+                src=previous_imagedata_image_dir / pgw_filename,
+                dst=output_imagedata_image_dir / pgw_filename,
+            )
+    else:
+        # Get the image from the WMS service.
+        image_filepath = image_util.load_image_to_file(
+            layersources=image_layers[image_layer]["layersources"],
+            output_dir=output_imagedata_image_dir,
+            crs=image_crs,
+            bbox=img_bbox.bounds,
+            size=(image_pixel_width, image_pixel_height),
+            ssl_verify=ssl_verify,
+            image_format=image_util.FORMAT_PNG,
+            # image_format_save=image_util.FORMAT_TIFF,
+            image_pixels_ignore_border=image_layers[image_layer][
+                "image_pixels_ignore_border"
+            ],
+            transparent=False,
+            layername_in_filename=True,
+            output_filename=output_filename,
+        )
+
+    if image_filepath is None:
+        logger.warning(f"Could not get image at {img_bbox.wkt}")
+        return
+
+    # Create a mask corresponding with the image file
+    # Mask should never be in a lossy format -> png!
+    mask_filepath = Path(
+        str(image_filepath)
+        .replace(
+            str(output_imagedata_image_dir),
+            str(output_imagedata_mask_dir),
+        )
+        .replace(".jpg", ".png")
+    )
+
+    # Only keep the labels that are meant for this image layer
+    labels_for_layer_gdf = (
+        labels_to_burn_gdf.loc[labels_to_burn_gdf["image_layer"] == image_layer]
+    ).copy()
+    if len(labels_for_layer_gdf) == 0:
+        logger.info(f"No polygons to burn for {image_layer=}!")
+    _create_mask(
+        input_image_filepath=image_filepath,
+        output_mask_filepath=mask_filepath,
+        labels_to_burn_gdf=labels_for_layer_gdf,
+        force=force,
+    )
 
 
 def _create_mask(

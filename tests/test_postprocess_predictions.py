@@ -8,24 +8,25 @@ from pathlib import Path
 
 import geofileops as gfo
 import geopandas as gpd
+import numpy as np
 import pandas as pd
 import pytest
+import rasterio as rio
+import rasterio.transform as rio_transform
 import shapely
 
 from orthoseg.lib import postprocess_predictions as postp
 from tests import test_helper
+from tests.test_helper import TestData
 
 # Make hdf5 version warning non-blocking
 os.environ["HDF5_DISABLE_VERSION_CHECK"] = "1"
-
-from orthoseg.lib import postprocess_predictions as post_pred
-from tests.test_helper import TestData
 
 
 def test_read_prediction_file():
     # Read + polygonize raster prediction file
     pred_raster_path = TestData.dir / "129568_185248_130592_186272_4096_4096_1_pred.tif"
-    pred_raster_gdf = post_pred.read_prediction_file(pred_raster_path)
+    pred_raster_gdf = postp.read_prediction_file(pred_raster_path)
     # gfo.to_file(pred_raster_gdf, get_testdata_dir() / f"{pred_raster_path.stem}.gpkg")
 
     # Read the comparison file, that contains the result of the polygonize
@@ -50,7 +51,7 @@ def test_clean_vectordata(tmpdir):
     input_path = temp_dir / "vector_input.gpkg"
     gfo.to_file(input_gdf, input_path)
     output_path = temp_dir / input_path.name
-    post_pred.postprocess_predictions(
+    postp.postprocess_predictions(
         input_path=input_path,
         output_path=output_path,
         dissolve=True,
@@ -123,6 +124,63 @@ def create_prediction_file(output_vector_dir: Path) -> Path:
     return output_vector_path
 
 
+def write_test_raster(
+    output_path: Path,
+    image_arr: np.ndarray,
+    image_transform,
+    image_crs: str = "EPSG:31370",
+):
+    with rio.open(
+        output_path,
+        "w",
+        driver="GTiff",
+        compress="lzw",
+        height=image_arr.shape[0],
+        width=image_arr.shape[1],
+        count=1,
+        dtype=rio.uint8,
+        crs=image_crs,
+        transform=image_transform,
+    ) as ds:
+        ds.write(image_arr, 1)
+
+
+def _create_prediction_test_data(tmp_path: Path, image_transform):
+    image_pred_arr = np.zeros((4, 4, 2), dtype=np.float32)
+    image_pred_arr[1:3, 1:3, 1] = 1.0
+
+    input_image_dir = tmp_path / "images"
+    input_mask_dir = tmp_path / "masks"
+    input_image_dir.mkdir(parents=True, exist_ok=True)
+    input_mask_dir.mkdir(parents=True, exist_ok=True)
+
+    input_image_filepath = input_image_dir / "input_tile.tif"
+    input_mask_filepath = input_mask_dir / "input_tile.tif"
+
+    image_arr = np.zeros((4, 4), dtype=np.uint8)
+    write_test_raster(
+        output_path=input_image_filepath,
+        image_arr=image_arr,
+        image_transform=image_transform,
+    )
+
+    mask_arr = np.zeros((4, 4), dtype=np.uint8)
+    mask_arr[1:3, 1:3] = 1
+    write_test_raster(
+        output_path=input_mask_filepath,
+        image_arr=mask_arr,
+        image_transform=image_transform,
+    )
+
+    return (
+        image_pred_arr,
+        input_image_dir,
+        input_mask_dir,
+        input_image_filepath,
+        mask_arr,
+    )
+
+
 @pytest.mark.parametrize("keep_original_file", [False, True])
 @pytest.mark.parametrize("keep_intermediary_files", [False, True])
 def test_postprocess_predictions(
@@ -176,3 +234,78 @@ def test_postprocess_predictions(
         assert output_orig_path.exists()
         assert output_dissolve_path.exists()
         assert output_reclass_path.exists()
+
+
+@pytest.mark.parametrize(
+    "max_similarity_to_save, expect_saved",
+    [(0.999, False), (1.0, True)],
+)
+def test_postprocess_for_evaluation(
+    tmp_path: Path, max_similarity_to_save: float, expect_saved: bool
+):
+    # Prepare test data
+    image_transform = rio_transform.from_origin(175000, 176000, 0.25, 0.25)
+    _, input_image_dir, input_mask_dir, input_image_filepath, mask_arr = (
+        _create_prediction_test_data(tmp_path=tmp_path, image_transform=image_transform)
+    )
+
+    image_pred_uint8_cleaned_bin = mask_arr * 255
+    image_pred_filepath = tmp_path / "input_tile_footballfields_pred.tif"
+    write_test_raster(
+        output_path=image_pred_filepath,
+        image_arr=image_pred_uint8_cleaned_bin,
+        image_transform=image_transform,
+    )
+
+    # Go!
+    postp.postprocess_for_evaluation(
+        image_filepath=input_image_filepath,
+        image_crs="EPSG:31370",
+        image_transform=image_transform,
+        image_pred_filepath=image_pred_filepath,
+        image_pred_uint8_cleaned_bin=image_pred_uint8_cleaned_bin,
+        class_id=1,
+        class_name="footballfields",
+        nb_classes=2,
+        output_dir=tmp_path,
+        output_suffix="_footballfields",
+        input_image_dir=input_image_dir,
+        input_mask_dir=input_mask_dir,
+        max_similarity_to_save=max_similarity_to_save,
+        border_pixels_to_ignore=0,
+    )
+
+    # Check results
+    eval_pred_paths = sorted(tmp_path.glob("*_input_tile_footballfields_pred.tif"))
+    eval_input_paths = sorted(tmp_path.glob("*_input_tile_footballfields.tif"))
+    eval_mask_paths = sorted(tmp_path.glob("*_input_tile_footballfields_mask.tif"))
+
+    if expect_saved:
+        assert len(eval_pred_paths) == 1
+        assert len(eval_input_paths) == 1
+        assert len(eval_mask_paths) == 1
+
+        with rio.open(eval_input_paths[0]) as src_copy_ds:
+            assert src_copy_ds.crs.to_string() == "EPSG:31370"
+            assert src_copy_ds.transform == image_transform
+
+        with rio.open(eval_pred_paths[0]) as pred_ds:
+            pred_arr = pred_ds.read(1)
+            assert pred_ds.crs.to_string() == "EPSG:31370"
+            assert pred_ds.transform == image_transform
+
+        with rio.open(eval_mask_paths[0]) as mask_eval_ds:
+            mask_eval_arr = mask_eval_ds.read(1)
+            assert mask_eval_ds.crs.to_string() == "EPSG:31370"
+            assert mask_eval_ds.transform == image_transform
+
+        assert pred_arr.shape == (4, 4)
+        assert pred_arr[1, 1] == 255
+        assert pred_arr[2, 2] == 255
+        assert pred_arr[0, 0] == 0
+        assert np.array_equal(mask_eval_arr, mask_arr * 255)
+    else:
+        assert len(eval_pred_paths) == 0
+        assert len(eval_input_paths) == 0
+        assert len(eval_mask_paths) == 0
+        assert not image_pred_filepath.exists()

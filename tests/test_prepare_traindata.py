@@ -405,3 +405,90 @@ def test_prepare_traindatasets_reuse_prev_images(
                 # File is only supposed to be in previous locations, not in new
                 assert not new_path.exists()
                 assert prev_path.exists()
+
+
+def test_prepare_traindatasets_parallel_local_fetch(tmp_path, monkeypatch):
+    """Run prepare_traindatasets with concurrent workers without WMS dependency."""
+
+    def _fake_load_image_to_file(*args, **kwargs):  # noqa: ARG001
+        output_dir = kwargs["output_dir"]
+        output_filename = kwargs["output_filename"]
+        output_dir.mkdir(parents=True, exist_ok=True)
+        image_path = output_dir / output_filename
+        img = Image.new(
+            mode="RGB",
+            size=(TestData.image_pixel_width, TestData.image_pixel_height),
+        )
+        img.save(image_path, "png")
+        return image_path
+
+    monkeypatch.setattr(
+        prep_traindata.image_util, "load_image_to_file", _fake_load_image_to_file
+    )
+
+    classes = TestData.classes
+    image_layers_config_path = test_helper.sampleprojects_dir / "imagelayers.ini"
+    image_layers = config_helper._read_layer_config(image_layers_config_path)
+    training_dir = tmp_path / "training"
+
+    # Create two distinct train locations and duplicate them for all data types.
+    location_rows = []
+    crs_width = TestData.image_pixel_width * TestData.image_pixel_x_size
+    crs_height = TestData.image_pixel_height * TestData.image_pixel_y_size
+    for xmin, ymin in [(150100, 150100), (150400, 150400)]:
+        geometry = sh_geom.box(xmin, ymin, xmin + crs_width, ymin + crs_height)
+        for traindata_type in ["train", "validation", "test"]:
+            location_rows.append(
+                {
+                    "geometry": geometry,
+                    "traindata_type": traindata_type,
+                    "path": "/tmp/locations.gdf",
+                }
+            )
+    locations_gdf = gpd.GeoDataFrame(location_rows, crs=31370)
+    label_infos = _prepare_labelinfos(tmp_path=tmp_path, locations=locations_gdf)
+
+    output_dir, _ = prep_traindata.prepare_traindatasets(
+        label_infos=label_infos,
+        classes=classes,
+        image_layers=image_layers,
+        training_dir=training_dir,
+        nb_concurrent_calls=2,
+    )
+
+    for traindata_type in ["train", "validation", "test"]:
+        image_paths = list((output_dir / traindata_type / "image").glob("*.png"))
+        mask_paths = list((output_dir / traindata_type / "mask").glob("*.png"))
+        assert len(image_paths) == 2
+        assert len(mask_paths) == 2
+
+
+def test_prepare_traindatasets_invalid_nb_concurrent_calls(tmp_path):
+    with pytest.raises(ValueError, match="nb_concurrent_calls should be >= 1"):
+        prep_traindata.prepare_traindatasets(
+            label_infos=[],
+            classes=TestData.classes,
+            image_layers={},
+            training_dir=tmp_path / "training",
+            nb_concurrent_calls=0,
+        )
+
+
+@pytest.mark.parametrize(
+    "classes, expected_error",
+    [
+        ({}, "No classes specified"),
+        (
+            {"subject": {"labelnames": ["testlabel1"], "weight": 1, "burn_value": 1}},
+            "By convention, the first class must be called background!",
+        ),
+    ],
+)
+def test_prepare_traindatasets_invalid_classes(tmp_path, classes, expected_error):
+    with pytest.raises(ValueError, match=expected_error):
+        prep_traindata.prepare_traindatasets(
+            label_infos=[],
+            classes=classes,
+            image_layers={},
+            training_dir=tmp_path / "training",
+        )
