@@ -98,6 +98,6 @@ jobs:
           pytest -v --color=yes --cov=orthoseg --cov-append --cov-report term-missing --cov-report xml tests/
 
       - name: Upload coverage reports to Codecov with GitHub Action
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
