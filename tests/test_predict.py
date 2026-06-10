@@ -8,7 +8,6 @@ from pathlib import Path
 import geopandas as gpd
 import pytest
 
-import orthoseg
 from orthoseg import predict
 from orthoseg.helpers import config_helper as conf
 from orthoseg.predict import _predict_args
@@ -69,6 +68,9 @@ def test_predict_use_cache_skip(tmp_path, use_cache, skip_images, exp_area):
     if not use_cache and os.name == "nt":
         pytest.skip("Test to predict without cache crashes on windows")
 
+    if skip_images and not use_cache:
+        raise ValueError("skip_images=True is only possible in test if use_cache=True")
+
     # Init
     testprojects_dir = tmp_path / "sample_projects"
     # Use sportsfields sample project
@@ -83,7 +85,7 @@ def test_predict_use_cache_skip(tmp_path, use_cache, skip_images, exp_area):
 
     # If use cache or skip_images is True, keep the cache. Cache is always needed when
     # skip_images is True to be able to determine which images to skip.
-    if use_cache or skip_images:
+    if use_cache:
         assert image_cache_dir.exists()
     else:
         shutil.rmtree(image_cache_dir)
