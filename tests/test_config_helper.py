@@ -110,8 +110,8 @@ def test_read_orthoseg_config_image_layers_filelayer_dir_no_file_patterns(tmp_pa
 @pytest.mark.parametrize(
     "overrules, expected_image_layer",
     [
-        (None, "BEFL-2025-sample"),
-        ([], "BEFL-2025-sample"),
+        (None, "BEFL-2025"),
+        ([], "BEFL-2025"),
         (["predict.image_layer=BEFL-2020"], "BEFL-2020"),
     ],
 )

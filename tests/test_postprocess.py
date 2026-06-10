@@ -30,7 +30,7 @@ def test_postprocess_error_handling():
     """Force an error so the general error handler in postprocess is tested."""
     with pytest.raises(
         RuntimeError,
-        match="ERROR in postprocess for footballfields_BEFL-2019 on UNEXISTING",
+        match="ERROR in postprocess for sportsfields_BEFL-2025 on UNEXISTING",
     ):
         postprocess(
             config_path=test_helper.SportsFields.predict_config_path,
