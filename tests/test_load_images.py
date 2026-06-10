@@ -34,7 +34,7 @@ def test_load_images_error_handling():
     """Force an error so the general error handler in predict is tested."""
     with pytest.raises(
         RuntimeError,
-        match="ERROR in load_images for footballfields_BEFL-2019",
+        match="ERROR in load_images for sportsfields_BEFL-2025",
     ):
         load_images(
             config_path=test_helper.SportsFields.predict_config_path,
