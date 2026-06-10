@@ -55,7 +55,7 @@ if __name__ == "__main__":
     weights_type = "topo1873"
 
     # inceptionresnetv2+unet models
-    # rpath = "sportsfields-sample/models/sportsfields-sample_03.4.0_0.88187_169.keras"
+    # rpath = "sportsfields/models/sportsfields_03.4.0_0.88187_169.keras"
     # rpath = "recreationfields/models/recreationfields_34.2.0_0.92718_143.hdf5"
     # rpath = "hedges/models/hedges_13.1.0_0.71852_110.hdf5"
     # rpath = "greenhouses2/models/greenhouses2_26.2.0_0.95529_180.hdf5"

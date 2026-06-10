@@ -96,9 +96,7 @@ def test_3_train():
 
     # Make sure the label files in version 01 are older than those in the label dir
     # so a new model will be trained
-    label_01_path = (
-        training_dir / "01/sportsfields-sample_BEFL-2025-sample_polygons.gpkg"
-    )
+    label_01_path = training_dir / "01/sportsfields_BEFL-2025_polygons.gpkg"
     timestamp_old = datetime(year=2020, month=1, day=1).timestamp()
     os.utime(label_01_path, (timestamp_old, timestamp_old))
 

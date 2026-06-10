@@ -14,9 +14,9 @@ sampleprojects_dir = Path(__file__).resolve().parent.parent / "sample_projects"
 
 
 class SportsFields:
-    project_dir = sampleprojects_dir / "sportsfields-sample"
-    predict_config_path = project_dir / "sportsfields-sample_BEFL-2025-sample.ini"
-    config_path = project_dir / "sportsfields-sample.ini"
+    project_dir = sampleprojects_dir / "sportsfields"
+    predict_config_path = project_dir / "sportsfields_BEFL-2025.ini"
+    config_path = project_dir / "sportsfields.ini"
 
     @staticmethod
     def download_model(dst_dir):

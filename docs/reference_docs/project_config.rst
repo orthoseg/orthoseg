@@ -65,7 +65,7 @@ General settings.
       # Load two extra config files to overrule defaults before this one.
       extra_config_files_to_load =
           ../project_defaults_overrule.ini,
-          ./sportsfields-sample.ini
+          ./sportsfields.ini
 
 
 .. confval:: general.segment_subject
