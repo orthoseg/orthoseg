@@ -56,7 +56,7 @@ def test_2_load_images():
 
 
 @pytest.mark.skipif(
-    "GITHUB_ACTIONS" in os.environ and os.name == "nt",
+    "GITHUB_ACTIONS2" in os.environ and os.name == "nt",
     reason="crashes on github CI on windows",
 )
 @pytest.mark.order(after="test_1_init_testproject")
@@ -138,7 +138,7 @@ def test_3_train():
 
 
 @pytest.mark.skipif(
-    "GITHUB_ACTIONS" in os.environ and os.name == "nt",
+    "GITHUB_ACTIONS2" in os.environ and os.name == "nt",
     reason="crashes on github CI on windows",
 )
 @pytest.mark.order(after="test_2_load_images")
@@ -182,7 +182,7 @@ def test_4_predict():
 
 
 @pytest.mark.skipif(
-    "GITHUB_ACTIONS" in os.environ and os.name == "nt",
+    "GITHUB_ACTIONS2" in os.environ and os.name == "nt",
     reason="crashes on github CI on windows",
 )
 @pytest.mark.order(after="test_4_predict")
