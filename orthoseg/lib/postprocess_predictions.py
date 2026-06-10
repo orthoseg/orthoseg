@@ -184,6 +184,8 @@ def postprocess_predictions(
     # (input_path) is renamed to ..._orig.gpkg
     if dissolve or reclassify_to_neighbour_query or simplify_algorithm:
         original_file = input_path.parent / f"{input_path.stem}_orig.gpkg"
+        if original_file.exists():
+            gfo.remove(original_file)
         input_path.rename(original_file)
         shutil.copy(src=curr_output_path, dst=input_path)
 

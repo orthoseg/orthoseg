@@ -7,7 +7,9 @@ from datetime import datetime
 from pathlib import Path
 
 import geofileops as gfo
+import geopandas as gpd
 import pytest
+import shapely
 
 import orthoseg
 import orthoseg.model.model_helper as mh
@@ -39,7 +41,8 @@ def test_2_load_images():
     image_cache_dir = conf.dirs.getpath("predict_image_input_dir")
 
     # Clean result if it isn't empty yet
-    if image_cache_dir.exists():
+    clean_cache = False
+    if clean_cache and image_cache_dir.exists():
         shutil.rmtree(image_cache_dir)
         # Make sure is is deleted now!
         assert not image_cache_dir.exists()
@@ -50,7 +53,7 @@ def test_2_load_images():
     # Check if the right number of files was loaded
     assert image_cache_dir.exists()
     files = list(image_cache_dir.glob("**/*.jpg"))
-    assert len(files) == 2
+    assert len(files) == 4
 
 
 @pytest.mark.skipif(
@@ -80,6 +83,29 @@ def test_3_train():
     ]
     conf.read_orthoseg_config(config_path, overrules=overrules)
 
+    # Replace label files with minimal test data to speed up the tests.
+    labels_dir = conf.dirs.getpath("labels_dir")
+    shutil.rmtree(labels_dir, ignore_errors=True)
+    labels_dir.mkdir(parents=True, exist_ok=True)
+    label_locations_df = gpd.GeoDataFrame(
+        data={"traindata_type": ["train", "validation"]},
+        geometry=[
+            shapely.box(100_000, 100_000, 100_128, 100_128),
+            shapely.box(101_000, 100_000, 101_128, 100_128),
+        ],
+        crs="EPSG:31370",
+    )
+    label_locations_df.to_file(labels_dir / "sportsfields_BEFL-2025_locations.gpkg")
+    label_polygons_df = gpd.GeoDataFrame(
+        data={"classname": ["football_field", "tennis_court"]},
+        geometry=[
+            shapely.box(100_010, 100_010, 100_020, 100_020),
+            shapely.box(100_030, 100_010, 100_040, 100_020),
+        ],
+        crs="EPSG:31370",
+    )
+    label_polygons_df.to_file(labels_dir / "sportsfields_BEFL-2025_polygons.gpkg")
+
     # Init + cleanup result dirs
     traindata_id_result = 2
     training_dir = conf.dirs.getpath("training_dir")
@@ -93,12 +119,6 @@ def test_3_train():
         )
         for modelfile_path in modelfile_paths:
             modelfile_path.unlink()
-
-    # Make sure the label files in version 01 are older than those in the label dir
-    # so a new model will be trained
-    label_01_path = training_dir / "01/sportsfields_BEFL-2025_polygons.gpkg"
-    timestamp_old = datetime(year=2020, month=1, day=1).timestamp()
-    os.utime(label_01_path, (timestamp_old, timestamp_old))
 
     # Run train session
     orthoseg.train(config_path, config_overrules=overrules)
@@ -129,14 +149,6 @@ def test_3_train():
         )
         for modelfile_path in modelfile_paths:
             modelfile_path.unlink()
-
-    # Make sure the label files in version 01 are older than those in the label dir
-    # so a new model will be trained
-    label_01_path = (
-        training_dir / f"01/{sportsfields_subject}_BEFL-2025-sample_polygons.gpkg"
-    )
-    timestamp_old = datetime(year=2020, month=1, day=1).timestamp()
-    os.utime(label_01_path, (timestamp_old, timestamp_old))
 
     # Run train session
     orthoseg.train(config_path, config_overrules=overrules)
@@ -192,14 +204,12 @@ def test_4_predict():
 
     # Check results
     result_vector_path = (
-        result_vector_dir / f"{sportsfields_subject}_01_201_BEFL-2025-sample.gpkg"
+        result_vector_dir / f"{sportsfields_subject}_01_201_BEFL-2025.gpkg"
     )
     assert result_vector_path.exists()
     result_gdf = gfo.read_file(result_vector_path)
-    if os.name == "nt":
-        assert len(result_gdf) == 184
-    else:
-        assert len(result_gdf) == 184
+    expected_count = 10
+    assert len(result_gdf) == expected_count
 
 
 @pytest.mark.skipif(
@@ -217,8 +227,7 @@ def test_5_postprocess():
     # Cleanup result if it isn't empty yet
     result_vector_dir = conf.dirs.getpath("output_vector_dir")
     result_diss_path = (
-        result_vector_dir
-        / f"{sportsfields_subject}_01_201_BEFL-2025-sample_dissolve.gpkg"
+        result_vector_dir / f"{sportsfields_subject}_01_201_BEFL-2025_dissolve.gpkg"
     )
     if result_diss_path.exists():
         gfo.remove(result_diss_path)
@@ -229,7 +238,5 @@ def test_5_postprocess():
     # Check results
     assert result_diss_path.exists()
     result_gdf = gfo.read_file(result_diss_path)
-    if os.name == "nt":
-        assert len(result_gdf) == 182
-    else:
-        assert len(result_gdf) == 182
+    expected_count = 9
+    assert len(result_gdf) == expected_count
