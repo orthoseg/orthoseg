@@ -9,6 +9,7 @@ import orthoseg
 from orthoseg import load_images
 from orthoseg.load_images import _load_images_args
 from tests import test_helper
+from tests.test_helper import SportsFields
 
 
 @pytest.mark.parametrize(
@@ -33,11 +34,10 @@ def test_load_images_args(args):
 def test_load_images_error_handling():
     """Force an error so the general error handler in predict is tested."""
     with pytest.raises(
-        RuntimeError,
-        match="ERROR in load_images for sportsfields_BEFL-2025",
+        RuntimeError, match="ERROR in load_images for sportsfields_BEFL-2025"
     ):
         load_images(
-            config_path=test_helper.SportsFields.predict_config_path,
+            config_path=SportsFields.predict_config_path,
             config_overrules=["predict.image_pixel_width=INVALID_TYPE"],
         )
 
@@ -55,16 +55,26 @@ def test_load_images_error_handling():
     ],
 )
 def test_load_images(tmp_path, overrules, exp_image_count):
-    # Use footballfields sample project for these end to end tests
+    # Use sportsfields sample project for these end to end tests
     testprojects_dir = tmp_path / "sample_projects"
-    footballfields_dir = testprojects_dir / "footballfields"
-    image_cache_dir = testprojects_dir / "_image_cache"
     shutil.copytree(test_helper.sampleprojects_dir, testprojects_dir)
+    project_dir = testprojects_dir / SportsFields.subject
+    _, image_layer = overrules[0].split("=")
+    image_cache_dir = testprojects_dir / "_image_cache" / image_layer
+
+    # Add extra overrules to make images smaller and improve test speed.
+    all_overrules = [
+        *overrules,
+        "predict.image_pixel_width=128",
+        "predict.image_pixel_height=128",
+        "predict.image_pixel_x_size=2",
+        "predict.image_pixel_y_size=2",
+        "predict.image_pixels_overlap=16",
+    ]
 
     # Run task to load images
     orthoseg.load_images(
-        footballfields_dir / "footballfields_BEFL-2019.ini",
-        config_overrules=overrules,
+        project_dir / "sportsfields_BEFL-2025.ini", config_overrules=all_overrules
     )
 
     # Check if the right number of files was loaded

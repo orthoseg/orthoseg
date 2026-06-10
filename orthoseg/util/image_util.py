@@ -381,7 +381,9 @@ def load_images_to_cache(
         switch_axes = has_switched_axes(crs)
 
     worker_type = "processes"
-    if "PYTEST_CURRENT_TEST" in os.environ and os.name == "nt":
+    if nb_concurrent_calls == 1 or (
+        "PYTEST_CURRENT_TEST" in os.environ and os.name == "nt"
+    ):
         # On windows, this pool doesn't exit properly when running in pytest if it is a
         # process pool, so use a thread pool in that case.
         worker_type = "threads"

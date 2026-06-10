@@ -332,7 +332,7 @@ def prepare_traindatasets(
 
         future_queue: dict[futures.Future, tuple[str, int]] = {}
         with _processing_util.PooledExecutorFactory(
-            worker_type="threads",
+            worker_type="processes",
             max_workers=nb_concurrent_calls_effective,
         ) as pool:
             for labeldata_idx, (labellocations_gdf, labels_to_burn_gdf) in enumerate(

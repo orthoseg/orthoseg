@@ -109,12 +109,12 @@ def test_load_image_invalid_layersource():
             layersources="this is not a valid layer source",
             crs="epsg:4326",
             bbox=(0, 0, 10, 10),
-            size=(512, 512),
+            size=(128, 128),
         )
 
 
 @pytest.mark.parametrize("image_format", [image_util.FORMAT_GEOTIFF])
-@pytest.mark.parametrize("width_pix, height_pix", [(256, 128), (128, 256), (256, 256)])
+@pytest.mark.parametrize("width_pix, height_pix", [(128, 64), (64, 128), (128, 128)])
 @pytest.mark.parametrize("image_pixels_ignore_border", [0, 32])
 def test_load_image_to_file_filelayer(
     tmp_path, width_pix, height_pix, image_format, image_pixels_ignore_border
@@ -164,7 +164,7 @@ def test_load_image_to_file_filelayer(
 
     assert image_path is not None
     assert image_path.exists()
-    assert image_path.stat().st_size > 50000, "Image should be larger than 50kB"
+    assert image_path.stat().st_size > 10000, "Image should be larger than 10kB"
     with rio.open(image_path) as image_file:
         assert image_file.width == width_pix
         assert image_file.height == height_pix
@@ -172,7 +172,7 @@ def test_load_image_to_file_filelayer(
 
 
 @pytest.mark.parametrize("image_format", [image_util.FORMAT_PNG])
-@pytest.mark.parametrize("width_pix, height_pix", [(256, 128), (128, 256), (256, 256)])
+@pytest.mark.parametrize("width_pix, height_pix", [(128, 64), (64, 128), (128, 128)])
 @pytest.mark.parametrize("image_pixels_ignore_border", [0, 32])
 def test_load_image_to_file_filelayer_xyz_reproject(
     tmp_path, width_pix, height_pix, image_format, image_pixels_ignore_border
@@ -206,7 +206,7 @@ def test_load_image_to_file_filelayer_xyz_reproject(
 
     assert image_path is not None
     assert image_path.exists()
-    assert image_path.stat().st_size > 5000, "Image should be larger than 5kB"
+    assert image_path.stat().st_size > 200, "Image should be larger than 200B"
     with rio.open(image_path) as image_file:
         # assert tuple(image_file.bounds) == bbox
         assert image_file.width == width_pix
@@ -214,7 +214,7 @@ def test_load_image_to_file_filelayer_xyz_reproject(
 
 
 @pytest.mark.parametrize("image_format", [image_util.FORMAT_JPEG])
-@pytest.mark.parametrize("width_pix, height_pix", [(256, 128), (128, 256), (256, 256)])
+@pytest.mark.parametrize("width_pix, height_pix", [(128, 64), (64, 128), (128, 128)])
 @pytest.mark.parametrize("image_pixels_ignore_border", [0, 32])
 def test_load_image_to_file_wmslayer_rgb(
     tmp_path, width_pix, height_pix, image_format, image_pixels_ignore_border
@@ -250,7 +250,7 @@ def test_load_image_to_file_wmslayer_rgb(
 
     assert image_path is not None
     assert image_path.exists()
-    assert image_path.stat().st_size > 5000, "Image should be larger than 5kB"
+    assert image_path.stat().st_size > 1000, "Image should be larger than 1kB"
     with rio.open(image_path) as image_file:
         # assert tuple(image_file.bounds) == bbox
         assert image_file.width == width_pix
@@ -258,7 +258,7 @@ def test_load_image_to_file_wmslayer_rgb(
 
 
 @pytest.mark.parametrize("image_format", [image_util.FORMAT_JPEG])
-@pytest.mark.parametrize("width_pix, height_pix", [(256, 128), (128, 256), (256, 256)])
+@pytest.mark.parametrize("width_pix, height_pix", [(128, 64), (64, 128), (128, 128)])
 @pytest.mark.parametrize("image_pixels_ignore_border", [0, 32])
 def test_load_image_to_file_wmslayer_grayscale(
     tmp_path, width_pix, height_pix, image_format, image_pixels_ignore_border
@@ -296,7 +296,7 @@ def test_load_image_to_file_wmslayer_grayscale(
 
     assert image_path is not None
     assert image_path.exists()
-    assert image_path.stat().st_size > 4500, "Image should be larger than 4.5kB"
+    assert image_path.stat().st_size > 1000, "Image should be larger than 1kB"
     with rio.open(image_path) as image_file:
         # assert tuple(image_file.bounds) == bbox
         assert image_file.width == width_pix
@@ -304,7 +304,7 @@ def test_load_image_to_file_wmslayer_grayscale(
 
 
 @pytest.mark.parametrize("image_format", [image_util.FORMAT_PNG])
-@pytest.mark.parametrize("width_pix, height_pix", [(256, 128), (128, 256), (256, 256)])
+@pytest.mark.parametrize("width_pix, height_pix", [(128, 64), (64, 128), (128, 128)])
 @pytest.mark.parametrize("image_pixels_ignore_border", [0, 32])
 def test_load_image_to_file_wmslayer_combined(
     tmp_path, width_pix, height_pix, image_format, image_pixels_ignore_border
@@ -368,8 +368,9 @@ def test_load_images_to_cache(tmp_path):
     _test_load_images_to_cache(tmp_path)
 
 
-def _test_load_images_to_cache(tmp_path):
+def _test_load_images_to_cache(path):
     # Init some stuff
+    tmp_path = path
     filelayer_path = (
         test_helper.sampleprojects_dir
         / "fields/input_raster"
@@ -379,13 +380,13 @@ def _test_load_images_to_cache(tmp_path):
 
     crs = "epsg:32631"
     switch_axes = False
-    pixsize_x = 5
+    pixsize_x = 10
     pixsize_y = pixsize_x
-    width_pix = 512
-    height_pix = 256
+    width_pix = 256
+    height_pix = 128
     width_crs = width_pix * pixsize_x
     height_crs = height_pix * pixsize_y
-    pixels_overlap = 64
+    pixels_overlap = 32
     xmin = 484500
     ymin = 5642970
     image_gen_bbox = (xmin, ymin, xmin + width_crs * 2, ymin + height_crs * 2)
