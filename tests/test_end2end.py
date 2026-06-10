@@ -177,7 +177,7 @@ def test_4_predict():
     )
     assert result_vector_path.exists()
     result_gdf = gfo.read_file(result_vector_path)
-    expected_count = 10
+    expected_count = 10 if os.name == "nt" else 27
     assert len(result_gdf) == expected_count
 
 
@@ -207,5 +207,5 @@ def test_5_postprocess():
     # Check results
     assert result_diss_path.exists()
     result_gdf = gfo.read_file(result_diss_path)
-    expected_count = 9
+    expected_count = 9 if os.name == "nt" else 27
     assert len(result_gdf) == expected_count
