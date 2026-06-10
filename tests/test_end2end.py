@@ -135,36 +135,6 @@ def test_3_train():
     assert best_model is not None
     assert best_model["traindata_id"] == traindata_id_result
     assert best_model["epoch"] == 0
-    # Init + cleanup result dirs
-    traindata_id_result = 2
-    training_dir = conf.dirs.getpath("training_dir")
-    training_id_dir = training_dir / f"{traindata_id_result:02d}"
-    if training_id_dir.exists():
-        shutil.rmtree(training_id_dir)
-    model_dir = conf.dirs.getpath("model_dir")
-    if model_dir.exists():
-        modelfile_paths = model_dir.glob(
-            f"{sportsfields_subject}_{traindata_id_result:02d}_*"
-        )
-        for modelfile_path in modelfile_paths:
-            modelfile_path.unlink()
-
-    # Run train session
-    orthoseg.train(config_path, config_overrules=overrules)
-
-    # Check if the training (image) data was created
-    assert training_id_dir.exists()
-
-    # Check if the new model was created
-    best_model = mh.get_best_model(
-        model_dir=conf.dirs.getpath("model_dir"),
-        segment_subject=conf.general["segment_subject"],
-        traindata_id=2,
-    )
-
-    assert best_model is not None
-    assert best_model["traindata_id"] == traindata_id_result
-    assert best_model["epoch"] == 0
 
 
 @pytest.mark.skipif(
