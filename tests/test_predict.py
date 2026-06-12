@@ -58,11 +58,7 @@ def test_predict_error_handling():
 
 @pytest.mark.parametrize(
     "use_cache, skip_images, exp_area",
-    [
-        (True, False, 95),
-        (True, True, 22),
-        (False, False, 95),
-    ],
+    [(True, False, 95), (True, True, 22), (False, False, 95)],
 )
 def test_predict_use_cache_skip(tmp_path, use_cache, skip_images, exp_area):
     if not use_cache and os.name == "nt":
@@ -125,4 +121,6 @@ def test_predict_use_cache_skip(tmp_path, use_cache, skip_images, exp_area):
     # The area of the output should be within a 10% margin of the expected area.
     assert result_vector_path.exists()
     result_gdf = gpd.read_file(result_vector_path)
+    assert result_gdf is not None
+    assert result_gdf.crs.to_epsg() == 31370
     assert exp_area * 0.9 < sum(result_gdf.geometry.area) < exp_area * 1.1
