@@ -16,9 +16,8 @@ from orthoseg.helpers import config_helper as conf
 from tests import test_helper
 from tests.test_helper import ProjectTemplate, SportsFields
 
-sportsfields_subject = SportsFields.project_dir.name
 testprojects_dir = Path(tempfile.gettempdir()) / "orthoseg_test_end2end/sample_projects"
-sportsfields_dir = testprojects_dir / sportsfields_subject
+sportsfields_dir = testprojects_dir / SportsFields.subject
 projecttemplate_dir = testprojects_dir / ProjectTemplate.project_dir.name
 
 
@@ -114,7 +113,7 @@ def test_3_train():
     model_dir = conf.dirs.getpath("model_dir")
     if model_dir.exists():
         modelfile_paths = model_dir.glob(
-            f"{sportsfields_subject}_{traindata_id_result:02d}_*"
+            f"{SportsFields.subject}_{traindata_id_result:02d}_*"
         )
         for modelfile_path in modelfile_paths:
             modelfile_path.unlink()
@@ -151,7 +150,7 @@ def test_4_predict():
 
     # Cleanup result if it isn't empty yet
     predict_image_output_dir = Path(
-        f"{conf.dirs['predict_image_output_basedir']}_{sportsfields_subject}_02_0"
+        f"{conf.dirs['predict_image_output_basedir']}_{SportsFields.subject}_02_0"
     )
     if predict_image_output_dir.exists():
         shutil.rmtree(predict_image_output_dir)
@@ -173,7 +172,7 @@ def test_4_predict():
 
     # Check results
     result_vector_path = (
-        result_vector_dir / f"{sportsfields_subject}_01_201_BEFL-2025.gpkg"
+        result_vector_dir / f"{SportsFields.subject}_01_201_BEFL-2025.gpkg"
     )
     assert result_vector_path.exists()
     result_gdf = gfo.read_file(result_vector_path)
@@ -198,7 +197,7 @@ def test_5_postprocess():
     # Cleanup result if it isn't empty yet
     result_vector_dir = conf.dirs.getpath("output_vector_dir")
     result_diss_path = (
-        result_vector_dir / f"{sportsfields_subject}_01_201_BEFL-2025_dissolve.gpkg"
+        result_vector_dir / f"{SportsFields.subject}_01_201_BEFL-2025_dissolve.gpkg"
     )
     if result_diss_path.exists():
         gfo.remove(result_diss_path)
