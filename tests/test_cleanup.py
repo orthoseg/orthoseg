@@ -278,7 +278,9 @@ def test_cleanup_predictions(
 
     # Cleanup
     cleanedup_predictions = cleanup.clean_predictions(
-        output_vector_dir=conf.dirs.getpath("output_vector_dir"),
+        output_vector_dir=Path(
+            conf.dirs.get("output_vector_dir").format(predict_image_layer=imagelayer)
+        ),
         versions_to_retain=versions_to_retain,
         simulate=simulate,
     )
@@ -319,7 +321,9 @@ def test_cleanup_predictions_invalid_filename(
     caplog.clear()
 
     cleaned_files = cleanup.clean_predictions(
-        output_vector_dir=conf.dirs.getpath("output_vector_dir"),
+        output_vector_dir=Path(
+            conf.dirs.get("output_vector_dir").format(predict_image_layer=imagelayer)
+        ),
         versions_to_retain=5,
         simulate=True,
     )
@@ -370,7 +374,9 @@ def test_cleanup_project_dir(
         model_versions_to_retain=versions_to_retain,
         training_dir=conf.dirs.getpath("training_dir"),
         training_versions_to_retain=versions_to_retain,
-        output_vector_dir=conf.dirs.getpath("output_vector_dir"),
+        output_vector_dir=Path(
+            conf.dirs.get("output_vector_dir").format(predict_image_layer=imagelayer)
+        ),
         prediction_versions_to_retain=versions_to_retain,
         simulate=simulate,
     )

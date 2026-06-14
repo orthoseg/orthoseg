@@ -84,7 +84,7 @@ def load_images(
     try:
         # Use different setting depending if testsample or all images
         if load_testsample_images:
-            output_image_dir = conf.dirs.getpath("predictsample_image_input_dir")
+            output_image_dir_str = conf.dirs.get("predictsample_image_input_dir")
 
             # Use the same image size as for the training, that is the most
             # convenient to check the quality
@@ -99,7 +99,7 @@ def load_images(
             nb_images_to_skip = 50
 
         else:
-            output_image_dir = conf.dirs.getpath("predict_image_input_dir")
+            output_image_dir_str = conf.dirs.get("predict_image_input_dir")
 
             # Get the image size for the predict
             image_pixel_width = conf.predict.getint("image_pixel_width")
@@ -125,48 +125,53 @@ def load_images(
         # Get the download cron schedule
         download_cron_schedule = conf.download["cron_schedule"]
 
-        # Get the layer info
-        predict_layer = conf.predict["image_layer"]
-        if predict_layer not in conf.image_layers:
-            raise ValueError(f"{predict_layer=} is not configured in image_layers")
+        predict_layers = conf.predict.getlist("image_layer")
+        for predict_layer in predict_layers:
+            if predict_layer not in conf.image_layers:
+                raise ValueError(f"{predict_layer=} is not configured in image_layers")
 
-        layersources = conf.image_layers[predict_layer]["layersources"]
-        nb_concurrent_calls = conf.image_layers[predict_layer]["nb_concurrent_calls"]
-        crs = pyproj.CRS.from_user_input(conf.image_layers[predict_layer]["projection"])
-        switch_axes = conf.image_layers[predict_layer]["switch_axes"]
-        bbox = conf.image_layers[predict_layer]["bbox"]
-        grid_xmin = conf.image_layers[predict_layer]["grid_xmin"]
-        grid_ymin = conf.image_layers[predict_layer]["grid_ymin"]
-        image_pixels_ignore_border = conf.image_layers[predict_layer][
-            "image_pixels_ignore_border"
-        ]
-        roi_filepath = conf.image_layers[predict_layer]["roi_filepath"]
-        image_format = conf.image_layers[predict_layer].get(
-            "image_format", image_util.FORMAT_JPEG
-        )
+            image_layer_config = conf.image_layers[predict_layer]
+            layersources = image_layer_config["layersources"]
+            nb_concurrent_calls = image_layer_config["nb_concurrent_calls"]
+            crs = pyproj.CRS.from_user_input(image_layer_config["projection"])
+            switch_axes = image_layer_config["switch_axes"]
+            bbox = image_layer_config["bbox"]
+            grid_xmin = image_layer_config["grid_xmin"]
+            grid_ymin = image_layer_config["grid_ymin"]
+            image_pixels_ignore_border = image_layer_config[
+                "image_pixels_ignore_border"
+            ]
+            roi_filepath = image_layer_config["roi_filepath"]
+            image_format = image_layer_config.get(
+                "image_format", image_util.FORMAT_JPEG
+            )
 
-        # Now we are ready to get the images...
-        image_util.load_images_to_cache(
-            layersources=layersources,
-            output_image_dir=output_image_dir,
-            crs=crs,
-            switch_axes=switch_axes,
-            image_gen_bbox=bbox,
-            image_gen_roi_filepath=roi_filepath,
-            grid_xmin=grid_xmin,
-            grid_ymin=grid_ymin,
-            image_crs_pixel_x_size=image_pixel_x_size,
-            image_crs_pixel_y_size=image_pixel_y_size,
-            image_pixel_width=image_pixel_width,
-            image_pixel_height=image_pixel_height,
-            image_pixels_ignore_border=image_pixels_ignore_border,
-            nb_concurrent_calls=nb_concurrent_calls,
-            cron_schedule=download_cron_schedule,
-            image_format=image_format,
-            pixels_overlap=image_pixels_overlap,
-            nb_images_to_skip=nb_images_to_skip,
-            ssl_verify=ssl_verify,
-        )
+            # Keep cached images separated per configured layer.
+            layer_output_image_dir = Path(
+                output_image_dir_str.format(predict_image_layer=predict_layer)
+            )
+
+            image_util.load_images_to_cache(
+                layersources=layersources,
+                output_image_dir=layer_output_image_dir,
+                crs=crs,
+                switch_axes=switch_axes,
+                image_gen_bbox=bbox,
+                image_gen_roi_filepath=roi_filepath,
+                grid_xmin=grid_xmin,
+                grid_ymin=grid_ymin,
+                image_crs_pixel_x_size=image_pixel_x_size,
+                image_crs_pixel_y_size=image_pixel_y_size,
+                image_pixel_width=image_pixel_width,
+                image_pixel_height=image_pixel_height,
+                image_pixels_ignore_border=image_pixels_ignore_border,
+                nb_concurrent_calls=nb_concurrent_calls,
+                cron_schedule=download_cron_schedule,
+                image_format=image_format,
+                pixels_overlap=image_pixels_overlap,
+                nb_images_to_skip=nb_images_to_skip,
+                ssl_verify=ssl_verify,
+            )
 
         # Log and send mail
         message = f"Completed load_images for {config_path.stem}"

@@ -69,12 +69,19 @@ def postprocess(config_path: Path, config_overrules: list[str] | None = None):
     logger = log_util.main_log_init(conf.dirs.getpath("log_dir"), __name__)
 
     # Log start + send email
+    image_layers = conf.predict.getlist("image_layer")
     image_layer = conf.predict["image_layer"]
     logger.info(f"Start postprocess for {config_path.stem} on {image_layer}")
     logger.debug(f"Config used: \n{conf.pformat_config()}")
     model_name = None
 
     try:
+        # Validate all layers are configured
+        for image_layer in image_layers:
+            image_layer_config = conf.image_layers.get(image_layer)
+            if image_layer_config is None:
+                raise ValueError(f"{image_layer=} is not configured in image_layers")
+
         # Create base filename of model to use
         # TODO: is force data version the most logical, or rather implement
         #       force weights file or ?
@@ -97,16 +104,6 @@ def postprocess(config_path: Path, config_overrules: list[str] | None = None):
             )
 
         model_name = f"{best_model['segment_subject']}_{best_model['traindata_id']}"
-        message = f"Start postprocess for {model_name} on {image_layer}"
-        email_helper.sendmail(message)
-
-        # Input file  the "most recent" prediction result dir for this subject
-        output_vector_dir = conf.dirs.getpath("output_vector_dir")
-        output_vector_name = (
-            f"{best_model['basefilename']}_{best_model['epoch']}_"
-            f"{conf.predict['image_layer']}"
-        )
-        output_vector_path = output_vector_dir / f"{output_vector_name}.gpkg"
 
         # Prepare some parameters for the postprocessing
         nb_parallel = conf.general.getint("nb_parallel", -1)
@@ -127,26 +124,39 @@ def postprocess(config_path: Path, config_overrules: list[str] | None = None):
         if simplify_lookahead is not None:
             simplify_lookahead = int(simplify_lookahead)
 
-        # Go!
-        postp.postprocess_predictions(
-            input_path=output_vector_path,
-            output_path=output_vector_path,
-            keep_original_file=keep_original_file,
-            keep_intermediary_files=keep_intermediary_files,
-            dissolve=dissolve,
-            dissolve_tiles_path=dissolve_tiles_path,
-            reclassify_to_neighbour_query=reclassify_query,
-            simplify_algorithm=simplify_algorithm,
-            simplify_tolerance=simplify_tolerance,
-            simplify_lookahead=simplify_lookahead,
-            nb_parallel=nb_parallel,
-            force=False,
-        )
+        output_vector_dir_str = conf.dirs.get("output_vector_dir")
+        for image_layer in image_layers:
+            message = f"Start postprocess for {model_name} on {image_layer}"
+            email_helper.sendmail(message)
 
-        # Log and send mail
-        message = f"Completed postprocess for {model_name} on {image_layer}"
-        logger.info(message)
-        email_helper.sendmail(message)
+            output_vector_dir = Path(
+                output_vector_dir_str.format(predict_image_layer=image_layer)
+            )
+            output_vector_name = (
+                f"{best_model['basefilename']}_{best_model['epoch']}_{image_layer}"
+            )
+            output_vector_path = output_vector_dir / f"{output_vector_name}.gpkg"
+
+            # Go!
+            postp.postprocess_predictions(
+                input_path=output_vector_path,
+                output_path=output_vector_path,
+                keep_original_file=keep_original_file,
+                keep_intermediary_files=keep_intermediary_files,
+                dissolve=dissolve,
+                dissolve_tiles_path=dissolve_tiles_path,
+                reclassify_to_neighbour_query=reclassify_query,
+                simplify_algorithm=simplify_algorithm,
+                simplify_tolerance=simplify_tolerance,
+                simplify_lookahead=simplify_lookahead,
+                nb_parallel=nb_parallel,
+                force=False,
+            )
+
+            # Log and send mail
+            message = f"Completed postprocess for {model_name} on {image_layer}"
+            logger.info(message)
+            email_helper.sendmail(message)
     except Exception as ex:
         if model_name is None:
             model_name = config_path.stem

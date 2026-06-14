@@ -168,7 +168,9 @@ def test_4_predict():
         shutil.rmtree(predict_image_output_dir)
         # Make sure it is deleted now!
         assert not predict_image_output_dir.exists()
-    result_vector_dir = conf.dirs.getpath("output_vector_dir")
+    result_vector_dir = Path(
+        conf.dirs.get("output_vector_dir").format(predict_image_layer="BEFL-2019")
+    )
     if result_vector_dir.exists():
         shutil.rmtree(result_vector_dir)
         # Make sure is is deleted now!
@@ -205,7 +207,9 @@ def test_5_postprocess():
     conf.read_orthoseg_config(config_path, overrules=overrules)
 
     # Cleanup result if it isn't empty yet
-    result_vector_dir = conf.dirs.getpath("output_vector_dir")
+    result_vector_dir = Path(
+        conf.dirs.get("output_vector_dir").format(predict_image_layer="BEFL-2019")
+    )
     result_diss_path = (
         result_vector_dir / "footballfields_01_201_BEFL-2019_dissolve.gpkg"
     )

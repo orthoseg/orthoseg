@@ -2,11 +2,13 @@
 
 import os
 import shutil
+from pathlib import Path
 
 import pytest
 
 import orthoseg
 from orthoseg import load_images
+from orthoseg.helpers import config_helper as conf
 from orthoseg.load_images import _load_images_args
 from tests import test_helper
 
@@ -40,6 +42,28 @@ def test_load_images_error_handling():
             config_path=test_helper.SampleProjectFootball.predict_config_path,
             config_overrules=["predict.image_pixel_x_size=INVALID_TYPE"],
         )
+
+
+def test_load_images_image_layer_list(tmp_path):
+    config_path = test_helper.SampleProjectFootball.predict_config_path
+    predict_image_input_base_dir = tmp_path / "cache"
+    predict_image_input_dir = predict_image_input_base_dir / "{predict_image_layer}"
+
+    load_images(
+        config_path=config_path,
+        config_overrules=[
+            "predict.image_layer=BEFL-2019,BEFL-2020",
+            f"dirs.predict_image_input_dir={predict_image_input_dir.as_posix()}",
+        ],
+    )
+
+    # Check if the right output directories were created
+    assert predict_image_input_base_dir.exists()
+    files = predict_image_input_base_dir.glob("**/*.jpg")
+    assert len(list(files)) == 4  # 2 images per layer
+
+    assert (predict_image_input_base_dir / "BEFL-2019").exists()
+    assert (predict_image_input_base_dir / "BEFL-2020").exists()
 
 
 @pytest.mark.skipif(

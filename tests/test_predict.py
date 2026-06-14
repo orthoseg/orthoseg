@@ -115,7 +115,9 @@ def test_predict_use_cache_skip(tmp_path, use_cache, skip_images, exp_area):
     predict(config_path=config_path)
 
     # Check output results
-    result_vector_dir = conf.dirs.getpath("output_vector_dir")
+    result_vector_dir = Path(
+        conf.dirs.get("output_vector_dir").format(predict_image_layer="BEFL-2019")
+    )
     result_vector_path = result_vector_dir / "footballfields_01_201_BEFL-2019.gpkg"
 
     # The area of the output should be within a 10% margin of the expected area.
