@@ -31,12 +31,12 @@ def test_read_orthoseg_config_error_segment_subject(overrules, exp_error, messag
         exp_error,
         match=message,
     ):
-        conf.read_orthoseg_config(SportsFields.predict_config_path, overrules=overrules)
+        conf.read_orthoseg_config(SportsFields.config_path, overrules=overrules)
 
 
 def test_read_orthoseg_config_image_layers():
     # Load project config to init some vars.
-    conf.read_orthoseg_config(SportsFields.predict_config_path)
+    conf.read_orthoseg_config(SportsFields.config_path)
 
     layer = conf.image_layers.get("BEFL-2019")
     assert layer is not None
@@ -120,7 +120,7 @@ def test_read_orthoseg_config_predict_overrules(overrules, expected_image_layer)
     kwargs = {}
     if overrules is not None:
         kwargs["overrules"] = overrules
-    conf.read_orthoseg_config(SportsFields.predict_config_path, **kwargs)
+    conf.read_orthoseg_config(SportsFields.config_path, **kwargs)
 
     image_layer = conf.predict.get("image_layer")
     assert image_layer == expected_image_layer
@@ -134,7 +134,7 @@ def test_read_orthoseg_config_predict_overrules_invalid(overrules):
     """Test with invalid overrules: one without '=' and one without '.'."""
     # Load project config to test overrules.
     with pytest.raises(ValueError, match="invalid config overrule found"):
-        conf.read_orthoseg_config(SportsFields.predict_config_path, overrules=overrules)
+        conf.read_orthoseg_config(SportsFields.config_path, overrules=overrules)
 
 
 @pytest.mark.parametrize(

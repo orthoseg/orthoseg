@@ -105,7 +105,7 @@ def validate(config_path: Path, config_overrules: list[str] | None = None):
             f"Traindata dir to use is {training_dir}, with traindata_id: {traindata_id}"
         )
     except Exception as ex:
-        message = f"ERROR in validate for {config_path.stem}"
+        message = f"ERROR in validate for {config_path.stem}: {ex}"
         logger.exception(message)
         if isinstance(ex, prep.ValidationError):
             message_body = f"Validation error: {ex.to_html()}"

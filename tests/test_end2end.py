@@ -34,7 +34,7 @@ def test_1_init_testproject():
 @pytest.mark.order(after="test_1_init_testproject")
 def test_2_load_images():
     # Load project config to init some vars.
-    config_path = sportsfields_dir / SportsFields.predict_config_path.name
+    config_path = sportsfields_dir / SportsFields.config_path.name
     conf.read_orthoseg_config(config_path)
     image_cache_dir = conf.dirs.getpath("predict_image_input_dir")
 
@@ -143,7 +143,7 @@ def test_3_train():
 @pytest.mark.order(after="test_2_load_images")
 def test_4_predict():
     # Load project config to init some vars.
-    config_path = sportsfields_dir / SportsFields.predict_config_path.name
+    config_path = sportsfields_dir / SportsFields.config_path.name
     overrules = ["train.force_model_traindata_id=1"]
 
     conf.read_orthoseg_config(config_path, overrules=overrules)
@@ -189,7 +189,7 @@ def test_4_predict():
 @pytest.mark.order(after="test_4_predict")
 def test_5_postprocess():
     # Load project config to init some vars.
-    config_path = sportsfields_dir / SportsFields.predict_config_path.name
+    config_path = sportsfields_dir / SportsFields.config_path.name
     overrules = ["train.force_model_traindata_id=1"]
 
     conf.read_orthoseg_config(config_path, overrules=overrules)

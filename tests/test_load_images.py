@@ -33,11 +33,9 @@ def test_load_images_args(args):
 
 def test_load_images_error_handling():
     """Force an error so the general error handler in predict is tested."""
-    with pytest.raises(
-        RuntimeError, match="ERROR in load_images for sportsfields_BEFL-2025"
-    ):
+    with pytest.raises(RuntimeError, match="ERROR in load_images for sportsfields"):
         load_images(
-            config_path=SportsFields.predict_config_path,
+            config_path=SportsFields.config_path,
             config_overrules=["predict.image_pixel_width=INVALID_TYPE"],
         )
 
@@ -74,7 +72,8 @@ def test_load_images(tmp_path, overrules, exp_image_count):
 
     # Run task to load images
     orthoseg.load_images(
-        project_dir / "sportsfields_BEFL-2025.ini", config_overrules=all_overrules
+        project_dir / SportsFields.config_path.name,
+        config_overrules=all_overrules,
     )
 
     # Check if the right number of files was loaded

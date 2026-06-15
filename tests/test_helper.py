@@ -16,7 +16,6 @@ sampleprojects_dir = Path(__file__).resolve().parent.parent / "sample_projects"
 class SportsFields:
     subject = "sportsfields"
     project_dir = sampleprojects_dir / subject
-    predict_config_path = project_dir / f"{subject}_BEFL-2025.ini"
     config_path = project_dir / f"{subject}.ini"
 
     @staticmethod

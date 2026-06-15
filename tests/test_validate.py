@@ -64,15 +64,16 @@ def test_validate_args(args):
 
 
 def test_validate_error(tmp_path):
-    # Create test project
-    project_dir = SportsFields.project_dir
+    # Create test project without label dir.
+    # Validation should give an error that it should exist.
     tmp_project_dir = tmp_path / SportsFields.subject
     tmp_project_dir.mkdir(parents=True, exist_ok=True)
-    shutil.copy(src=project_dir / "sportsfields_BEFL-2025.ini", dst=tmp_project_dir)
-    shutil.copy(src=project_dir / "sportsfields.ini", dst=tmp_project_dir)
+    config_path = tmp_project_dir / SportsFields.config_path.name
+    shutil.copy(src=SportsFields.config_path, dst=config_path)
     shutil.copy(src=test_helper.sampleprojects_dir / "imagelayers.ini", dst=tmp_path)
 
     with pytest.raises(
-        RuntimeError, match="ERROR in validate for sportsfields_BEFL-2025"
+        RuntimeError,
+        match="ERROR in validate for sportsfields: Label dir doesn't exist",
     ):
-        orthoseg.validate(config_path=tmp_project_dir / "sportsfields_BEFL-2025.ini")
+        orthoseg.validate(config_path=config_path)

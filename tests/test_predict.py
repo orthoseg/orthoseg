@@ -51,7 +51,7 @@ def test_predict_error_handling():
         match="ERROR in predict for sportsfields_BEFL-2025 on UNEXISTING",
     ):
         predict(
-            config_path=SportsFields.predict_config_path,
+            config_path=SportsFields.config_path,
             config_overrules=["predict.image_layer=UNEXISTING"],
         )
 
