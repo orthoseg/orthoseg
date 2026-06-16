@@ -109,7 +109,7 @@ you can see here: :doc:`/file_viewers/sportsfields_ini_viewer`.
 
 Finally, if you want e.g. a project file to run a detection on a specific image layer,
 you can add yet another file that overrules the project file yet again, like you can
-see here: :doc:`/file_viewers/sportsfields_BEFL-2024-sportsfields_ini_viewer`. Note the
+see here: :doc:`/file_viewers/sportsfields_BEFL-2024_ini_viewer`. Note the
 :confval:`general.extra_config_files_to_load` property in the project file that allows
 you to specify all extra config files that will be loaded in the order listed.
 

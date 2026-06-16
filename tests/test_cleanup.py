@@ -99,7 +99,9 @@ def create_training_dirs(dst_dir: Path) -> list[tuple[Path, int]]:
     return dirs
 
 
-def create_prediction_files(dst_dir: Path, imagelayer: str, subject: str) -> list[tuple[Path, int]]:
+def create_prediction_files(
+    dst_dir: Path, imagelayer: str, subject: str
+) -> list[tuple[Path, int]]:
     """
     Creates test prediction files and returns information about them.
 

@@ -9,8 +9,6 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-import gdown
-
 # Get a logger...
 logger = logging.getLogger(__name__)
 
@@ -50,7 +48,7 @@ def _parse_load_sampleprojects_args(args) -> dict:
     return {"dest_dir": dest_dir, "ssl_verify": ssl_verify}
 
 
-def load_sampleprojects(dest_dir: Path, ssl_verify: bool | str = True):
+def load_sampleprojects(dest_dir: Path, ssl_verify: bool | str = True):  # noqa: ARG001
     """Load the orthoseg sample projects.
 
     Args:

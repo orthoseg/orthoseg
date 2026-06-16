@@ -13,7 +13,6 @@ dependencies:
   # required
   - astunparse  # Avoid it being installed via pip, otherwise segfault on windows
   - gdal
-  - gdown
   - geofileops >=0.10
   - geopandas-base >=1.0
   - matplotlib-base

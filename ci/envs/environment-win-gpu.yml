@@ -15,7 +15,6 @@ dependencies:
   - cudatoolkit <12  # tf 2.10 requires cudatoolkit 11
   - cudnn <9  # tf 2.10 requires cudnn 8
   - gdal
-  - gdown
   - geofileops >=0.10
   - geopandas-base >=1.0
   - matplotlib-base

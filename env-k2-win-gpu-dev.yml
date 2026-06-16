@@ -8,7 +8,6 @@ dependencies:
   - pip
   # required
   - gdal
-  - gdown
   - geofileops >=0.10
   - geopandas-base >=0.12
   - keras =2.10
