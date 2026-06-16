@@ -34,9 +34,7 @@ def test_read_orthoseg_config_error_segment_subject(overrules, exp_error, messag
         conf.read_orthoseg_config(SportsFields.config_path, overrules=overrules)
 
 
-@pytest.mark.parametrize(
-    "image_layer", ["BEFL-2019", "BEFL-2025-footballfield-WMTS"]
-)
+@pytest.mark.parametrize("image_layer", ["BEFL-2019", "BEFL-2025-footballfield-WMTS"])
 def test_read_orthoseg_config_image_layers(image_layer):
     # Load project config to init some vars.
     conf.read_orthoseg_config(SportsFields.config_path)
