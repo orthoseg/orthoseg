@@ -172,7 +172,7 @@ def test_4_predict():
 
     # Check results
     result_vector_path = (
-        result_vector_dir / f"{SportsFields.subject}_01_201_BEFL-2025.gpkg"
+        result_vector_dir / f"{SportsFields.subject}_01_276_BEFL-2025-sportsfields.gpkg"
     )
     assert result_vector_path.exists()
     result_gdf = gfo.read_file(result_vector_path)
@@ -197,7 +197,8 @@ def test_5_postprocess():
     # Cleanup result if it isn't empty yet
     result_vector_dir = conf.dirs.getpath("output_vector_dir")
     result_diss_path = (
-        result_vector_dir / f"{SportsFields.subject}_01_201_BEFL-2025_dissolve.gpkg"
+        result_vector_dir
+        / f"{SportsFields.subject}_01_276_BEFL-2025-sportsfields_dissolve.gpkg"
     )
     if result_diss_path.exists():
         gfo.remove(result_diss_path)
