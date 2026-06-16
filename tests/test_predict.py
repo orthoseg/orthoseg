@@ -57,10 +57,9 @@ def test_predict_error_handling():
 
 
 @pytest.mark.parametrize(
-    "use_cache, skip_images, exp_area",
-    [(True, False, 95), (True, True, 22), (False, False, 95)],
+    "use_cache, skip_images", [(True, False), (True, True), (False, False)]
 )
-def test_predict_use_cache_skip(tmp_path, use_cache, skip_images, exp_area):
+def test_predict_use_cache_skip(tmp_path, use_cache, skip_images):
     if not use_cache and os.name == "nt":
         pytest.skip("Test to predict without cache crashes on windows")
 
@@ -91,7 +90,7 @@ def test_predict_use_cache_skip(tmp_path, use_cache, skip_images, exp_area):
     # the output.
     if skip_images:
         predict_image_output_basedir = Path(
-            f"{conf.dirs['predict_image_output_basedir']}_sportsfields_01_201"
+            f"{conf.dirs['predict_image_output_basedir']}_sportsfields_01_276"
         )
         predict_image_output_basedir.mkdir(parents=True, exist_ok=True)
         images = [image_path.name for image_path in image_cache_dir.rglob("*.jpg")]
@@ -117,7 +116,7 @@ def test_predict_use_cache_skip(tmp_path, use_cache, skip_images, exp_area):
     # Check output results
     result_vector_dir = conf.dirs.getpath("output_vector_dir")
     result_vector_path = (
-        result_vector_dir / "sportsfields_01_201_BEFL-2025-sportsfields.gpkg"
+        result_vector_dir / "sportsfields_01_276_BEFL-2025-sportsfields.gpkg"
     )
 
     # The area of the output should be within a 10% margin of the expected area.
@@ -125,4 +124,5 @@ def test_predict_use_cache_skip(tmp_path, use_cache, skip_images, exp_area):
     result_gdf = gpd.read_file(result_vector_path)
     assert result_gdf is not None
     assert result_gdf.crs.to_epsg() == 31370
+    exp_area = 33177 if not skip_images else 5723
     assert exp_area * 0.9 < sum(result_gdf.geometry.area) < exp_area * 1.1
