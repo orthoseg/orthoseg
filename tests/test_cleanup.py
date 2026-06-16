@@ -271,12 +271,15 @@ def test_cleanup_predictions(
     versions_to_retain: int,
 ):
     # Create test project
-    project_dir = create_projects_dir(tmp_path=tmp_path, subject="test-subject")
+    subject = "test-subject"
+    project_dir = create_projects_dir(tmp_path=tmp_path, subject=subject)
 
     # Creating dummy files
     imagelayer = "BEFL-2019"
     output_vector_dir = project_dir / "output_vector" / imagelayer
-    files = create_prediction_files(dst_dir=output_vector_dir, imagelayer=imagelayer)
+    files = create_prediction_files(
+        dst_dir=output_vector_dir, imagelayer=imagelayer, subject=subject
+    )
 
     # Load project config to init some vars.
     load_project_config(path=project_dir)
@@ -353,19 +356,24 @@ def test_cleanup_project_dir(
     removed_prediction_files: int,
 ):
     # Create test project
-    project_dir = create_projects_dir(tmp_path=tmp_path, subject="test-subject")
+    subject = "test-subject"
+    project_dir = create_projects_dir(tmp_path=tmp_path, subject=subject)
 
     # Creating dummy files
     model_dir = project_dir / "models"
-    create_model_files(dst_dir=model_dir)
+    create_model_files(dst_dir=model_dir, subject=subject)
     training_dir = project_dir / "training"
     create_training_dirs(dst_dir=training_dir)
     imagelayer = "BEFL-2019"
     output_vector_dir = project_dir / "output_vector" / imagelayer
-    create_prediction_files(dst_dir=output_vector_dir, imagelayer=imagelayer)
+    create_prediction_files(
+        dst_dir=output_vector_dir, imagelayer=imagelayer, subject=subject
+    )
     imagelayer = "BEFL-2020"
     output_vector_dir = project_dir / "output_vector" / imagelayer
-    create_prediction_files(dst_dir=output_vector_dir, imagelayer=imagelayer)
+    create_prediction_files(
+        dst_dir=output_vector_dir, imagelayer=imagelayer, subject=subject
+    )
 
     # Load project config to init some vars.
     load_project_config(path=project_dir)
