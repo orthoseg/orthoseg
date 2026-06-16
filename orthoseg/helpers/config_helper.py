@@ -368,9 +368,13 @@ def _read_layer_config(layer_config_filepath: Path) -> dict:
         ].getint("nb_concurrent_calls", fallback=1)
 
         # Check if a region of interest is specified as file or bbox
-        image_layers[image_layer]["roi_filepath"] = layer_config[image_layer].getpath(
-            "roi_filepath", fallback=None
-        )
+        roi_filepath = layer_config[image_layer].getpath("roi_filepath", fallback=None)
+        if roi_filepath is not None and not roi_filepath.is_absolute():
+            # path is relative, so resolve towards the location of imagelayers file
+            roi_filepath = layer_config_filepath.parent / roi_filepath
+            roi_filepath = roi_filepath.resolve()
+        image_layers[image_layer]["roi_filepath"] = roi_filepath
+
         bbox_tuple = None
         if layer_config.has_option(image_layer, "bbox"):
             bbox_list = layer_config[image_layer].getlist("bbox")

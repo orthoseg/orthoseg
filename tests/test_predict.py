@@ -48,7 +48,7 @@ def test_predict_error_handling():
     """Force an error so the general error handler in predict is tested."""
     with pytest.raises(
         RuntimeError,
-        match="ERROR in predict for sportsfields_BEFL-2025 on UNEXISTING",
+        match="ERROR in predict for sportsfields on UNEXISTING",
     ):
         predict(
             config_path=SportsFields.config_path,
@@ -75,7 +75,7 @@ def test_predict_use_cache_skip(tmp_path, use_cache, skip_images, exp_area):
 
     project_dir = testprojects_dir / SportsFields.subject
 
-    config_path = project_dir / "sportsfields_BEFL-2025.ini"
+    config_path = project_dir / SportsFields.config_path.name
     conf.read_orthoseg_config(config_path=config_path)
     image_cache_dir = conf.dirs.getpath("predict_image_input_dir")
 
@@ -116,7 +116,9 @@ def test_predict_use_cache_skip(tmp_path, use_cache, skip_images, exp_area):
 
     # Check output results
     result_vector_dir = conf.dirs.getpath("output_vector_dir")
-    result_vector_path = result_vector_dir / "sportsfields_01_201_BEFL-2025.gpkg"
+    result_vector_path = (
+        result_vector_dir / "sportsfields_01_201_BEFL-2025-sportsfields.gpkg"
+    )
 
     # The area of the output should be within a 10% margin of the expected area.
     assert result_vector_path.exists()

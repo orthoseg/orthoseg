@@ -1,7 +1,6 @@
 """Module with high-level operations to segment images."""
 
 import csv
-import datetime
 import json
 import logging
 import multiprocessing
@@ -11,7 +10,9 @@ import time
 import traceback
 from collections.abc import Callable
 from concurrent import futures
+from datetime import datetime
 from pathlib import Path
+from time import perf_counter
 from typing import Any
 
 import geofileops as gfo
@@ -445,7 +446,7 @@ def _predict_layer(
     nb_to_predict = nb_images
     nb_done = 0
     nb_errors = 0
-    read_sleep_logged = False
+    read_sleep_last_logged = None
     progress = None
     read_queue: dict[futures.Future, Path] = {}
     postp_queue: dict[futures.Future, Path] = {}
@@ -467,7 +468,7 @@ def _predict_layer(
     ):
         # Start looping.
         # If ready to stop, the code below will break
-        perf_time_start = datetime.datetime.now()
+        perf_time_start = datetime.now()
         while True:
             # If we are ready, stop!
             if (
@@ -593,9 +594,13 @@ def _predict_layer(
                     break
 
                 # Wait a bit for images to be read, then try finding images again
-                if not read_sleep_logged and not last_image_reached:
+                cur_counter = perf_counter()
+                if (
+                    not read_sleep_last_logged
+                    or (read_sleep_last_logged - cur_counter) > 5
+                ):
                     logger.info("Wait for images to be read")
-                    read_sleep_logged = True
+                    read_sleep_last_logged = cur_counter
                 time.sleep(0.01)
 
             # If sufficient images in predict queue -> predict
@@ -603,22 +608,21 @@ def _predict_layer(
             if len(predict_queue) == batch_size or (
                 last_image_reached and len(predict_queue) > 0
             ):
-                read_sleep_logged = False
-                perf_time_now = datetime.datetime.now()
+                perf_time_now = datetime.now()
                 perfinfo += f"waiting for read took {perf_time_now - perf_time_start}"
                 perf_time_start = perf_time_now
 
                 # Predict!
                 # --------
                 logger.debug(f"Start prediction for {len(predict_queue)} images")
-                perf_time_start = datetime.datetime.now()
+                perf_time_start = datetime.now()
                 curr_batch_image_list = [
                     batch_image_info["image_data"] for batch_image_info in predict_queue
                 ]
                 batch_image_arr = np.stack(curr_batch_image_list)
                 batch_pred_arr = model.predict_on_batch(batch_image_arr)
 
-                perf_time_now = datetime.datetime.now()
+                perf_time_now = datetime.now()
                 perfinfo += f", predict took {perf_time_now - perf_time_start}"
                 perf_time_start = perf_time_now
 
@@ -679,7 +683,7 @@ def _predict_layer(
                 predict_queue = []
 
                 # Collect performance debugging info
-                time_taken = datetime.datetime.now() - perf_time_start
+                time_taken = datetime.now() - perf_time_start
                 perfinfo += f", scheduling postprocessings took {time_taken}"
                 perf_time_start = perf_time_now
 
@@ -741,7 +745,7 @@ def _predict_layer(
                     if postp_sleep_logged:
                         logger.info("Waited enough for postprocessing to catch up...")
 
-                    perf_time_now = datetime.datetime.now()
+                    perf_time_now = datetime.now()
                     perfinfo += (
                         f", after postproces: took {perf_time_now - perf_time_start}"
                     )
@@ -773,7 +777,7 @@ def _predict_layer(
                 # Wait till number below thresshold to avoid huge waiting list (and
                 # memory issues)
                 if len(write_queue) > nb_parallel_postprocess * 2:  # pragma: no cover
-                    if not write_sleep_logged:
+                    if write_sleep_logged:
                         logger.info("Writing takes longer than prediction, so wait")
                         write_sleep_logged = True
                     time.sleep(0.01)

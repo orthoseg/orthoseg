@@ -120,6 +120,20 @@ def load_sampleprojects(dest_dir: Path, ssl_verify: bool | str = True):
     print("Download finished")
 
 
+def _download_model(dst_dir):
+    url = "https://github.com/orthoseg/orthoseg_models/releases/download/sportsfields.1/sportsfields_01.zip"
+    cache_dir = Path(tempfile.gettempdir()) / "orthoseg_cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    # Download the sample projects to a temporary directory first
+    tmp_zip_path = Path(cache_dir) / Path(url).name
+    if not tmp_zip_path.exists():
+        urllib.request.urlretrieve(url, tmp_zip_path)
+
+    with zipfile.ZipFile(tmp_zip_path, "r") as zip_file:
+        zip_file.extractall(dst_dir)
+
+
 def main():
     """Run load sampleprojects."""
     try:
