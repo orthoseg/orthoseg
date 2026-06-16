@@ -45,24 +45,24 @@ def test_load_images_error_handling():
     reason="crashes on github CI on windows",
 )
 @pytest.mark.parametrize(
-    "overrules, exp_image_count",
+    "image_layer_overrule, exp_image_count",
     [
-        (["predict.image_layer=BEFL-2019-WMTS"], 2),
-        (["predict.image_layer=OSM-XYZ"], 2),
-        (["predict.image_layer=BEFL-2019"], 2),
+        ("predict.image_layer=BEFL-2025-footballfield-WMTS", 2),
+        ("predict.image_layer=OSM-XYZ-footballfield", 2),
+        ("predict.image_layer=BEFL-2025-sportsfields", 8),
     ],
 )
-def test_load_images(tmp_path, overrules, exp_image_count):
+def test_load_images(tmp_path, image_layer_overrule, exp_image_count):
     # Use sportsfields sample project for these end to end tests
     testprojects_dir = tmp_path / "sample_projects"
     shutil.copytree(test_helper.sampleprojects_dir, testprojects_dir)
     project_dir = testprojects_dir / SportsFields.subject
-    _, image_layer = overrules[0].split("=")
+    _, image_layer = image_layer_overrule.split("=")
     image_cache_dir = testprojects_dir / "_image_cache" / image_layer
 
     # Add extra overrules to make images smaller and improve test speed.
     all_overrules = [
-        *overrules,
+        image_layer_overrule,
         "predict.image_pixel_width=128",
         "predict.image_pixel_height=128",
         "predict.image_pixel_x_size=2",
@@ -72,8 +72,7 @@ def test_load_images(tmp_path, overrules, exp_image_count):
 
     # Run task to load images
     orthoseg.load_images(
-        project_dir / SportsFields.config_path.name,
-        config_overrules=all_overrules,
+        project_dir / SportsFields.config_path.name, config_overrules=all_overrules
     )
 
     # Check if the right number of files was loaded

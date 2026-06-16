@@ -30,6 +30,9 @@ from orthoseg.util.image_util import (
     has_switched_axes,
 )
 
+# Activate gdal to raise exceptions instead of printing/returning errors/errorcodes
+gdal.UseExceptions()
+
 # Get a logger...
 logger = logging.getLogger(__name__)
 
@@ -702,10 +705,6 @@ def _gdal_virtual_file_path(layersource) -> Path:
     )
     gdal_options = gdal.TranslateOptions(format="VRT")
 
-    gdal.Translate(
-        str(output_path),
-        input_url,
-        options=gdal_options,
-    )
+    gdal.Translate(destName=str(output_path), srcDS=input_url, options=gdal_options)
 
     return output_path

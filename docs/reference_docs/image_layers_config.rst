@@ -206,7 +206,7 @@ More details on these options are given below.
 
 **Example: local raster file** ::
 
-   [BEFL-TEST-s2-fields-2023]
+   [BEFL-TEST-s2-2023-fields]
    path = ./fields/input_raster/BEFL-TEST-s2_2023-05-01_2023-07-01_B08-B04-B03_min_byte.tif
    projection = epsg:32631
    image_format = image/png
