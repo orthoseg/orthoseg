@@ -34,16 +34,14 @@ def test_read_orthoseg_config_error_segment_subject(overrules, exp_error, messag
         conf.read_orthoseg_config(SportsFields.config_path, overrules=overrules)
 
 
-def test_read_orthoseg_config_image_layers():
+@pytest.mark.parametrize(
+    "image_layer", ["BEFL-2019", "BEFL-2025-footballfield-WMTS"]
+)
+def test_read_orthoseg_config_image_layers(image_layer):
     # Load project config to init some vars.
     conf.read_orthoseg_config(SportsFields.config_path)
 
-    layer = conf.image_layers.get("BEFL-2019")
-    assert layer is not None
-    assert layer.get("projection") == pyproj.CRS.from_user_input("epsg:31370")
-    assert layer.get("switch_axes") is False
-
-    layer = conf.image_layers.get("BEFL-2019-WMTS")
+    layer = conf.image_layers.get(image_layer)
     assert layer is not None
     assert layer.get("projection") == pyproj.CRS.from_user_input("epsg:31370")
     assert layer.get("switch_axes") is False
@@ -110,8 +108,8 @@ def test_read_orthoseg_config_image_layers_filelayer_dir_no_file_patterns(tmp_pa
 @pytest.mark.parametrize(
     "overrules, expected_image_layer",
     [
-        (None, "BEFL-2025"),
-        ([], "BEFL-2025"),
+        (None, "BEFL-2025-sportsfields"),
+        ([], "BEFL-2025-sportsfields"),
         (["predict.image_layer=BEFL-2020"], "BEFL-2020"),
     ],
 )
