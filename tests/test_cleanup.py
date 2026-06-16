@@ -9,15 +9,15 @@ from orthoseg.lib import cleanup
 from tests import test_helper
 
 
-def create_projects_dir(tmp_path: Path) -> Path:
+def create_projects_dir(tmp_path: Path, subject: str) -> Path:
     testproject_dir = tmp_path / "orthoseg_test_cleanup"
-    project_dir = testproject_dir / "footballfields"
+    project_dir = testproject_dir / subject
 
     shutil.rmtree(path=testproject_dir, ignore_errors=True)
     project_dir.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(
         src=test_helper.sampleprojects_dir / "project_template/projectfile.ini",
-        dst=project_dir / "footballfields.ini",
+        dst=project_dir / f"{subject}.ini",
     )
     shutil.copyfile(
         src=test_helper.sampleprojects_dir / "imagelayers.ini",
@@ -26,12 +26,12 @@ def create_projects_dir(tmp_path: Path) -> Path:
     return project_dir
 
 
-def create_model_files(dst_dir: Path) -> list[tuple[Path, int]]:
-    """
-    Creates test model files and returns information about them.
+def create_model_files(dst_dir: Path, subject: str) -> list[tuple[Path, int]]:
+    """Creates test model files and returns information about them.
 
     Args:
         dst_dir (Path): the directory where the files should be created
+        subject (str): the subject name to use in the model file names
 
     Returns:
         list[tuple[Path, int]]: the list of files created. Each item of the list is a
@@ -41,10 +41,10 @@ def create_model_files(dst_dir: Path) -> list[tuple[Path, int]]:
                 being retained when cleaning up the models.
     """
     models = {
-        "footballfields_01": 4,
-        "footballfields_02": 3,
-        "footballfields_03": 2,
-        "footballfields_04": 1,
+        f"{subject}_01": 4,
+        f"{subject}_02": 3,
+        f"{subject}_03": 2,
+        f"{subject}_04": 1,
     }
 
     # Special case: a model that has been trained with 2 different epochs, should still
@@ -99,12 +99,14 @@ def create_training_dirs(dst_dir: Path) -> list[tuple[Path, int]]:
     return dirs
 
 
-def create_prediction_files(dst_dir: Path, imagelayer: str) -> list[tuple[Path, int]]:
+def create_prediction_files(dst_dir: Path, imagelayer: str, subject: str) -> list[tuple[Path, int]]:
     """
     Creates test prediction files and returns information about them.
 
     Args:
         dst_dir (Path): the directory where the directories should be created
+        imagelayer (str): the image layer name to use in the prediction file names
+        subject (str): the subject name to use in the prediction file names
 
     Returns:
         list[tuple[Path, int]]: the list of files created. Each item of the list
@@ -123,15 +125,15 @@ def create_prediction_files(dst_dir: Path, imagelayer: str) -> list[tuple[Path, 
     #   - a "missing" traindata version: 03
     #       -> is ignored when counting the number of versions to retain
     files = [
-        (dst_dir / f"footballfields_01_201_{imagelayer}.gpkg", 4),
-        (dst_dir / f"footballfields_01_201_{imagelayer}_dissolve.gpkg", 4),
-        (dst_dir / f"footballfields_02_201_{imagelayer}.gpkg", 3),
-        (dst_dir / f"footballfields_02_201_{imagelayer}_dissolve.gpkg", 3),
-        (dst_dir / f"footballfields_02_99_{imagelayer}.gpkg", 3),
-        (dst_dir / f"footballfields_04_201_{imagelayer}.gpkg", 2),
-        (dst_dir / f"footballfields_04_99_{imagelayer}.gpkg", 2),
-        (dst_dir / f"footballfields_04_201_{imagelayer}_dissolve.gpkg", 2),
-        (dst_dir / f"footballfields_05_201_{imagelayer}_dissolve.gpkg", 1),
+        (dst_dir / f"{subject}_01_201_{imagelayer}.gpkg", 4),
+        (dst_dir / f"{subject}_01_201_{imagelayer}_dissolve.gpkg", 4),
+        (dst_dir / f"{subject}_02_201_{imagelayer}.gpkg", 3),
+        (dst_dir / f"{subject}_02_201_{imagelayer}_dissolve.gpkg", 3),
+        (dst_dir / f"{subject}_02_99_{imagelayer}.gpkg", 3),
+        (dst_dir / f"{subject}_04_201_{imagelayer}.gpkg", 2),
+        (dst_dir / f"{subject}_04_99_{imagelayer}.gpkg", 2),
+        (dst_dir / f"{subject}_04_201_{imagelayer}_dissolve.gpkg", 2),
+        (dst_dir / f"{subject}_05_201_{imagelayer}_dissolve.gpkg", 1),
     ]
 
     # Create the files
@@ -142,11 +144,11 @@ def create_prediction_files(dst_dir: Path, imagelayer: str) -> list[tuple[Path, 
     return files
 
 
-def load_project_config(path: Path):
+def load_project_config(path: Path, subject: str = "test-subject"):
     conf.read_orthoseg_config(
-        config_path=path / "footballfields.ini",
+        config_path=path / f"{subject}.ini",
         overrules=[
-            "general.segment_subject=footballfields",
+            f"general.segment_subject={subject}",
             "predict.image_layer=BEFL-2019",
         ],
     )
@@ -188,11 +190,12 @@ def test_cleanup_models(
     versions_to_retain: int,
 ):
     # Create test project
-    project_dir = create_projects_dir(tmp_path=tmp_path)
+    test_subject = "test-subject"
+    project_dir = create_projects_dir(tmp_path=tmp_path, subject=test_subject)
 
     # Creating dummy files
     models_dir = project_dir / "models"
-    model_files = create_model_files(dst_dir=models_dir)
+    model_files = create_model_files(dst_dir=models_dir, subject=test_subject)
 
     # Load project config to init some vars.
     load_project_config(path=project_dir)
@@ -227,7 +230,7 @@ def test_cleanup_training(
     versions_to_retain: int,
 ):
     # Create test project
-    project_dir = create_projects_dir(tmp_path=tmp_path)
+    project_dir = create_projects_dir(tmp_path=tmp_path, subject="test-subject")
 
     # Creating dummy files
     training_dir = project_dir / "training"
@@ -266,7 +269,7 @@ def test_cleanup_predictions(
     versions_to_retain: int,
 ):
     # Create test project
-    project_dir = create_projects_dir(tmp_path=tmp_path)
+    project_dir = create_projects_dir(tmp_path=tmp_path, subject="test-subject")
 
     # Creating dummy files
     imagelayer = "BEFL-2019"
@@ -304,7 +307,7 @@ def test_cleanup_predictions_invalid_filename(
 ):
     """Test if an error message is logged if a prediction file has an invalid name."""
     # Create test project
-    project_dir = create_projects_dir(tmp_path=tmp_path)
+    project_dir = create_projects_dir(tmp_path=tmp_path, subject="test-subject")
     imagelayer = "BEFL-2019"
     output_vector_dir = project_dir / "output_vector" / imagelayer
     invalid_prediction_file = output_vector_dir / "vector_invalid_filename.gpkg"
@@ -348,7 +351,7 @@ def test_cleanup_project_dir(
     removed_prediction_files: int,
 ):
     # Create test project
-    project_dir = create_projects_dir(tmp_path=tmp_path)
+    project_dir = create_projects_dir(tmp_path=tmp_path, subject="test-subject")
 
     # Creating dummy files
     model_dir = project_dir / "models"

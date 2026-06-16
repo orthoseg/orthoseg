@@ -139,7 +139,7 @@ Example:
 
 .. code-block:: bash
 
-	orthoseg_predict --config footballfields.ini predict.image_layer=BEFL-2020
+	orthoseg_predict --config sportsfields.ini predict.image_layer=BEFL-2023
 
 orthoseg_postprocess
 --------------------

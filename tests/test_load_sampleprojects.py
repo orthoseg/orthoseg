@@ -49,9 +49,9 @@ def test_load_sampleprojects(request):
     # Load the sample projects. Has to handle ~ in the path correctly.
     load_sampleprojects.load_sampleprojects(dest_dir=dest_dir)
 
-    # Try loading the config of the footballfields sample project
+    # Try loading the config of the sportsfields sample project
     # Use the unexpanded path here as read_orthoseg_config should handle this correctly
-    config_path = dest_dir / "sample_projects/footballfields/footballfields.ini"
+    config_path = dest_dir / "sample_projects/sportsfields/sportsfields.ini"
     conf.read_orthoseg_config(config_path)
 
     # Check if the files were correctly loaded
@@ -62,15 +62,15 @@ def test_load_sampleprojects(request):
     assert sampleprojects_exp_dir.exists()
     assert (sampleprojects_exp_dir / "imagelayers.ini").exists()
     assert (sampleprojects_exp_dir / "project_defaults_overrule.ini").exists()
-    assert (sampleprojects_exp_dir / "run_footballfields.py").exists()
+    assert (sampleprojects_exp_dir / "run_sportsfields.py").exists()
 
-    footballfields_dir = sampleprojects_exp_dir / "footballfields"
-    assert footballfields_dir.exists()
-    files = list((footballfields_dir).glob("**/*.ini"))
+    sportsfields_dir = sampleprojects_exp_dir / "sportsfields"
+    assert sportsfields_dir.exists()
+    files = list((sportsfields_dir).glob("**/*.ini"))
     assert len(files) > 0
-    files = list((footballfields_dir / "labels").glob("**/*.gpkg"))
+    files = list((sportsfields_dir / "labels").glob("**/*.gpkg"))
     assert len(files) == 2
-    model_path = footballfields_dir / "models" / "footballfields_01_0.97392_201.hdf5"
+    model_path = sportsfields_dir / "models" / "sportsfields_01_0.97392_201.hdf5"
     assert model_path.exists()
     # The model should be larger than 40 MB, otherwise not normal
     assert model_path.stat().st_size > 40 * 1024 * 1024

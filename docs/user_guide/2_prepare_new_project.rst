@@ -105,11 +105,11 @@ is used to define common overrules of the default configuration values for all p
 in the project directory.
 
 For a specific project, only some project-specific parameter values are overruled, like
-you can see here: :doc:`/file_viewers/footballfields_ini_viewer`.
+you can see here: :doc:`/file_viewers/sportsfields_ini_viewer`.
 
 Finally, if you want e.g. a project file to run a detection on a specific image layer,
 you can add yet another file that overrules the project file yet again, like you can
-see here: :doc:`/file_viewers/footballfields_BEFL-2019_ini_viewer`. Note the
+see here: :doc:`/file_viewers/sportsfields_BEFL-2024-sportsfields_ini_viewer`. Note the
 :confval:`general.extra_config_files_to_load` property in the project file that allows
 you to specify all extra config files that will be loaded in the order listed.
 

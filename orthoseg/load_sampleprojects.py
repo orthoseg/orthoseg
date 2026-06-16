@@ -91,32 +91,11 @@ def load_sampleprojects(dest_dir: Path, ssl_verify: bool | str = True):
 
     print("Download finished")
 
-    print("Start download of footballfields pretrained neural net")
-    verify = True if ssl_verify is None else ssl_verify
-    model_dir = dest_dir_full / "footballfields/models"
+    print("Start download of sportsfields pretrained neural net")
+    model_dir = dest_dir_full / "sportsfields/models"
     model_dir.mkdir(parents=True, exist_ok=True)
 
-    model_hdf5_path = model_dir / "footballfields_01_0.97392_201.hdf5"
-    if not model_hdf5_path.exists():
-        gdown.download(
-            id="1UlNorZ74ADCr3pL4MCJ_tnKRNoeZX79g",
-            output=str(model_hdf5_path),
-            verify=verify,
-        )
-    model_hyperparams_path = model_dir / "footballfields_01_hyperparams.json"
-    if not model_hyperparams_path.exists():
-        gdown.download(
-            id="1NwrVVjx9IsjvaioQ4-bkPMrq7S6HeWIo",
-            output=str(model_hyperparams_path),
-            verify=verify,
-        )
-    model_modeljson_path = model_dir / "footballfields_01_model.json"
-    if not model_modeljson_path.exists():
-        gdown.download(
-            id="1LNPLypM5in3aZngBKK_U4Si47Oe97ZWN",
-            output=str(model_modeljson_path),
-            verify=verify,
-        )
+    _download_model(model_dir)
     print("Download finished")
 
 

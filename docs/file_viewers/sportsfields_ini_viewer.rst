@@ -1,10 +1,10 @@
 :orphan:
 
 ============================
-footballfields_BEFL-2019.ini
+sportsfields.ini
 ============================
 
 Contents:
 
-.. include:: /_static/config_files/footballfields_BEFL-2019.ini
+.. include:: /_static/config_files/sportsfields.ini
    :literal:

@@ -8,8 +8,8 @@ from orthoseg.util.data import aidetection_info
 @pytest.mark.parametrize(
     "file, exp_error",
     [
-        ("footballfields_01_201_BEFL-2019_dissolve.gpkg", False),
-        ("footballfields_01_201.gpkg", True),
+        ("test-subject_01_201_BEFL-2019_dissolve.gpkg", False),
+        ("test-subject_01_201.gpkg", True),
     ],
 )
 def test_aidetection_info(tmp_path, file: str, exp_error: bool):
@@ -31,7 +31,7 @@ def test_aidetection_info(tmp_path, file: str, exp_error: bool):
         ai_detection_info = aidetection_info(path=path)
 
         assert ai_detection_info.path == path
-        assert ai_detection_info.subject == "footballfields"
+        assert ai_detection_info.subject == "test-subject"
         assert ai_detection_info.traindata_version == 1
         assert ai_detection_info.image_layer == "BEFL-2019"
         assert ai_detection_info.image_layer_year == 2019

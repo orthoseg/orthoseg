@@ -37,48 +37,53 @@ steps should do the trick:
 
     orthoseg_load_sampleprojects ~
 
-4. preload the images so they are ready to detect the football fields on, using the
-   sample configurations file "footballfields.ini_BEFL-2019"::
+4. preload the images so they are ready to detect the sportsfields on, using the
+   sample configurations file "sportsfields.ini". In ::"sportsfields.ini" the
+   `predict.image_layer` option specifies which image layer to use for prediction, and
+   it is set to "BEFL-2025-sportsfields", a layer with a bounding box where sportsfields
+   are located.
    
-    orthoseg_load_images --config ~/orthoseg/sample_projects/footballfields/footballfields_BEFL-2019.ini
+    orthoseg_load_images --config ~/orthoseg/sample_projects/sportsfields/sportsfields.ini
 
-5. for the footballfields sample project, a pretrained neural network was downloaded in
+5. for the sportsfields sample project, a pretrained neural network was downloaded in
    step orthoseg_load_sampleprojects to avoid having to train it. But, normally you
    would now train the neural network with the following command::
 
-    orthoseg_train --config ~/orthoseg/sample_projects/footballfields/footballfields.ini
+    orthoseg_train --config ~/orthoseg/sample_projects/sportsfields/sportsfields.ini
 
 6. detect the football fields::
 
-    orthoseg_predict --config ~/orthoseg/sample_projects/footballfields/footballfields_BEFL-2019.ini
+    orthoseg_predict --config ~/orthoseg/sample_projects/sportsfields/sportsfields.ini
 
-Now, the directory `~/orthoseg/sample_projects/footballfields/output_vector` will
-contain a .gpkg file with the football fields found.
+Now, the directory `~/orthoseg/sample_projects/sportsfields/output_vector` will
+contain a .gpkg file with the sportsfields found.
 
-An interesting exercise might be to detect football fields on another layer (on another
-location). To get reasonable results, this should be a layer with 0.25 meter pixel size,
-as this was the pixel size the footballfields detection was trained on. It's best to
+An interesting exercise might be to detect sportsfields on another layer. To get
+reasonable results, this should be a layer with 0.25 meter pixel size,
+as this was the pixel size the sportsfields detection was trained on. It's best to
 first read :doc:`2_prepare_new_project` for some background information and then you could
 try the following steps:
 
 1. Add the layer you want to predict on to the `imagelayer.ini` config file located in
    your projects directory (`~/orthoseg/sample_projects`).
    Not a very interesting example, but if you don't have a lot of inspiration you could
-   use a layer with orthophotos of 2020 on the same location as the 2019 layer above.
+   use a layer with orthophotos of 2020 on the same location as the 2024 layer above.
    This can be configured as follows::
 
-      [BEFL-2020]
+      [BEFL-2020-sportsfields]
       wms_server_url = https://geo.api.vlaanderen.be/omw/wms?
       wms_layernames = OMWRGB20VL
       wms_layerstyles = default
       wms_version = 1.3.0
       projection = epsg:31370
-      bbox = 174900, 176400, 175300, 176600
+
+      # Bbox of the ROI to use when predicting
+      bbox = 154010, 204350, 154250, 204650
 
    Detailed information on the different available options to configure image layers
    can be found in :doc:`/reference_docs/image_layers_config`.
-2. Make a copy of `footballfields_BEFL-2019.ini` and change the `predict image_layer`
-   parameter in the file to point to the new layer, e.g.::
+2. Make a copy of `sportsfields_BEFL-2024.ini` and change the
+   :confval:`predict.image_layer` option in the file to point to the new layer, e.g.::
 
       [predict]
       image_layer = BEFL-2020
@@ -89,12 +94,12 @@ try the following steps:
    :confval:`predict.image_layer`, you can add parameter
    ``predict.image_layer=BEFL-2020``::
 
-      orthoseg_predict --config ~/orthoseg/sample_projects/footballfields/footballfields.ini predict.image_layer=BEFL-2020
+      orthoseg_predict --config ~/orthoseg/sample_projects/sportsfields/sportsfields.ini predict.image_layer=BEFL-2020-sportsfields
 
 3. Run `orthoseg_load_images` to prepare the layer to predict on::
 
-      orthoseg_load_images --config ~/orthoseg/sample_projects/footballfields/footballfields_BEFL-2020.ini
+      orthoseg_load_images --config ~/orthoseg/sample_projects/sportsfields/sportsfields_BEFL-2020-sportsfields.ini
 
 4. Run the detection again with `orthoseg_predict`::
 
-      orthoseg_predict --config ~/orthoseg/sample_projects/footballfields/footballfields_BEFL-2020.ini
+      orthoseg_predict --config ~/orthoseg/sample_projects/sportsfields/sportsfields_BEFL-2020-sportsfields.ini

@@ -29,18 +29,18 @@ image layer that you want to use to base your training on:
 In the `locations`` file you need to draw the bounding boxes of the images that will be
 downloaded and used as the images to train the detection on. In the `polygons`` file you
 need to digitize the things you want to detect as polygons as shown in the screenshot
-below. The green square is the `location`, the red rectangle is the `polygon` drawn to
-show where the football field is in the `location`. This training example will help the
-neural network to learn how a (part of a) football field looks, but also that tennis
-fields are not to be detected...
+below. The green square is the `location`, the red rectangles are the `polygons` drawn
+to show where the sports fields are in the `location`. This training example will help
+the neural network to learn how the different (parts of) sports fields look like:
+football fields, tennis courts, etc.
 
-.. image:: /_static/images/screenshot_labels_footballfields.jpg
+.. image:: /_static/images/screenshot_labels_sportsfields.jpg
    :alt: Digitize training data, location and polygon
 
-Creating training data is -in my experience- an iterative process. You add some samples
-to the training dataset, you evaluate the results, add some more,... This way you can
-minimize the number of training samples you need to digitize/train on which can save a
-lot of time.
+Efficiently creating training data is -in my experience- an iterative process. You add
+some samples to the training dataset, you evaluate the results, add some more,...
+This way you can minimize the number of training samples you need to digitize/train on
+which can save a lot of time.
 
 So, the following steps need to be iterated over till you are happy with the results:
 

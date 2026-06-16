@@ -26,7 +26,7 @@ def get_testdata_dir() -> Path:
 
 
 def test_1_init_testproject():
-    # Use footballfields sample project for these end to end tests
+    # Use sportsfields sample project for these end to end tests
     shutil.rmtree(testprojects_dir, ignore_errors=True)
     shutil.copytree(test_helper.sampleprojects_dir, testprojects_dir)
 
