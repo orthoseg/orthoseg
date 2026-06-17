@@ -71,6 +71,7 @@ def test_validate_error(tmp_path):
     config_path = tmp_project_dir / SportsFields.config_path.name
     shutil.copy(src=SportsFields.config_path, dst=config_path)
     shutil.copy(src=test_helper.sampleprojects_dir / "imagelayers.ini", dst=tmp_path)
+    (tmp_path / "project_defaults_overrule.ini").touch()
 
     with pytest.raises(
         RuntimeError,
