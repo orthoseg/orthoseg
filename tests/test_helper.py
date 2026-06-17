@@ -17,6 +17,7 @@ class SportsFields:
     subject = "sportsfields"
     project_dir = sampleprojects_dir / subject
     config_path = project_dir / f"{subject}.ini"
+    config_extra_path = project_dir / f"{subject}_BEFL-2024.ini"
 
     @staticmethod
     def download_model(dst_dir):

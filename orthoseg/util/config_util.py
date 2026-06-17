@@ -76,7 +76,12 @@ def get_config_files(config_path: Path) -> list[Path]:
                 config_file_formatted = (
                     default_basedir / config_file_formatted
                 ).resolve()
-            config_filepaths.append(Path(config_file_formatted))
+            if not config_file_formatted.exists():
+                raise ValueError(
+                    "Config file specified in extra_config_files_to_load does not "
+                    f"exist: {config_file_formatted}"
+                )
+            config_filepaths.append(config_file_formatted)
 
     # Finally add the specific project config file...
     config_filepaths.append(config_path)

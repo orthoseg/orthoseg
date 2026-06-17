@@ -45,6 +45,44 @@ def test_read_orthoseg_config_image_layers(image_layer):
     assert layer.get("switch_axes") is False
 
 
+def test_read_orthoseg_config_extra_config_files_to_load():
+    # Load the sample project config file that uses extra config files..
+    conf.read_orthoseg_config(SportsFields.config_extra_path)
+
+    # Check if the info from the extra config file was loaded.
+    assert conf.general.get("segment_subject") == "sportsfields"
+    assert conf.predict.getfloat("image_pixel_x_size") == 0.5
+    assert conf.predict.getfloat("image_pixel_y_size") == 0.5
+    assert conf.predict.getint("image_pixel_width") == 512
+    assert conf.predict.getint("image_pixel_height") == 512
+    assert conf.predict.getint("image_pixels_overlap") == 64
+    assert len(conf.train.getdict("classes")) == 4
+
+    # Check that the overruled option is correct
+    assert conf.predict.get("image_layer") == "BEFL-2024"
+
+
+def test_read_orthoseg_config_extra_config_files_to_load_error(tmp_path):
+    """Load a config file with a non-existing extra config file to load."""
+    # Create a config file that specifies a non-existing extra config file to load.
+    config_str = f"""
+        [general]
+        segment_subject = sportsfields
+        extra_config_files_to_load = {tmp_path / "non_existing_config.ini"}
+    """
+    config_path = tmp_path / "test_config.ini"
+    with config_path.open("w") as f:
+        for line in config_str.splitlines():
+            f.write(f"{line.strip()}\n")
+
+    # Load the sample project config file that uses extra config files..
+    with pytest.raises(
+        ValueError,
+        match="Config file specified in extra_config_files_to_load does not exist",
+    ):
+        conf.read_orthoseg_config(config_path)
+
+
 def test_read_orthoseg_config_image_layers_filelayer_dir(tmp_path):
     # Create a directory with a tif file as a directory layer.
     file_path = (
