@@ -186,7 +186,7 @@ def read_orthoseg_config(config_path: Path, overrules: list[str] | None = None):
     # location of the project config file.
     output_style_path_is_default_value = (
         True
-        if postprocess.get("output_style_path") == "{segment_subject}.qml"
+        if postprocess.get("output_style_path") == f"{segment_subject}.qml"
         else False
     )
     output_style_path = postprocess.getpath("output_style_path")
