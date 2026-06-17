@@ -217,6 +217,36 @@ def test_read_orthoseg_config_train_weights_type():
     assert conf.train.get("weights_type") == "imagenet"
 
 
+def test_read_orthoseg_config_postprocess_output_style_path_default(tmp_path, caplog):
+    """If output_style_path is the default value and no .qml file exists, warning."""
+    # Copy the config to a temporary directory, to be sure no .qml is present.
+    tmp_project_dir = tmp_path / "project"
+    tmp_project_dir.mkdir()
+    temp_config_path = tmp_project_dir / SampleProjectFootball.config_path.name
+    shutil.copy(SampleProjectFootball.config_path, temp_config_path)
+    shutil.copy(sampleprojects_dir / "imagelayers.ini", tmp_path)
+    (tmp_project_dir / "project_defaults_overrule.ini").touch()
+
+    conf.read_orthoseg_config(temp_config_path)
+
+    # If the output_style_path is the default value and no .qml file exists, a warning
+    # should be logged and the output_style_path should be set to None.
+    output_style_path = conf.postprocess.getpath("output_style_path")
+    assert output_style_path is None
+    assert "postprocess.output_style_path is set to the default value" in caplog.text
+
+
+def test_read_orthoseg_config_postprocess_output_style_path_custom_missing():
+    with pytest.raises(
+        FileNotFoundError,
+        match=r"postprocess.output_style_path is configured explicitly",
+    ):
+        conf.read_orthoseg_config(
+            SampleProjectFootball.predict_config_path,
+            overrules=["postprocess.output_style_path=missing-custom-style.qml"],
+        )
+
+
 def test_prepare_train_label_infos():
     subject = TestData.subject
     labelpolygons_pattern = TestData.dir / f"{subject}_{{image_layer}}_data.gpkg"

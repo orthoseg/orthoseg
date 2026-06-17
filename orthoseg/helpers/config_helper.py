@@ -185,6 +185,33 @@ def read_orthoseg_config(config_path: Path, overrules: list[str] | None = None):
         )
         dirs["projects_dir"] = projects_dir_absolute.as_posix()
 
+    # If postprocess.output_style_path is a relative path, resolve it towards the
+    # location of the project config file.
+    output_style_path_is_default_value = (
+        True
+        if postprocess.get("output_style_path") == f"{segment_subject}.qml"
+        else False
+    )
+    output_style_path = postprocess.getpath("output_style_path")
+    if output_style_path is not None and not output_style_path.is_absolute():
+        output_style_path_absolute = (config_path.parent / output_style_path).resolve()
+        postprocess["output_style_path"] = output_style_path_absolute.as_posix()
+        output_style_path = output_style_path_absolute
+
+    if output_style_path is not None and not output_style_path.exists():
+        if output_style_path_is_default_value:
+            logger.warning(
+                "postprocess.output_style_path is set to the default value and file "
+                f"doesn't exist (warning only): {output_style_path}"
+            )
+            # Set to None so that the postprocess will not try to use it.
+            postprocess["output_style_path"] = None
+        else:
+            raise FileNotFoundError(
+                "postprocess.output_style_path is configured explicitly, but file "
+                f"doesn't exist: {output_style_path}"
+            )
+
     # Some version-specific defaults
     if train.get("save_format") is None:
         train["save_format"] = "keras" if KERAS_GTE_3 else "h5"

@@ -231,6 +231,67 @@ def test_postprocess_predictions(
         assert output_reclass_path.exists()
 
 
+def test_postprocess_predictions_output_style_added(tmp_path: Path):
+    output_vector_dir = tmp_path / "output_vector"
+    output_vector_path = create_prediction_file(output_vector_dir=output_vector_dir)
+    output_style_path = tmp_path / "footballfields.qml"
+    output_style_path.write_text("<qgis></qgis>", encoding="utf-8")
+
+    postp.postprocess_predictions(
+        input_path=output_vector_path,
+        output_path=output_vector_path,
+        dissolve=False,
+        output_style_path=output_style_path,
+    )
+
+    styles = gfo.get_layerstyles(output_vector_path)
+    assert len(styles) == 1
+    assert styles.iloc[0]["styleName"] == output_style_path.name
+    assert styles.iloc[0]["f_table_name"] == output_vector_path.stem
+
+
+def test_postprocess_predictions_output_style_missing(tmp_path: Path):
+    output_vector_dir = tmp_path / "output_vector"
+    output_vector_path = create_prediction_file(output_vector_dir=output_vector_dir)
+    output_style_path = tmp_path / "missing.qml"
+
+    with pytest.raises(FileNotFoundError, match="output_style_path doesn't exist"):
+        postp.postprocess_predictions(
+            input_path=output_vector_path,
+            output_path=output_vector_path,
+            dissolve=False,
+            output_style_path=output_style_path,
+        )
+
+
+def test_postprocess_predictions_output_style_non_gpkg(tmp_path: Path):
+    output_vector_path = tmp_path / "footballfields.geojson"
+    gdf = gpd.GeoDataFrame(
+        {
+            "classname": ["footballfields"],
+            "geometry": [
+                shapely.wkt.loads(
+                    "MULTIPOLYGON (((175056.375 176371.125, 175056.375 176370.875, 175056.625 176370.875, 175056.625 176371.125, 175056.375 176371.125)))"  # noqa: E501
+                )
+            ],
+        },
+        geometry="geometry",
+        crs=31370,
+    )
+    gfo.to_file(gdf=gdf, path=output_vector_path)
+
+    output_style_path = tmp_path / "footballfields.qml"
+    output_style_path.write_text("<qgis></qgis>", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="output is not a GeoPackage"):
+        postp.postprocess_predictions(
+            input_path=output_vector_path,
+            output_path=output_vector_path,
+            dissolve=False,
+            output_style_path=output_style_path,
+        )
+
+
 @pytest.mark.parametrize(
     "max_similarity_to_save, expect_saved",
     [(0.999, False), (1.0, True)],
