@@ -126,6 +126,7 @@ def postprocess(config_path: Path, config_overrules: list[str] | None = None):
         simplify_lookahead = conf.postprocess.get("simplify_lookahead")
         if simplify_lookahead is not None:
             simplify_lookahead = int(simplify_lookahead)
+        output_style_path = conf.postprocess.getpath("output_style_path")
 
         # Go!
         postp.postprocess_predictions(
@@ -139,6 +140,7 @@ def postprocess(config_path: Path, config_overrules: list[str] | None = None):
             simplify_algorithm=simplify_algorithm,
             simplify_tolerance=simplify_tolerance,
             simplify_lookahead=simplify_lookahead,
+            output_style_path=output_style_path,
             nb_parallel=nb_parallel,
             force=False,
         )

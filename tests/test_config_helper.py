@@ -187,6 +187,17 @@ def test_read_orthoseg_config_train_weights_type():
     assert conf.train.get("weights_type") == "imagenet"
 
 
+def test_read_orthoseg_config_postprocess_output_style_path_default():
+    conf.read_orthoseg_config(SampleProjectFootball.predict_config_path)
+
+    output_style_path = conf.postprocess.getpath("output_style_path")
+    assert output_style_path is not None
+    assert output_style_path.is_absolute()
+    assert output_style_path.parent == SampleProjectFootball.config_path.parent
+    assert output_style_path.name == "footballfields.qml"
+    assert conf.general.get("subject") == conf.general.get("segment_subject")
+
+
 def test_prepare_train_label_infos():
     labelpolygons_pattern = TestData.dir / "footballfields_{image_layer}_data.gpkg"
     labellocations_pattern = (

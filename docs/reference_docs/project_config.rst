@@ -908,6 +908,18 @@ Settings concerning the postprocessing after the prediction.
 
    Only applicable if :confval:`postprocess.simplify_algorithm` is LANG.
 
+.. confval:: postprocess.output_style_path
+   :type: ``str``
+   :default: ``${general:subject}.qml``
+
+   Path to the .qml style file to apply to the output layer.
+
+   The style is added to GeoPackage output files using
+   geofileops.add_layerstyle.
+
+   If a relative path is used it is resolved towards the parent dir of
+   the project config file.
+
 
 [dirs]
 ------

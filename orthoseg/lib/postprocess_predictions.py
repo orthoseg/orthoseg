@@ -41,6 +41,7 @@ def postprocess_predictions(
     simplify_algorithm: str | None = None,
     simplify_tolerance: float = 1,
     simplify_lookahead: int = 8,
+    output_style_path: Path | None = None,
     keep_original_file: bool = True,
     keep_intermediary_files: bool = True,
     nb_parallel: int = -1,
@@ -63,6 +64,8 @@ def postprocess_predictions(
         simplify_tolerance (float): Tolerance to use for the simplification.
             Defaults to 1.
         simplify_lookahead (int): Lookahead to use for simplification. Default to 8.
+        output_style_path (Path, optional): Path to a QGIS .qml style file. If
+            specified and output is a GeoPackage, the style is added to the layer.
         nb_parallel (int, optional): number of cpu's to use for postprocessing.
             Use all cpu's if it is -1. Defaults to -1.
         force: False to skip results that already exist, true to
@@ -187,6 +190,8 @@ def postprocess_predictions(
         input_path.rename(original_file)
         shutil.copy(src=curr_output_path, dst=input_path)
 
+    _add_output_layer_style(output_path=input_path, output_style_path=output_style_path)
+
     # Cleanup original file
     if not keep_original_file:
         original_file.unlink()
@@ -197,6 +202,36 @@ def postprocess_predictions(
             file.unlink()
 
     return output_paths
+
+
+def _add_output_layer_style(output_path: Path, output_style_path: Path | None) -> None:
+    """Add a QML layer style to a GeoPackage output if configured."""
+    if output_style_path is None:
+        return
+
+    if output_path.suffix.lower() != ".gpkg":
+        raise ValueError(
+            "postprocess.output_style_path is set but output is not a GeoPackage: "
+            f"{output_path}"
+        )
+
+    if not output_style_path.exists():
+        logger.warning(
+            "postprocess.output_style_path doesn't exist, "
+            f"style skipped: {output_style_path}"
+        )
+        return
+
+    qml_style = output_style_path.read_text(encoding="utf-8")
+    layer_name = gfo.get_only_layer(output_path)
+
+    gfo.add_layerstyle(
+        path=output_path,
+        layer=layer_name,
+        name=output_style_path.name,
+        qml=qml_style,
+        use_as_default=True,
+    )
 
 
 def read_prediction_file(filepath: Path) -> gpd.GeoDataFrame | None:
