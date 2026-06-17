@@ -201,6 +201,8 @@ def read_orthoseg_config(config_path: Path, overrules: list[str] | None = None):
                 "postprocess.output_style_path is set to the default value and file "
                 f"doesn't exist (warning only): {output_style_path}"
             )
+            # Set to None so that the postprocess will not try to use it.
+            postprocess["output_style_path"] = None
         else:
             raise FileNotFoundError(
                 "postprocess.output_style_path is configured explicitly, but file "
