@@ -187,15 +187,26 @@ def test_read_orthoseg_config_train_weights_type():
     assert conf.train.get("weights_type") == "imagenet"
 
 
-def test_read_orthoseg_config_postprocess_output_style_path_default():
-    conf.read_orthoseg_config(SampleProjectFootball.predict_config_path)
+def test_read_orthoseg_config_postprocess_output_style_path_default(caplog):
+    conf.read_orthoseg_config(SampleProjectFootball.config_path)
 
     output_style_path = conf.postprocess.getpath("output_style_path")
     assert output_style_path is not None
     assert output_style_path.is_absolute()
     assert output_style_path.parent == SampleProjectFootball.config_path.parent
     assert output_style_path.name == "footballfields.qml"
-    assert conf.general.get("subject") == conf.general.get("segment_subject")
+    assert "postprocess.output_style_path is set to the default value" in caplog.text
+
+
+def test_read_orthoseg_config_postprocess_output_style_path_custom_missing():
+    with pytest.raises(
+        FileNotFoundError,
+        match=r"postprocess.output_style_path is configured explicitly",
+    ):
+        conf.read_orthoseg_config(
+            SampleProjectFootball.predict_config_path,
+            overrules=["postprocess.output_style_path=missing-custom-style.qml"],
+        )
 
 
 def test_prepare_train_label_infos():

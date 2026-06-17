@@ -216,11 +216,9 @@ def _add_output_layer_style(output_path: Path, output_style_path: Path | None) -
         )
 
     if not output_style_path.exists():
-        logger.warning(
-            "postprocess.output_style_path doesn't exist, "
-            f"style skipped: {output_style_path}"
+        raise FileNotFoundError(
+            f"postprocess.output_style_path doesn't exist: {output_style_path}"
         )
-        return
 
     qml_style = output_style_path.read_text(encoding="utf-8")
     layer_name = gfo.get_only_layer(output_path)

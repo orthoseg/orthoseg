@@ -255,19 +255,18 @@ def test_postprocess_predictions_output_style_added(tmp_path: Path):
     assert styles.iloc[0]["f_table_name"] == output_vector_path.stem
 
 
-def test_postprocess_predictions_output_style_missing(tmp_path: Path, caplog):
+def test_postprocess_predictions_output_style_missing(tmp_path: Path):
     output_vector_dir = tmp_path / "output_vector"
     output_vector_path = create_prediction_file(output_vector_dir=output_vector_dir)
     output_style_path = tmp_path / "missing.qml"
 
-    postp.postprocess_predictions(
-        input_path=output_vector_path,
-        output_path=output_vector_path,
-        dissolve=False,
-        output_style_path=output_style_path,
-    )
-
-    assert "postprocess.output_style_path doesn't exist" in caplog.text
+    with pytest.raises(FileNotFoundError, match="output_style_path doesn't exist"):
+        postp.postprocess_predictions(
+            input_path=output_vector_path,
+            output_path=output_vector_path,
+            dissolve=False,
+            output_style_path=output_style_path,
+        )
 
 
 def test_postprocess_predictions_output_style_non_gpkg(tmp_path: Path):
