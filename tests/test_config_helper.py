@@ -187,14 +187,22 @@ def test_read_orthoseg_config_train_weights_type():
     assert conf.train.get("weights_type") == "imagenet"
 
 
-def test_read_orthoseg_config_postprocess_output_style_path_default(caplog):
-    conf.read_orthoseg_config(SampleProjectFootball.config_path)
+def test_read_orthoseg_config_postprocess_output_style_path_default(tmp_path, caplog):
+    """If output_style_path is the default value and no .qml file exists, warning."""
+    # Copy the config to a temporary directory, to be sure no .qml is present.
+    tmp_project_dir = tmp_path / "project"
+    tmp_project_dir.mkdir()
+    temp_config_path = tmp_project_dir / SampleProjectFootball.config_path.name
+    shutil.copy(SampleProjectFootball.config_path, temp_config_path)
+    shutil.copy(sampleprojects_dir / "imagelayers.ini", tmp_path)
+    (tmp_project_dir / "project_defaults_overrule.ini").touch()
 
+    conf.read_orthoseg_config(temp_config_path)
+
+    # If the output_style_path is the default value and no .qml file exists, a warning
+    # should be logged and the output_style_path should be set to None.
     output_style_path = conf.postprocess.getpath("output_style_path")
-    assert output_style_path is not None
-    assert output_style_path.is_absolute()
-    assert output_style_path.parent == SampleProjectFootball.config_path.parent
-    assert output_style_path.name == "footballfields.qml"
+    assert output_style_path is None
     assert "postprocess.output_style_path is set to the default value" in caplog.text
 
 
