@@ -233,8 +233,11 @@ def test_postprocess_predictions(
 
 def test_postprocess_predictions_output_style_added(tmp_path: Path):
     output_vector_dir = tmp_path / "output_vector"
-    output_vector_path = create_prediction_file(output_vector_dir=output_vector_dir)
-    output_style_path = tmp_path / "footballfields.qml"
+    subject = "test-subject"
+    output_vector_path = create_prediction_file(
+        output_vector_dir=output_vector_dir, subject=subject
+    )
+    output_style_path = tmp_path / f"{subject}.qml"
     output_style_path.write_text("<qgis></qgis>", encoding="utf-8")
 
     postp.postprocess_predictions(
@@ -246,14 +249,18 @@ def test_postprocess_predictions_output_style_added(tmp_path: Path):
 
     styles = gfo.get_layerstyles(output_vector_path)
     assert len(styles) == 1
-    assert styles.iloc[0]["styleName"] == output_style_path.name
-    assert styles.iloc[0]["f_table_name"] == output_vector_path.stem
+    assert styles.iloc[0]["styleName"] == output_style_path.stem
+    layer_name = gfo.get_only_layer(output_vector_path)
+    assert styles.iloc[0]["f_table_name"] == layer_name
 
 
 def test_postprocess_predictions_output_style_missing(tmp_path: Path):
     output_vector_dir = tmp_path / "output_vector"
-    output_vector_path = create_prediction_file(output_vector_dir=output_vector_dir)
-    output_style_path = tmp_path / "missing.qml"
+    subject = "test-subject"
+    output_vector_path = create_prediction_file(
+        output_vector_dir=output_vector_dir, subject=subject
+    )
+    output_style_path = tmp_path / f"{subject}.qml"
 
     with pytest.raises(FileNotFoundError, match="output_style_path doesn't exist"):
         postp.postprocess_predictions(
@@ -265,7 +272,8 @@ def test_postprocess_predictions_output_style_missing(tmp_path: Path):
 
 
 def test_postprocess_predictions_output_style_non_gpkg(tmp_path: Path):
-    output_vector_path = tmp_path / "footballfields.geojson"
+    subject = "test-subject"
+    output_vector_path = tmp_path / f"{subject}.geojson"
     gdf = gpd.GeoDataFrame(
         {
             "classname": ["footballfields"],
@@ -280,7 +288,7 @@ def test_postprocess_predictions_output_style_non_gpkg(tmp_path: Path):
     )
     gfo.to_file(gdf=gdf, path=output_vector_path)
 
-    output_style_path = tmp_path / "footballfields.qml"
+    output_style_path = tmp_path / f"{subject}.qml"
     output_style_path.write_text("<qgis></qgis>", encoding="utf-8")
 
     with pytest.raises(ValueError, match="output is not a GeoPackage"):

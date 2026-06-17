@@ -228,7 +228,7 @@ def _add_output_layer_style(output_path: Path, output_style_path: Path | None) -
     gfo.add_layerstyle(
         path=output_path,
         layer=layer_name,
-        name=output_style_path.name,
+        name=output_style_path.stem,
         qml=qml_style,
         use_as_default=True,
     )

@@ -222,10 +222,10 @@ def test_read_orthoseg_config_postprocess_output_style_path_default(tmp_path, ca
     # Copy the config to a temporary directory, to be sure no .qml is present.
     tmp_project_dir = tmp_path / "project"
     tmp_project_dir.mkdir()
-    temp_config_path = tmp_project_dir / SampleProjectFootball.config_path.name
-    shutil.copy(SampleProjectFootball.config_path, temp_config_path)
+    temp_config_path = tmp_project_dir / SportsFields.config_path.name
+    shutil.copy(SportsFields.config_path, temp_config_path)
     shutil.copy(sampleprojects_dir / "imagelayers.ini", tmp_path)
-    (tmp_project_dir / "project_defaults_overrule.ini").touch()
+    (tmp_path / "project_defaults_overrule.ini").touch()
 
     conf.read_orthoseg_config(temp_config_path)
 
@@ -242,7 +242,7 @@ def test_read_orthoseg_config_postprocess_output_style_path_custom_missing():
         match=r"postprocess.output_style_path is configured explicitly",
     ):
         conf.read_orthoseg_config(
-            SampleProjectFootball.predict_config_path,
+            SportsFields.config_path,
             overrules=["postprocess.output_style_path=missing-custom-style.qml"],
         )
 

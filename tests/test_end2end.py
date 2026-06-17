@@ -209,3 +209,10 @@ def test_5_postprocess():
     result_gdf = gfo.read_file(result_diss_path)
     expected_count = 22
     assert len(result_gdf) == expected_count
+
+    # The output file should contain the style from the project dir
+    styles = gfo.get_layerstyles(result_diss_path)
+    assert len(styles) == 1
+    layer_name = gfo.get_only_layer(result_diss_path)
+    assert styles.iloc[0]["f_table_name"] == layer_name
+    assert styles.iloc[0]["styleName"] == SportsFields.subject
