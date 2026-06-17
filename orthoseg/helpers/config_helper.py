@@ -184,7 +184,11 @@ def read_orthoseg_config(config_path: Path, overrules: list[str] | None = None):
 
     # If postprocess.output_style_path is a relative path, resolve it towards the
     # location of the project config file.
-    output_style_path_raw = postprocess.get("output_style_path", raw=True)
+    output_style_path_is_default_value = (
+        True
+        if postprocess.get("output_style_path") == "{segment_subject}.qml"
+        else False
+    )
     output_style_path = postprocess.getpath("output_style_path")
     if output_style_path is not None and not output_style_path.is_absolute():
         output_style_path_absolute = (config_path.parent / output_style_path).resolve()
@@ -192,7 +196,7 @@ def read_orthoseg_config(config_path: Path, overrules: list[str] | None = None):
         output_style_path = output_style_path_absolute
 
     if output_style_path is not None and not output_style_path.exists():
-        if output_style_path_raw == "${general:segment_subject}.qml":
+        if output_style_path_is_default_value:
             logger.warning(
                 "postprocess.output_style_path is set to the default value and file "
                 f"doesn't exist (warning only): {output_style_path}"
