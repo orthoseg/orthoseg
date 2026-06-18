@@ -192,10 +192,6 @@ def test_5_postprocess():
 
     conf.read_orthoseg_config(config_path, overrules=overrules)
 
-    # Cleanup result if it isn't empty yet
-    result_vector_dir = conf.dirs.getpath("output_vector_dir")
-    shutil.rmtree(result_vector_dir, ignore_errors=True)
-
     # Run task to postprocess
     output_vector_path = orthoseg.postprocess(config_path, config_overrules=overrules)
 
