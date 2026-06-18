@@ -70,5 +70,7 @@ jobs:
             ${{ matrix.install_extra_args }}
 
       - name: Test
+        env:
+          TESTS_INSTALLED: TRUE
         run: |
           pytest --color=yes tests/

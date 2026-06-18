@@ -25,6 +25,8 @@
 - Add support to reproject a local image layer (#290)
 - Add support to configure an image layer based on a simple dir with images (#337)
 - Add postprocessing option to add a qml style to the output layer (#347)
+- Replace footballfields sample project by sportsfields to have a multiclass and
+  multilayer example for tests and documentation (#341)
 - Improve performance of training data preparation (#344)
 - Improve handling of `switch_axes` and `ssl_verify` (#295)
 - When writing evaluation data for training images, don't write results with a

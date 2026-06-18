@@ -1,6 +1,7 @@
 """Tests for module load_sampleprojects."""
 
 import filecmp
+import os
 import shutil
 from packaging.version import Version
 from pathlib import Path
@@ -35,6 +36,10 @@ def test_load_images_args(args, exp_ssl_verify):
         assert valid_args["ssl_verify"] == exp_ssl_verify
 
 
+@pytest.mark.xfail(
+    os.environ.get("TESTS_INSTALLED") != "TRUE",
+    reason="Test should only really fail when testing the installed package",
+)
 def test_load_sampleprojects(request):
     """Test loading the sample projects.
 
