@@ -46,7 +46,7 @@ def _postprocess_args(args) -> argparse.Namespace:
     return parser.parse_args(args)
 
 
-def postprocess(config_path: Path, config_overrules: list[str] | None = None):
+def postprocess(config_path: Path, config_overrules: list[str] | None = None) -> Path:
     """Postprocess the output of a prediction for the config specified.
 
     Args:
@@ -54,6 +54,10 @@ def postprocess(config_path: Path, config_overrules: list[str] | None = None):
         config_overrules (list[str], optional): list of config options that will
             overrule other ways to supply configuration. They should be specified in the
             form of "<section>.<key>=<value>". Defaults to None.
+
+    Returns:
+        Path: The path to the postprocessed output file.
+
     """
     # Init
     # Load the config and save in a bunch of global variables zo it
@@ -149,6 +153,9 @@ def postprocess(config_path: Path, config_overrules: list[str] | None = None):
         message = f"Completed postprocess for {model_name} on {image_layer}"
         logger.info(message)
         email_helper.sendmail(message)
+
+        return output_vector_path
+
     except Exception as ex:
         if model_name is None:
             model_name = config_path.stem

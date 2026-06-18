@@ -194,25 +194,20 @@ def test_5_postprocess():
 
     # Cleanup result if it isn't empty yet
     result_vector_dir = conf.dirs.getpath("output_vector_dir")
-    result_diss_path = (
-        result_vector_dir
-        / f"{SportsFields.subject}_01_276_BEFL-2025-sportsfields_dissolve.gpkg"
-    )
-    if result_diss_path.exists():
-        gfo.remove(result_diss_path)
+    shutil.rmtree(result_vector_dir, ignore_errors=True)
 
     # Run task to postprocess
-    orthoseg.postprocess(config_path, config_overrules=overrules)
+    output_vector_path = orthoseg.postprocess(config_path, config_overrules=overrules)
 
     # Check results
-    assert result_diss_path.exists()
-    result_gdf = gfo.read_file(result_diss_path)
+    assert output_vector_path.exists()
+    result_gdf = gfo.read_file(output_vector_path)
     expected_count = 22
     assert len(result_gdf) == expected_count
 
     # The output file should contain the style from the project dir
-    styles = gfo.get_layerstyles(result_diss_path)
+    styles = gfo.get_layerstyles(output_vector_path)
     assert len(styles) == 1
-    layer_name = gfo.get_only_layer(result_diss_path)
+    layer_name = gfo.get_only_layer(output_vector_path)
     assert styles.iloc[0]["f_table_name"] == layer_name
     assert styles.iloc[0]["styleName"] == SportsFields.subject

@@ -54,6 +54,12 @@ def test_load_images_error_handling():
 )
 def test_load_images(tmp_path, image_layer_overrule, exp_image_count):
     # Use sportsfields sample project for these end to end tests
+    if (
+        image_layer_overrule == "predict.image_layer=BEFL-2025-footballfield-WMTS"
+        and "GITHUB_ACTIONS" in os.environ
+    ):
+        pytest.skip("Skipping this test on GITHUB_ACTIONS as it is very slow there.")
+
     testprojects_dir = tmp_path / "sample_projects"
     shutil.copytree(test_helper.sampleprojects_dir, testprojects_dir)
     project_dir = testprojects_dir / SportsFields.subject
