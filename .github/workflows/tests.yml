@@ -3,6 +3,9 @@
 
 name: Tests
 
+env:
+  TESTS_INSTALLED: TRUE
+
 on:
   workflow_dispatch:
   push:
@@ -94,8 +97,6 @@ jobs:
           python -c "import keras; print('Keras version:', keras.__version__); print('Keras backend:', keras.backend.backend())"
 
       - name: Test
-        env:
-          TESTS_INSTALLED: TRUE
         run: |
           pytest --report-chars fRsX --color=yes --durations=10 --cov=orthoseg --cov-append --cov-report term-missing --cov-report xml tests/
 
