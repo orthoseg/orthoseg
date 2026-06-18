@@ -100,7 +100,7 @@ def postprocess(config_path: Path, config_overrules: list[str] | None = None) ->
                 f"No best model found in {conf.dirs.getpath('model_dir')}"
             )
 
-        model_name = f"{best_model['segment_subject']}_{best_model['traindata_id']}"
+        model_name = best_model["basefilename"]
         message = f"Start postprocess for {model_name} on {image_layer}"
         email_helper.sendmail(message)
 
@@ -158,7 +158,7 @@ def postprocess(config_path: Path, config_overrules: list[str] | None = None) ->
 
     except Exception as ex:
         if model_name is None:
-            model_name = config_path.stem
+            model_name = config_path.name
         message = f"ERROR in postprocess for {model_name} on {image_layer}"
         logger.exception(message)
         email_helper.sendmail(
