@@ -1,6 +1,7 @@
 """Tests for module predict."""
 
 import os
+import re
 import shutil
 from contextlib import nullcontext
 from pathlib import Path
@@ -48,7 +49,7 @@ def test_predict_error_handling():
     """Force an error so the general error handler in predict is tested."""
     with pytest.raises(
         RuntimeError,
-        match="ERROR in predict for sportsfields on UNEXISTING",
+        match=re.escape("ERROR in predict for sportsfields.ini on UNEXISTING"),
     ):
         predict(
             config_path=SportsFields.config_path,
