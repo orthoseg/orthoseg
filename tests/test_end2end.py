@@ -1,6 +1,5 @@
 """End to end tests for the entire orthoseg process."""
 
-import os
 import shutil
 import tempfile
 from pathlib import Path
@@ -38,11 +37,11 @@ def test_2_load_images():
     conf.read_orthoseg_config(config_path)
     image_cache_dir = conf.dirs.getpath("predict_image_input_dir")
 
-    # Clean result if it isn't empty yet
+    # Clean result if it isn't empty yet.
+    # Remark: by default, disable clean to improve test speed.
     clean_cache = False
     if clean_cache and image_cache_dir.exists():
         shutil.rmtree(image_cache_dir)
-        # Make sure is is deleted now!
         assert not image_cache_dir.exists()
 
     # Run task to load images
@@ -54,10 +53,6 @@ def test_2_load_images():
     assert len(files) == 4
 
 
-@pytest.mark.skipif(
-    "GITHUB_ACTIONS2" in os.environ and os.name == "nt",
-    reason="crashes on github CI on windows",
-)
 @pytest.mark.order(after="test_1_init_testproject")
 def test_3_train():
     # Load project config to init some vars.
@@ -128,7 +123,7 @@ def test_3_train():
     best_model = mh.get_best_model(
         model_dir=conf.dirs.getpath("model_dir"),
         segment_subject=conf.general["segment_subject"],
-        traindata_id=2,
+        traindata_id=traindata_id_result,
     )
 
     assert best_model is not None
@@ -136,10 +131,6 @@ def test_3_train():
     assert best_model["epoch"] == 0
 
 
-@pytest.mark.skipif(
-    "GITHUB_ACTIONS2" in os.environ and os.name == "nt",
-    reason="crashes on github CI on windows",
-)
 @pytest.mark.order(after="test_2_load_images")
 def test_4_predict():
     # Load project config to init some vars.
@@ -159,13 +150,8 @@ def test_4_predict():
     result_vector_dir = conf.dirs.getpath("output_vector_dir")
     if result_vector_dir.exists():
         shutil.rmtree(result_vector_dir)
-        # Make sure is is deleted now!
+        # Make sure it is deleted now!
         assert not result_vector_dir.exists()
-
-    # Download the version 01 model
-    model_dir = conf.dirs.getpath("model_dir")
-    model_dir.mkdir(parents=True, exist_ok=True)
-    test_helper.SportsFields.download_model(model_dir)
 
     # Run task to predict
     orthoseg.predict(config_path, config_overrules=overrules)
@@ -180,10 +166,6 @@ def test_4_predict():
     assert len(result_gdf) == expected_count
 
 
-@pytest.mark.skipif(
-    "GITHUB_ACTIONS2" in os.environ and os.name == "nt",
-    reason="crashes on github CI on windows",
-)
 @pytest.mark.order(after="test_4_predict")
 def test_5_postprocess():
     # Load project config to init some vars.

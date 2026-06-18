@@ -9,6 +9,8 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
+from orthoseg._compat import __version__
+
 # Get a logger...
 logger = logging.getLogger(__name__)
 
@@ -68,47 +70,28 @@ def load_sampleprojects(dest_dir: Path, ssl_verify: bool | str = True):  # noqa:
     print(f"Start download of sample projects to {dest_dir_full!s}")
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
         # Download the sample projects to a temporary directory first
-        url = "https://github.com/orthoseg/orthoseg_sample_projects/archive/refs/tags/v0.1.0.zip"
-        tmp_zip_path = Path(tmp_dir) / "sample_projects.zip"
+        base_url = "https://github.com/orthoseg/orthoseg/archive/refs/tags/v"
+        url = f"{base_url}{__version__}.zip"
+        tmp_zip_path = Path(tmp_dir) / "orthoseg_src.zip"
         urllib.request.urlretrieve(url, tmp_zip_path)
 
         # Unzip the downloaded file
-        tmp_proj_dir = Path(tmp_dir) / "sample_projects_tmp"
+        tmp_proj_dir = Path(tmp_dir) / "orthoseg_src_tmp"
         with zipfile.ZipFile(tmp_zip_path, "r") as zip_file:
             zip_file.extractall(tmp_proj_dir)
-        # Get the single subdirectory in the unzipped folder
+
+        # Unzipped folder contains a single directory with the orthoseg repo contents.
         subdirs = [d for d in tmp_proj_dir.iterdir() if d.is_dir()]
         if len(subdirs) != 1:
             raise ValueError(
-                f"Expected exactly one subdirectory, but found {len(subdirs)}"
+                f"Expected exactly one directory in the zip, but found {len(subdirs)}"
             )
 
-        # Move the unzipped sample projects to the destination directory
+        # Move the "sample_projects" subdir to the destination directory
         dest_dir.mkdir(parents=True, exist_ok=True)
         shutil.move(subdirs[0] / "sample_projects", dest_dir)
 
     print("Download finished")
-
-    print("Start download of sportsfields pretrained neural net")
-    model_dir = dest_dir_full / "sportsfields/models"
-    model_dir.mkdir(parents=True, exist_ok=True)
-
-    _download_model(model_dir)
-    print("Download finished")
-
-
-def _download_model(dst_dir):
-    url = "https://github.com/orthoseg/orthoseg_models/releases/download/sportsfields.1/sportsfields_01.zip"
-    cache_dir = Path(tempfile.gettempdir()) / "orthoseg_cache"
-    cache_dir.mkdir(parents=True, exist_ok=True)
-
-    # Download the sample projects to a temporary directory first
-    tmp_zip_path = Path(cache_dir) / Path(url).name
-    if not tmp_zip_path.exists():
-        urllib.request.urlretrieve(url, tmp_zip_path)
-
-    with zipfile.ZipFile(tmp_zip_path, "r") as zip_file:
-        zip_file.extractall(dst_dir)
 
 
 def main():

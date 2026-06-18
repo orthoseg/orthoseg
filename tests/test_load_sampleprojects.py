@@ -47,7 +47,7 @@ def test_load_sampleprojects(request):
     shutil.rmtree(dest_dir.expanduser(), ignore_errors=True)
 
     # Load the sample projects. Has to handle ~ in the path correctly.
-    load_sampleprojects.load_sampleprojects(dest_dir=dest_dir)
+    load_sampleprojects.load_sampleprojects(dest_dir=dest_dir, ssl_verify=False)
 
     # Try loading the config of the sportsfields sample project
     # Use the unexpanded path here as read_orthoseg_config should handle this correctly
