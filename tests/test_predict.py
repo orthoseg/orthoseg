@@ -71,12 +71,15 @@ def test_predict_use_cache_skip(tmp_path, use_cache, skip_images):
     # Use sportsfields sample project
     shutil.rmtree(testprojects_dir, ignore_errors=True)
     shutil.copytree(test_helper.sampleprojects_dir, testprojects_dir)
-
     project_dir = testprojects_dir / SportsFields.subject
 
     config_path = project_dir / SportsFields.config_path.name
     conf.read_orthoseg_config(config_path=config_path)
     image_cache_dir = conf.dirs.getpath("predict_image_input_dir")
+
+    # Remove the output vector dir to force a new prediction
+    result_vector_dir = conf.dirs.getpath("output_vector_dir")
+    shutil.rmtree(result_vector_dir, ignore_errors=True)
 
     # If use cache or skip_images is True, keep the cache. Cache is always needed when
     # skip_images is True to be able to determine which images to skip.
@@ -104,11 +107,6 @@ def test_predict_use_cache_skip(tmp_path, use_cache, skip_images):
         if not use_cache:
             if image_cache_dir.exists():
                 shutil.rmtree(image_cache_dir)
-
-    # Download the model
-    model_dir = conf.dirs.getpath("model_dir")
-    model_dir.mkdir(parents=True, exist_ok=True)
-    SportsFields.download_model(model_dir)
 
     # Run predict
     predict(config_path=config_path)

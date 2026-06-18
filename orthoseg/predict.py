@@ -117,7 +117,7 @@ def predict(config_path: Path, config_overrules: list[str] | None = None):
             model_weights_filepath = best_model["filepath"]
             logger.info(f"Best model found: {model_weights_filepath}")
 
-        model_name = f"{best_model['segment_subject']}_{best_model['traindata_id']}"
+        model_name = best_model["basefilename"]
 
         # Load the hyperparams of the model
         # TODO: move the hyperparams filename formatting to get_models...
@@ -138,7 +138,7 @@ def predict(config_path: Path, config_overrules: list[str] | None = None):
         )
 
         # Prepare output subdir to be used for predictions
-        predict_out_subdir = f"{best_model['basefilename']}"
+        predict_out_subdir = best_model["basefilename"]
         if trainparams_id > 0:
             predict_out_subdir += f"_{trainparams_id}"
         predict_out_subdir += f"_{best_model['epoch']}"
@@ -349,7 +349,7 @@ def predict(config_path: Path, config_overrules: list[str] | None = None):
         )
     except Exception as ex:
         if model_name is None:
-            model_name = config_path.stem
+            model_name = config_path.name
         message = f"ERROR in predict for {model_name} on {image_layer}"
         logger.exception(message)
         email_helper.sendmail(

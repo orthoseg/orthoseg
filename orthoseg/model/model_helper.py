@@ -414,15 +414,21 @@ def format_model_filename(
 
 
 def parse_model_filename(filepath: Path) -> dict:
-    """Parse a model_filename to a dict with the properties of the model.
+    """Parse a model filename to a dict with the properties of the model.
 
-    These are the properties:
+    These are the properties that are returned in the dict:
+
+        * filepath: the path to the model file
+        * filename: the name of the model file
+        * basefilename: the base name of the model file
         * segment_subject: the segment subject
         * traindata_id: the version of the data used to train the model
-        * monitor_metric_accuracy: the monitored metric accuracy
+        * architecture_id: the architecture ID of the model
         * trainparams_id: the version of the hyper parameters used to train
+        * monitor_metric_accuracy: the monitored metric accuracy
         * epoch: the epoch during training that reached these model weights
         * save_format (str): the format to save in:
+
             * keras format: 'keras'
             * legacy keras format: 'h5'
             * tensorflow savedmodel: 'tf'
@@ -508,9 +514,24 @@ def get_models(
     architecture_id: int | None = None,
     trainparams_id: int | None = None,
 ) -> list[dict]:
-    """Return the list of models in the model_dir passed.
+    """Return the list of models in the `model_dir` specified.
 
-    It is returned as a dataframe with the columns as returned in parse_model_filename.
+    It is returned as a dataframe with the following columns:
+
+        * filepath: the path to the model file
+        * filename: the name of the model file
+        * basefilename: the base name of the model file
+        * segment_subject: the segment subject
+        * traindata_id: the version of the data used to train the model
+        * architecture_id: the architecture ID of the model
+        * trainparams_id: the version of the hyper parameters used to train
+        * monitor_metric_accuracy: the monitored metric accuracy
+        * epoch: the epoch during training that reached these model weights
+        * save_format (str): the format to save in:
+
+            * keras format: 'keras'
+            * legacy keras format: 'h5'
+            * tensorflow savedmodel: 'tf'
 
     Args:
         model_dir (Path): dir containing the models
@@ -518,6 +539,10 @@ def get_models(
         traindata_id (int, optional): only models with this traindata version
         architecture_id (int, optional): only models with this this architecture_id
         trainparams_id (int, optional): only models with this hyperparams version
+
+    Returns:
+        list[dict]: a list of dicts with the properties of the models as explained
+        above.
     """
     # List models
     model_paths: list[Path] = []
@@ -578,6 +603,23 @@ def get_best_model(
 
     Only models with the highest traindata version in the dir are considered.
 
+    These are the properties returned in the dict:
+
+        * filepath: the path to the model file
+        * filename: the name of the model file
+        * basefilename: the base name of the model file
+        * segment_subject: the segment subject
+        * traindata_id: the version of the data used to train the model
+        * architecture_id: the architecture ID of the model
+        * trainparams_id: the version of the hyper parameters used to train
+        * monitor_metric_accuracy: the monitored metric accuracy
+        * epoch: the epoch during training that reached these model weights
+        * save_format (str): the format to save in:
+
+            * keras format: 'keras'
+            * legacy keras format: 'h5'
+            * tensorflow savedmodel: 'tf'
+
     Remark: regardless of the monitor function used when training, the accuracies
     are always better if higher!
 
@@ -589,8 +631,8 @@ def get_best_model(
         trainparams_id (int, optional): only models with this hyperparams id
 
     Returns:
-        A dictionary with the info of the best model as returned by
-        parse_model_filename, or None if no model was found
+        A dictionary with the properties of the best model or None if no model was
+        found.
     """
     # Get list of existing models for this train dataset
     model_info_list = get_models(
