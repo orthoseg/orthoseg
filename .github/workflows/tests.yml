@@ -95,7 +95,7 @@ jobs:
 
       - name: Test
         env:
-          TESTS_INSTALLED: TRUE
+          TESTS_INSTALLED: "TRUE"
         run: |
           pytest --report-chars fRsxX --color=yes --durations=10 --cov=orthoseg --cov-append --cov-report term-missing --cov-report xml tests/
 
