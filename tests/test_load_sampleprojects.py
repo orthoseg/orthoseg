@@ -37,8 +37,8 @@ def test_load_images_args(args, exp_ssl_verify):
 
 
 @pytest.mark.xfail(
-    os.environ.get("TESTS_INSTALLED") != "TRUE",
-    reason="Test should only really fail when testing the installed package",
+    not os.environ.get("TESTS_INSTALLED", "FALSE") == "TRUE",
+    reason="When not testing the installed package, xfail this test to avoid failing",
 )
 def test_load_sampleprojects(request):
     """Test loading the sample projects.
