@@ -23,11 +23,11 @@ If you ran the sample project, these steps will look very familiar:
    
       orthoseg_load_images --config {project_dir}{segment_subject}.ini
 
-4. train a neural network to detect football fields::
+4. train a neural network to detect sports fields::
    
       orthoseg_train --config {project_dir}{segment_subject}.ini
 
-5. detect the football fields::
+5. detect the sports fields::
 
       orthoseg_predict --config {project_dir}{segment_subject}.ini
 

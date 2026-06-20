@@ -10,12 +10,13 @@ should give a good idea on how you can start your own segmentation project.
 
 It contains:
 
-* a training dataset that can be used to train a network to detect football fields
+* a training dataset that can be used to train a network to detect some types of sports
+  fields
 * a sample of the basic configuration for a typical project that specifies using a
   lightweight neural network so it should run smoothly on a regular computer
 * a sample of the default directory structure used by orthoseg
 * a QGIS project file with the training data + aerial images that will be used to train
-  the neural network + to detect football fields on
+  the neural network + to detect sports fields on
 
 .. note::
 
@@ -51,16 +52,16 @@ steps should do the trick:
 
     orthoseg_train --config ~/orthoseg/sample_projects/sportsfields/sportsfields.ini
 
-6. detect the football fields::
+6. detect the sports fields::
 
     orthoseg_predict --config ~/orthoseg/sample_projects/sportsfields/sportsfields.ini
 
 Now, the directory `~/orthoseg/sample_projects/sportsfields/output_vector` will
-contain a .gpkg file with the sportsfields found.
+contain a .gpkg file with the sports fields found.
 
-An interesting exercise might be to detect sportsfields on another layer. To get
+An interesting exercise might be to detect sports fields on another layer. To get
 reasonable results, this should be a layer with 0.25 meter pixel size,
-as this was the pixel size the sportsfields detection was trained on. It's best to
+as this was the pixel size the sports fields detection was trained on. It's best to
 first read :doc:`2_prepare_new_project` for some background information and then you could
 try the following steps:
 

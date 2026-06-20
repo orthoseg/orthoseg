@@ -56,7 +56,7 @@ Important arguments:
   ``true``, ``false``, or a path to a certificate bundle.
 
 Use this command to get a working example project structure, sample data, and a
-pretrained model for the football fields example.
+pretrained model for the sportsfields example.
 
 orthoseg_load_images
 --------------------

@@ -94,8 +94,6 @@ jobs:
           python -c "import keras; print('Keras version:', keras.__version__); print('Keras backend:', keras.backend.backend())"
 
       - name: Test
-        env:
-          TESTS_INSTALLED: "TRUE"
         run: |
           pytest --report-chars fRsxX --color=yes --durations=10 --cov=orthoseg --cov-append --cov-report term-missing --cov-report xml tests/
 
