@@ -179,13 +179,10 @@ class TrainParams:
             self.optimizer_params = optimizer_params
 
         if loss_function is None:
-            if KERAS_GTE_3:
-                self.loss_function = "categorical_focal_crossentropy"
+            if self.class_weights is not None:
+                self.loss_function = "weighted_categorical_crossentropy"
             else:
-                if self.class_weights is not None:
-                    self.loss_function = "weighted_categorical_crossentropy"
-                else:
-                    self.loss_function = "categorical_crossentropy"
+                self.loss_function = "categorical_crossentropy"
         else:
             self.loss_function = loss_function
 

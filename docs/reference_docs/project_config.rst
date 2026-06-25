@@ -526,10 +526,8 @@ Settings concerning the train process.
 
    If not specified, the defaults are:
 
-   - **For keras 3+**: ``categorical_focal_crossentropy``
-   - **For keras <3**:
-       - If weights specified in the classes: ``weighted_categorical_crossentropy``
-       - If no weights are specified: ``categorical_crossentropy``
+   - If weights specified in the classes: ``weighted_categorical_crossentropy``
+   - If no weights are specified: ``categorical_crossentropy``
 
 .. confval:: train.monitor_metric
    :type: ``str``

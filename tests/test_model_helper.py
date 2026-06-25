@@ -158,13 +158,10 @@ def test_trainparams_defaults(class_weights):
     assert params.trainparams_id == 0
     assert params.weights_type == "aerial"
     assert params.save_format == "keras" if KERAS_GTE_3 else "h5"
-    if KERAS_GTE_3:
-        expected_loss_function = "categorical_focal_crossentropy"
+    if class_weights is not None:
+        expected_loss_function = "weighted_categorical_crossentropy"
     else:
-        if class_weights is not None:
-            expected_loss_function = "weighted_categorical_crossentropy"
-        else:
-            expected_loss_function = "categorical_crossentropy"
+        expected_loss_function = "categorical_crossentropy"
     assert params.loss_function == expected_loss_function
 
 

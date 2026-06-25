@@ -240,8 +240,7 @@ def compile_model(
         loss (str): the loss function to use. One of:
             * categorical_crossentropy
             * categorical_focal_crossentropy
-            * weighted_categorical_crossentropy is deprecated as it gives issues with
-              keras 3 combined with torch as backend.
+            * weighted_categorical_crossentropy
 
         metrics (list[str], optional): metrics to use. Support to specify them is not
             implemented... so should be None. Defaults to None.
