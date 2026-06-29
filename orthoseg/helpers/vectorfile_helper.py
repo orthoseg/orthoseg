@@ -64,7 +64,7 @@ def reclassify_neighbours(
     # Add/recalculate columns with area and nbcoords
     gfo.add_columns(
         path=output_path,
-        columns=[
+        new_columns=[
             ("area", "REAL", "ST_Area(geom)"),
             ("nbcoords", "INTEGER", "ST_NPoints(geom)"),
         ],

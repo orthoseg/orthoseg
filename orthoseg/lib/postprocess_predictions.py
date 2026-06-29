@@ -114,7 +114,7 @@ def postprocess_predictions(
             # Add/recalculate columns with area and nbcoords
             gfo.add_columns(
                 path=curr_output_path,
-                columns=[
+                new_columns=[
                     ("area", "REAL", "ST_Area(geom)"),
                     ("nbcoords", "INTEGER", "ST_NPoints(geom)"),
                 ],
@@ -161,7 +161,7 @@ def postprocess_predictions(
             # Add/recalculate columns with area and nbcoords
             gfo.add_columns(
                 path=curr_output_path,
-                columns=[
+                new_columns=[
                     ("area", "REAL", "ST_Area(geom)"),
                     ("nbcoords", "INTEGER", "ST_NPoints(geom)"),
                 ],
