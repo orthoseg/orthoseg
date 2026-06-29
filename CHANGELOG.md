@@ -10,7 +10,7 @@
 - Support for all optimizers offered by keras was added, but the setting has now become 
   case sensitive. For Keras >= 3, AdamW is now the default optimizer
   (#334, #335, #338).
-- The minimal version of geofileops is now 0.11 (#)
+- The minimal version of geofileops is now 0.11 (#350)
 
 ### Improvements
 
