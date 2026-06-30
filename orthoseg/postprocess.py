@@ -88,11 +88,13 @@ def postprocess(config_path: Path, config_overrules: list[str] | None = None) ->
             traindata_id = force_model_traindata_id
 
         # Get the best model that already exists for this train dataset
+        architecture_id = conf.model.getint("architecture_id")
         trainparams_id = conf.train.getint("trainparams_id")
         best_model = mh.get_best_model(
             model_dir=conf.dirs.getpath("model_dir"),
             segment_subject=conf.general["segment_subject"],
             traindata_id=traindata_id,
+            architecture_id=architecture_id,
             trainparams_id=trainparams_id,
         )
         if best_model is None:

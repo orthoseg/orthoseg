@@ -33,6 +33,10 @@
   similarity score >= 0.999 (#343)
 - Significant improvements to the documentation (#316, #330,...)
 
+### Bugs fixed
+
+- Fix postprocessing for cases where architecture_id != 0 (#)
+
 ## 0.7.1 (2026-04-13)
 
 ### Improvements
