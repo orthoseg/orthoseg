@@ -35,7 +35,7 @@
 
 ### Bugs fixed
 
-- Fix postprocessing for cases where architecture_id != 0 (#)
+- Fix postprocessing for cases where architecture_id != 0 (#351)
 
 ## 0.7.1 (2026-04-13)
 
