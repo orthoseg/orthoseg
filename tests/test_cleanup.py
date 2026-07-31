@@ -100,7 +100,7 @@ def create_training_dirs(dst_dir: Path) -> list[tuple[Path, int]]:
 
 
 def create_prediction_files(
-    dst_dir: Path, imagelayer: str, subject: str
+    dst_dir: Path, imagelayer: str, subject: str, legacy_output_names: bool
 ) -> list[tuple[Path, int]]:
     """
     Creates test prediction files and returns information about them.
@@ -109,6 +109,10 @@ def create_prediction_files(
         dst_dir (Path): the directory where the directories should be created
         imagelayer (str): the image layer name to use in the prediction file names
         subject (str): the subject name to use in the prediction file names
+        legacy_output_name (bool): if True, the prediction files will be created with
+            the old-style name that had the epoch before the image layer. If False, the
+            prediction files will be created with the new-style name that has the image
+            layer before the epoch.
 
     Returns:
         list[tuple[Path, int]]: the list of files created. Each item of the list
@@ -126,17 +130,30 @@ def create_prediction_files(
     #       -> still counts as one version to count the number of versions to retain
     #   - a "missing" traindata version: 03
     #       -> is ignored when counting the number of versions to retain
-    files = [
-        (dst_dir / f"{subject}_01_201_{imagelayer}.gpkg", 4),
-        (dst_dir / f"{subject}_01_201_{imagelayer}_dissolve.gpkg", 4),
-        (dst_dir / f"{subject}_02_201_{imagelayer}.gpkg", 3),
-        (dst_dir / f"{subject}_02_201_{imagelayer}_dissolve.gpkg", 3),
-        (dst_dir / f"{subject}_02_99_{imagelayer}.gpkg", 3),
-        (dst_dir / f"{subject}_04_201_{imagelayer}.gpkg", 2),
-        (dst_dir / f"{subject}_04_99_{imagelayer}.gpkg", 2),
-        (dst_dir / f"{subject}_04_201_{imagelayer}_dissolve.gpkg", 2),
-        (dst_dir / f"{subject}_05_201_{imagelayer}_dissolve.gpkg", 1),
-    ]
+    if legacy_output_names:
+        files = [
+            (dst_dir / f"{subject}_01_201_{imagelayer}.gpkg", 4),
+            (dst_dir / f"{subject}_01_201_{imagelayer}_dissolve.gpkg", 4),
+            (dst_dir / f"{subject}_02_201_{imagelayer}.gpkg", 3),
+            (dst_dir / f"{subject}_02_201_{imagelayer}_dissolve.gpkg", 3),
+            (dst_dir / f"{subject}_02_99_{imagelayer}.gpkg", 3),
+            (dst_dir / f"{subject}_04_201_{imagelayer}.gpkg", 2),
+            (dst_dir / f"{subject}_04_99_{imagelayer}.gpkg", 2),
+            (dst_dir / f"{subject}_04_201_{imagelayer}_dissolve.gpkg", 2),
+            (dst_dir / f"{subject}_05_201_{imagelayer}_dissolve.gpkg", 1),
+        ]
+    else:
+        files = [
+            (dst_dir / f"{subject}_01_{imagelayer}.gpkg", 4),
+            (dst_dir / f"{subject}_01_{imagelayer}_dissolve.gpkg", 4),
+            (dst_dir / f"{subject}_02_{imagelayer}.gpkg", 3),
+            (dst_dir / f"{subject}_02_{imagelayer}_dissolve.gpkg", 3),
+            (dst_dir / f"{subject}_02.1.2-99_{imagelayer}.gpkg", 3),
+            (dst_dir / f"{subject}_04_{imagelayer}.gpkg", 2),
+            (dst_dir / f"{subject}_04.1.2-99_{imagelayer}.gpkg", 2),
+            (dst_dir / f"{subject}_04_{imagelayer}_dissolve.gpkg", 2),
+            (dst_dir / f"{subject}_05_{imagelayer}_dissolve.gpkg", 1),
+        ]
 
     # Create the files
     dst_dir.mkdir(parents=True, exist_ok=True)
@@ -264,11 +281,13 @@ def test_cleanup_training(
 
 
 @pytest.mark.parametrize("simulate", [False, True])
+@pytest.mark.parametrize("legacy_output_names", [True, False])
 @pytest.mark.parametrize("versions_to_retain", [5, 4, 2, 1, 0, -1])
 def test_cleanup_predictions(
     tmp_path: Path,
     simulate: bool,
     versions_to_retain: int,
+    legacy_output_names: bool,
 ):
     # Create test project
     subject = "test-subject"
@@ -278,7 +297,10 @@ def test_cleanup_predictions(
     imagelayer = "BEFL-2019"
     output_vector_dir = project_dir / "output_vector" / imagelayer
     files = create_prediction_files(
-        dst_dir=output_vector_dir, imagelayer=imagelayer, subject=subject
+        dst_dir=output_vector_dir,
+        imagelayer=imagelayer,
+        subject=subject,
+        legacy_output_names=legacy_output_names,
     )
 
     # Load project config to init some vars.
@@ -336,6 +358,7 @@ def test_cleanup_predictions_invalid_filename(
 
 
 @pytest.mark.parametrize("simulate", [False])
+@pytest.mark.parametrize("legacy_output_names", [True, False])
 @pytest.mark.parametrize(
     "versions_to_retain, removed_model_files, removed_training_dirs, "
     "removed_prediction_files",
@@ -354,6 +377,7 @@ def test_cleanup_project_dir(
     removed_model_files: int,
     removed_training_dirs: int,
     removed_prediction_files: int,
+    legacy_output_names: bool,
 ):
     # Create test project
     subject = "test-subject"
@@ -367,12 +391,18 @@ def test_cleanup_project_dir(
     imagelayer = "BEFL-2019"
     output_vector_dir = project_dir / "output_vector" / imagelayer
     create_prediction_files(
-        dst_dir=output_vector_dir, imagelayer=imagelayer, subject=subject
+        dst_dir=output_vector_dir,
+        imagelayer=imagelayer,
+        subject=subject,
+        legacy_output_names=legacy_output_names,
     )
     imagelayer = "BEFL-2020"
     output_vector_dir = project_dir / "output_vector" / imagelayer
     create_prediction_files(
-        dst_dir=output_vector_dir, imagelayer=imagelayer, subject=subject
+        dst_dir=output_vector_dir,
+        imagelayer=imagelayer,
+        subject=subject,
+        legacy_output_names=legacy_output_names,
     )
 
     # Load project config to init some vars.
