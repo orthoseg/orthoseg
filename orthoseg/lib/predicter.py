@@ -113,6 +113,9 @@ def predict_dir(
         no_images_ok (bool, optional): False to throw `ValueError`
             when no images available in the `input_image_dir`,
             True to return without error. Defaults to False.
+        output_vector_path_legacy (Pathlike | None, optional): Optional path to write
+            the vector output to, only for backward compatibility to be able to check if
+            it exists already. Defaults to None.
     """
     # Init
     if output_vector_path is not None and output_vector_path.exists():
@@ -171,7 +174,6 @@ def predict_dir(
         nb_parallel_postprocess=nb_parallel_postprocess,
         max_prediction_errors=max_prediction_errors,
         force=force,
-        output_vector_path_legacy=output_vector_path_legacy,
     )
 
 
@@ -278,6 +280,9 @@ def predict_layer(
         no_images_ok (bool, optional): False to throw `ValueError`
             when no images available in the `input_image_dir`,
             True to return without error. Defaults to False.
+        output_vector_path_legacy (Pathlike | None, optional): Optional path to write
+            the vector output to, only for backward compatibility to be able to check if
+            it exists already. Defaults to None.
     """
     # Init
     if output_vector_path is not None and output_vector_path.exists():
@@ -365,7 +370,6 @@ def predict_layer(
         max_prediction_errors=max_prediction_errors,
         ssl_verify=ssl_verify,
         force=force,
-        output_vector_path_legacy=output_vector_path_legacy,
     )
 
 
@@ -391,7 +395,6 @@ def _predict_layer(
     max_prediction_errors: int = 100,
     ssl_verify: bool | str = True,
     force: bool = False,
-    output_vector_path_legacy: Path | None = None,
 ):
     # Check inputs
     if input_image_dir is None and image_layer is None:

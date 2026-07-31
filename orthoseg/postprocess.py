@@ -121,10 +121,10 @@ def postprocess(config_path: Path, config_overrules: list[str] | None = None) ->
 
         # Backward compat: fall back to old-style name that had epoch before image_layer
         if not output_vector_path.exists():
-            old_vector_path = (
-                output_vector_dir
-                / f"{best_model['basefilename']}_{best_model['epoch']}_{image_layer}.gpkg"
+            name = (
+                f"{best_model['basefilename']}_{best_model['epoch']}_{image_layer}.gpkg"
             )
+            old_vector_path = output_vector_dir / name
             if old_vector_path.exists():
                 output_vector_path = old_vector_path
 
