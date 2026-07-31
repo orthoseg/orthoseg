@@ -11,6 +11,8 @@
   case sensitive. For Keras >= 3, AdamW is now the default optimizer
   (#334, #335, #338).
 - The minimal version of geofileops is now 0.11 (#350)
+- For standard predictions, the "epoch" is removed from the output files, as it is not
+  really relevant (#356)
 
 ### Improvements
 
