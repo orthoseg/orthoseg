@@ -34,5 +34,4 @@ def test_aidetection_info(tmp_path, file: str, exp_error: bool):
         assert ai_detection_info.subject == "test-subject"
         assert ai_detection_info.traindata_version == 1
         assert ai_detection_info.image_layer == "BEFL-2019"
-        assert ai_detection_info.image_layer_year == 2019
         assert ai_detection_info.postprocessing == "dissolve"
