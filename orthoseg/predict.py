@@ -138,10 +138,12 @@ def predict(config_path: Path, config_overrules: list[str] | None = None):
         )
 
         # Prepare output subdir to be used for predictions
-        predict_out_subdir = best_model["basefilename"]
-        if trainparams_id > 0:
-            predict_out_subdir += f"_{trainparams_id}"
-        predict_out_subdir += f"_{best_model['epoch']}"
+        architecture_id = best_model["architecture_id"]
+        trainparams_id = best_model["trainparams_id"]
+        if architecture_id == 0 and trainparams_id == 0:
+            predict_out_subdir = best_model["basefilename"]
+        else:
+            predict_out_subdir = f"{best_model['basefilename']}-{best_model['epoch']}"
 
         # Load model to predict with
         # --------------------------
@@ -258,10 +260,18 @@ def predict(config_path: Path, config_overrules: list[str] | None = None):
             f"{conf.dirs['predict_image_output_basedir']}_{predict_out_subdir}"
         )
         output_vector_dir = conf.dirs.getpath("output_vector_dir")
-        output_vector_name = (
-            f"{best_model['basefilename']}_{best_model['epoch']}_{image_layer}"
-        )
+        if architecture_id == 0 and trainparams_id == 0:
+            output_vector_name = f"{best_model['basefilename']}_{image_layer}"
+        else:
+            output_vector_name = (
+                f"{best_model['basefilename']}-{best_model['epoch']}_{image_layer}"
+            )
         output_vector_path = output_vector_dir / f"{output_vector_name}.gpkg"
+        # Backward compat: old-style name had epoch before image_layer
+        output_vector_path_legacy = (
+            output_vector_dir
+            / f"{best_model['basefilename']}_{best_model['epoch']}_{image_layer}.gpkg"
+        )
 
         # Start predict for entire dataset
         # --------------------------------
@@ -286,6 +296,7 @@ def predict(config_path: Path, config_overrules: list[str] | None = None):
                 input_image_dir=input_image_dir,
                 output_image_dir=predict_output_dir,
                 output_vector_path=output_vector_path,
+                output_vector_path_legacy=output_vector_path_legacy,
                 classes=hyperparams.architecture.classes,
                 min_probability=min_probability,
                 postprocess=postprocess,
@@ -312,6 +323,7 @@ def predict(config_path: Path, config_overrules: list[str] | None = None):
                 image_pixels_overlap=conf.predict.getint("image_pixels_overlap", 0),
                 output_image_dir=predict_output_dir,
                 output_vector_path=output_vector_path,
+                output_vector_path_legacy=output_vector_path_legacy,
                 classes=hyperparams.architecture.classes,
                 min_probability=min_probability,
                 postprocess=postprocess,

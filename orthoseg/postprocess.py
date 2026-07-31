@@ -108,11 +108,25 @@ def postprocess(config_path: Path, config_overrules: list[str] | None = None) ->
 
         # Input file  the "most recent" prediction result dir for this subject
         output_vector_dir = conf.dirs.getpath("output_vector_dir")
-        output_vector_name = (
-            f"{best_model['basefilename']}_{best_model['epoch']}_"
-            f"{conf.predict['image_layer']}"
-        )
+        architecture_id = best_model["architecture_id"]
+        trainparams_id = best_model["trainparams_id"]
+        image_layer = conf.predict["image_layer"]
+        if architecture_id == 0 and trainparams_id == 0:
+            output_vector_name = f"{best_model['basefilename']}_{image_layer}"
+        else:
+            output_vector_name = (
+                f"{best_model['basefilename']}-{best_model['epoch']}_{image_layer}"
+            )
         output_vector_path = output_vector_dir / f"{output_vector_name}.gpkg"
+
+        # Backward compat: fall back to old-style name that had epoch before image_layer
+        if not output_vector_path.exists():
+            old_vector_path = (
+                output_vector_dir
+                / f"{best_model['basefilename']}_{best_model['epoch']}_{image_layer}.gpkg"
+            )
+            if old_vector_path.exists():
+                output_vector_path = old_vector_path
 
         # Prepare some parameters for the postprocessing
         nb_parallel = conf.general.getint("nb_parallel", -1)

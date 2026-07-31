@@ -53,6 +53,7 @@ def predict_dir(
     max_prediction_errors: int = 100,
     force: bool = False,
     no_images_ok: bool = False,
+    output_vector_path_legacy: Path | None = None,
 ):
     """Create a prediction for all the images in a directory.
 
@@ -117,6 +118,11 @@ def predict_dir(
     if output_vector_path is not None and output_vector_path.exists():
         logger.info(f"output file exists already, so return: {output_vector_path}")
         return
+    if output_vector_path_legacy is not None and output_vector_path_legacy.exists():
+        logger.info(
+            f"output file exists already, so return: {output_vector_path_legacy}"
+        )
+        return
     if not input_image_dir.exists():
         if no_images_ok:
             logger.info(f"input_image_dir doesn't exist, so return: {input_image_dir}")
@@ -165,6 +171,7 @@ def predict_dir(
         nb_parallel_postprocess=nb_parallel_postprocess,
         max_prediction_errors=max_prediction_errors,
         force=force,
+        output_vector_path_legacy=output_vector_path_legacy,
     )
 
 
@@ -193,6 +200,7 @@ def predict_layer(
     ssl_verify: bool | str = True,
     force: bool = False,
     no_images_ok: bool = False,
+    output_vector_path_legacy: Path | None = None,
 ):
     """Create a prediction for all the images of a layer.
 
@@ -275,6 +283,11 @@ def predict_layer(
     if output_vector_path is not None and output_vector_path.exists():
         logger.info(f"output file exists already, so return: {output_vector_path}")
         return
+    if output_vector_path_legacy is not None and output_vector_path_legacy.exists():
+        logger.info(
+            f"output file exists already, so return: {output_vector_path_legacy}"
+        )
+        return
     logger.info("Start predict_layer")
 
     crs = pyproj.CRS.from_user_input(image_layer_config["projection"])
@@ -352,6 +365,7 @@ def predict_layer(
         max_prediction_errors=max_prediction_errors,
         ssl_verify=ssl_verify,
         force=force,
+        output_vector_path_legacy=output_vector_path_legacy,
     )
 
 
@@ -377,6 +391,7 @@ def _predict_layer(
     max_prediction_errors: int = 100,
     ssl_verify: bool | str = True,
     force: bool = False,
+    output_vector_path_legacy: Path | None = None,
 ):
     # Check inputs
     if input_image_dir is None and image_layer is None:
