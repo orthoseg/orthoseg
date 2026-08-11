@@ -102,28 +102,19 @@ def postprocess(config_path: Path, config_overrules: list[str] | None = None) ->
                 f"No best model found in {conf.dirs.getpath('model_dir')}"
             )
 
-        model_name = best_model["basefilename"]
+        model_name = best_model.basefilename
         message = f"Start postprocess for {model_name} on {image_layer}"
         email_helper.sendmail(message)
 
         # Input file  the "most recent" prediction result dir for this subject
         output_vector_dir = conf.dirs.getpath("output_vector_dir")
-        architecture_id = best_model["architecture_id"]
-        trainparams_id = best_model["trainparams_id"]
         image_layer = conf.predict["image_layer"]
-        if architecture_id == 0 and trainparams_id == 0:
-            output_vector_name = f"{best_model['basefilename']}_{image_layer}"
-        else:
-            output_vector_name = (
-                f"{best_model['basefilename']}-{best_model['epoch']}_{image_layer}"
-            )
+        output_vector_name = f"{best_model.base_output_name}_{image_layer}"
         output_vector_path = output_vector_dir / f"{output_vector_name}.gpkg"
 
         # Backward compat: fall back to old-style name that had epoch before image_layer
         if not output_vector_path.exists():
-            name = (
-                f"{best_model['basefilename']}_{best_model['epoch']}_{image_layer}.gpkg"
-            )
+            name = f"{best_model.legacy_base_output_name}_{image_layer}.gpkg"
             old_vector_path = output_vector_dir / name
             if old_vector_path.exists():
                 output_vector_path = old_vector_path

@@ -53,7 +53,7 @@ def test_get_best_model(tmp_path, input_names, expected_name):
     else:
         if not KERAS_GTE_3 and expected_name.endswith(".keras"):
             expected_name = expected_name.replace(".keras", ".hdf5")
-        assert Path(best_model["filepath"]).name == expected_name
+        assert Path(best_model.filepath).name == expected_name
 
 
 @pytest.mark.parametrize(
@@ -66,6 +66,8 @@ def test_get_best_model(tmp_path, input_names, expected_name):
                 "monitor_metric_accuracy": 0.8,
                 "epoch": 10,
                 "save_format": "h5",
+                "base_output_name": "subj_01",
+                "legacy_base_output_name": "subj_01_10",
             },
         ),
         (
@@ -75,6 +77,8 @@ def test_get_best_model(tmp_path, input_names, expected_name):
                 "monitor_metric_accuracy": 0.9,
                 "epoch": 20,
                 "save_format": "keras",
+                "base_output_name": "subj_02",
+                "legacy_base_output_name": "subj_02_20",
             },
         ),
         (
@@ -84,6 +88,19 @@ def test_get_best_model(tmp_path, input_names, expected_name):
                 "monitor_metric_accuracy": 0.85,
                 "epoch": 15,
                 "save_format": "tf",
+                "base_output_name": "subj_03",
+                "legacy_base_output_name": "subj_03_15",
+            },
+        ),
+        (
+            "subj_3.2.5_0.85_15_tf",
+            {
+                "traindata_id": 3,
+                "monitor_metric_accuracy": 0.85,
+                "epoch": 15,
+                "save_format": "tf",
+                "base_output_name": "subj_03.2.5-15",
+                "legacy_base_output_name": "subj_03.2.5_15",
             },
         ),
     ],
@@ -101,7 +118,7 @@ def test_parse_model_filename(tmp_path, filename, expected_info):
         assert model_info is None
     else:
         for key, value in expected_info.items():
-            assert model_info[key] == value
+            assert getattr(model_info, key) == value
 
 
 @pytest.mark.parametrize(

@@ -38,16 +38,16 @@ def clean_models(
     logger.debug(f"clean_models in {model_dir!s}, {versions_to_retain=}, {simulate=}")
 
     models = model_helper.get_models(model_dir=model_dir)
-    traindata_ids = [model["traindata_id"] for model in models]
+    traindata_ids = [model.traindata_id for model in models]
     traindata_ids = sorted(set(traindata_ids))
     if len(traindata_ids) < versions_to_retain:
         return []
 
     traindata_ids_to_cleanup = traindata_ids[: len(traindata_ids) - versions_to_retain]
     models_to_cleanup = [
-        model["basefilename"]
+        model.basefilename
         for model in models
-        if model["traindata_id"] in traindata_ids_to_cleanup
+        if model.traindata_id in traindata_ids_to_cleanup
     ]
 
     # Find all files to remove and remove them
