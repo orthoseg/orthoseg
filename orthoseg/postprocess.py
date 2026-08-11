@@ -102,14 +102,14 @@ def postprocess(config_path: Path, config_overrules: list[str] | None = None) ->
                 f"No best model found in {conf.dirs.getpath('model_dir')}"
             )
 
-        model_name = best_model["basefilename"]
+        model_name = best_model.basefilename
         message = f"Start postprocess for {model_name} on {image_layer}"
         email_helper.sendmail(message)
 
         # Input file  the "most recent" prediction result dir for this subject
         output_vector_dir = conf.dirs.getpath("output_vector_dir")
         output_vector_name = (
-            f"{best_model['basefilename']}_{best_model['epoch']}_"
+            f"{best_model.basefilename}_{best_model.epoch}_"
             f"{conf.predict['image_layer']}"
         )
         output_vector_path = output_vector_dir / f"{output_vector_name}.gpkg"

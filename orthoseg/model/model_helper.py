@@ -3,8 +3,9 @@
 import json
 import logging
 import shutil
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 import pandas as pd
 from keras import callbacks
@@ -13,6 +14,22 @@ from orthoseg._compat import KERAS_GTE_3, __version__
 
 # Get a logger...
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ModelInfo:
+    """Info parsed from a model filename/path."""
+
+    filepath: Path
+    filename: str
+    basefilename: str
+    segment_subject: str
+    traindata_id: int
+    architecture_id: int
+    trainparams_id: int
+    monitor_metric_accuracy: float | None
+    epoch: int | None
+    save_format: Literal["keras", "h5", "tf"]
 
 
 class ArchitectureParams:
@@ -410,10 +427,10 @@ def format_model_filename(
     return filename
 
 
-def parse_model_filename(filepath: Path) -> dict:
-    """Parse a model filename to a dict with the properties of the model.
+def parse_model_filename(filepath: Path) -> ModelInfo:
+    """Parse a model filename to a ModelInfo object.
 
-    These are the properties that are returned in the dict:
+    These are the properties that are returned in the object:
 
         * filepath: the path to the model file
         * filename: the name of the model file
@@ -439,7 +456,7 @@ def parse_model_filename(filepath: Path) -> dict:
             to extract the necessary info.
 
     Returns:
-        dict: a dict with the properties of the model as explained above.
+        ModelInfo: parsed model info object.
     """
     # Prepare filepath to extract info
     if filepath.is_dir():
@@ -490,18 +507,18 @@ def parse_model_filename(filepath: Path) -> dict:
         trainparams_id=trainparams_id,
     )
 
-    return {
-        "filepath": filepath,
-        "filename": filename,
-        "basefilename": basefilename,
-        "segment_subject": segment_subject,
-        "traindata_id": traindata_id,
-        "architecture_id": architecture_id,
-        "trainparams_id": trainparams_id,
-        "monitor_metric_accuracy": monitor_metric_accuracy,
-        "epoch": epoch,
-        "save_format": save_format,
-    }
+    return ModelInfo(
+        filepath=filepath,
+        filename=filename,
+        basefilename=basefilename,
+        segment_subject=segment_subject,
+        traindata_id=traindata_id,
+        architecture_id=architecture_id,
+        trainparams_id=trainparams_id,
+        monitor_metric_accuracy=monitor_metric_accuracy,
+        epoch=epoch,
+        save_format=cast("Literal['keras', 'h5', 'tf']", save_format),
+    )
 
 
 def get_models(
@@ -510,10 +527,10 @@ def get_models(
     traindata_id: int | None = None,
     architecture_id: int | None = None,
     trainparams_id: int | None = None,
-) -> list[dict]:
+) -> list[ModelInfo]:
     """Return the list of models in the `model_dir` specified.
 
-    It is returned as a dataframe with the following columns:
+    The objects contain the following fields:
 
         * filepath: the path to the model file
         * filename: the name of the model file
@@ -538,8 +555,7 @@ def get_models(
         trainparams_id (int, optional): only models with this hyperparams version
 
     Returns:
-        list[dict]: a list of dicts with the properties of the models as explained
-        above.
+        list[ModelInfo]: a list of model info objects.
     """
     # List models
     model_paths: list[Path] = []
@@ -565,25 +581,25 @@ def get_models(
             model_info_list = [
                 model_info
                 for model_info in model_info_list
-                if model_info["segment_subject"] == segment_subject
+                if model_info.segment_subject == segment_subject
             ]
         if traindata_id is not None:
             model_info_list = [
                 model_info
                 for model_info in model_info_list
-                if model_info["traindata_id"] == traindata_id
+                if model_info.traindata_id == traindata_id
             ]
         if trainparams_id is not None:
             model_info_list = [
                 model_info
                 for model_info in model_info_list
-                if model_info["trainparams_id"] == trainparams_id
+                if model_info.trainparams_id == trainparams_id
             ]
         if architecture_id is not None:
             model_info_list = [
                 model_info
                 for model_info in model_info_list
-                if model_info["architecture_id"] == architecture_id
+                if model_info.architecture_id == architecture_id
             ]
 
     return model_info_list
@@ -595,12 +611,12 @@ def get_best_model(
     traindata_id: int | None = None,
     architecture_id: int | None = None,
     trainparams_id: int | None = None,
-) -> dict | None:
-    """Get the properties of the model with the highest combined accuracy.
+) -> ModelInfo | None:
+    """Get the model with the highest combined accuracy.
 
     Only models with the highest traindata version in the dir are considered.
 
-    These are the properties returned in the dict:
+    The returned object contains these properties:
 
         * filepath: the path to the model file
         * filename: the name of the model file
@@ -628,8 +644,7 @@ def get_best_model(
         trainparams_id (int, optional): only models with this hyperparams id
 
     Returns:
-        A dictionary with the properties of the best model or None if no model was
-        found.
+        ModelInfo | None: best model info object or None if nothing was found.
     """
     # Get list of existing models for this train dataset
     model_info_list = get_models(
@@ -641,7 +656,7 @@ def get_best_model(
     )
 
     # Sort the models so we also have a deterministic order and result further on.
-    model_info_list.sort(key=lambda model_info: model_info["filepath"])
+    model_info_list.sort(key=lambda model_info: model_info.filepath)
 
     # If nothing found, return None
     if len(model_info_list) == 0:
@@ -650,11 +665,11 @@ def get_best_model(
     # If no traindata_id provided, find models with highest traindata id
     max_traindata_id = -1
     for model_info in model_info_list:
-        max_traindata_id = max(model_info["traindata_id"], max_traindata_id)
+        max_traindata_id = max(model_info.traindata_id, max_traindata_id)
     model_info_list = [
         model_info
         for model_info in model_info_list
-        if model_info["traindata_id"] == max_traindata_id
+        if model_info.traindata_id == max_traindata_id
     ]
 
     # If only one result, return it
@@ -662,15 +677,18 @@ def get_best_model(
         return model_info_list[0]
 
     # Find models with the highest monitor metric accuracy
-    max_monitor_metric_accuracy = -1
-    for model_info in model_info_list:
-        max_monitor_metric_accuracy = max(
-            max_monitor_metric_accuracy, model_info["monitor_metric_accuracy"]
-        )
+    monitor_metric_accuracies = [
+        model_info.monitor_metric_accuracy
+        for model_info in model_info_list
+        if model_info.monitor_metric_accuracy is not None
+    ]
+    if len(monitor_metric_accuracies) == 0:
+        return model_info_list[0]
+    max_monitor_metric_accuracy = max(monitor_metric_accuracies)
     model_info_list = [
         model_info
         for model_info in model_info_list
-        if model_info["monitor_metric_accuracy"] == max_monitor_metric_accuracy
+        if model_info.monitor_metric_accuracy == max_monitor_metric_accuracy
     ]
 
     # If only one result, return it
@@ -681,23 +699,19 @@ def get_best_model(
     keras_models = [
         model_info
         for model_info in model_info_list
-        if model_info["save_format"] == "keras"
+        if model_info.save_format == "keras"
     ]
     if len(keras_models) > 0:
         return keras_models[0]
 
     tf_models = [
-        model_info
-        for model_info in model_info_list
-        if model_info["save_format"] == "tf"
+        model_info for model_info in model_info_list if model_info.save_format == "tf"
     ]
     if len(tf_models) > 0:
         return tf_models[0]
 
     h5_models = [
-        model_info
-        for model_info in model_info_list
-        if model_info["save_format"] == "h5"
+        model_info for model_info in model_info_list if model_info.save_format == "h5"
     ]
     if len(h5_models) > 0:
         return h5_models[0]
@@ -948,24 +962,46 @@ def save_and_clean_models(
         new_model_path = Path(model_save_dir) / new_model_filename
 
         # Append model to the retrieved models...
+        basefilename = format_model_basefilename(
+            segment_subject=segment_subject,
+            traindata_id=traindata_id,
+            architecture_id=architecture_id,
+            trainparams_id=trainparams_id,
+        )
         model_info_list.append(
-            {
-                "filepath": str(new_model_path),
-                "filename": new_model_filename,
-                "segment_subject": segment_subject,
-                "traindata_id": traindata_id,
-                "architecture_id": architecture_id,
-                "trainparams_id": trainparams_id,
-                "monitor_metric_accuracy": new_model_monitor_accuracy,
-                "epoch": new_model_epoch,
-                "save_format": save_format,
-            }
+            ModelInfo(
+                filepath=new_model_path,
+                filename=new_model_filename,
+                basefilename=basefilename,
+                segment_subject=segment_subject,
+                traindata_id=traindata_id,
+                architecture_id=architecture_id,
+                trainparams_id=trainparams_id,
+                monitor_metric_accuracy=new_model_monitor_accuracy,
+                epoch=new_model_epoch,
+                save_format=cast("Literal['keras', 'h5', 'tf']", save_format),
+            )
         )
 
     # Loop through all existing models
     # Remark: the list is sorted descending before iterating it, this way new
     # models are saved before deleting the previous best one(s)
-    model_info_df = pd.DataFrame(model_info_list)
+    model_info_df = pd.DataFrame(
+        [
+            {
+                "filepath": model_info.filepath,
+                "filename": model_info.filename,
+                "segment_subject": model_info.segment_subject,
+                "traindata_id": model_info.traindata_id,
+                "architecture_id": model_info.architecture_id,
+                "trainparams_id": model_info.trainparams_id,
+                "monitor_metric_accuracy": model_info.monitor_metric_accuracy,
+                "epoch": model_info.epoch,
+                "save_format": model_info.save_format,
+            }
+            for model_info in model_info_list
+        ]
+    )
     model_info_sorted_df = model_info_df.sort_values(
         by="monitor_metric_accuracy", ascending=False
     )
@@ -994,7 +1030,7 @@ def save_and_clean_models(
                 and new_model is not None
                 and new_model_epoch is not None
                 and not only_report
-                and model_info.filepath == str(new_model_path)
+                and model_info.filepath == new_model_path
                 and not new_model_path.exists()
             ):
                 assert isinstance(model_info.monitor_metric_accuracy, float)
@@ -1053,6 +1089,6 @@ def save_and_clean_models(
         if best_model is not None:
             logger.info(
                 f"Current best model for {segment_subject}_{traindata_id}: "
-                f"monitor_metric_accuracy: {best_model['monitor_metric_accuracy']}, "
-                f"epoch: {best_model['epoch']}"
+                f"monitor_metric_accuracy: {best_model.monitor_metric_accuracy}, "
+                f"epoch: {best_model.epoch}"
             )

@@ -127,8 +127,8 @@ def test_3_train():
     )
 
     assert best_model is not None
-    assert best_model["traindata_id"] == traindata_id_result
-    assert best_model["epoch"] == 0
+    assert best_model.traindata_id == traindata_id_result
+    assert best_model.epoch == 0
 
 
 @pytest.mark.order(after="test_2_load_images")

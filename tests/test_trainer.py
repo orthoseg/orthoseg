@@ -20,7 +20,18 @@ def test_train_error_model_exists_no_preload(tmp_path):
         ),
     )
 
-    fake_best_model = {"model_filepath": tmp_path / "some_model.keras"}
+    fake_best_model = mh.ModelInfo(
+        filepath=tmp_path / "some_model.keras",
+        filename="some_model",
+        basefilename="test_01",
+        segment_subject="test",
+        traindata_id=1,
+        architecture_id=0,
+        trainparams_id=0,
+        monitor_metric_accuracy=0.9,
+        epoch=1,
+        save_format="keras",
+    )
 
     with patch("orthoseg.lib.trainer.mh.get_best_model", return_value=fake_best_model):
         with pytest.raises(

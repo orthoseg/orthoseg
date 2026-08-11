@@ -53,7 +53,7 @@ def test_get_best_model(tmp_path, input_names, expected_name):
     else:
         if not KERAS_GTE_3 and expected_name.endswith(".keras"):
             expected_name = expected_name.replace(".keras", ".hdf5")
-        assert Path(best_model["filepath"]).name == expected_name
+        assert Path(best_model.filepath).name == expected_name
 
 
 @pytest.mark.parametrize(
@@ -86,6 +86,15 @@ def test_get_best_model(tmp_path, input_names, expected_name):
                 "save_format": "tf",
             },
         ),
+        (
+            "subj_3.2.5_0.85_15_tf",
+            {
+                "traindata_id": 3,
+                "monitor_metric_accuracy": 0.85,
+                "epoch": 15,
+                "save_format": "tf",
+            },
+        ),
     ],
 )
 def test_parse_model_filename(tmp_path, filename, expected_info):
@@ -101,7 +110,7 @@ def test_parse_model_filename(tmp_path, filename, expected_info):
         assert model_info is None
     else:
         for key, value in expected_info.items():
-            assert model_info[key] == value
+            assert getattr(model_info, key) == value
 
 
 @pytest.mark.parametrize(
