@@ -92,7 +92,7 @@ def train(
         if not model_preload_filepath:
             message = (
                 "Model exists but preload model file not specified: "
-                f"{curr_best_model['model_filepath']}"
+                f"{curr_best_model.filepath}"
             )
             logger.critical(message)
             raise ValueError(message)

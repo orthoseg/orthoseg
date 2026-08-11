@@ -372,7 +372,7 @@ def load_model_hyperparams(model_path: Path) -> dict:
     """
     model_info = mh.parse_model_filename(model_path)
     model_hyperparams_path = (
-        model_path.parent / f"{model_info['basefilename']}_hyperparams.json"
+        model_path.parent / f"{model_info.basefilename}_hyperparams.json"
     )
     if not model_hyperparams_path.exists():
         raise FileNotFoundError(

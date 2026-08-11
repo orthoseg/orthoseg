@@ -114,16 +114,15 @@ def predict(config_path: Path, config_overrules: list[str] | None = None):
             logger.critical(message)
             raise RuntimeError(message)
         else:
-            model_weights_filepath = best_model["filepath"]
+            model_weights_filepath = best_model.filepath
             logger.info(f"Best model found: {model_weights_filepath}")
 
-        model_name = best_model["basefilename"]
+        model_name = best_model.basefilename
 
         # Load the hyperparams of the model
         # TODO: move the hyperparams filename formatting to get_models...
         hyperparams_path = (
-            best_model["filepath"].parent
-            / f"{best_model['basefilename']}_hyperparams.json"
+            best_model.filepath.parent / f"{best_model.basefilename}_hyperparams.json"
         )
         hyperparams = mh.HyperParams(path=hyperparams_path)
 
@@ -138,10 +137,10 @@ def predict(config_path: Path, config_overrules: list[str] | None = None):
         )
 
         # Prepare output subdir to be used for predictions
-        predict_out_subdir = best_model["basefilename"]
+        predict_out_subdir = best_model.basefilename
         if trainparams_id > 0:
             predict_out_subdir += f"_{trainparams_id}"
-        predict_out_subdir += f"_{best_model['epoch']}"
+        predict_out_subdir += f"_{best_model.epoch}"
 
         # Load model to predict with
         # --------------------------
@@ -204,7 +203,7 @@ def predict(config_path: Path, config_overrules: list[str] | None = None):
         # If model isn't loaded yet... load!
         if model is None:
             model, preprocess_input = mf.load_model(
-                best_model["filepath"], compile_model=False
+                best_model.filepath, compile_model=False
             )
 
         # Prepare the model for predicting
@@ -259,7 +258,7 @@ def predict(config_path: Path, config_overrules: list[str] | None = None):
         )
         output_vector_dir = conf.dirs.getpath("output_vector_dir")
         output_vector_name = (
-            f"{best_model['basefilename']}_{best_model['epoch']}_{image_layer}"
+            f"{best_model.basefilename}_{best_model.epoch}_{image_layer}"
         )
         output_vector_path = output_vector_dir / f"{output_vector_name}.gpkg"
 
