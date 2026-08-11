@@ -35,6 +35,8 @@ logger = logging.getLogger(__name__)
 def postprocess_predictions(
     input_path: Path,
     output_path: Path,
+    *,
+    clip_path: Path | None = None,
     dissolve: bool,
     dissolve_tiles_path: Path | None = None,
     reclassify_to_neighbour_query: str | None = None,
@@ -52,9 +54,8 @@ def postprocess_predictions(
     Args:
         input_path: path to the 'raw' prediction vector file.
         output_path: the base path where the output file(s) will be written to.
-        keep_original_file: If True, the output file of the prediction step
-            will be retained ofter postprocessing, otherwise it is removed.
-        keep_intermediary_files: If True, intermediary postprocessing files are removed.
+        clip_path (Path, optional): Path to a vector file used to clip the input
+            before other postprocess steps. If None, no clipping is applied.
         dissolve (bool): True if a dissolve needs to be applied
         dissolve_tiles_path (PathLike, optional): Path to a geofile containing
             the tiles to be used for the dissolve. Defaults to None.
@@ -66,6 +67,9 @@ def postprocess_predictions(
         simplify_lookahead (int): Lookahead to use for simplification. Default to 8.
         output_style_path (Path, optional): Path to a QGIS .qml style file. If
             specified and output is a GeoPackage, the style is added to the layer.
+        keep_original_file: If True, the output file of the prediction step
+            will be retained after postprocessing, otherwise it is removed.
+        keep_intermediary_files: If True, intermediary postprocessing files are removed.
         nb_parallel (int, optional): number of cpu's to use for postprocessing.
             Use all cpu's if it is -1. Defaults to -1.
         force: False to skip results that already exist, true to
@@ -85,6 +89,23 @@ def postprocess_predictions(
     curr_input_path = input_path
     curr_output_path = output_path
 
+    # Clip the predictions if needed.
+    if clip_path is not None:
+        curr_output_path = (
+            output_path.parent / f"{output_path.stem}_clip{output_path.suffix}"
+        )
+
+        gfo.clip(
+            input_path=curr_input_path,
+            clip_path=clip_path,
+            output_path=curr_output_path,
+            nb_parallel=nb_parallel,
+            force=force,
+        )
+
+        curr_input_path = curr_output_path
+        output_paths.append(curr_output_path)
+
     # Dissolve the predictions if needed
     if dissolve:
         curr_output_path = (
@@ -94,7 +115,7 @@ def postprocess_predictions(
         # If the dissolved file doesn't exist yet, go for it...
         if not curr_output_path.exists():
             # If column classname present, group on it...
-            layerinfo = gfo.get_layerinfo(input_path)
+            layerinfo = gfo.get_layerinfo(curr_input_path)
             if "classname" in layerinfo.columns:
                 groupby_columns = ["classname"]
             else:
@@ -102,7 +123,7 @@ def postprocess_predictions(
 
             # Now we can dissolve
             gfo.dissolve(
-                input_path=input_path,
+                input_path=curr_input_path,
                 tiles_path=dissolve_tiles_path,
                 output_path=curr_output_path,
                 groupby_columns=groupby_columns,
@@ -173,7 +194,7 @@ def postprocess_predictions(
 
     # If postprocessing steps are defined, the output of the prediction step
     # (input_path) is renamed to ..._orig.gpkg
-    if dissolve or reclassify_to_neighbour_query or simplify_algorithm:
+    if clip_path or dissolve or reclassify_to_neighbour_query or simplify_algorithm:
         original_file = input_path.parent / f"{input_path.stem}_orig.gpkg"
         if original_file.exists():
             gfo.remove(original_file)

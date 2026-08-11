@@ -212,6 +212,18 @@ def read_orthoseg_config(config_path: Path, overrules: list[str] | None = None):
                 f"doesn't exist: {output_style_path}"
             )
 
+    clip_path = postprocess.getpath("clip_path")
+    if clip_path is not None and not clip_path.is_absolute():
+        clip_path_absolute = (config_path.parent / clip_path).resolve()
+        postprocess["clip_path"] = clip_path_absolute.as_posix()
+        clip_path = clip_path_absolute
+
+    if clip_path is not None and not clip_path.exists():
+        raise FileNotFoundError(
+            "postprocess.clip_path is configured explicitly, but file doesn't exist: "
+            f"{clip_path}"
+        )
+
     # Some version-specific defaults
     if train.get("save_format") is None:
         train["save_format"] = "keras" if KERAS_GTE_3 else "h5"

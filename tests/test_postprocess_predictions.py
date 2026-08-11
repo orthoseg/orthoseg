@@ -116,6 +116,25 @@ def create_prediction_file(output_vector_dir: Path, subject: str) -> Path:
     return output_vector_path
 
 
+def create_clip_file(tmp_path: Path, subject: str) -> Path:
+    clip_path = tmp_path / f"{subject}_clip.gpkg"
+    clip_gdf = gpd.GeoDataFrame(
+        {
+            "classname": [subject],
+            "geometry": [
+                shapely.wkt.loads(
+                    "POLYGON ((175055.9 176370.8, 175055.9 176371.3, "
+                    "175056.8 176371.3, 175056.8 176370.8, 175055.9 176370.8))"
+                )
+            ],
+        },
+        geometry="geometry",
+        crs=31370,
+    )
+    gfo.to_file(gdf=clip_gdf, path=clip_path)
+    return clip_path
+
+
 def write_test_raster(
     output_path: Path,
     image_arr: np.ndarray,
@@ -298,6 +317,31 @@ def test_postprocess_predictions_output_style_non_gpkg(tmp_path: Path):
             dissolve=False,
             output_style_path=output_style_path,
         )
+
+
+def test_postprocess_predictions_clip_path(tmp_path: Path):
+    subject = "test-subject"
+    output_vector_dir = tmp_path / "output_vector"
+    output_vector_path = create_prediction_file(
+        output_vector_dir=output_vector_dir, subject=subject
+    )
+    clip_path = create_clip_file(tmp_path=tmp_path, subject=subject)
+
+    postp.postprocess_predictions(
+        input_path=output_vector_path,
+        output_path=output_vector_path,
+        dissolve=False,
+        clip_path=clip_path,
+        keep_intermediary_files=True,
+    )
+
+    clip_intermediary_path = (
+        output_vector_path.parent / f"{output_vector_path.stem}_clip.gpkg"
+    )
+    result_gdf = gfo.read_file(output_vector_path)
+
+    assert clip_intermediary_path.exists()
+    assert len(result_gdf) == 1
 
 
 @pytest.mark.parametrize(
