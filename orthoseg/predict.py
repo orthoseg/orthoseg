@@ -256,11 +256,15 @@ def predict(config_path: Path, config_overrules: list[str] | None = None):
         output_vector_dir = conf.dirs.getpath("output_vector_dir")
         output_vector_name = f"{best_model.base_output_name}_{image_layer}"
         output_vector_path = output_vector_dir / f"{output_vector_name}.gpkg"
-        # Backward compat: old-style name had epoch before image_layer
+
+        # Backward compat: old-style name had epoch before image_layer, so if that file
+        # exists, use it instead of the new-style name
         output_vector_path_legacy = (
             output_vector_dir
             / f"{best_model.legacy_base_output_name}_{image_layer}.gpkg"
         )
+        if output_vector_path_legacy.exists():
+            output_vector_path = output_vector_path_legacy
 
         # Start predict for entire dataset
         # --------------------------------
@@ -285,7 +289,6 @@ def predict(config_path: Path, config_overrules: list[str] | None = None):
                 input_image_dir=input_image_dir,
                 output_image_dir=predict_output_dir,
                 output_vector_path=output_vector_path,
-                output_vector_path_legacy=output_vector_path_legacy,
                 classes=hyperparams.architecture.classes,
                 min_probability=min_probability,
                 postprocess=postprocess,
@@ -312,7 +315,6 @@ def predict(config_path: Path, config_overrules: list[str] | None = None):
                 image_pixels_overlap=conf.predict.getint("image_pixels_overlap", 0),
                 output_image_dir=predict_output_dir,
                 output_vector_path=output_vector_path,
-                output_vector_path_legacy=output_vector_path_legacy,
                 classes=hyperparams.architecture.classes,
                 min_probability=min_probability,
                 postprocess=postprocess,

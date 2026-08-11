@@ -53,7 +53,6 @@ def predict_dir(
     max_prediction_errors: int = 100,
     force: bool = False,
     no_images_ok: bool = False,
-    output_vector_path_legacy: Path | None = None,
 ):
     """Create a prediction for all the images in a directory.
 
@@ -113,18 +112,10 @@ def predict_dir(
         no_images_ok (bool, optional): False to throw `ValueError`
             when no images available in the `input_image_dir`,
             True to return without error. Defaults to False.
-        output_vector_path_legacy (Pathlike | None, optional): Optional path to write
-            the vector output to, only for backward compatibility to be able to check if
-            it exists already. Defaults to None.
     """
     # Init
     if output_vector_path is not None and output_vector_path.exists():
         logger.info(f"output file exists already, so return: {output_vector_path}")
-        return
-    if output_vector_path_legacy is not None and output_vector_path_legacy.exists():
-        logger.info(
-            f"output file exists already, so return: {output_vector_path_legacy}"
-        )
         return
     if not input_image_dir.exists():
         if no_images_ok:
@@ -202,7 +193,6 @@ def predict_layer(
     ssl_verify: bool | str = True,
     force: bool = False,
     no_images_ok: bool = False,
-    output_vector_path_legacy: Path | None = None,
 ):
     """Create a prediction for all the images of a layer.
 
@@ -280,18 +270,10 @@ def predict_layer(
         no_images_ok (bool, optional): False to throw `ValueError`
             when no images available in the `input_image_dir`,
             True to return without error. Defaults to False.
-        output_vector_path_legacy (Pathlike | None, optional): Optional path to write
-            the vector output to, only for backward compatibility to be able to check if
-            it exists already. Defaults to None.
     """
     # Init
     if output_vector_path is not None and output_vector_path.exists():
         logger.info(f"output file exists already, so return: {output_vector_path}")
-        return
-    if output_vector_path_legacy is not None and output_vector_path_legacy.exists():
-        logger.info(
-            f"output file exists already, so return: {output_vector_path_legacy}"
-        )
         return
     logger.info("Start predict_layer")
 
