@@ -103,6 +103,15 @@ def test_get_best_model(tmp_path, input_names, expected_name):
                 "legacy_base_output_name": "subj_03.2.5_15",
             },
         ),
+        (
+            "subj_3.2.5_0.85_15_tf",
+            {
+                "traindata_id": 3,
+                "monitor_metric_accuracy": 0.85,
+                "epoch": 15,
+                "save_format": "tf",
+            },
+        ),
     ],
 )
 def test_parse_model_filename(tmp_path, filename, expected_info):
