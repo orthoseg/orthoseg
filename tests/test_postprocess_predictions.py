@@ -321,14 +321,17 @@ def test_postprocess_predictions_output_style_non_gpkg(tmp_path: Path):
 
 def test_postprocess_predictions_clip_path(tmp_path: Path):
     subject = "test-subject"
-    output_vector_dir = tmp_path / "output_vector"
-    output_vector_path = create_prediction_file(
-        output_vector_dir=output_vector_dir, subject=subject
+    input_vector_path = create_prediction_file(
+        output_vector_dir=tmp_path, subject=subject
     )
-    clip_path = create_clip_file(tmp_path=tmp_path, subject=subject)
+    clip_path = tmp_path / "clip_layer.gpkg"
+    input_gdf = gfo.read_file(input_vector_path)
+    clip_gdf = input_gdf.iloc[[0]].copy()
+    gfo.to_file(gdf=clip_gdf, path=clip_path)
+    output_vector_path = tmp_path / f"{subject}_clipped.gpkg"
 
     postp.postprocess_predictions(
-        input_path=output_vector_path,
+        input_path=input_vector_path,
         output_path=output_vector_path,
         dissolve=False,
         clip_path=clip_path,
@@ -338,10 +341,18 @@ def test_postprocess_predictions_clip_path(tmp_path: Path):
     clip_intermediary_path = (
         output_vector_path.parent / f"{output_vector_path.stem}_clip.gpkg"
     )
-    result_gdf = gfo.read_file(output_vector_path)
 
     assert clip_intermediary_path.exists()
+    clip_intermediary_gdf = gfo.read_file(clip_intermediary_path)
+    assert len(clip_intermediary_gdf) == 1
+    assert clip_intermediary_gdf.area.sum() < input_gdf.area.sum()
+    assert clip_intermediary_gdf.area.sum() == clip_gdf.area.sum()
+
+    assert output_vector_path.exists()
+    result_gdf = gfo.read_file(output_vector_path)
     assert len(result_gdf) == 1
+    assert result_gdf.area.sum() < input_gdf.area.sum()
+    assert result_gdf.area.sum() == clip_gdf.area.sum()
 
 
 @pytest.mark.parametrize(

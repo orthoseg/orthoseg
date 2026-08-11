@@ -48,7 +48,7 @@ def postprocess_predictions(
     keep_intermediary_files: bool = True,
     nb_parallel: int = -1,
     force: bool = False,
-) -> list[Path]:
+) -> dict[str, Path]:
     """Postprocesses the input prediction as specified.
 
     Args:
@@ -69,18 +69,26 @@ def postprocess_predictions(
             specified and output is a GeoPackage, the style is added to the layer.
         keep_original_file: If True, the output file of the prediction step
             will be retained after postprocessing, otherwise it is removed.
-        keep_intermediary_files: If True, intermediary postprocessing files are removed.
+        keep_intermediary_files: If True, intermediary postprocessing files are
+            retained.
         nb_parallel (int, optional): number of cpu's to use for postprocessing.
             Use all cpu's if it is -1. Defaults to -1.
-        force: False to skip results that already exist, true to
+        force: False to skip results that already exist, True to
                ignore existing results and overwrite them
+
+    Returns:
+        dict[str, Path]: Dictionary with the paths of the created intermediary files.
+            The keys are the postprocessing steps that were applied. E.g. "clip",
+            "dissolve", "reclass", "simplify". The values are the paths to the created
+            files. If no postprocessing was applied or if `keep_intermediary_files` is
+            False, the dictionary is empty.
     """
     # Init
     if not input_path.exists():
-        raise Exception(f"input_path does not exist: {input_path}")
+        raise FileNotFoundError(f"input_path does not exist: {input_path}")
 
     # The return value is the list of paths created
-    output_paths = []
+    output_paths = {}
 
     # Because the geo operations will be applied sequentially if applicable,
     # both the input path and output path will build on the result of the
@@ -104,7 +112,7 @@ def postprocess_predictions(
         )
 
         curr_input_path = curr_output_path
-        output_paths.append(curr_output_path)
+        output_paths["clip"] = curr_output_path
 
     # Dissolve the predictions if needed
     if dissolve:
@@ -144,7 +152,7 @@ def postprocess_predictions(
 
         # The curr_output_path becomes the new current input path
         curr_input_path = curr_output_path
-        output_paths.append(curr_output_path)
+        output_paths["dissolve"] = curr_output_path
 
     if reclassify_to_neighbour_query is not None:
         curr_output_path = (
@@ -157,7 +165,7 @@ def postprocess_predictions(
             output_path=curr_output_path,
         )
         curr_input_path = curr_output_path
-        output_paths.append(curr_output_path)
+        output_paths["reclass"] = curr_output_path
 
     # If a simplify algorithm is specified, simplify!
     if simplify_algorithm is not None:
@@ -190,7 +198,7 @@ def postprocess_predictions(
             )
 
         curr_input_path = curr_output_path
-        output_paths.append(curr_output_path)
+        output_paths["simplify"] = curr_output_path
 
     # If postprocessing steps are defined, the output of the prediction step
     # (input_path) is renamed to ..._orig.gpkg
@@ -199,18 +207,27 @@ def postprocess_predictions(
         if original_file.exists():
             gfo.remove(original_file)
         input_path.rename(original_file)
-        shutil.copy(src=curr_output_path, dst=input_path)
+        shutil.copy(src=curr_output_path, dst=output_path)
 
-    _add_output_layer_style(output_path=input_path, output_style_path=output_style_path)
+        # Cleanup original file
+        if not keep_original_file:
+            original_file.unlink()
 
-    # Cleanup original file
-    if not keep_original_file:
-        original_file.unlink()
+        # Cleanup intermediary files
+        if not keep_intermediary_files:
+            for key in list(output_paths.keys()):
+                output_paths[key].unlink()
+                del output_paths[key]
 
-    # Cleanup intermediary files
-    if not keep_intermediary_files:
-        for file in output_paths:
-            file.unlink()
+    else:
+        # If no postprocessing steps are defined, the output of the prediction step
+        # (input_path) is renamed to the output_path
+        if input_path != output_path:
+            input_path.rename(output_path)
+
+    _add_output_layer_style(
+        output_path=output_path, output_style_path=output_style_path
+    )
 
     return output_paths
 
