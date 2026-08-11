@@ -94,7 +94,7 @@ def test_predict_use_cache_skip(tmp_path, use_cache, skip_images):
     # the output.
     if skip_images:
         predict_image_output_basedir = Path(
-            f"{conf.dirs['predict_image_output_basedir']}_sportsfields_01_276"
+            f"{conf.dirs['predict_image_output_basedir']}_sportsfields_01"
         )
         predict_image_output_basedir.mkdir(parents=True, exist_ok=True)
         images = [image_path.name for image_path in image_cache_dir.rglob("*.jpg")]
@@ -115,7 +115,7 @@ def test_predict_use_cache_skip(tmp_path, use_cache, skip_images):
     # Check output results
     result_vector_dir = conf.dirs.getpath("output_vector_dir")
     result_vector_path = (
-        result_vector_dir / "sportsfields_01_276_BEFL-2025-sportsfields.gpkg"
+        result_vector_dir / "sportsfields_01_BEFL-2025-sportsfields.gpkg"
     )
 
     # The area of the output should be within a 10% margin of the expected area.

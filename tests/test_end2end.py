@@ -158,7 +158,7 @@ def test_4_predict():
 
     # Check results
     result_vector_path = (
-        result_vector_dir / f"{SportsFields.subject}_01_276_BEFL-2025-sportsfields.gpkg"
+        result_vector_dir / f"{SportsFields.subject}_01_BEFL-2025-sportsfields.gpkg"
     )
     assert result_vector_path.exists()
     result_gdf = gfo.read_file(result_vector_path)

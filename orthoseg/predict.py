@@ -137,10 +137,7 @@ def predict(config_path: Path, config_overrules: list[str] | None = None):
         )
 
         # Prepare output subdir to be used for predictions
-        predict_out_subdir = best_model.basefilename
-        if trainparams_id > 0:
-            predict_out_subdir += f"_{trainparams_id}"
-        predict_out_subdir += f"_{best_model.epoch}"
+        predict_out_subdir = best_model.base_output_name
 
         # Load model to predict with
         # --------------------------
@@ -257,10 +254,17 @@ def predict(config_path: Path, config_overrules: list[str] | None = None):
             f"{conf.dirs['predict_image_output_basedir']}_{predict_out_subdir}"
         )
         output_vector_dir = conf.dirs.getpath("output_vector_dir")
-        output_vector_name = (
-            f"{best_model.basefilename}_{best_model.epoch}_{image_layer}"
-        )
+        output_vector_name = f"{best_model.base_output_name}_{image_layer}"
         output_vector_path = output_vector_dir / f"{output_vector_name}.gpkg"
+
+        # Backward compat: old-style name had epoch before image_layer, so if that file
+        # exists, use it instead of the new-style name
+        output_vector_path_legacy = (
+            output_vector_dir
+            / f"{best_model.legacy_base_output_name}_{image_layer}.gpkg"
+        )
+        if output_vector_path_legacy.exists():
+            output_vector_path = output_vector_path_legacy
 
         # Start predict for entire dataset
         # --------------------------------

@@ -31,6 +31,25 @@ class ModelInfo:
     epoch: int | None
     save_format: Literal["keras", "h5", "tf"]
 
+    @property
+    def is_default_ids(self) -> bool:
+        """True if both architecture and train params ids are default."""
+        return self.architecture_id == 0 and self.trainparams_id == 0
+
+    @property
+    def base_output_name(self) -> str:
+        """Output basename in current naming style, without image layer or suffix."""
+        if self.is_default_ids or self.epoch is None:
+            return self.basefilename
+        return f"{self.basefilename}-{self.epoch}"
+
+    @property
+    def legacy_base_output_name(self) -> str:
+        """Output basename in legacy naming style, without image layer or suffix."""
+        if self.epoch is None:
+            return self.basefilename
+        return f"{self.basefilename}_{self.epoch}"
+
 
 class ArchitectureParams:
     """Parameters regarding the neural network architecture to use."""
