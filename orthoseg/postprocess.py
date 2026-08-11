@@ -115,9 +115,9 @@ def postprocess(config_path: Path, config_overrules: list[str] | None = None) ->
         # Backward compat: fall back to old-style name that had epoch before image_layer
         if not output_vector_path.exists():
             name = f"{best_model.legacy_base_output_name}_{image_layer}.gpkg"
-            old_vector_path = output_vector_dir / name
-            if old_vector_path.exists():
-                output_vector_path = old_vector_path
+            legacy_vector_path = output_vector_dir / name
+            if legacy_vector_path.exists():
+                output_vector_path = legacy_vector_path
 
         # Prepare some parameters for the postprocessing
         nb_parallel = conf.general.getint("nb_parallel", -1)
