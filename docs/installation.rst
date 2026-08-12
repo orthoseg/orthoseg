@@ -39,7 +39,7 @@ following command:
 
 To use a CUDA GPU, also install the necessary CUDA packages in the environment: ::
 
-    conda install -y cudatoolkit=12.3 cudnn
+    conda install -y cuda-toolkit=12.3 cudnn
 
 
 On native Windows
@@ -89,7 +89,7 @@ following command:
 
 To use a CUDA GPU, also install the necessary CUDA packages in the environment: ::
 
-    conda install -y cudatoolkit=12.3 cudnn
+    conda install -y cuda-toolkit=12.3 cudnn
 
 
 .. _miniforge installer : https://github.com/conda-forge/miniforge#miniforge3
