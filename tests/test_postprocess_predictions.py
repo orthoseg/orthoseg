@@ -116,25 +116,6 @@ def create_prediction_file(output_vector_dir: Path, subject: str) -> Path:
     return output_vector_path
 
 
-def create_clip_file(tmp_path: Path, subject: str) -> Path:
-    clip_path = tmp_path / f"{subject}_clip.gpkg"
-    clip_gdf = gpd.GeoDataFrame(
-        {
-            "classname": [subject],
-            "geometry": [
-                shapely.wkt.loads(
-                    "POLYGON ((175055.9 176370.8, 175055.9 176371.3, "
-                    "175056.8 176371.3, 175056.8 176370.8, 175055.9 176370.8))"
-                )
-            ],
-        },
-        geometry="geometry",
-        crs=31370,
-    )
-    gfo.to_file(gdf=clip_gdf, path=clip_path)
-    return clip_path
-
-
 def write_test_raster(
     output_path: Path,
     image_arr: np.ndarray,
