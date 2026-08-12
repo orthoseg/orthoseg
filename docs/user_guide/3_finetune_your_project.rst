@@ -166,3 +166,27 @@ Some links
 
   * `Best performing image classifications on the imagenet dataset <https://paperswithcode.com/sota/image-classification-on-imagenet>`_
   * `Best performing image segmentations on the PASCAL VOC 2012 dataset <https://paperswithcode.com/sota/semantic-segmentation-on-pascal-voc-2012>`_
+
+Postprocessing options
+----------------------
+
+Postprocessing is applied after prediction to clean up and enrich the vector output.
+The available options are applied in the following order:
+
+* :confval:`postprocess.clip_path` clips the prediction to a boundary layer before any
+  further steps. This is useful when you only want results inside a project area or ROI.
+* :confval:`postprocess.dissolve` merges touching polygons of the same class.
+* :confval:`postprocess.dissolve_tiles_path` can re-tile dissolved output to avoid very
+  large polygons.
+* :confval:`postprocess.reclassify_to_neighbour_query` can reclassify polygons based on
+  a query, for
+  example to remove small objects or border artifacts.
+* :confval:`postprocess.simplify_algorithm`, :confval:`postprocess.simplify_tolerance`
+  and :confval:`postprocess.simplify_lookahead` reduce polygon complexity after the
+  other geometry operations.
+* :confval:`postprocess.output_style_path` optionally adds a QGIS style to the resulting
+  GeoPackage.
+
+If you only need a quick cleanup, :confval:`postprocess.dissolve` is often enough. For
+more specific projects, you can combine clipping, dissolve, reclassification, and
+simplify to keep the output small and easier to inspect.

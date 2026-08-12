@@ -137,14 +137,14 @@ def postprocess(config_path: Path, config_overrules: list[str] | None = None) ->
         simplify_lookahead = conf.postprocess.get("simplify_lookahead")
         if simplify_lookahead is not None:
             simplify_lookahead = int(simplify_lookahead)
+        clip_path = conf.postprocess.getpath("clip_path")
         output_style_path = conf.postprocess.getpath("output_style_path")
 
         # Go!
         postp.postprocess_predictions(
             input_path=output_vector_path,
             output_path=output_vector_path,
-            keep_original_file=keep_original_file,
-            keep_intermediary_files=keep_intermediary_files,
+            clip_path=clip_path,
             dissolve=dissolve,
             dissolve_tiles_path=dissolve_tiles_path,
             reclassify_to_neighbour_query=reclassify_query,
@@ -152,6 +152,8 @@ def postprocess(config_path: Path, config_overrules: list[str] | None = None) ->
             simplify_tolerance=simplify_tolerance,
             simplify_lookahead=simplify_lookahead,
             output_style_path=output_style_path,
+            keep_original_file=keep_original_file,
+            keep_intermediary_files=keep_intermediary_files,
             nb_parallel=nb_parallel,
             force=False,
         )

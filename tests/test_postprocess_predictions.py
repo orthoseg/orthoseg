@@ -203,32 +203,39 @@ def test_postprocess_predictions(
     postp.postprocess_predictions(
         input_path=output_vector_path,
         output_path=output_vector_path,
-        keep_original_file=keep_original_file,
-        keep_intermediary_files=keep_intermediary_files,
         dissolve=True,
         reclassify_to_neighbour_query="(area < 5)",
+        keep_original_file=keep_original_file,
+        keep_intermediary_files=keep_intermediary_files,
         force=False,
     )
 
     # Check results
+    # General output file should always exist
+    assert output_vector_path.exists()
+    assert gfo.get_only_layer(output_vector_path) == output_vector_path.stem
+
+    # Check the existence of the original and intermediary files
     if not keep_original_file and not keep_intermediary_files:
         assert len(list(output_vector_path.parent.iterdir())) == 1
-        assert output_vector_path.exists()
     if keep_original_file and not keep_intermediary_files:
         assert len(list(output_vector_path.parent.iterdir())) == 2
-        assert output_vector_path.exists()
         assert output_orig_path.exists()
+        assert gfo.get_only_layer(output_orig_path) == output_orig_path.stem
     if not keep_original_file and keep_intermediary_files:
         assert len(list(output_vector_path.parent.iterdir())) == 3
-        assert output_vector_path.exists()
         assert output_dissolve_path.exists()
+        assert gfo.get_only_layer(output_dissolve_path) == output_dissolve_path.stem
         assert output_reclass_path.exists()
+        assert gfo.get_only_layer(output_reclass_path) == output_reclass_path.stem
     if keep_original_file and keep_intermediary_files:
         assert len(list(output_vector_path.parent.iterdir())) == 4
-        assert output_vector_path.exists()
         assert output_orig_path.exists()
+        assert gfo.get_only_layer(output_orig_path) == output_orig_path.stem
         assert output_dissolve_path.exists()
+        assert gfo.get_only_layer(output_dissolve_path) == output_dissolve_path.stem
         assert output_reclass_path.exists()
+        assert gfo.get_only_layer(output_reclass_path) == output_reclass_path.stem
 
 
 def test_postprocess_predictions_output_style_added(tmp_path: Path):
@@ -298,6 +305,42 @@ def test_postprocess_predictions_output_style_non_gpkg(tmp_path: Path):
             dissolve=False,
             output_style_path=output_style_path,
         )
+
+
+def test_postprocess_predictions_clip_path(tmp_path: Path):
+    subject = "test-subject"
+    input_vector_path = create_prediction_file(
+        output_vector_dir=tmp_path, subject=subject
+    )
+    clip_path = tmp_path / "clip_layer.gpkg"
+    input_gdf = gfo.read_file(input_vector_path)
+    clip_gdf = input_gdf.iloc[[0]].copy()
+    gfo.to_file(gdf=clip_gdf, path=clip_path)
+    output_vector_path = tmp_path / f"{subject}_clipped.gpkg"
+
+    postp.postprocess_predictions(
+        input_path=input_vector_path,
+        output_path=output_vector_path,
+        dissolve=False,
+        clip_path=clip_path,
+        keep_intermediary_files=True,
+    )
+
+    clip_intermediary_path = (
+        output_vector_path.parent / f"{output_vector_path.stem}_clip.gpkg"
+    )
+
+    assert clip_intermediary_path.exists()
+    clip_intermediary_gdf = gfo.read_file(clip_intermediary_path)
+    assert len(clip_intermediary_gdf) == 1
+    assert clip_intermediary_gdf.area.sum() < input_gdf.area.sum()
+    assert clip_intermediary_gdf.area.sum() == clip_gdf.area.sum()
+
+    assert output_vector_path.exists()
+    result_gdf = gfo.read_file(output_vector_path)
+    assert len(result_gdf) == 1
+    assert result_gdf.area.sum() < input_gdf.area.sum()
+    assert result_gdf.area.sum() == clip_gdf.area.sum()
 
 
 @pytest.mark.parametrize(

@@ -247,6 +247,56 @@ def test_read_orthoseg_config_postprocess_output_style_path_custom_missing():
         )
 
 
+def test_read_orthoseg_config_postprocess_clip_path_default(tmp_path):
+    tmp_project_dir = tmp_path / "project"
+    tmp_project_dir.mkdir()
+    temp_config_path = tmp_project_dir / SportsFields.config_path.name
+    shutil.copy(SportsFields.config_path, temp_config_path)
+    shutil.copy(sampleprojects_dir / "imagelayers.ini", tmp_path)
+    (tmp_path / "project_defaults_overrule.ini").touch()
+
+    conf.read_orthoseg_config(temp_config_path)
+
+    clip_path = conf.postprocess.getpath("clip_path")
+    assert clip_path is None
+
+
+def test_read_orthoseg_config_postprocess_clip_path_custom(tmp_path):
+    tmp_project_dir = tmp_path / "project"
+    tmp_project_dir.mkdir()
+    temp_config_path = tmp_project_dir / SportsFields.config_path.name
+    shutil.copy(SportsFields.config_path, temp_config_path)
+    shutil.copy(sampleprojects_dir / "imagelayers.ini", tmp_path)
+    (tmp_path / "project_defaults_overrule.ini").touch()
+
+    clip_file = tmp_project_dir / "clip.gpkg"
+    clip_file.touch()
+
+    conf.read_orthoseg_config(
+        temp_config_path,
+        overrules=["postprocess.clip_path=clip.gpkg"],
+    )
+
+    clip_path = conf.postprocess.getpath("clip_path")
+    assert clip_path is not None
+    assert clip_path.resolve() == clip_file.resolve()
+
+
+def test_read_orthoseg_config_postprocess_clip_path_custom_missing(tmp_path):
+    tmp_project_dir = tmp_path / "project"
+    tmp_project_dir.mkdir()
+    temp_config_path = tmp_project_dir / SportsFields.config_path.name
+    shutil.copy(SportsFields.config_path, temp_config_path)
+    shutil.copy(sampleprojects_dir / "imagelayers.ini", tmp_path)
+    (tmp_path / "project_defaults_overrule.ini").touch()
+
+    with pytest.raises(FileNotFoundError, match=r"postprocess.clip_path"):
+        conf.read_orthoseg_config(
+            temp_config_path,
+            overrules=["postprocess.clip_path=missing-clip.gpkg"],
+        )
+
+
 def test_prepare_train_label_infos():
     subject = TestData.subject
     labelpolygons_pattern = TestData.dir / f"{subject}_{{image_layer}}_data.gpkg"
