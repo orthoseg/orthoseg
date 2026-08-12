@@ -81,7 +81,7 @@ def postprocess_predictions(
             The keys are the postprocessing steps that were applied. E.g. "clip",
             "dissolve", "reclass", "simplify". The values are the paths to the created
             files. If no postprocessing was applied or if `keep_intermediary_files` is
-            False, the dictionary is empty.
+            False, the returned dictionary is empty.
     """
     # Init
     if not input_path.exists():
@@ -204,26 +204,28 @@ def postprocess_predictions(
     # (input_path) is renamed to ..._orig.gpkg
     if clip_path or dissolve or reclassify_to_neighbour_query or simplify_algorithm:
         original_file = input_path.parent / f"{input_path.stem}_orig.gpkg"
-        if original_file.exists():
-            gfo.remove(original_file)
-        input_path.rename(original_file)
-        shutil.copy(src=curr_output_path, dst=output_path)
+        if not original_file.exists():
+            gfo.move(input_path, original_file)
+            gfo.rename_layer(original_file, gfo.get_default_layer(original_file))
+        gfo.copy(curr_output_path, output_path)
+        gfo.rename_layer(output_path, gfo.get_default_layer(output_path))
 
         # Cleanup original file
         if not keep_original_file:
-            original_file.unlink()
+            gfo.remove(original_file, missing_ok=True)
 
         # Cleanup intermediary files
         if not keep_intermediary_files:
-            for key in list(output_paths.keys()):
-                output_paths[key].unlink()
-                del output_paths[key]
+            for postprocess_step, path in list(output_paths.items()):
+                gfo.remove(path, missing_ok=True)
+                del output_paths[postprocess_step]
 
     else:
         # If no postprocessing steps are defined, the output of the prediction step
         # (input_path) is renamed to the output_path
         if input_path != output_path:
-            input_path.rename(output_path)
+            gfo.move(input_path, output_path)
+            gfo.rename_layer(output_path, gfo.get_default_layer(output_path))
 
     _add_output_layer_style(
         output_path=output_path, output_style_path=output_style_path

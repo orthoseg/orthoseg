@@ -222,32 +222,39 @@ def test_postprocess_predictions(
     postp.postprocess_predictions(
         input_path=output_vector_path,
         output_path=output_vector_path,
-        keep_original_file=keep_original_file,
-        keep_intermediary_files=keep_intermediary_files,
         dissolve=True,
         reclassify_to_neighbour_query="(area < 5)",
+        keep_original_file=keep_original_file,
+        keep_intermediary_files=keep_intermediary_files,
         force=False,
     )
 
     # Check results
+    # General output file should always exist
+    assert output_vector_path.exists()
+    assert gfo.get_only_layer(output_vector_path) == output_vector_path.stem
+
+    # Check the existence of the original and intermediary files
     if not keep_original_file and not keep_intermediary_files:
         assert len(list(output_vector_path.parent.iterdir())) == 1
-        assert output_vector_path.exists()
     if keep_original_file and not keep_intermediary_files:
         assert len(list(output_vector_path.parent.iterdir())) == 2
-        assert output_vector_path.exists()
         assert output_orig_path.exists()
+        assert gfo.get_only_layer(output_orig_path) == output_orig_path.stem
     if not keep_original_file and keep_intermediary_files:
         assert len(list(output_vector_path.parent.iterdir())) == 3
-        assert output_vector_path.exists()
         assert output_dissolve_path.exists()
+        assert gfo.get_only_layer(output_dissolve_path) == output_dissolve_path.stem
         assert output_reclass_path.exists()
+        assert gfo.get_only_layer(output_reclass_path) == output_reclass_path.stem
     if keep_original_file and keep_intermediary_files:
         assert len(list(output_vector_path.parent.iterdir())) == 4
-        assert output_vector_path.exists()
         assert output_orig_path.exists()
+        assert gfo.get_only_layer(output_orig_path) == output_orig_path.stem
         assert output_dissolve_path.exists()
+        assert gfo.get_only_layer(output_dissolve_path) == output_dissolve_path.stem
         assert output_reclass_path.exists()
+        assert gfo.get_only_layer(output_reclass_path) == output_reclass_path.stem
 
 
 def test_postprocess_predictions_output_style_added(tmp_path: Path):
