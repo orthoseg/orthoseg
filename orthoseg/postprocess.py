@@ -15,6 +15,56 @@ from orthoseg.util import log_util
 logger = logging.getLogger(__name__)
 
 
+def _apply_postprocess(output_vector_path: Path) -> None:
+    """Apply postprocessing to the prediction output file using config settings.
+
+    Reads postprocessing config from the [postprocess] section and applies
+    the full postprocessing pipeline to the vector file.
+
+    Args:
+        output_vector_path (Path): Path to the vector file to postprocess.
+            The file will be modified in place.
+    """
+    # Prepare some parameters for the postprocessing
+    nb_parallel = conf.general.getint("nb_parallel", -1)
+
+    keep_original_file = conf.postprocess.getboolean("keep_original_file", True)
+    keep_intermediary_files = conf.postprocess.getboolean(
+        "keep_intermediary_files", True
+    )
+    dissolve = conf.postprocess.getboolean("dissolve", True)
+    dissolve_tiles_path = conf.postprocess.getpath("dissolve_tiles_path")
+    reclassify_query = conf.postprocess.get("reclassify_to_neighbour_query")
+    if reclassify_query is not None:
+        reclassify_query = reclassify_query.replace("\n", " ")
+
+    simplify_algorithm = conf.postprocess.get("simplify_algorithm")
+    simplify_tolerance = conf.postprocess.geteval("simplify_tolerance")
+    simplify_lookahead = conf.postprocess.get("simplify_lookahead")
+    if simplify_lookahead is not None:
+        simplify_lookahead = int(simplify_lookahead)
+    clip_path = conf.postprocess.getpath("clip_path")
+    output_style_path = conf.postprocess.getpath("output_style_path")
+
+    # Apply postprocessing
+    postp.postprocess_predictions(
+        input_path=output_vector_path,
+        output_path=output_vector_path,
+        clip_path=clip_path,
+        dissolve=dissolve,
+        dissolve_tiles_path=dissolve_tiles_path,
+        reclassify_to_neighbour_query=reclassify_query,
+        simplify_algorithm=simplify_algorithm,
+        simplify_tolerance=simplify_tolerance,
+        simplify_lookahead=simplify_lookahead,
+        output_style_path=output_style_path,
+        keep_original_file=keep_original_file,
+        keep_intermediary_files=keep_intermediary_files,
+        nb_parallel=nb_parallel,
+        force=False,
+    )
+
+
 def _postprocess_args(args) -> argparse.Namespace:
     # Interprete arguments
     parser = argparse.ArgumentParser(add_help=False)
@@ -119,44 +169,8 @@ def postprocess(config_path: Path, config_overrules: list[str] | None = None) ->
             if legacy_vector_path.exists():
                 output_vector_path = legacy_vector_path
 
-        # Prepare some parameters for the postprocessing
-        nb_parallel = conf.general.getint("nb_parallel", -1)
-
-        keep_original_file = conf.postprocess.getboolean("keep_original_file", True)
-        keep_intermediary_files = conf.postprocess.getboolean(
-            "keep_intermediary_files", True
-        )
-        dissolve = conf.postprocess.getboolean("dissolve", True)
-        dissolve_tiles_path = conf.postprocess.getpath("dissolve_tiles_path")
-        reclassify_query = conf.postprocess.get("reclassify_to_neighbour_query")
-        if reclassify_query is not None:
-            reclassify_query = reclassify_query.replace("\n", " ")
-
-        simplify_algorithm = conf.postprocess.get("simplify_algorithm")
-        simplify_tolerance = conf.postprocess.geteval("simplify_tolerance")
-        simplify_lookahead = conf.postprocess.get("simplify_lookahead")
-        if simplify_lookahead is not None:
-            simplify_lookahead = int(simplify_lookahead)
-        clip_path = conf.postprocess.getpath("clip_path")
-        output_style_path = conf.postprocess.getpath("output_style_path")
-
-        # Go!
-        postp.postprocess_predictions(
-            input_path=output_vector_path,
-            output_path=output_vector_path,
-            clip_path=clip_path,
-            dissolve=dissolve,
-            dissolve_tiles_path=dissolve_tiles_path,
-            reclassify_to_neighbour_query=reclassify_query,
-            simplify_algorithm=simplify_algorithm,
-            simplify_tolerance=simplify_tolerance,
-            simplify_lookahead=simplify_lookahead,
-            output_style_path=output_style_path,
-            keep_original_file=keep_original_file,
-            keep_intermediary_files=keep_intermediary_files,
-            nb_parallel=nb_parallel,
-            force=False,
-        )
+        # Apply postprocessing
+        _apply_postprocess(output_vector_path)
 
         # Log and send mail
         message = f"Completed postprocess for {model_name} on {image_layer}"

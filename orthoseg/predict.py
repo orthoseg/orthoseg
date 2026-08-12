@@ -14,6 +14,7 @@ import orthoseg.model.model_factory as mf
 import orthoseg.model.model_helper as mh
 from orthoseg.helpers import config_helper as conf, email_helper
 from orthoseg.lib import cleanup, predicter
+from orthoseg.postprocess import _apply_postprocess
 from orthoseg.util import log_util
 
 # Get a logger...
@@ -47,11 +48,20 @@ def _predict_args(args) -> argparse.Namespace:
             "Supply any number of config overrules like this: <section>.<key>=<value>"
         ),
     )
+    optional.add_argument(
+        "--no-postprocess",
+        action="store_true",
+        help="Disable final postprocessing after prediction (default: postprocessing is enabled)",
+    )
 
     return parser.parse_args(args)
 
 
-def predict(config_path: Path, config_overrules: list[str] | None = None):
+def predict(
+    config_path: Path,
+    config_overrules: list[str] | None = None,
+    postprocess: bool = True,
+) -> Path:
     """Run a prediction for the config specified.
 
     Args:
@@ -59,6 +69,11 @@ def predict(config_path: Path, config_overrules: list[str] | None = None):
         config_overrules (list[str], optional): list of config options that will
             overrule other ways to supply configuration. They should be specified in the
             form of "<section>.<key>=<value>". Defaults to None.
+        postprocess (bool, optional): Whether to apply final postprocessing after
+            prediction completes. Defaults to True.
+
+    Returns:
+        Path: The path to the output vector file (postprocessed if postprocess=True).
     """
     # Init
     # Load the config and save in a bunch of global variables zo it
@@ -350,6 +365,18 @@ def predict(config_path: Path, config_overrules: list[str] | None = None):
             versions_to_retain=conf.cleanup.getint("prediction_versions_to_retain"),
             simulate=conf.cleanup.getboolean("simulate"),
         )
+
+        # Apply final postprocessing if requested
+        if postprocess:
+            logger.info("Applying final postprocessing to predictions")
+            _apply_postprocess(output_vector_path)
+            message = (
+                f"Completed final postprocessing for {model_name} on {image_layer}"
+            )
+            logger.info(message)
+            email_helper.sendmail(message)
+
+        return output_vector_path
     except Exception as ex:
         if model_name is None:
             model_name = config_path.name
@@ -370,7 +397,11 @@ def main():
         args = _predict_args(sys.argv[1:])
 
         # Run!
-        predict(config_path=Path(args.config), config_overrules=args.config_overrules)
+        predict(
+            config_path=Path(args.config),
+            config_overrules=args.config_overrules,
+            postprocess=not args.no_postprocess,
+        )
     except Exception as ex:
         logger.exception(f"Error: {ex}")
         raise
