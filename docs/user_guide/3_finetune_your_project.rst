@@ -190,3 +190,9 @@ The available options are applied in the following order:
 If you only need a quick cleanup, :confval:`postprocess.dissolve` is often enough. For
 more specific projects, you can combine clipping, dissolve, reclassification, and
 simplify to keep the output small and easier to inspect.
+
+By default, postprocessing is applied automatically when running `orthoseg_predict`.
+If you want to disable postprocessing, you can use the `--no-postprocess` option. This
+way it is possible to run the final postprocessing in a separate step using
+`orthoseg_postprocess`, for example to run the same prediction with different
+postprocessing options or to run postprocessing on a separate machine.

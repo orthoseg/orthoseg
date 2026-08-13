@@ -38,9 +38,7 @@ def test_read_prediction_file():
     assert len(pred_raster_gdf) == len(pred_comparison_gdf)
 
 
-def test_clean_vectordata(tmpdir):
-    temp_dir = Path(tmpdir)
-
+def test_postprocess_predictions(tmp_path):
     # Clean data
     input1_path = TestData.dir / "129568_184288_130592_185312_4096_4096_1_pred.gpkg"
     input2_path = TestData.dir / "129568_185248_130592_186272_4096_4096_1_pred.gpkg"
@@ -48,9 +46,9 @@ def test_clean_vectordata(tmpdir):
     input2_gdf = gfo.read_file(input2_path)
     input_gdf = pd.concat([input1_gdf, input2_gdf])
     assert input1_gdf.crs == input_gdf.crs
-    input_path = temp_dir / "vector_input.gpkg"
+    input_path = tmp_path / "vector_input.gpkg"
     gfo.to_file(input_gdf, input_path)
-    output_path = temp_dir / input_path.name
+    output_path = tmp_path / "vector_output.gpkg"
     postp.postprocess_predictions(
         input_path=input_path,
         output_path=output_path,
@@ -60,10 +58,10 @@ def test_clean_vectordata(tmpdir):
     )
 
     # Read result and check
-    geoms_simpl_filepath = (
-        output_path.parent / f"{output_path.stem}_dissolve{output_path.suffix}"
+    geoms_dissolve_filepath = (
+        output_path.parent / f"{input_path.stem}_dissolve{output_path.suffix}"
     )
-    result_gdf = gfo.read_file(geoms_simpl_filepath)
+    result_gdf = gfo.read_file(geoms_dissolve_filepath)
 
     assert len(result_gdf) == 616
 
@@ -89,7 +87,7 @@ def create_prediction_file(output_vector_dir: Path, subject: str) -> Path:
     imagelayer = "BEFL-2019"
     prediction_dir = output_vector_dir / imagelayer
     prediction_dir.mkdir(parents=True, exist_ok=True)
-    output_vector_path = prediction_dir / f"{subject}_01_201_{imagelayer}.gpkg"
+    output_vector_path = prediction_dir / f"{subject}_01_{imagelayer}_predict.gpkg"
 
     predictions = {
         "classname": [subject] * 5,
@@ -175,7 +173,7 @@ def _create_prediction_test_data(tmp_path: Path, image_transform):
 
 @pytest.mark.parametrize("keep_original_file", [False, True])
 @pytest.mark.parametrize("keep_intermediary_files", [False, True])
-def test_postprocess_predictions(
+def test_postprocess_predictions_keep_options(
     tmp_path: Path,
     keep_original_file: bool,
     keep_intermediary_files: bool,
@@ -186,23 +184,17 @@ def test_postprocess_predictions(
 
     # Creating dummy files
     output_vector_dir = project_dir / "output_vector"
-    output_vector_path = create_prediction_file(
+    input_path = create_prediction_file(
         output_vector_dir=output_vector_dir, subject=subject
     )
-    output_orig_path = (
-        output_vector_path.parent / f"{output_vector_path.stem}_orig.gpkg"
-    )
-    output_dissolve_path = (
-        output_vector_path.parent / f"{output_vector_path.stem}_dissolve.gpkg"
-    )
-    output_reclass_path = (
-        output_vector_path.parent / f"{output_vector_path.stem}_reclass.gpkg"
-    )
+    output_path = input_path.parent / input_path.name.replace("_predict", "")
+    output_dissolve_path = input_path.parent / f"{input_path.stem}_dissolve.gpkg"
+    output_reclass_path = input_path.parent / f"{input_path.stem}_dissolve_reclass.gpkg"
 
     # Go!
     postp.postprocess_predictions(
-        input_path=output_vector_path,
-        output_path=output_vector_path,
+        input_path=input_path,
+        output_path=output_path,
         dissolve=True,
         reclassify_to_neighbour_query="(area < 5)",
         keep_original_file=keep_original_file,
@@ -212,26 +204,26 @@ def test_postprocess_predictions(
 
     # Check results
     # General output file should always exist
-    assert output_vector_path.exists()
-    assert gfo.get_only_layer(output_vector_path) == output_vector_path.stem
+    assert output_path.exists()
+    assert gfo.get_only_layer(output_path) == output_path.stem
 
     # Check the existence of the original and intermediary files
     if not keep_original_file and not keep_intermediary_files:
-        assert len(list(output_vector_path.parent.iterdir())) == 1
+        assert len(list(input_path.parent.iterdir())) == 1
     if keep_original_file and not keep_intermediary_files:
-        assert len(list(output_vector_path.parent.iterdir())) == 2
-        assert output_orig_path.exists()
-        assert gfo.get_only_layer(output_orig_path) == output_orig_path.stem
+        assert len(list(input_path.parent.iterdir())) == 2
+        assert input_path.exists()
+        assert gfo.get_only_layer(output_path) == output_path.stem
     if not keep_original_file and keep_intermediary_files:
-        assert len(list(output_vector_path.parent.iterdir())) == 3
+        assert len(list(input_path.parent.iterdir())) == 3
         assert output_dissolve_path.exists()
         assert gfo.get_only_layer(output_dissolve_path) == output_dissolve_path.stem
         assert output_reclass_path.exists()
         assert gfo.get_only_layer(output_reclass_path) == output_reclass_path.stem
     if keep_original_file and keep_intermediary_files:
-        assert len(list(output_vector_path.parent.iterdir())) == 4
-        assert output_orig_path.exists()
-        assert gfo.get_only_layer(output_orig_path) == output_orig_path.stem
+        assert len(list(input_path.parent.iterdir())) == 4
+        assert input_path.exists()
+        assert gfo.get_only_layer(input_path) == input_path.stem
         assert output_dissolve_path.exists()
         assert gfo.get_only_layer(output_dissolve_path) == output_dissolve_path.stem
         assert output_reclass_path.exists()
@@ -241,38 +233,40 @@ def test_postprocess_predictions(
 def test_postprocess_predictions_output_style_added(tmp_path: Path):
     output_vector_dir = tmp_path / "output_vector"
     subject = "test-subject"
-    output_vector_path = create_prediction_file(
+    prediction_path = create_prediction_file(
         output_vector_dir=output_vector_dir, subject=subject
     )
+    output_path = prediction_path.parent / prediction_path.name.replace("_predict", "")
     output_style_path = tmp_path / f"{subject}.qml"
     output_style_path.write_text("<qgis></qgis>", encoding="utf-8")
 
     postp.postprocess_predictions(
-        input_path=output_vector_path,
-        output_path=output_vector_path,
+        input_path=prediction_path,
+        output_path=output_path,
         dissolve=False,
         output_style_path=output_style_path,
     )
 
-    styles = gfo.get_layerstyles(output_vector_path)
+    styles = gfo.get_layerstyles(output_path)
     assert len(styles) == 1
     assert styles.iloc[0]["styleName"] == output_style_path.stem
-    layer_name = gfo.get_only_layer(output_vector_path)
+    layer_name = gfo.get_only_layer(output_path)
     assert styles.iloc[0]["f_table_name"] == layer_name
 
 
 def test_postprocess_predictions_output_style_missing(tmp_path: Path):
     output_vector_dir = tmp_path / "output_vector"
     subject = "test-subject"
-    output_vector_path = create_prediction_file(
+    prediction_path = create_prediction_file(
         output_vector_dir=output_vector_dir, subject=subject
     )
+    output_path = prediction_path.parent / prediction_path.name.replace("_predict", "")
     output_style_path = tmp_path / f"{subject}.qml"
 
     with pytest.raises(FileNotFoundError, match="output_style_path doesn't exist"):
         postp.postprocess_predictions(
-            input_path=output_vector_path,
-            output_path=output_vector_path,
+            input_path=prediction_path,
+            output_path=output_path,
             dissolve=False,
             output_style_path=output_style_path,
         )
@@ -280,7 +274,7 @@ def test_postprocess_predictions_output_style_missing(tmp_path: Path):
 
 def test_postprocess_predictions_output_style_non_gpkg(tmp_path: Path):
     subject = "test-subject"
-    output_vector_path = tmp_path / f"{subject}.geojson"
+    input_path = tmp_path / f"{subject}.geojson"
     gdf = gpd.GeoDataFrame(
         {
             "classname": ["footballfields"],
@@ -293,15 +287,16 @@ def test_postprocess_predictions_output_style_non_gpkg(tmp_path: Path):
         geometry="geometry",
         crs=31370,
     )
-    gfo.to_file(gdf=gdf, path=output_vector_path)
+    gfo.to_file(gdf=gdf, path=input_path)
 
+    output_path = tmp_path / f"{subject}_output.geojson"
     output_style_path = tmp_path / f"{subject}.qml"
     output_style_path.write_text("<qgis></qgis>", encoding="utf-8")
 
     with pytest.raises(ValueError, match="output is not a GeoPackage"):
         postp.postprocess_predictions(
-            input_path=output_vector_path,
-            output_path=output_vector_path,
+            input_path=input_path,
+            output_path=output_path,
             dissolve=False,
             output_style_path=output_style_path,
         )
@@ -309,37 +304,35 @@ def test_postprocess_predictions_output_style_non_gpkg(tmp_path: Path):
 
 def test_postprocess_predictions_clip_path(tmp_path: Path):
     subject = "test-subject"
-    input_vector_path = create_prediction_file(
+    prediction_path = create_prediction_file(
         output_vector_dir=tmp_path, subject=subject
     )
     clip_path = tmp_path / "clip_layer.gpkg"
-    input_gdf = gfo.read_file(input_vector_path)
-    clip_gdf = input_gdf.iloc[[0]].copy()
+    prediction_gdf = gfo.read_file(prediction_path)
+    clip_gdf = prediction_gdf.iloc[[0]].copy()
     gfo.to_file(gdf=clip_gdf, path=clip_path)
-    output_vector_path = tmp_path / f"{subject}_clipped.gpkg"
+    output_path = prediction_path.parent / f"{subject}_clipped.gpkg"
 
     postp.postprocess_predictions(
-        input_path=input_vector_path,
-        output_path=output_vector_path,
+        input_path=prediction_path,
+        output_path=output_path,
         dissolve=False,
         clip_path=clip_path,
         keep_intermediary_files=True,
     )
 
-    clip_intermediary_path = (
-        output_vector_path.parent / f"{output_vector_path.stem}_clip.gpkg"
-    )
+    clip_intermediary_path = output_path.parent / f"{prediction_path.stem}_clip.gpkg"
 
     assert clip_intermediary_path.exists()
     clip_intermediary_gdf = gfo.read_file(clip_intermediary_path)
     assert len(clip_intermediary_gdf) == 1
-    assert clip_intermediary_gdf.area.sum() < input_gdf.area.sum()
+    assert clip_intermediary_gdf.area.sum() < prediction_gdf.area.sum()
     assert clip_intermediary_gdf.area.sum() == clip_gdf.area.sum()
 
-    assert output_vector_path.exists()
-    result_gdf = gfo.read_file(output_vector_path)
+    assert output_path.exists()
+    result_gdf = gfo.read_file(output_path)
     assert len(result_gdf) == 1
-    assert result_gdf.area.sum() < input_gdf.area.sum()
+    assert result_gdf.area.sum() < prediction_gdf.area.sum()
     assert result_gdf.area.sum() == clip_gdf.area.sum()
 
 

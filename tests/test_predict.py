@@ -6,6 +6,7 @@ import shutil
 from contextlib import nullcontext
 from pathlib import Path
 
+import geofileops as gfo
 import geopandas as gpd
 import pytest
 
@@ -19,20 +20,26 @@ from tests.test_helper import SportsFields
 @pytest.mark.parametrize(
     "args",
     [
-        (
-            [
-                "--config",
-                "X:/Monitoring/OrthoSeg/test/test.ini",
-                "predict.image_layer=LT-2023",
-            ]
-        )
+        (["--config", "test.ini", "predict.image_layer=abc", "--no-postprocess"]),
+        (["--config", "test.ini", "predict.image_layer=abc", "predict.batch_size=1"]),
     ],
 )
 def test_predict_args(args):
     valid_args = _predict_args(args=args)
+
     assert valid_args is not None
     assert valid_args.config is not None
     assert valid_args.config_overrules is not None
+    assert valid_args.no_postprocess is not None
+
+    if "--no-postprocess" in args:
+        assert valid_args.no_postprocess
+        nb_overrules = len(args) - 3
+    else:
+        assert not valid_args.no_postprocess
+        nb_overrules = len(args) - 2
+
+    assert len(valid_args.config_overrules) == nb_overrules
 
 
 @pytest.mark.parametrize("config_path, exp_error", [(Path("INVALID"), True)])
@@ -125,3 +132,25 @@ def test_predict_use_cache_skip(tmp_path, use_cache, skip_images):
     assert result_gdf.crs.to_epsg() == 31370
     exp_area = 33177 if not skip_images else 5723
     assert exp_area * 0.9 < sum(result_gdf.geometry.area) < exp_area * 1.1
+
+
+@pytest.mark.parametrize("postprocess", [False, True])
+def test_predict_postprocess(tmp_path, postprocess):
+    # Init test project and keep the existing prediction output file in place so
+    # predict can reuse it and skip actual inference.
+    testprojects_dir = tmp_path / "sample_projects"
+    shutil.rmtree(testprojects_dir, ignore_errors=True)
+    shutil.copytree(test_helper.sampleprojects_dir, testprojects_dir)
+    project_dir = testprojects_dir / SportsFields.subject
+    config_path = project_dir / SportsFields.config_path.name
+
+    result_path = predict(config_path=config_path, postprocess=postprocess)
+
+    # Check result
+    result_count = gfo.get_layerinfo(result_path).featurecount
+    if postprocess:
+        assert result_count == SportsFields.expected_postprocess_count
+        assert not result_path.stem.endswith("_predict")
+    else:
+        assert result_count == SportsFields.expected_output_count
+        assert result_path.stem.endswith("_predict")

@@ -41,7 +41,7 @@ def predict_dir(
     output_vector_path: Path | None,
     classes: list,
     min_probability: float = 0.5,
-    postprocess: dict | None = None,
+    postprocess_tiles_config: dict | None = None,
     border_pixels_to_ignore: int = 0,
     projection_if_missing: str | None = None,
     input_mask_dir: Path | None = None,
@@ -86,8 +86,9 @@ def predict_dir(
             if more than background + 1 class.
         min_probability (float): Minimum probability to consider a pixel being of a
             certain class. Defaults to 0.5.
-        postprocess (dict | None, optional): specifies which postprocessing should be
-            applied to the prediction. Default is None, so no postprocessing.
+        postprocess_tiles_config (dict | None, optional): specifies which postprocessing
+            should be applied to each predicted tile.
+            Default is None, so no postprocessing.
         border_pixels_to_ignore: because the segmentation at the borders of the
             input images images is not as good, you can specify that x
             pixels need to be ignored
@@ -154,7 +155,7 @@ def predict_dir(
         classes=classes,
         image_files=image_files,
         min_probability=min_probability,
-        postprocess=postprocess,
+        postprocess_tiles_config=postprocess_tiles_config,
         border_pixels_to_ignore=border_pixels_to_ignore,
         projection_if_missing=projection_if_missing,
         input_mask_dir=input_mask_dir,
@@ -181,7 +182,7 @@ def predict_layer(
     output_vector_path: Path | None,
     classes: list,
     min_probability: float = 0.5,
-    postprocess: dict | None = None,
+    postprocess_tiles_config: dict | None = None,
     projection_if_missing: str | None = None,
     input_mask_dir: Path | None = None,
     batch_size: int = 16,
@@ -238,8 +239,9 @@ def predict_layer(
             if more than background + 1 class.
         min_probability (float): Minimum probability to consider a pixel being of a
             certain class. Defaults to 0.5.
-        postprocess (dict | None, optional): specifies which postprocessing should be
-            applied to the prediction. Default is None, so no postprocessing.
+        postprocess_tiles_config (dict | None, optional): specifies which postprocessing
+            should be applied to each predicted tile.
+            Default is None, so no postprocessing.
         border_pixels_to_ignore: because the segmentation at the borders of the
             input images images is not as good, you can specify that x
             pixels need to be ignored
@@ -340,7 +342,7 @@ def predict_layer(
         classes=classes,
         image_files=image_files,
         min_probability=min_probability,
-        postprocess=postprocess,
+        postprocess_tiles_config=postprocess_tiles_config,
         border_pixels_to_ignore=image_pixels_overlap,
         projection_if_missing=projection_if_missing,
         input_mask_dir=input_mask_dir,
@@ -365,7 +367,7 @@ def _predict_layer(
     classes: list,
     image_files: list[dict[str, Any]],
     min_probability: float = 0.5,
-    postprocess: dict | None = None,
+    postprocess_tiles_config: dict | None = None,
     border_pixels_to_ignore: int = 0,
     projection_if_missing: str | None = None,
     input_mask_dir: Path | None = None,
@@ -669,7 +671,7 @@ def _predict_layer(
                             input_mask_dir=input_mask_dir,
                             border_pixels_to_ignore=border_pixels_to_ignore,
                             min_probability=min_probability,
-                            postprocess=postprocess,
+                            postprocess_tiles_config=postprocess_tiles_config,
                             force=force,
                         )
                         postp_queue[future] = image_info["input_image_filepath"]

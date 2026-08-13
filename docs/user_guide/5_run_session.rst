@@ -32,8 +32,9 @@ If you ran the sample project, these steps will look very familiar:
       orthoseg_predict --config {project_dir}{segment_subject}.ini
 
 
-After this completes, the directory `{project_dir}/output_vector` will contain a .gpkg
-file with the features found.
+After this completes, the directory `{project_dir}/output_vector` will contain two .gpkg
+files with the features found: the final postprocessed output and the raw predict output
+before final postprocessing (`..._predict.gpkg`).
 
 Of course it is also possible to script this in your scripting language of choice to
 automate this further...

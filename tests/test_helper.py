@@ -18,6 +18,8 @@ class SportsFields:
     project_dir = sampleprojects_dir / subject
     config_path = project_dir / f"{subject}.ini"
     config_extra_path = project_dir / f"{subject}_BEFL-2024.ini"
+    expected_output_count = 27
+    expected_postprocess_count = 22
 
     @staticmethod
     def download_model(dst_dir):
