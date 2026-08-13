@@ -146,15 +146,15 @@ def predict(
 
         # Backward compat: old-style name had epoch before image_layer, so if such
         # files exist, return as well.
-        legacy_output_vector_path = (
+        output_legacy_path = (
             output_vector_dir
-            / f"{best_model.legacy_base_output_name}_{image_layer}.gpkg"
+            / f"{best_model.base_output_legacy_name}_{image_layer}.gpkg"
         )
-        if legacy_output_vector_path.exists():
+        if output_legacy_path.exists():
             email_helper.sendmail(
                 f"Predict output exists already for {model_name} on {image_layer}"
             )
-            return legacy_output_vector_path
+            return output_legacy_path
 
         # Load the hyperparams of the model
         # TODO: move the hyperparams filename formatting to get_models...

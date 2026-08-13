@@ -44,7 +44,7 @@ class ModelInfo:
         return f"{self.basefilename}-{self.epoch}"
 
     @property
-    def legacy_base_output_name(self) -> str:
+    def base_output_legacy_name(self) -> str:
         """Output basename in legacy naming style, without image layer or suffix."""
         if self.epoch is None:
             return self.basefilename

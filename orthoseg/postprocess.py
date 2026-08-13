@@ -159,26 +159,26 @@ def postprocess(config_path: Path, config_overrules: list[str] | None = None) ->
         # Input file  the "most recent" prediction result dir for this subject
         output_vector_dir = conf.dirs.getpath("output_vector_dir")
         image_layer = conf.predict["image_layer"]
-        output_vector_stem = f"{best_model.base_output_name}_{image_layer}"
-        output_vector_path = output_vector_dir / f"{output_vector_stem}_predict.gpkg"
-        output_vector_postp_path = output_vector_dir / f"{output_vector_stem}.gpkg"
+        output_stem = f"{best_model.base_output_name}_{image_layer}"
+        output_predict_path = output_vector_dir / f"{output_stem}_predict.gpkg"
+        output_postp_path = output_vector_dir / f"{output_stem}.gpkg"
 
         # Backward compat: fall back to old-style name that had epoch before image_layer
-        if not output_vector_path.exists():
-            name = f"{best_model.legacy_base_output_name}_{image_layer}.gpkg"
-            legacy_vector_path = output_vector_dir / name
-            if legacy_vector_path.exists():
-                output_vector_path = legacy_vector_path
+        if not output_predict_path.exists():
+            name = f"{best_model.base_output_legacy_name}_{image_layer}.gpkg"
+            output_legacy_path = output_vector_dir / name
+            if output_legacy_path.exists():
+                output_predict_path = output_legacy_path
 
         # Apply postprocessing
-        _apply_postprocess(output_vector_path, output_vector_postp_path)
+        _apply_postprocess(output_predict_path, output_postp_path)
 
         # Log and send mail
         message = f"Completed postprocess for {model_name} on {image_layer}"
         logger.info(message)
         email_helper.sendmail(message)
 
-        return output_vector_postp_path
+        return output_postp_path
 
     except Exception as ex:
         if model_name is None:
