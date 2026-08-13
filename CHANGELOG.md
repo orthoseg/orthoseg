@@ -13,6 +13,8 @@
 - The minimal version of geofileops is now 0.11 (#350)
 - For standard predictions, the "epoch" is removed from the output files, as it is not
   really relevant (#356)
+- Running `predict` now (by default) includes postprocessing the output. If you want to
+  keep doing this in a seperate step you can specify `--no_postprocess` (#).
 
 ### Improvements
 
