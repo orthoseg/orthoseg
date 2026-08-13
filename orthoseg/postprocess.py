@@ -15,15 +15,15 @@ from orthoseg.util import log_util
 logger = logging.getLogger(__name__)
 
 
-def _apply_postprocess(output_vector_path: Path) -> None:
+def _apply_postprocess(input_path: Path, output_path: Path) -> None:
     """Apply postprocessing to the prediction output file using config settings.
 
     Reads postprocessing config from the [postprocess] section and applies
     the full postprocessing pipeline to the vector file.
 
     Args:
-        output_vector_path (Path): Path to the vector file to postprocess.
-            The file will be modified in place.
+        input_path (Path): Path to the input vector file to postprocess.
+        output_path (Path): Path to the output vector file.
     """
     # Prepare some parameters for the postprocessing
     nb_parallel = conf.general.getint("nb_parallel", -1)
@@ -48,8 +48,8 @@ def _apply_postprocess(output_vector_path: Path) -> None:
 
     # Apply postprocessing
     postp.postprocess_predictions(
-        input_path=output_vector_path,
-        output_path=output_vector_path,
+        input_path=input_path,
+        output_path=output_path,
         clip_path=clip_path,
         dissolve=dissolve,
         dissolve_tiles_path=dissolve_tiles_path,
@@ -159,8 +159,9 @@ def postprocess(config_path: Path, config_overrules: list[str] | None = None) ->
         # Input file  the "most recent" prediction result dir for this subject
         output_vector_dir = conf.dirs.getpath("output_vector_dir")
         image_layer = conf.predict["image_layer"]
-        output_vector_name = f"{best_model.base_output_name}_{image_layer}"
-        output_vector_path = output_vector_dir / f"{output_vector_name}.gpkg"
+        output_vector_stem = f"{best_model.base_output_name}_{image_layer}"
+        output_vector_path = output_vector_dir / f"{output_vector_stem}_orig.gpkg"
+        output_vector_postp_path = output_vector_dir / f"{output_vector_stem}.gpkg"
 
         # Backward compat: fall back to old-style name that had epoch before image_layer
         if not output_vector_path.exists():
@@ -170,14 +171,14 @@ def postprocess(config_path: Path, config_overrules: list[str] | None = None) ->
                 output_vector_path = legacy_vector_path
 
         # Apply postprocessing
-        _apply_postprocess(output_vector_path)
+        _apply_postprocess(output_vector_path, output_vector_postp_path)
 
         # Log and send mail
         message = f"Completed postprocess for {model_name} on {image_layer}"
         logger.info(message)
         email_helper.sendmail(message)
 
-        return output_vector_path
+        return output_vector_postp_path
 
     except Exception as ex:
         if model_name is None:
