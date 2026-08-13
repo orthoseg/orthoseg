@@ -30,7 +30,7 @@ def _apply_postprocess(input_path: Path, output_path: Path) -> None:
 
     keep_original_file = conf.postprocess.getboolean("keep_original_file", True)
     keep_intermediary_files = conf.postprocess.getboolean(
-        "keep_intermediary_files", True
+        "keep_intermediary_files", False
     )
     dissolve = conf.postprocess.getboolean("dissolve", True)
     dissolve_tiles_path = conf.postprocess.getpath("dissolve_tiles_path")
@@ -160,7 +160,7 @@ def postprocess(config_path: Path, config_overrules: list[str] | None = None) ->
         output_vector_dir = conf.dirs.getpath("output_vector_dir")
         image_layer = conf.predict["image_layer"]
         output_vector_stem = f"{best_model.base_output_name}_{image_layer}"
-        output_vector_path = output_vector_dir / f"{output_vector_stem}_orig.gpkg"
+        output_vector_path = output_vector_dir / f"{output_vector_stem}_predict.gpkg"
         output_vector_postp_path = output_vector_dir / f"{output_vector_stem}.gpkg"
 
         # Backward compat: fall back to old-style name that had epoch before image_layer

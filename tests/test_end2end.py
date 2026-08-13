@@ -154,16 +154,14 @@ def test_4_predict():
         assert not result_vector_dir.exists()
 
     # Run task to predict
-    orthoseg.predict(config_path, config_overrules=overrules, postprocess=False)
+    result_vector_path = orthoseg.predict(
+        config_path, config_overrules=overrules, postprocess=False
+    )
 
     # Check results
-    result_vector_path = (
-        result_vector_dir / f"{SportsFields.subject}_01_BEFL-2025-sportsfields.gpkg"
-    )
     assert result_vector_path.exists()
     result_gdf = gfo.read_file(result_vector_path)
-    expected_count = 27
-    assert len(result_gdf) == expected_count
+    assert len(result_gdf) == SportsFields.expected_output_count
 
 
 @pytest.mark.order(after="test_4_predict")
@@ -180,8 +178,7 @@ def test_5_postprocess():
     # Check results
     assert output_vector_path.exists()
     result_gdf = gfo.read_file(output_vector_path)
-    expected_count = 22
-    assert len(result_gdf) == expected_count
+    assert len(result_gdf) == SportsFields.expected_postprocess_count
 
     # The output file should contain the style from the project dir
     styles = gfo.get_layerstyles(output_vector_path)

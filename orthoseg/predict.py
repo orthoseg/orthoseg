@@ -134,7 +134,7 @@ def predict(
         # Check if output already exists, and if so, skip prediction.
         output_vector_dir = conf.dirs.getpath("output_vector_dir")
         output_vector_stem = f"{best_model.base_output_name}_{image_layer}"
-        output_vector_path = output_vector_dir / f"{output_vector_stem}_orig.gpkg"
+        output_vector_path = output_vector_dir / f"{output_vector_stem}_predict.gpkg"
         output_vector_postp_path = output_vector_dir / f"{output_vector_stem}.gpkg"
 
         if output_vector_postp_path.exists():

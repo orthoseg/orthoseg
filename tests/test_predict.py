@@ -144,20 +144,13 @@ def test_predict_postprocess(tmp_path, postprocess):
     project_dir = testprojects_dir / SportsFields.subject
     config_path = project_dir / SportsFields.config_path.name
 
-    conf.read_orthoseg_config(config_path=config_path)
-    image_layer = conf.predict["image_layer"]
-    output_vector_dir = conf.dirs.getpath("output_vector_dir")
-
-    # Unlike test_predict_use_cache_skip, do not remove output_vector_dir here.
-    # Reusing the already present file avoids running prediction code.
-    output_files = sorted(output_vector_dir.glob(f"*_{image_layer}.gpkg"))
-    assert len(output_files) > 0
-    output_vector_path = output_files[0]
-
     result_path = predict(config_path=config_path, postprocess=postprocess)
 
-    assert result_path == output_vector_path
+    # Check result
+    result_count = gfo.get_layerinfo(result_path).featurecount
     if postprocess:
-        assert gfo.get_layerinfo(result_path).featurecount == 22
+        assert result_count == SportsFields.expected_postprocess_count
+        assert not result_path.stem.endswith("_predict")
     else:
-        assert gfo.get_layerinfo(result_path).featurecount == 27
+        assert result_count == SportsFields.expected_output_count
+        assert result_path.stem.endswith("_predict")
