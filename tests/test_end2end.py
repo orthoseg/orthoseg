@@ -154,7 +154,7 @@ def test_4_predict():
         assert not result_vector_dir.exists()
 
     # Run task to predict
-    orthoseg.predict(config_path, config_overrules=overrules)
+    orthoseg.predict(config_path, config_overrules=overrules, postprocess=False)
 
     # Check results
     result_vector_path = (
