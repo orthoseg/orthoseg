@@ -67,8 +67,8 @@ def postprocess_predictions(
         simplify_lookahead (int): Lookahead to use for simplification. Default to 8.
         output_style_path (Path, optional): Path to a QGIS .qml style file. If
             specified and output is a GeoPackage, the style is added to the layer.
-        keep_original_file: If True, the output file of the prediction step
-            will be retained after postprocessing, otherwise it is removed.
+        keep_original_file: If True, the input file  will be retained after
+            postprocessing, otherwise it is removed.
         keep_intermediary_files: If True, intermediary postprocessing files are
             retained.
         nb_parallel (int, optional): number of cpu's to use for postprocessing.
@@ -86,6 +86,11 @@ def postprocess_predictions(
     # Init
     if not input_path.exists():
         raise FileNotFoundError(f"input_path does not exist: {input_path}")
+    if input_path == output_path:
+        raise ValueError(f"input_path and output_path are the same: {input_path}")
+
+    if output_path.exists() and not force:
+        return {}
 
     # The return value is the list of paths created
     output_paths = {}
@@ -95,12 +100,12 @@ def postprocess_predictions(
     # previous operation.
     # Set the initial values to the ones passed in as parameters.
     curr_input_path = input_path
-    curr_output_path = output_path
+    curr_output_path = input_path
 
     # Clip the predictions if needed.
     if clip_path is not None:
         curr_output_path = (
-            output_path.parent / f"{output_path.stem}_clip{output_path.suffix}"
+            output_path.parent / f"{curr_output_path.stem}_clip{output_path.suffix}"
         )
 
         gfo.clip(
@@ -117,7 +122,7 @@ def postprocess_predictions(
     # Dissolve the predictions if needed
     if dissolve:
         curr_output_path = (
-            output_path.parent / f"{output_path.stem}_dissolve{output_path.suffix}"
+            output_path.parent / f"{curr_output_path.stem}_dissolve{output_path.suffix}"
         )
 
         # If the dissolved file doesn't exist yet, go for it...
@@ -156,7 +161,7 @@ def postprocess_predictions(
 
     if reclassify_to_neighbour_query is not None:
         curr_output_path = (
-            output_path.parent / f"{output_path.stem}_reclass{output_path.suffix}"
+            output_path.parent / f"{curr_output_path.stem}_reclass{output_path.suffix}"
         )
         vectorfile_helper.reclassify_neighbours(
             input_path=curr_input_path,
@@ -200,19 +205,15 @@ def postprocess_predictions(
         curr_input_path = curr_output_path
         output_paths["simplify"] = curr_output_path
 
-    # If postprocessing steps are defined, the output of the prediction step
-    # (input_path) is renamed to ..._orig.gpkg
+    # Move/copy files to final locations + cleanup
     if clip_path or dissolve or reclassify_to_neighbour_query or simplify_algorithm:
-        original_file = input_path.parent / f"{input_path.stem}_orig.gpkg"
-        if not original_file.exists():
-            gfo.move(input_path, original_file)
-            gfo.rename_layer(original_file, gfo.get_default_layer(original_file))
         gfo.copy(curr_output_path, output_path)
-        gfo.rename_layer(output_path, gfo.get_default_layer(output_path))
+        if output_path.suffix.lower() == ".gpkg":
+            gfo.rename_layer(output_path, gfo.get_default_layer(output_path))
 
         # Cleanup original file
         if not keep_original_file:
-            gfo.remove(original_file, missing_ok=True)
+            gfo.remove(input_path, missing_ok=True)
 
         # Cleanup intermediary files
         if not keep_intermediary_files:
@@ -224,8 +225,12 @@ def postprocess_predictions(
         # If no postprocessing steps are defined, the output of the prediction step
         # (input_path) is renamed to the output_path
         if input_path != output_path:
-            gfo.move(input_path, output_path)
-            gfo.rename_layer(output_path, gfo.get_default_layer(output_path))
+            if keep_original_file:
+                gfo.copy(input_path, output_path)
+            else:
+                gfo.move(input_path, output_path)
+            if output_path.suffix.lower() == ".gpkg":
+                gfo.rename_layer(output_path, gfo.get_default_layer(output_path))
 
     _add_output_layer_style(
         output_path=output_path, output_style_path=output_style_path
