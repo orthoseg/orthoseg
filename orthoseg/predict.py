@@ -265,11 +265,11 @@ def predict(
 
         # Prepare params for the inline postprocessing of the prediction
         min_probability = conf.predict.getfloat("min_probability")
-        tile_postprocess_config: dict[str, Any] = {}
+        postprocess_tile_config: dict[str, Any] = {}
         simplify_algorithm = conf.predict.get("simplify_algorithm")
         if simplify_algorithm is not None and simplify_algorithm != (""):
-            tile_postprocess_config["simplify"] = {}
-            simplify = tile_postprocess_config["simplify"]
+            postprocess_tile_config["simplify"] = {}
+            simplify = postprocess_tile_config["simplify"]
 
             simplify["simplify_algorithm"] = simplify_algorithm
             simplify["simplify_tolerance"] = conf.predict.geteval("simplify_tolerance")
@@ -277,15 +277,15 @@ def predict(
             simplify["simplify_topological"] = conf.predict.getboolean_ext(
                 "simplify_topological"
             )
-        tile_postprocess_config["filter_background_modal_size"] = conf.predict.getint(
+        postprocess_tile_config["filter_background_modal_size"] = conf.predict.getint(
             "filter_background_modal_size"
         )
         query = conf.predict.get("reclassify_to_neighbour_query")
         if query is not None:
             query = query.replace("\n", " ")
-        tile_postprocess_config["reclassify_to_neighbour_query"] = query
+        postprocess_tile_config["reclassify_to_neighbour_query"] = query
         logger.info(
-            f"Inline postprocessing:\n{pprint.pformat(tile_postprocess_config)}"
+            f"Inline postprocessing:\n{pprint.pformat(postprocess_tile_config)}"
         )
 
         # Prepare the output dirs/paths
@@ -318,7 +318,7 @@ def predict(
                 output_vector_path=output_vector_path,
                 classes=hyperparams.architecture.classes,
                 min_probability=min_probability,
-                tile_postprocess_config=tile_postprocess_config,
+                postprocess_tile_config=postprocess_tile_config,
                 border_pixels_to_ignore=conf.predict.getint("image_pixels_overlap"),
                 projection_if_missing=image_layer_config["projection"],
                 input_mask_dir=None,
@@ -344,7 +344,7 @@ def predict(
                 output_vector_path=output_vector_path,
                 classes=hyperparams.architecture.classes,
                 min_probability=min_probability,
-                tile_postprocess_config=tile_postprocess_config,
+                postprocess_tile_config=postprocess_tile_config,
                 projection_if_missing=image_layer_config["projection"],
                 input_mask_dir=None,
                 batch_size=batch_size,

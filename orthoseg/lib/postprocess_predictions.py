@@ -298,7 +298,7 @@ def postprocess_prediction_to_file(
     input_mask_dir: Path | None = None,
     min_probability: float = 0.5,
     border_pixels_to_ignore: int = 0,
-    tile_postprocess_config: dict | None = None,
+    postprocess_tile_config: dict | None = None,
     force: bool = False,
 ) -> dict[str, Any]:
     """Postprocess a prediction to file(s).
@@ -329,7 +329,7 @@ def postprocess_prediction_to_file(
             certain class. Defaults to 0.5.
         border_pixels_to_ignore (int, optional): number of pixels at all borders that
             should be ignored. Defaults to 0.
-        tile_postprocess_config (dict | None, optional): specifies which postprocessing
+        postprocess_tile_config (dict | None, optional): specifies which postprocessing
             should be applied to each predicted tile.
             Default is None, so no postprocessing.
         force (bool, optional): True to force calculation even if output file(s) exist.
@@ -353,7 +353,7 @@ def postprocess_prediction_to_file(
                 classes=classes,
                 output_vector_path=output_vector_path,
                 min_probability=min_probability,
-                tile_postprocess_config=tile_postprocess_config,
+                postprocess_tile_config=postprocess_tile_config,
                 border_pixels_to_ignore=border_pixels_to_ignore,
                 force=force,
             )
@@ -797,7 +797,7 @@ def polygonize_pred_multiclass_to_file(
     classes: list,
     output_vector_path: Path,
     min_probability: float = 0.5,
-    tile_postprocess_config: dict | None = None,
+    postprocess_tile_config: dict | None = None,
     border_pixels_to_ignore: int = 0,
     force: bool = False,
 ) -> dict:
@@ -811,7 +811,7 @@ def polygonize_pred_multiclass_to_file(
         output_vector_path (Path): Path to the output vector file.
         min_probability (float): Minimum probability to consider a pixel being of a
             certain class. Defaults to 0.5.
-        tile_postprocess_config (dict | None, optional): specifies which postprocessing
+        postprocess_tile_config (dict | None, optional): specifies which postprocessing
             should be applied to each predicted tile.
             Default is None, so no postprocessing.
         border_pixels_to_ignore (int, optional): number of pixels at all borders that
@@ -836,7 +836,7 @@ def polygonize_pred_multiclass_to_file(
         image_transform=image_transform,
         classes=classes,
         min_probability=min_probability,
-        tile_postprocess_config=tile_postprocess_config,
+        postprocess_tile_config=postprocess_tile_config,
         border_pixels_to_ignore=border_pixels_to_ignore,
     )
 
@@ -861,7 +861,7 @@ def polygonize_pred_multiclass(
     image_transform,
     classes: list,
     min_probability: float = 0.5,
-    tile_postprocess_config: dict | None = None,
+    postprocess_tile_config: dict | None = None,
     border_pixels_to_ignore: int = 0,
 ) -> gpd.GeoDataFrame | None:
     """Polygonize a multiclass prediction.
@@ -873,7 +873,7 @@ def polygonize_pred_multiclass(
         classes (list): _description_
         min_probability (float): Minimum probability to consider a pixel being of a
             certain class. Defaults to 0.5.
-        tile_postprocess_config (dict | None, optional): specifies which postprocessing
+        postprocess_tile_config (dict | None, optional): specifies which postprocessing
             should be applied to each predicted tile.
             Default is None, so no postprocessing.
         border_pixels_to_ignore (int, optional): number of pixels at all borders that
@@ -912,16 +912,16 @@ def polygonize_pred_multiclass(
         image_pred_decoded_arr[:, -border_pixels_to_ignore:] = 0  # Bottom border
 
     # Postprocessing on the raster output
-    if tile_postprocess_config is None:
-        tile_postprocess_config = {}
-    if len(tile_postprocess_config) > 0:
+    if postprocess_tile_config is None:
+        postprocess_tile_config = {}
+    if len(postprocess_tile_config) > 0:
         # If fill_gaps_modal_size is asked...
         if (
-            "filter_background_modal_size" in tile_postprocess_config
-            and tile_postprocess_config["filter_background_modal_size"] is not None
-            and tile_postprocess_config["filter_background_modal_size"] > 0
+            "filter_background_modal_size" in postprocess_tile_config
+            and postprocess_tile_config["filter_background_modal_size"] is not None
+            and postprocess_tile_config["filter_background_modal_size"] > 0
         ):
-            filter_background_modal_size = tile_postprocess_config[
+            filter_background_modal_size = postprocess_tile_config[
                 "filter_background_modal_size"
             ]
             image_pred_decoded_modal_arr = skimage.filters.rank.modal(
@@ -939,8 +939,8 @@ def polygonize_pred_multiclass(
     # the background
     mask_background = True
     if (
-        len(tile_postprocess_config) > 0
-        and tile_postprocess_config.get("reclassify_to_neighbour_query", None)
+        len(postprocess_tile_config) > 0
+        and postprocess_tile_config.get("reclassify_to_neighbour_query", None)
         is not None
     ):
         mask_background = False
@@ -972,9 +972,9 @@ def polygonize_pred_multiclass(
     )
 
     # Postprocessing on the vectorized result
-    if len(tile_postprocess_config) > 0:
+    if len(postprocess_tile_config) > 0:
         # If a reclassify query is specified
-        reclassify_query = tile_postprocess_config.get(
+        reclassify_query = postprocess_tile_config.get(
             "reclassify_to_neighbour_query", None
         )
         if reclassify_query is not None:
@@ -987,7 +987,7 @@ def polygonize_pred_multiclass(
             )
 
         # If a simplify is asked...
-        simplify = tile_postprocess_config.get("simplify", None)
+        simplify = postprocess_tile_config.get("simplify", None)
         if simplify is not None:
             # Define the bounds of the image as linestring, so points on this
             # border are preserved during the simplify
@@ -996,7 +996,7 @@ def polygonize_pred_multiclass(
             border_lines = sh_geom.LineString(border_polygon.exterior.coords)
 
             # Determine if topological or normal simplify needs to be used
-            simplify_topological = tile_postprocess_config["simplify"][
+            simplify_topological = postprocess_tile_config["simplify"][
                 "simplify_topological"
             ]
             if simplify_topological is None:
@@ -1005,9 +1005,9 @@ def polygonize_pred_multiclass(
             assert isinstance(result_gdf.geometry, gpd.GeoSeries)
             result_gdf.geometry = pygeoops.simplify(
                 geometry=result_gdf.geometry,
-                algorithm=tile_postprocess_config["simplify"]["simplify_algorithm"],
-                tolerance=tile_postprocess_config["simplify"]["simplify_tolerance"],
-                lookahead=tile_postprocess_config["simplify"]["simplify_lookahead"],
+                algorithm=postprocess_tile_config["simplify"]["simplify_algorithm"],
+                tolerance=postprocess_tile_config["simplify"]["simplify_tolerance"],
+                lookahead=postprocess_tile_config["simplify"]["simplify_lookahead"],
                 preserve_common_boundaries=simplify_topological,
                 keep_points_on=border_lines,
             )
