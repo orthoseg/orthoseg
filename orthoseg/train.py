@@ -18,6 +18,24 @@ from orthoseg.util import log_util
 logger = logging.getLogger(__name__)
 
 
+def _set_dtype_policy_for_train(dtype_policy_raw: str | None):
+    """Resolve and apply dtype policy for training.
+
+    Args:
+        dtype_policy_raw (str | None): Raw config value from `train.dtype_policy`.
+            - `None` or empty: defaults to float32.
+            - otherwise: apply the policy value explicitly.
+    """
+    dtype_policy = "" if dtype_policy_raw is None else dtype_policy_raw.strip()
+
+    if dtype_policy == "":
+        dtype_policy = "float32"
+        logger.info("train.dtype_policy is unset, set keras dtype policy to float32")
+
+    logger.info(f"Set keras dtype policy for training: {dtype_policy}")
+    mf.set_dtype_policy(dtype_policy)
+
+
 def _train_args(args) -> argparse.Namespace:
     # Interprete arguments
     parser = argparse.ArgumentParser(add_help=False)
@@ -70,6 +88,8 @@ def train(config_path: Path, config_overrules: list[str] | None = None):
     )
     global logger  # noqa: PLW0603
     logger = log_util.main_log_init(conf.dirs.getpath("log_dir"), __name__)
+
+    _set_dtype_policy_for_train(conf.train.get("dtype_policy", None))
 
     # Log start
     logger.info(f"Start train for config {config_path.stem}")

@@ -26,6 +26,7 @@
 - Use keras.applications `preprocess_input` functions to prepare inputs (#314)
 - Add support to finetune models using weights pretrained on aerial images. This becomes
   the default for supported architectures (#327)
+- Add support for mixed dtype training and predicting (#)
 - Add support to reproject a local image layer (#290)
 - Add support to configure an image layer based on a simple dir with images (#337)
 - Add postprocessing option to add a qml style to the output layer (#347)

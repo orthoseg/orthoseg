@@ -3,6 +3,7 @@
 import os
 import re
 import shutil
+import importlib
 from contextlib import nullcontext
 from pathlib import Path
 
@@ -15,6 +16,8 @@ from orthoseg.helpers import config_helper as conf
 from orthoseg.predict import _predict_args
 from tests import test_helper
 from tests.test_helper import SportsFields
+
+predict_module = importlib.import_module("orthoseg.predict")
 
 
 @pytest.mark.parametrize(
@@ -154,3 +157,34 @@ def test_predict_postprocess(tmp_path, postprocess):
     else:
         assert result_count == SportsFields.expected_output_count
         assert result_path.stem.endswith("_predict")
+
+
+@pytest.mark.parametrize(
+    "dtype_policy_raw, nb_gpu, expected_calls",
+    [
+        ("float32", 0, ["float32"]),
+        ("", 0, ["float32"]),
+        ("", 2, ["mixed_float16"]),
+        (None, 0, ["float32"]),
+        (None, 1, ["mixed_float16"]),
+    ],
+)
+def test_set_dtype_policy_for_predict(
+    monkeypatch, dtype_policy_raw, nb_gpu, expected_calls
+):
+    calls = []
+
+    monkeypatch.setattr(
+        predict_module.mh,
+        "get_number_gpus",
+        lambda: nb_gpu,
+    )
+    monkeypatch.setattr(
+        predict_module.mf,
+        "set_dtype_policy",
+        lambda policy: calls.append(policy),
+    )
+
+    predict_module._set_dtype_policy_for_predict(dtype_policy_raw)
+
+    assert calls == expected_calls

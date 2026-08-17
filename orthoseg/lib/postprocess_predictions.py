@@ -27,6 +27,24 @@ logging.getLogger("shapely.geos").setLevel(logging.WARNING)
 # Get a logger...
 logger = logging.getLogger(__name__)
 
+
+def _prediction_to_uint8(image_pred_arr: np.ndarray) -> np.ndarray:
+    """Convert a prediction array to uint8 in range [0, 255].
+
+    Floating point arrays are interpreted as probabilities in [0, 1].
+    """
+    if np.issubdtype(image_pred_arr.dtype, np.floating):
+        # Mixed precision inference can return float16 outputs. Clip to a valid
+        # probability range before scaling to avoid wrap-around/overflow effects.
+        image_pred_clipped = np.clip(image_pred_arr, 0.0, 1.0)
+        return np.array(image_pred_clipped * 255, dtype=np.uint8)
+    if image_pred_arr.dtype == np.uint8:
+        return np.array(image_pred_arr, copy=True)
+
+    raise Exception(
+        f"image prediction is in an unsupported type: {image_pred_arr.dtype}"
+    )
+
 # -------------------------------------------------------------
 # Postprocess to use on all vector outputs
 # -------------------------------------------------------------
@@ -893,11 +911,9 @@ def polygonize_pred_multiclass(
                 image_pred_arr=image_pred_curr_arr,
                 border_pixels_to_ignore=border_pixels_to_ignore)
     """
-    # Convert prediction to uint8 if needed
-    if image_pred_arr.dtype == np.float32:
-        image_pred_uint8 = np.array((image_pred_arr * 255), dtype=np.uint8)
-    else:
-        image_pred_uint8 = image_pred_arr
+    # Convert prediction to uint8 if needed.
+    # Mixed precision inference can yield float16 arrays.
+    image_pred_uint8 = _prediction_to_uint8(image_pred_arr)
 
     # Reverse the one-hot decoding so each class has it's own number in the array,
     # but ignore prediction probability < min_probability
@@ -1215,11 +1231,6 @@ def clean_prediction(
     Returns:
         np.array: The cleaned result.
     """
-    # Input should be float32
-    if image_pred_arr.dtype not in [np.float32, np.uint8]:
-        raise Exception(
-            f"image prediction is in an unsupported type: {image_pred_arr.dtype}"
-        )
     if output_color_depth not in ["binary", "full"]:
         raise Exception(f"Unsupported output_color_depth: {output_color_depth}")
 
@@ -1235,11 +1246,8 @@ def clean_prediction(
             image_pred_arr, (image_pred_shape[0], image_pred_shape[1])
         )
 
-    # Convert to uint8 if necessary
-    if image_pred_arr.dtype == np.float32:
-        image_pred_uint8 = np.array((image_pred_arr * 255), dtype=np.uint8)
-    else:
-        image_pred_uint8 = image_pred_arr
+    # Convert to uint8 if necessary.
+    image_pred_uint8 = _prediction_to_uint8(image_pred_arr)
 
     # Convert to binary if needed
     if output_color_depth == "binary":

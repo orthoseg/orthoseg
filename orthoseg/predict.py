@@ -9,7 +9,7 @@ import traceback
 from pathlib import Path
 from typing import Any
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"  # Disable using GPU
+# os.environ["CUDA_VISIBLE_DEVICES"] = "-1"  # Disable using GPU
 import orthoseg.model.model_factory as mf
 import orthoseg.model.model_helper as mh
 from orthoseg.helpers import config_helper as conf, email_helper
@@ -19,6 +19,30 @@ from orthoseg.util import log_util
 
 # Get a logger...
 logger = logging.getLogger(__name__)
+
+
+def _set_dtype_policy_for_predict(dtype_policy_raw: str | None):
+    """Resolve and apply dtype policy for prediction.
+
+    Args:
+        dtype_policy_raw (str | None): Raw config value from `predict.dtype_policy`.
+            - `None` or empty: set mixed_float16 on GPU, else set float32.
+            - otherwise: apply the policy value explicitly.
+    """
+    dtype_policy = "" if dtype_policy_raw is None else dtype_policy_raw.strip()
+
+    # Unset policy should still be deterministic and not depend on previous runs.
+    if dtype_policy == "":
+        nb_gpu = mh.get_number_gpus()        
+        dtype_policy = "mixed_float16" if nb_gpu > 0 else "float32"
+
+        logger.info(
+            f"predict.dtype_policy is unset and {nb_gpu=}, set to {dtype_policy}"
+        )
+    else:
+        logger.info(f"Set keras dtype policy for prediction: {dtype_policy}")
+
+    mf.set_dtype_policy(dtype_policy)
 
 
 def _predict_args(args) -> argparse.Namespace:
@@ -173,6 +197,8 @@ def predict(
             input_height=input_height_pred,
         )
 
+        _set_dtype_policy_for_predict(conf.predict.get("dtype_policy", None))
+
         # Prepare output subdir to be used for predictions
         predict_out_subdir = best_model.base_output_name
 
@@ -191,39 +217,44 @@ def predict(
                 logger.info(
                     "Tensorrt is available, so try to create and use optimized model"
                 )
-                savedmodel_optim_dir = (
-                    best_model["filepath"].parent
-                    / f"{best_model['filepath'].stem}_optim"
+                savedmodel_dir = best_model.filepath.parent.parent / "savedmodel_cache"
+                model_stem = best_model.filepath.stem.replace(".", "_")
+                savedmodel_optim_path = (
+                    savedmodel_dir / f"{model_stem}_optim"
                 )
-                if not savedmodel_optim_dir.exists():
-                    # If base model not yet in savedmodel format
-                    savedmodel_dir = (
-                        best_model["filepath"].parent / best_model["filepath"].stem
-                    )
-                    if not savedmodel_dir.exists():
+                if not savedmodel_optim_path.exists():
+                    # If base model not yet in savedmodel format                
+                    savedmodel_dir.mkdir(parents=True, exist_ok=True)
+                    savedmodel_path = savedmodel_dir / model_stem
+                    if not savedmodel_path.exists():
                         logger.info(
                             f"SavedModel format not yet available, so load "
-                            f"model + weights from {best_model['filepath']}"
+                            f"model + weights from {best_model.filepath}"
                         )
-                        model = mf.load_model(best_model["filepath"], compile=False)
-                        logger.info(f"Now save again as savedmodel to {savedmodel_dir}")
-                        tf.saved_model.save(model, str(savedmodel_dir))
+                        model, preprocess_input = mf.load_model(
+                            best_model.filepath, compile_model=False
+                        )
+                        logger.info(f"Now save again as savedmodel to {savedmodel_path}")
+
+                        model.export(str(savedmodel_path))
                         model = None
 
                     # Now optimize model
-                    logger.info(f"Optimize + save model to {savedmodel_optim_dir}")
+                    logger.info(f"Optimize + save model to {savedmodel_optim_path}")
                     converter = trt.TrtGraphConverterV2(
                         input_saved_model_dir=str(savedmodel_dir),
-                        is_dynamic_op=True,
+                        use_dynamic_shape=True,
                         precision_mode="FP16",
                     )
                     converter.convert()
-                    converter.save(savedmodel_optim_dir)
+                    converter.save(savedmodel_optim_path)
 
                 logger.info(
-                    f"Load optimized model + weights from {savedmodel_optim_dir}"
+                    f"Load optimized model + weights from {savedmodel_optim_path}"
                 )
-                model = tf.keras.models.load_model(str(savedmodel_optim_dir))
+                model, preprocess_input = mf.load_model(
+                    str(savedmodel_optim_path), compile_model=False
+                )
 
             except ImportError:
                 logger.info("Tensorrt is not available, so load unoptimized model")

@@ -1,6 +1,4 @@
-"""
-Tests for functionalities in orthoseg.lib.postprocess_predictions.
-"""
+"""Tests for functionalities in orthoseg.lib.postprocess_predictions."""
 
 import os
 import shutil
@@ -409,3 +407,38 @@ def test_postprocess_for_evaluation(
         assert len(eval_input_paths) == 0
         assert len(eval_mask_paths) == 0
         assert not image_pred_filepath.exists()
+
+
+def test_clean_prediction_accepts_float16():
+    image_pred_arr = np.array([[0.0, 0.5], [1.0, 0.49]], dtype=np.float16)
+
+    cleaned = postp.clean_prediction(
+        image_pred_arr=image_pred_arr,
+        border_pixels_to_ignore=0,
+        output_color_depth="full",
+    )
+
+    assert cleaned.dtype == np.uint8
+    assert cleaned[0, 0] == 0
+    assert cleaned[0, 1] == 127
+    assert cleaned[1, 0] == 255
+
+
+def test_polygonize_pred_multiclass_accepts_float16():
+    image_pred_arr = np.zeros((4, 4, 2), dtype=np.float16)
+    image_pred_arr[:, :, 0] = 1.0
+    image_pred_arr[1:3, 1:3, 0] = 0.0
+    image_pred_arr[1:3, 1:3, 1] = 1.0
+
+    result_gdf = postp.polygonize_pred_multiclass(
+        image_pred_arr=image_pred_arr,
+        image_crs="EPSG:31370",
+        image_transform=rio_transform.from_origin(175000, 176000, 0.25, 0.25),
+        classes=["background", "test-subject"],
+        min_probability=0.5,
+    )
+
+    assert result_gdf is not None
+    assert len(result_gdf) > 0
+    assert "classname" in result_gdf.columns
+    assert (result_gdf["classname"] == "test-subject").any()
