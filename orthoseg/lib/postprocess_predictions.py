@@ -45,6 +45,7 @@ def _prediction_to_uint8(image_pred_arr: np.ndarray) -> np.ndarray:
         f"image prediction is in an unsupported type: {image_pred_arr.dtype}"
     )
 
+
 # -------------------------------------------------------------
 # Postprocess to use on all vector outputs
 # -------------------------------------------------------------

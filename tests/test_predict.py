@@ -1,9 +1,9 @@
 """Tests for module predict."""
 
+import importlib
 import os
 import re
 import shutil
-import importlib
 from contextlib import nullcontext
 from pathlib import Path
 

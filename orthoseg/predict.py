@@ -2,14 +2,12 @@
 
 import argparse
 import logging
-import os
 import pprint
 import sys
 import traceback
 from pathlib import Path
 from typing import Any
 
-# os.environ["CUDA_VISIBLE_DEVICES"] = "-1"  # Disable using GPU
 import orthoseg.model.model_factory as mf
 import orthoseg.model.model_helper as mh
 from orthoseg.helpers import config_helper as conf, email_helper
@@ -33,7 +31,7 @@ def _set_dtype_policy_for_predict(dtype_policy_raw: str | None):
 
     # Unset policy should still be deterministic and not depend on previous runs.
     if dtype_policy == "":
-        nb_gpu = mh.get_number_gpus()        
+        nb_gpu = mh.get_number_gpus()
         dtype_policy = "mixed_float16" if nb_gpu > 0 else "float32"
 
         logger.info(
@@ -223,7 +221,7 @@ def predict(
                     savedmodel_dir / f"{model_stem}_optim"
                 )
                 if not savedmodel_optim_path.exists():
-                    # If base model not yet in savedmodel format                
+                    # If base model not yet in savedmodel format
                     savedmodel_dir.mkdir(parents=True, exist_ok=True)
                     savedmodel_path = savedmodel_dir / model_stem
                     if not savedmodel_path.exists():
@@ -234,7 +232,9 @@ def predict(
                         model, preprocess_input = mf.load_model(
                             best_model.filepath, compile_model=False
                         )
-                        logger.info(f"Now save again as savedmodel to {savedmodel_path}")
+                        logger.info(
+                            f"Now save again as savedmodel to {savedmodel_path}"
+                        )
 
                         model.export(str(savedmodel_path))
                         model = None

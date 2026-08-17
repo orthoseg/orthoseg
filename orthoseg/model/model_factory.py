@@ -35,6 +35,7 @@ def get_model(
     architecture: str,
     input_width: int | None = None,
     input_height: int | None = None,
+    *,
     nb_channels: int = 3,
     nb_classes: int = 1,
     activation: str = "softmax",
@@ -227,6 +228,7 @@ def compile_model(
     optimizer: str,
     optimizer_params: dict,
     loss: str,
+    *,
     metrics: list[str] | None = None,
     class_weights: list[float] | None = None,
 ) -> keras.models.Model:
