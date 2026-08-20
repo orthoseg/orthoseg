@@ -826,8 +826,8 @@ def _predict_layer(
         ):
             output_vector_path.parent.mkdir(parents=True, exist_ok=True)
             gfo.create_spatial_index(pred_tmp_output_path, exist_ok=True)
-            gfo.move(pred_tmp_output_path, output_vector_path)
             gfo.rename_layer(output_vector_path, output_vector_path.stem)
+            gfo.copy(pred_tmp_output_path, output_vector_path)
             shutil.rmtree(tmp_dir, ignore_errors=True)
             shutil.rmtree(output_image_dir)
 
