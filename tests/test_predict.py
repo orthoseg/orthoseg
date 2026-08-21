@@ -160,17 +160,19 @@ def test_predict_postprocess(tmp_path, postprocess):
 
 
 @pytest.mark.parametrize(
-    "dtype_policy_raw, nb_gpu, expected_calls",
+    "dtype_policy_raw, nb_gpu, compute_capability, expected_calls",
     [
-        ("float32", 0, ["float32"]),
-        ("", 0, ["float32"]),
-        ("", 2, ["mixed_float16"]),
-        (None, 0, ["float32"]),
-        (None, 1, ["mixed_float16"]),
+        ("float32", 0, None, ["float32"]),
+        ("", 0, None, ["float32"]),
+        ("", 2, (7, 0), ["mixed_float16"]),
+        ("", 2, (6, 1), ["float32"]),
+        ("", 1, None, ["float32"]),
+        (None, 0, None, ["float32"]),
+        (None, 1, (7, 5), ["mixed_float16"]),
     ],
 )
 def test_set_dtype_policy_for_predict(
-    monkeypatch, dtype_policy_raw, nb_gpu, expected_calls
+    monkeypatch, dtype_policy_raw, nb_gpu, compute_capability, expected_calls
 ):
     calls = []
 
@@ -178,6 +180,11 @@ def test_set_dtype_policy_for_predict(
         predict_module.mh,
         "get_number_gpus",
         lambda: nb_gpu,
+    )
+    monkeypatch.setattr(
+        predict_module.mh,
+        "get_min_gpu_compute_capability",
+        lambda: compute_capability,
     )
     monkeypatch.setattr(
         predict_module.mf,
