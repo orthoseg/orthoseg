@@ -160,10 +160,12 @@ def predict(
         output_vector_postp_path = output_vector_dir / f"{output_vector_stem}.gpkg"
 
         if output_vector_postp_path.exists():
-            email_helper.sendmail(
+            message = (
                 f"Predict + postprocess output exists already for {model_name} on "
                 f"{image_layer}"
             )
+            logger.info(message)
+            email_helper.sendmail(message)
             return output_vector_postp_path
 
         # Backward compat: old-style name had epoch before image_layer, so if such
@@ -173,9 +175,9 @@ def predict(
             / f"{best_model.base_output_legacy_name}_{image_layer}.gpkg"
         )
         if output_legacy_path.exists():
-            email_helper.sendmail(
-                f"Predict output exists already for {model_name} on {image_layer}"
-            )
+            message = f"Predict output exists already for {model_name} on {image_layer}"
+            logger.info(message)
+            email_helper.sendmail(message)
             return output_legacy_path
 
         # Load the hyperparams of the model
