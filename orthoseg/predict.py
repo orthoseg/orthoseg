@@ -24,7 +24,10 @@ def _set_dtype_policy_for_predict(dtype_policy_raw: str | None):
 
     Args:
         dtype_policy_raw (str | None): Raw config value from `predict.dtype_policy`.
-            - `None` or empty: set mixed_float16 on GPU, else set float32.
+            - `None` or empty: set mixed_float16 on GPU with compute capability >= 7,
+              else keep the default (float32).
+            - "None" as string: don't set any policy, let Keras use the default
+              (float32).
             - otherwise: apply the policy value explicitly.
     """
     dtype_policy = "" if dtype_policy_raw is None else dtype_policy_raw.strip()
@@ -32,15 +35,17 @@ def _set_dtype_policy_for_predict(dtype_policy_raw: str | None):
     # Unset policy should still be deterministic and not depend on previous runs.
     if dtype_policy == "":
         nb_gpu = mh.get_number_gpus()
-        dtype_policy = "mixed_float16" if nb_gpu > 0 else "float32"
+        compute_capability = mh.get_min_gpu_compute_capability() if nb_gpu > 0 else None
+        if compute_capability is not None and compute_capability[0] >= 7:
+            mf.set_dtype_policy("mixed_float16")
 
-        logger.info(
-            f"predict.dtype_policy is unset and {nb_gpu=}, set to {dtype_policy}"
-        )
-    else:
+            logger.info(
+                f"predict.dtype_policy is unset, {nb_gpu=}, {compute_capability=}, "
+                f"set to mixed_float16"
+            )
+    elif dtype_policy.lower() != "none":
+        mf.set_dtype_policy(dtype_policy)
         logger.info(f"Set keras dtype policy for prediction: {dtype_policy}")
-
-    mf.set_dtype_policy(dtype_policy)
 
 
 def _predict_args(args) -> argparse.Namespace:

@@ -681,7 +681,8 @@ Settings concerning the prediction process.
    - float64
    - mixed_bfloat16
 
-   If this setting is empty/unset, float32 is used.
+   If this setting is empty/unset, mixed_float16 is used when a GPU with compute
+   capability 7.0 or higher is available, otherwise the default (float32) is used.
 
 .. confval:: predict.image_layer
    :type: ``str``
