@@ -101,6 +101,7 @@ class TrainParams:
         self,
         image_augmentations: dict,
         mask_augmentations: dict,
+        *,
         trainparams_id: int = 0,
         weights_type: str | None = "aerial",
         class_weights: list | None = None,
@@ -405,6 +406,7 @@ def format_model_basefilename(
 
 def format_model_filename(
     segment_subject: str,
+    *,
     traindata_id: int,
     architecture_id: int,
     trainparams_id: int,
@@ -749,6 +751,32 @@ def get_number_gpus() -> int:
     return len(tf.config.experimental.list_physical_devices("GPU"))
 
 
+def get_min_gpu_compute_capability() -> tuple[int, int] | None:
+    """Get the lowest compute capability of the available GPUs.
+
+    Returns:
+        tuple[int, int] | None: the lowest (major, minor) compute capability of the
+            available GPUs, or None if no GPU is available or the compute
+            capability could not be determined.
+    """
+    import tensorflow as tf  # noqa: PLC0415
+
+    gpus = tf.config.experimental.list_physical_devices("GPU")
+    compute_capabilities = [
+        details["compute_capability"]
+        for gpu in gpus
+        if (details := tf.config.experimental.get_device_details(gpu)).get(
+            "compute_capability"
+        )
+        is not None
+    ]
+
+    if len(compute_capabilities) == 0:
+        return None
+
+    return min(compute_capabilities)
+
+
 class ModelCheckpointExt(callbacks.Callback):
     """Class to checkpoint a model while training it with extended options.
 
@@ -760,6 +788,7 @@ class ModelCheckpointExt(callbacks.Callback):
         self,
         model_save_dir: Path,
         segment_subject: str,
+        *,
         traindata_id: int,
         architecture_id: int,
         trainparams_id: int,
@@ -876,6 +905,7 @@ class ModelCheckpointExt(callbacks.Callback):
 def save_and_clean_models(
     model_save_dir: Path,
     segment_subject: str,
+    *,
     traindata_id: int,
     architecture_id: int,
     trainparams_id: int,

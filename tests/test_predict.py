@@ -1,5 +1,6 @@
 """Tests for module predict."""
 
+import importlib
 import os
 import re
 import shutil
@@ -15,6 +16,8 @@ from orthoseg.helpers import config_helper as conf
 from orthoseg.predict import _predict_args
 from tests import test_helper
 from tests.test_helper import SportsFields
+
+predict_module = importlib.import_module("orthoseg.predict")
 
 
 def test_get_fallback_input_image_dir(tmp_path, caplog):
@@ -185,3 +188,41 @@ def test_predict_postprocess(tmp_path, postprocess):
     else:
         assert result_count == SportsFields.expected_output_count
         assert result_path.stem.endswith("_predict")
+
+
+@pytest.mark.parametrize(
+    "dtype_policy_raw, nb_gpu, compute_capability, expected_calls",
+    [
+        ("float32", 0, None, ["float32"]),
+        ("", 0, None, []),
+        ("", 2, (7, 0), ["mixed_float16"]),
+        ("", 2, (6, 1), []),
+        ("", 1, None, []),
+        (None, 0, None, []),
+        (None, 1, (7, 5), ["mixed_float16"]),
+    ],
+)
+def test_set_dtype_policy_for_predict(
+    monkeypatch, dtype_policy_raw, nb_gpu, compute_capability, expected_calls
+):
+    calls = []
+
+    monkeypatch.setattr(
+        predict_module.mh,
+        "get_number_gpus",
+        lambda: nb_gpu,
+    )
+    monkeypatch.setattr(
+        predict_module.mh,
+        "get_min_gpu_compute_capability",
+        lambda: compute_capability,
+    )
+    monkeypatch.setattr(
+        predict_module.mf,
+        "set_dtype_policy",
+        lambda policy: calls.append(policy),
+    )
+
+    predict_module._set_dtype_policy_for_predict(dtype_policy_raw)
+
+    assert calls == expected_calls
