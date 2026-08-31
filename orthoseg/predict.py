@@ -4,6 +4,7 @@ import argparse
 import logging
 import os
 import pprint
+import re
 import sys
 import traceback
 from pathlib import Path
@@ -19,6 +20,68 @@ from orthoseg.util import log_util
 
 # Get a logger...
 logger = logging.getLogger(__name__)
+
+
+def _get_input_image_dir(input_image_dir: Path) -> Path:
+    """Get the input image directory.
+
+    If the exactly configured image cache directory is not found, return a compatible
+    sibling cache directory is returned if available.
+    """
+    if input_image_dir.exists():
+        return input_image_dir
+    if not input_image_dir.parent.is_dir():
+        return input_image_dir
+
+    cache_dir_pattern = re.compile(r"^\d+x\d+_\d+pxOverlap$")
+    matching_dirs = [
+        path
+        for path in input_image_dir.parent.iterdir()
+        if path.is_dir() and cache_dir_pattern.fullmatch(path.name)
+    ]
+    if len(matching_dirs) == 1:
+        fallback_dir = matching_dirs[0]
+        logger.warning(
+            f"Configured input_image_dir does not exist: {input_image_dir}. "
+            f"Using compatible cache directory: {fallback_dir}"
+        )
+        return fallback_dir
+
+    if len(matching_dirs) > 1:
+        logger.warning(
+            f"Configured input_image_dir does not exist: {input_image_dir}. "
+            f"Found multiple compatible cache directories: {matching_dirs}"
+        )
+    return input_image_dir
+
+
+def _set_dtype_policy_for_predict(dtype_policy_raw: str | None):
+    """Resolve and apply dtype policy for prediction.
+
+    Args:
+        dtype_policy_raw (str | None): Raw config value from `predict.dtype_policy`.
+            - `None` or empty: set mixed_float16 on GPU with compute capability >= 7,
+              else keep the default (float32).
+            - "None" as string: don't set any policy, let Keras use the default
+              (float32).
+            - otherwise: apply the policy value explicitly.
+    """
+    dtype_policy = "" if dtype_policy_raw is None else dtype_policy_raw.strip()
+
+    # Unset policy should still be deterministic and not depend on previous runs.
+    if dtype_policy == "":
+        nb_gpu = mh.get_number_gpus()
+        compute_capability = mh.get_min_gpu_compute_capability() if nb_gpu > 0 else None
+        if compute_capability is not None and compute_capability[0] >= 7:
+            mf.set_dtype_policy("mixed_float16")
+
+            logger.info(
+                f"predict.dtype_policy is unset, {nb_gpu=}, {compute_capability=}, "
+                f"set to mixed_float16"
+            )
+    elif dtype_policy.lower() != "none":
+        mf.set_dtype_policy(dtype_policy)
+        logger.info(f"Set keras dtype policy for prediction: {dtype_policy}")
 
 
 def _predict_args(args) -> argparse.Namespace:
@@ -95,7 +158,9 @@ def predict(
         if image_layer_config is None:
             raise ValueError(f"{image_layer=} is not configured in image_layers")
 
-        input_image_dir = conf.dirs.getpath("predict_image_input_dir")
+        input_image_dir = _get_input_image_dir(
+            conf.dirs.getpath("predict_image_input_dir")
+        )
 
         # Create base filename of model to use
         # TODO: is force data version the most logical, or rather implement
