@@ -163,11 +163,11 @@ def test_predict_postprocess(tmp_path, postprocess):
     "dtype_policy_raw, nb_gpu, compute_capability, expected_calls",
     [
         ("float32", 0, None, ["float32"]),
-        ("", 0, None, ["float32"]),
+        ("", 0, None, []),
         ("", 2, (7, 0), ["mixed_float16"]),
-        ("", 2, (6, 1), ["float32"]),
-        ("", 1, None, ["float32"]),
-        (None, 0, None, ["float32"]),
+        ("", 2, (6, 1), []),
+        ("", 1, None, []),
+        (None, 0, None, []),
         (None, 1, (7, 5), ["mixed_float16"]),
     ],
 )
