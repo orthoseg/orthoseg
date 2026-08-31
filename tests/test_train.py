@@ -1,5 +1,6 @@
 """Tests for module train."""
 
+import importlib
 from contextlib import nullcontext
 from pathlib import Path
 
@@ -8,6 +9,8 @@ import pytest
 from orthoseg import train
 from orthoseg.train import _train_args
 from tests import test_helper
+
+train_module = importlib.import_module("orthoseg.train")
 
 
 @pytest.mark.parametrize(
@@ -46,3 +49,25 @@ def test_train_error_handling():
             config_path=test_helper.SportsFields.config_path,
             config_overrules=["train.force_model_traindata_id=INVALID_TYPE"],
         )
+
+
+@pytest.mark.parametrize(
+    "dtype_policy_raw, expected_calls",
+    [
+        ("float32", ["float32"]),
+        ("", ["float32"]),
+        (None, ["float32"]),
+    ],
+)
+def test_set_dtype_policy_for_train(monkeypatch, dtype_policy_raw, expected_calls):
+    calls = []
+
+    monkeypatch.setattr(
+        train_module.mf,
+        "set_dtype_policy",
+        lambda policy: calls.append(policy),
+    )
+
+    train_module._set_dtype_policy_for_train(dtype_policy_raw)
+
+    assert calls == expected_calls

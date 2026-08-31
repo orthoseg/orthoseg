@@ -27,7 +27,6 @@ if KERAS_GTE_3:
 else:
     from keras import backend as ops
 
-
 # Get a logger...
 logger = logging.getLogger(__name__)
 
@@ -36,6 +35,7 @@ def get_model(
     architecture: str,
     input_width: int | None = None,
     input_height: int | None = None,
+    *,
     nb_channels: int = 3,
     nb_classes: int = 1,
     activation: str = "softmax",
@@ -228,6 +228,7 @@ def compile_model(
     optimizer: str,
     optimizer_params: dict,
     loss: str,
+    *,
     metrics: list[str] | None = None,
     class_weights: list[float] | None = None,
 ) -> keras.models.Model:
@@ -595,6 +596,24 @@ def load_model(
     # model.run_eagerly = True
 
     return model, preprocess_input_func
+
+
+def set_dtype_policy(policy: str):
+    """Set the keras dtype policy.
+
+    Args:
+        policy (str): the policy to set. One of the following options:
+            - "mixed_float16": Use mixed precision with float16 for computations and
+              float32 for variables.
+            - "float32": Use float32 for computations and variables.
+            - "float64": Use float64 for computations and variables.
+            - "mixed_bfloat16": Use mixed precision with bfloat16 for computations and
+              float32 for variables.
+    """
+    if KERAS_GTE_3:
+        keras.config.set_dtype_policy(policy)
+    else:
+        keras.mixed_precision.set_global_policy(policy)
 
 
 def set_trainable(model, recompile: bool = True):
