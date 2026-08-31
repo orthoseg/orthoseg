@@ -777,55 +777,48 @@ def load_image_to_file(
 
         logger.debug(f"original image_profile: {image_profile_orig}")
 
-        # If coordinates are not embedded add them
-        if image_transform_affine[2] == 0 and image_transform_affine[5] == 0:
-            logger.debug(
-                f"Coordinates not in image, driver: {image_profile_orig['driver']}"
-            )
+        # Write the geotiff again anyway to make sure the compression is correct
 
-            # If profile format is not gtiff, create new profile
-            if image_profile_orig["driver"] != "GTiff":
-                image_profile_gtiff = rio_profiles.DefaultGTiffProfile.defaults
+        # If profile format is not gtiff, create new profile
+        image_profile_gtiff = rio_profiles.DefaultGTiffProfile.defaults
 
-                # Copy appropriate info from source file
-                image_profile_gtiff.update(
-                    count=image_profile_orig["count"],
-                    nodata=image_profile_orig["nodata"],
-                    dtype=image_profile_orig["dtype"],
-                )
-                image_profile = image_profile_gtiff
-            else:
-                image_profile = image_profile_orig
+        # Copy appropriate info from source file
+        image_profile_gtiff.update(
+            count=image_profile_orig["count"],
+            nodata=image_profile_orig["nodata"],
+            dtype=image_profile_orig["dtype"],
+        )
+        image_profile = image_profile_gtiff
 
-            # Set the asked compression
-            image_profile.update(compress=tiff_compress, width=size[0], height=size[1])
+        # Set the asked compression
+        image_profile.update(compress=tiff_compress, width=size[0], height=size[1])
 
-            # For some coordinate systems apparently the axis ordered is wrong in LibOWS
-            crs_pixel_x_size = (bbox[2] - bbox[0]) / size[0]
-            crs_pixel_y_size = (bbox[1] - bbox[3]) / size[1]
+        # For some coordinate systems apparently the axis ordered is wrong in LibOWS
+        crs_pixel_x_size = (bbox[2] - bbox[0]) / size[0]
+        crs_pixel_y_size = (bbox[1] - bbox[3]) / size[1]
 
-            logger.debug(
-                "Coordinates to put in geotiff:\n"
-                f"    - x-part of pixel width, W-E: {crs_pixel_x_size}\n"
-                "    - y-part of pixel width, W-E (0 if image is exactly N up): 0\n"
-                f"    - top-left x: {bbox[0]}\n"
-                "    - x-part of pixel height, N-S (0 if image is exactly N up): \n"
-                f"    - y-part of pixel height, N-S: {crs_pixel_y_size}\n"
-                f"    - top-left y: {bbox[3]}"
-            )
+        logger.debug(
+            "Coordinates to put in geotiff:\n"
+            f"    - x-part of pixel width, W-E: {crs_pixel_x_size}\n"
+            "    - y-part of pixel width, W-E (0 if image is exactly N up): 0\n"
+            f"    - top-left x: {bbox[0]}\n"
+            "    - x-part of pixel height, N-S (0 if image is exactly N up): \n"
+            f"    - y-part of pixel height, N-S: {crs_pixel_y_size}\n"
+            f"    - top-left y: {bbox[3]}"
+        )
 
-            # Add transform and crs to the profile
-            image_profile.update(
-                transform=rio_transform.Affine(
-                    crs_pixel_x_size, 0, bbox[0], 0, crs_pixel_y_size, bbox[3]
-                ),
-                crs=crs,
-            )
+        # Add transform and crs to the profile
+        image_profile.update(
+            transform=rio_transform.Affine(
+                crs_pixel_x_size, 0, bbox[0], 0, crs_pixel_y_size, bbox[3]
+            ),
+            crs=crs,
+        )
 
-            # Delete output file, and write again
-            output_filepath.unlink()
-            with rio.open(str(output_filepath), "w", **image_profile) as image_file:
-                image_file.write(image_data_output)
+        # Delete output file, and write again
+        output_filepath.unlink()
+        with rio.open(str(output_filepath), "w", **image_profile) as image_file:
+            image_file.write(image_data_output)
 
     else:
         # For file formats that doesn't support coordinates, we add a worldfile

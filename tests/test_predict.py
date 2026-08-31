@@ -20,34 +20,34 @@ from tests.test_helper import SportsFields
 predict_module = importlib.import_module("orthoseg.predict")
 
 
-def test_get_fallback_input_image_dir(tmp_path, caplog):
+def test_get_input_image_dir(tmp_path, caplog):
     configured_dir = tmp_path / "512x512_0pxOverlap"
     fallback_dir = tmp_path / "1024x1024_0pxOverlap"
     fallback_dir.mkdir()
     (tmp_path / "not_a_cache_dir").mkdir()
 
-    result = predict_module._get_fallback_input_image_dir(configured_dir)
+    result = predict_module._get_input_image_dir(configured_dir)
 
     assert result == fallback_dir
     assert "Using compatible cache directory" in caplog.text
 
 
-def test_get_fallback_input_image_dir_multiple_candidates(tmp_path, caplog):
+def test_get_input_image_dir_multiple_candidates(tmp_path, caplog):
     configured_dir = tmp_path / "512x512_0pxOverlap"
     (tmp_path / "1024x1024_0pxOverlap").mkdir()
     (tmp_path / "2048x2048_0pxOverlap").mkdir()
 
-    result = predict_module._get_fallback_input_image_dir(configured_dir)
+    result = predict_module._get_input_image_dir(configured_dir)
 
     assert result == configured_dir
     assert "Found multiple compatible cache directories" in caplog.text
 
 
-def test_get_fallback_input_image_dir_missing_parent(tmp_path):
+def test_get_input_image_dir_missing_parent(tmp_path):
     configured_dir = tmp_path / "missing" / "512x512_0pxOverlap"
 
     assert (
-        predict_module._get_fallback_input_image_dir(configured_dir) == configured_dir
+        predict_module._get_input_image_dir(configured_dir) == configured_dir
     )
 
 
