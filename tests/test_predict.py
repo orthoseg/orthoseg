@@ -46,9 +46,7 @@ def test_get_input_image_dir_multiple_candidates(tmp_path, caplog):
 def test_get_input_image_dir_missing_parent(tmp_path):
     configured_dir = tmp_path / "missing" / "512x512_0pxOverlap"
 
-    assert (
-        predict_module._get_input_image_dir(configured_dir) == configured_dir
-    )
+    assert predict_module._get_input_image_dir(configured_dir) == configured_dir
 
 
 @pytest.mark.parametrize(

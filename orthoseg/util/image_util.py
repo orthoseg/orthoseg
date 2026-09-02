@@ -772,7 +772,6 @@ def load_image_to_file(
         # Read output image to check if coördinates are there
         with rio.open(str(output_filepath)) as image_file:
             image_profile_orig = image_file.profile
-            image_transform_affine = image_file.transform
             image_data_output = image_file.read()
 
         logger.debug(f"original image_profile: {image_profile_orig}")
@@ -842,7 +841,6 @@ def load_image_to_file(
             # Read image
             with rio.open(str(output_filepath)) as image_file:
                 image_profile_orig = image_file.profile
-                image_transform_affine = image_file.transform
                 image_data_output = image_file.read()
 
             # If same save format, reuse profile
