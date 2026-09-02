@@ -163,6 +163,7 @@ def load_images(
             nb_concurrent_calls=nb_concurrent_calls,
             cron_schedule=download_cron_schedule,
             image_format=image_format,
+            tiff_compress="JPEG",  # TODO: make this configurable in the config file
             pixels_overlap=image_pixels_overlap,
             nb_images_to_skip=nb_images_to_skip,
             ssl_verify=ssl_verify,

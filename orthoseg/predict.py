@@ -3,6 +3,7 @@
 import argparse
 import logging
 import pprint
+import re
 import sys
 import traceback
 from pathlib import Path
@@ -17,6 +18,39 @@ from orthoseg.util import log_util
 
 # Get a logger...
 logger = logging.getLogger(__name__)
+
+
+def _get_input_image_dir(input_image_dir: Path) -> Path:
+    """Get the input image directory.
+
+    If the exactly configured image cache directory is not found, return a compatible
+    sibling cache directory is returned if available.
+    """
+    if input_image_dir.exists():
+        return input_image_dir
+    if not input_image_dir.parent.is_dir():
+        return input_image_dir
+
+    cache_dir_pattern = re.compile(r"^\d+x\d+_\d+pxOverlap$")
+    matching_dirs = [
+        path
+        for path in input_image_dir.parent.iterdir()
+        if path.is_dir() and cache_dir_pattern.fullmatch(path.name)
+    ]
+    if len(matching_dirs) == 1:
+        fallback_dir = matching_dirs[0]
+        logger.warning(
+            f"Configured input_image_dir does not exist: {input_image_dir}. "
+            f"Using compatible cache directory: {fallback_dir}"
+        )
+        return fallback_dir
+
+    if len(matching_dirs) > 1:
+        logger.warning(
+            f"Configured input_image_dir does not exist: {input_image_dir}. "
+            f"Found multiple compatible cache directories: {matching_dirs}"
+        )
+    return input_image_dir
 
 
 def _set_dtype_policy_for_predict(dtype_policy_raw: str | None):
@@ -122,7 +156,9 @@ def predict(
         if image_layer_config is None:
             raise ValueError(f"{image_layer=} is not configured in image_layers")
 
-        input_image_dir = conf.dirs.getpath("predict_image_input_dir")
+        input_image_dir = _get_input_image_dir(
+            conf.dirs.getpath("predict_image_input_dir")
+        )
 
         # Create base filename of model to use
         # TODO: is force data version the most logical, or rather implement
@@ -327,9 +363,16 @@ def predict(
         )
 
         # Prepare the output dirs/paths
-        predict_output_dir = Path(
-            f"{conf.dirs['predict_image_output_basedir']}_{predict_out_subdir}"
+        # If the raw value of predict_image_output_basedir is a reference to the image
+        # input dir, just use the input_image_dir as base
+        predict_image_output_basedir_raw = conf.dirs.get(
+            "predict_image_output_basedir", raw=True
         )
+        if predict_image_output_basedir_raw == "${predict_image_input_dir}":
+            base_output_str = input_image_dir.as_posix()
+        else:
+            base_output_str = conf.dirs["predict_image_output_basedir"]
+        predict_output_dir = Path(f"{base_output_str}_{predict_out_subdir}")
 
         # Start predict for entire dataset
         # --------------------------------
