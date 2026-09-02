@@ -363,9 +363,16 @@ def predict(
         )
 
         # Prepare the output dirs/paths
-        predict_output_dir = Path(
-            f"{conf.dirs['predict_image_output_basedir']}_{predict_out_subdir}"
+        # If the raw value of predict_image_output_basedir is a reference to the image
+        # input dir, just use the input_image_dir as base
+        predict_image_output_basedir_raw = conf.dirs.get(
+            "predict_image_output_basedir", raw=True
         )
+        if predict_image_output_basedir_raw == "${predict_image_input_dir}":
+            base_output_str = input_image_dir.as_posix()
+        else:
+            base_output_str = conf.dirs["predict_image_output_basedir"]
+        predict_output_dir = Path(f"{base_output_str}_{predict_out_subdir}")
 
         # Start predict for entire dataset
         # --------------------------------
