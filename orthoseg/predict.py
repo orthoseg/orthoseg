@@ -2,12 +2,15 @@
 
 import argparse
 import logging
+import math
 import pprint
 import re
 import sys
 import traceback
 from pathlib import Path
 from typing import Any
+
+import rasterio as rio
 
 import orthoseg.model.model_factory as mf
 import orthoseg.model.model_helper as mh
@@ -20,37 +23,93 @@ from orthoseg.util import log_util
 logger = logging.getLogger(__name__)
 
 
-def _get_input_image_dir(input_image_dir: Path) -> Path:
-    """Get the input image directory.
+def _validate_input_image_dir(
+    input_image_dir: Path,
+    image_pixel_x_size: float,
+    image_pixel_y_size: float,
+) -> Path:
+    """Validate the input image directory.
+
+    Returns the input image directory if it exists or a compatible sibling cache
+    directory if available.
 
     If the exactly configured image cache directory is not found, return a compatible
-    sibling cache directory is returned if available.
+    sibling cache directory if available. Check the first JPG in the first
+    subdirectory against the configured prediction pixel sizes.
     """
     if input_image_dir.exists():
         return input_image_dir
-    if not input_image_dir.parent.is_dir():
-        return input_image_dir
 
+    # The exact dir does not exist, look for compatible sibling cache directories
     cache_dir_pattern = re.compile(r"^\d+x\d+_\d+pxOverlap$")
     matching_dirs = [
         path
         for path in input_image_dir.parent.iterdir()
         if path.is_dir() and cache_dir_pattern.fullmatch(path.name)
     ]
-    if len(matching_dirs) == 1:
-        fallback_dir = matching_dirs[0]
-        logger.warning(
-            f"Configured input_image_dir does not exist: {input_image_dir}. "
-            f"Using compatible cache directory: {fallback_dir}"
-        )
-        return fallback_dir
+    if not matching_dirs:
+        raise ValueError(f"Input image directory does not exist: {input_image_dir}")
 
-    if len(matching_dirs) > 1:
-        logger.warning(
-            f"Configured input_image_dir does not exist: {input_image_dir}. "
-            f"Found multiple compatible cache directories: {matching_dirs}"
+    incompatible_dirs = []
+    for candidate_dir in matching_dirs:
+        pixel_size_mismatch = _check_input_image_pixel_size(
+            candidate_dir,
+            image_pixel_x_size=image_pixel_x_size,
+            image_pixel_y_size=image_pixel_y_size,
         )
-    return input_image_dir
+        if pixel_size_mismatch is None:
+            logger.warning(
+                f"Configured input_image_dir does not exist: {input_image_dir}. "
+                f"Using compatible cache directory: {candidate_dir}"
+            )
+            return candidate_dir
+
+        incompatible_dirs.append(f"{candidate_dir}: {pixel_size_mismatch}")
+
+    raise ValueError(
+        f"Configured input_image_dir does not exist: {input_image_dir}. "
+        "No compatible cache directory found for predict pixel sizes "
+        f"x={image_pixel_x_size}, y={image_pixel_y_size}. "
+        f"Checked: {'; '.join(incompatible_dirs)}"
+    )
+
+
+def _check_input_image_pixel_size(
+    input_image_dir: Path, image_pixel_x_size: float, image_pixel_y_size: float
+) -> str | None:
+    """Checks if the input image directory contains images with the specified pixel sizes.
+
+    Returns:
+        str | None: If there is a mismatch in pixel sizes, returns a string with a
+            message describing the mismatch, otherwise None.
+    """
+    first_subdirectory = next(
+        (path for path in input_image_dir.iterdir() if path.is_dir()),
+        None,
+    )
+    if first_subdirectory is None:
+        return "no subdirectory found"
+
+    first_jpg = next(first_subdirectory.rglob("*.jpg"), None)
+    if first_jpg is None:
+        return f"no JPG found in {first_subdirectory}"
+
+    try:
+        with rio.open(first_jpg) as image_ds:
+            cached_pixel_x_size = abs(image_ds.transform.a)
+            cached_pixel_y_size = abs(image_ds.transform.e)
+    except rio.errors.RasterioIOError as ex:
+        return f"could not read pixel sizes from {first_jpg}: {ex}"
+
+    mismatches = []
+    if not math.isclose(cached_pixel_x_size, image_pixel_x_size):
+        mismatches.append(f"x={cached_pixel_x_size} (configured {image_pixel_x_size})")
+    if not math.isclose(cached_pixel_y_size, image_pixel_y_size):
+        mismatches.append(f"y={cached_pixel_y_size} (configured {image_pixel_y_size})")
+    if mismatches:
+        return f"pixel sizes of {first_jpg} do not match: {', '.join(mismatches)}"
+
+    return None
 
 
 def _set_dtype_policy_for_predict(dtype_policy_raw: str | None):
@@ -156,8 +215,10 @@ def predict(
         if image_layer_config is None:
             raise ValueError(f"{image_layer=} is not configured in image_layers")
 
-        input_image_dir = _get_input_image_dir(
-            conf.dirs.getpath("predict_image_input_dir")
+        input_image_dir = _validate_input_image_dir(
+            conf.dirs.getpath("predict_image_input_dir"),
+            image_pixel_x_size=conf.predict.getfloat("image_pixel_x_size"),
+            image_pixel_y_size=conf.predict.getfloat("image_pixel_y_size"),
         )
 
         # Create base filename of model to use
