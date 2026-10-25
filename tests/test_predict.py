@@ -70,9 +70,7 @@ def test_validate_input_image_dir_multiple_candidates(tmp_path, caplog):
     )
 
     assert result == candidate_order[1]
-    assert (
-        f"Using compatible cache directory: {candidate_order[1]}" in caplog.text
-    )
+    assert f"Using compatible cache directory: {candidate_order[1]}" in caplog.text
 
 
 @pytest.mark.parametrize("create_parent", [True, False])
@@ -96,29 +94,33 @@ def test_validate_input_image_dir_without_candidates(
                 use_cache=use_cache,
             )
     else:
-        assert predict_module._validate_input_image_dir(
-            configured_dir,
-            image_pixel_x_size=0.25,
-            image_pixel_y_size=0.25,
-            use_cache=use_cache,
-        ) == configured_dir
+        assert (
+            predict_module._validate_input_image_dir(
+                configured_dir,
+                image_pixel_x_size=0.25,
+                image_pixel_y_size=0.25,
+                use_cache=use_cache,
+            )
+            == configured_dir
+        )
 
 
 @pytest.mark.parametrize("use_cache", ["no", "ifavailable"])
-def test_validate_input_image_dir_skips_incompatible_cache(
-    tmp_path, caplog, use_cache
-):
+def test_validate_input_image_dir_skips_incompatible_cache(tmp_path, caplog, use_cache):
     configured_dir = tmp_path / "512x512_0pxOverlap"
     incompatible_dir = tmp_path / "1024x1024_0pxOverlap"
     incompatible_dir.mkdir()
     _write_cache_jpg(incompatible_dir, pixel_x_size=0.5, pixel_y_size=0.5)
 
-    assert predict_module._validate_input_image_dir(
-        configured_dir,
-        image_pixel_x_size=0.25,
-        image_pixel_y_size=0.25,
-        use_cache=use_cache,
-    ) == configured_dir
+    assert (
+        predict_module._validate_input_image_dir(
+            configured_dir,
+            image_pixel_x_size=0.25,
+            image_pixel_y_size=0.25,
+            use_cache=use_cache,
+        )
+        == configured_dir
+    )
     if use_cache == "ifavailable":
         assert "fetching images directly" in caplog.text
 
@@ -144,12 +146,15 @@ def test_validate_input_image_dir_checks_pixel_sizes(
     )
 
     if is_compatible:
-        assert predict_module._validate_input_image_dir(
-            input_image_dir,
-            image_pixel_x_size=0.25,
-            image_pixel_y_size=0.5,
-            use_cache="yes",
-        ) == fallback_dir
+        assert (
+            predict_module._validate_input_image_dir(
+                input_image_dir,
+                image_pixel_x_size=0.25,
+                image_pixel_y_size=0.5,
+                use_cache="yes",
+            )
+            == fallback_dir
+        )
     else:
         with pytest.raises(ValueError, match="No compatible cache directory"):
             predict_module._validate_input_image_dir(

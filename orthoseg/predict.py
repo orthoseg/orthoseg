@@ -96,7 +96,7 @@ def _validate_input_image_dir(
 def _check_input_image_pixel_size(
     input_image_dir: Path, image_pixel_x_size: float, image_pixel_y_size: float
 ) -> str | None:
-    """Checks if the input image directory contains images with the specified pixel sizes.
+    """Checks whether the input directory has images with the specified pixel sizes.
 
     Returns:
         str | None: If there is a mismatch in pixel sizes, returns a string with a

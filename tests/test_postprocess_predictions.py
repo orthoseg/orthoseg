@@ -247,9 +247,9 @@ def test_postprocess_predictions_output_style_added(tmp_path: Path):
 
     styles = gfo.get_layerstyles(output_path)
     assert len(styles) == 1
-    assert styles.iloc[0]["styleName"] == output_style_path.stem
+    assert styles[0].name == output_style_path.stem
     layer_name = gfo.get_only_layer(output_path)
-    assert styles.iloc[0]["f_table_name"] == layer_name
+    assert styles[0].layer == layer_name
 
 
 def test_postprocess_predictions_output_style_missing(tmp_path: Path):
