@@ -27,20 +27,30 @@ def _validate_input_image_dir(
     input_image_dir: Path,
     image_pixel_x_size: float,
     image_pixel_y_size: float,
+    use_cache: str,
 ) -> Path:
     """Validate the input image directory.
 
     Returns the input image directory if it exists or a compatible sibling cache
-    directory if available.
+    directory if available. A missing cache is allowed when ``use_cache`` is
+    ``"ifavailable"`` or ``"no"``.
 
     If the exactly configured image cache directory is not found, return a compatible
     sibling cache directory if available. Check the first JPG in the first
     subdirectory against the configured prediction pixel sizes.
     """
+    if use_cache == "no":
+        return input_image_dir
+
     if input_image_dir.exists():
         return input_image_dir
 
-    # The exact dir does not exist, look for compatible sibling cache directories
+    if not input_image_dir.parent.is_dir():
+        if use_cache == "ifavailable":
+            return input_image_dir
+        raise ValueError(f"Input image directory does not exist: {input_image_dir}")
+
+    # Look for compatible sibling cache directories
     cache_dir_pattern = re.compile(r"^\d+x\d+_\d+pxOverlap$")
     matching_dirs = [
         path
@@ -48,6 +58,8 @@ def _validate_input_image_dir(
         if path.is_dir() and cache_dir_pattern.fullmatch(path.name)
     ]
     if not matching_dirs:
+        if use_cache == "ifavailable":
+            return input_image_dir
         raise ValueError(f"Input image directory does not exist: {input_image_dir}")
 
     incompatible_dirs = []
@@ -65,6 +77,13 @@ def _validate_input_image_dir(
             return candidate_dir
 
         incompatible_dirs.append(f"{candidate_dir}: {pixel_size_mismatch}")
+
+    if use_cache == "ifavailable":
+        logger.warning(
+            f"No compatible cache directory found for {input_image_dir}; "
+            "fetching images directly"
+        )
+        return input_image_dir
 
     raise ValueError(
         f"Configured input_image_dir does not exist: {input_image_dir}. "
@@ -215,10 +234,12 @@ def predict(
         if image_layer_config is None:
             raise ValueError(f"{image_layer=} is not configured in image_layers")
 
+        use_cache = image_layer_config.get("use_cache", "yes")
         input_image_dir = _validate_input_image_dir(
             conf.dirs.getpath("predict_image_input_dir"),
             image_pixel_x_size=conf.predict.getfloat("image_pixel_x_size"),
             image_pixel_y_size=conf.predict.getfloat("image_pixel_y_size"),
+            use_cache=use_cache,
         )
 
         # Create base filename of model to use
@@ -441,7 +462,6 @@ def predict(
         email_helper.sendmail(f"Start predict for {model_name} on {image_layer}")
 
         # Check if we should use an image cache
-        use_cache = image_layer_config.get("use_cache", "yes")
         if use_cache == "ifavailable":
             use_cache = (
                 "yes"
