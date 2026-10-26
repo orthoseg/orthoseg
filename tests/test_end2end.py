@@ -184,5 +184,5 @@ def test_5_postprocess():
     styles = gfo.get_layerstyles(output_vector_path)
     assert len(styles) == 1
     layer_name = gfo.get_only_layer(output_vector_path)
-    assert styles.iloc[0]["f_table_name"] == layer_name
-    assert styles.iloc[0]["styleName"] == SportsFields.subject
+    assert styles[0].layer == layer_name
+    assert styles[0].name == SportsFields.subject
