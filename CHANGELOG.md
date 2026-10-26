@@ -33,6 +33,8 @@
 - Add postprocessing option to clip the output layer to a layer specified (#359)
 - Replace footballfields sample project by sportsfields to have a multiclass and
   multilayer example for tests and documentation (#341)
+- Small improvements to train: log monitor metric to csv, robustness improvements in
+  prepare_trainingsdata,... (#369)
 - If a layer cache directory with different image size but same resolution exists,
   use that when predicting (#362)
 - Use SSL bundle from REQUESTS_CA_BUNDLE for WMS fetching if specified (#367)

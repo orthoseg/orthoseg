@@ -438,16 +438,29 @@ def prepare_labeldata(
         # Read label locations if needed
         if label_info.locations_gdf is not None:
             labellocations_gdf = label_info.locations_gdf
+            if "traindata_type" not in labellocations_gdf.columns:
+                validation_errors.append(
+                    "Mandatory column traindata_type not found in "
+                    f"{label_info.locations_path}"
+                )
         else:
             logger.debug(f"Read label locations from {label_info.locations_path}")
-            labellocations_gdf = gfo.read_file(label_info.locations_path)
-            labellocations_gdf["path"] = str(label_info.locations_path)
-            labellocations_gdf["image_layer"] = label_info.image_layer
-            # Remark: geopandas 0.7.0 drops fid column internally!
-            labellocations_gdf["row_nb_orig"] = labellocations_gdf.index
-            if len(labellocations_gdf) == 0:
-                logger.warning(
-                    f"No label locations found in {label_info.locations_path}"
+            try:
+                labellocations_gdf = gfo.read_file(
+                    label_info.locations_path, columns=["traindata_type"]
+                )
+                labellocations_gdf["path"] = str(label_info.locations_path)
+                labellocations_gdf["image_layer"] = label_info.image_layer
+                # Remark: geopandas 0.7.0 drops fid column internally!
+                labellocations_gdf["row_nb_orig"] = labellocations_gdf.index
+                if len(labellocations_gdf) == 0:
+                    logger.warning(
+                        f"No label locations found in {label_info.locations_path}"
+                    )
+                    continue
+            except Exception as ex:
+                validation_errors.append(
+                    f"Failed to read locations from {label_info.locations_path}: {ex}"
                 )
                 continue
 
@@ -456,11 +469,24 @@ def prepare_labeldata(
             labelpolygons_gdf = label_info.polygons_gdf
         else:
             logger.debug(f"Read label data from {label_info.polygons_path}")
-            labelpolygons_gdf = gfo.read_file(label_info.polygons_path)
-            labelpolygons_gdf["path"] = str(label_info.polygons_path)
-            labelpolygons_gdf["image_layer"] = label_info.image_layer
-            if len(labelpolygons_gdf) == 0:
-                logger.warning(f"No label polygons found in {label_info.polygons_path}")
+
+            # For backwards compatibility, use "label_name" if needed
+            poly_info = gfo.get_layerinfo(label_info.polygons_path)
+            if labelname_column in poly_info.columns:
+                labelname_column_cur = labelname_column
+            else:
+                labelname_column_cur = "label_name"
+            try:
+                labelpolygons_gdf = gfo.read_file(
+                    label_info.polygons_path, columns=[labelname_column_cur]
+                )
+                labelpolygons_gdf["path"] = str(label_info.polygons_path)
+                labelpolygons_gdf["image_layer"] = label_info.image_layer
+            except Exception as ex:
+                validation_errors.append(
+                    f"Failed to read polygons from {label_info.polygons_path}: {ex}"
+                )
+                continue
 
         assert labellocations_gdf is not None
         assert labelpolygons_gdf is not None
@@ -471,12 +497,6 @@ def prepare_labeldata(
 
         # Validate + process the location data
         # ------------------------------------
-        if "traindata_type" not in labellocations_gdf.columns:
-            validation_errors.append(
-                "Mandatory column traindata_type not found in "
-                f"{label_info.locations_path}"
-            )
-
         # Check + correct the geom of the location to make sure it matches the size of
         # the training images/masks to be generated...
         # Prepare pixel size: if defined on label info level, use that.
@@ -609,10 +629,9 @@ def prepare_labeldata(
                 labelnames = []
                 for classvalue in classes.values():
                     labelnames.extend(classvalue["labelnames"])
+                geometry = invalid_row[labels_to_burn_gdf.geometry.name]
                 point = (
-                    invalid_row.geometry.representative_point()
-                    if invalid_row.geometry is not None
-                    else None
+                    geometry.representative_point() if not pd.isna(geometry) else None
                 )
                 validation_errors.append(
                     f"Invalid class/label name at {point} "
@@ -785,14 +804,14 @@ def _prepare_image_and_mask(
         and (previous_imagedata_image_dir / output_filename).exists()
     ):
         image_filepath: Path | None = Path(
-            shutil.copy(
+            shutil.copyfile(
                 src=previous_imagedata_image_dir / output_filename,
                 dst=output_imagedata_image_dir / output_filename,
             )
         )
         pgw_filename = output_filename.replace(".png", ".pgw")
         if (previous_imagedata_image_dir / pgw_filename).exists():
-            shutil.copy(
+            shutil.copyfile(
                 src=previous_imagedata_image_dir / pgw_filename,
                 dst=output_imagedata_image_dir / pgw_filename,
             )

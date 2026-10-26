@@ -902,6 +902,46 @@ class ModelCheckpointExt(callbacks.Callback):
         )
 
 
+class CSVLoggerExt(callbacks.CSVLogger):
+    """CSVLogger that adds metrics calculated from formulas.
+
+    Args:
+        custom_metrics: Mapping of CSV column names to formulas. Metric values from
+            Keras logs can be referenced with ``{metric_name}`` placeholders.
+        filepath: Path to the CSV file.
+        separator: Field separator used in the CSV file.
+        append: If true, append to an existing CSV file.
+    """
+
+    def __init__(
+        self,
+        filepath: str | Path,
+        separator: str = ",",
+        append: bool = False,
+        *,
+        custom_metrics: dict[str, str] | None = None,
+    ):
+        """Initialize the logger with optional derived metric formulas."""
+        super().__init__(filepath, separator=separator, append=append)
+        self.custom_metrics = custom_metrics or {}
+
+    def on_epoch_end(self, epoch, logs=None):
+        """Calculate custom metrics and write this epoch through CSVLogger."""
+        logs_with_custom_metrics = dict(logs or {})
+        for metric_name, formula in self.custom_metrics.items():
+            if "{" not in formula:
+                logs_with_custom_metrics[metric_name] = logs_with_custom_metrics.get(
+                    formula
+                )
+            else:
+                formatted_formula = formula.format(**logs_with_custom_metrics)
+                logs_with_custom_metrics[metric_name] = eval(
+                    formatted_formula, {"__builtins__": {}}, {}
+                )
+
+        super().on_epoch_end(epoch, logs_with_custom_metrics)
+
+
 def save_and_clean_models(
     model_save_dir: Path,
     segment_subject: str,
@@ -1088,22 +1128,20 @@ def save_and_clean_models(
                     or model_info.monitor_metric_accuracy > save_min_accuracy
                 ):
                     logger.debug("Save model start")
+                    kwargs = {"filepath": str(new_model_path)}
+                    if not KERAS_GTE_3:
+                        kwargs["save_format"] = save_format
+
                     if save_weights_only:
                         if model_template_for_save is not None:
-                            model_template_for_save.save_weights(
-                                str(new_model_path), save_format=save_format
-                            )
+                            model_template_for_save.save_weights(**kwargs)
                         else:
-                            new_model.save_weights(
-                                str(new_model_path), save_format=save_format
-                            )
+                            new_model.save_weights(**kwargs)
                     else:
                         if model_template_for_save is not None:
-                            model_template_for_save.save(
-                                str(new_model_path), save_format=save_format
-                            )
+                            model_template_for_save.save(**kwargs)
                         else:
-                            new_model.save(str(new_model_path), save_format=save_format)
+                            new_model.save(**kwargs)
                     logger.debug("Save model ready")
                 else:
                     print(
