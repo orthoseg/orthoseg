@@ -2,6 +2,7 @@
 
 import argparse
 import configparser
+import os
 import subprocess
 import time
 from pathlib import Path
@@ -94,18 +95,22 @@ def main():
             # Run the script and print output in realtime
             wait_message_printed = False
             logger.info(f"Run script {script_path}")
-            cmd = [script_path]
+            if os.name == "nt":
+                shell = True
+                cmd = [script_path]
+            else:
+                shell = False
+                cmd = ["bash", str(script_path)]
 
             process = subprocess.Popen(
                 cmd,
-                shell=True,
+                shell=shell,
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
                 encoding="utf-8",
             )
-            # ,creationflags=subprocess.CREATE_NO_WINDOW)
 
             still_running = True
             while still_running:
