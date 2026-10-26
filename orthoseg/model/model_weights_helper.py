@@ -39,9 +39,9 @@ def get_model_weights_path(
     in the `WEIGHTS_NOTOP_AVAILABLE` listing.
 
     Args:
-        architecture (str): the architecture to get the weights for.
-        weights_type (str): the type of weights to get.
-        weights_dir (Path | None): directory where pretrained weights are cached to
+        architecture: the architecture to get the weights for.
+        weights_type: the type of weights to get.
+        weights_dir: directory where pretrained weights are cached to
             and read from. If None, the system temp directory is used.
 
     Raises:
@@ -49,7 +49,7 @@ def get_model_weights_path(
             weights type.
 
     Returns:
-        Path: the path to the weights file.
+        the path to the weights file.
 
     """
     # First check if the weights file can be easily found in the weights dir.

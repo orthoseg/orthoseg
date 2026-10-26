@@ -53,10 +53,10 @@ def is_valid_reason(geoseries: gpd.GeoSeries) -> pd.Series:
     """Get the reason for invalidity of all geometries in the GeoSeries.
 
     Args:
-        geoseries (gpd.GeoSeries): the GeoSeries to check.
+        geoseries: the GeoSeries to check.
 
     Returns:
-        pd.Series: _description_
+        _description_
     """
     # Get result and keep geoseries indexes
     return pd.Series(
@@ -86,12 +86,12 @@ def reclassify_neighbours(
         - perimeter (float): the perimeter of the geometry.
 
     Args:
-        gdf (gpd.GeoDataFrame): input
-        reclassify_column (str): column to reclassify.
-        query (str): th query to find the features to reclassify.
-        border_bounds (Optional[tuple[float, float, float, float]]): the bounds of the
+        gdf: input
+        reclassify_column: column to reclassify.
+        query: th query to find the features to reclassify.
+        border_bounds: the bounds of the
             border to use for th onborder field in the query.
-        class_background (str, optional): the classname to treat as background.
+        class_background: the classname to treat as background.
             Defaults to "background".
         aggfunc ()
 
@@ -99,7 +99,7 @@ def reclassify_neighbours(
         ValueError: raised if incompatible parameters are passed.
 
     Returns:
-        gpd.GeoDataFrame: the reclassified result
+        the reclassified result
     """
     # Init column info
     columns_orig = list(gdf.columns)

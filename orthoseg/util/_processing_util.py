@@ -97,9 +97,9 @@ def initialize_worker(worker_type: str, nice_value: int = 15) -> None:
       the number of threads using the environment variable `GFO_WORKER_OMP_NUM_THREADS`.
 
     Args:
-        worker_type (str): The type of worker to initialize.
+        worker_type: The type of worker to initialize.
             "threads" for thread pool, "processes" for process pool.
-        nice_value (int, optional): The niceness value to set for the worker. 19 is the
+        nice_value: The niceness value to set for the worker. 19 is the
             maximum niceness (lowest priority), and -20 is the minimum
             (highest priority). Defaults to 15.
     """
@@ -164,7 +164,7 @@ def setprocessnice(nice_value: int) -> None:
           results only to HIGH priority.
 
     Args:
-        nice_value (int): the niceness to be set.
+        nice_value: the niceness to be set.
     """
     if nice_value < -20 or nice_value > 19:
         raise ValueError(

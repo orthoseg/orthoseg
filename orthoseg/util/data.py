@@ -15,7 +15,7 @@ def aidetection_dir() -> Path:
     """AI detection path.
 
     Returns:
-        Path: AI detection path
+        AI detection path
     """
     return Path("X:/Monitoring/orthoseg")
 
@@ -39,11 +39,11 @@ class AiDetectionInfo:
         """Init.
 
         Args:
-            path (Path): the path to the file
-            subject (str): the detection/segment subject
-            traindata_version (int): the version of the data used to train the model
-            image_layer (str): the image layer that the detection is based on
-            postprocessing (str): the postprocessing done
+            path: the path to the file
+            subject: the detection/segment subject
+            traindata_version: the version of the data used to train the model
+            image_layer: the image layer that the detection is based on
+            postprocessing: the postprocessing done
         """
         self.path = path
         self.subject = subject
@@ -56,10 +56,10 @@ def aidetection_info(path: Path) -> AiDetectionInfo:
     """Get the properties from an ai detection filepath.
 
     Args:
-        path (Path): the filepath to the ai detection file
+        path: the filepath to the ai detection file
 
     Returns:
-        AiDetectionInfo: info about the detection.
+        info about the detection.
     """
     # Extract the fields...
     try:

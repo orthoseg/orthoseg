@@ -20,13 +20,13 @@ def convert_model(
     """Convert a model to a weights file.
 
     Args:
-        model_path (Path): Path to the hdf5 model.
-        weights_dir (Path): Directory to save the weights.
-        weight_type (str): Type of weights to save.
-        include_top (bool, optional): Whether to include the top layers of the model.
+        model_path: Path to the hdf5 model.
+        weights_dir: Directory to save the weights.
+        weight_type: Type of weights to save.
+        include_top: Whether to include the top layers of the model.
             Defaults to False.
-        version (int): Version of the weights.
-        overwrite (bool, optional): Whether to overwrite existing weights.
+        version: Version of the weights.
+        overwrite: Whether to overwrite existing weights.
             Defaults to True.
     """
     # Load and save it in .h5 format.

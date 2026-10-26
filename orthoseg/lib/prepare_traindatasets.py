@@ -44,14 +44,14 @@ class LabelInfo:
         """Conctructor of LabelInfo.
 
         Args:
-            locations_path (Path): file path to the locations file.
-            polygons_path (Path): file path to the polygons file.
-            image_layer (str): image layer for the label.
-            pixel_x_size (Optional[float], optional): _description_. Defaults to None.
-            pixel_y_size (Optional[float], optional): _description_. Defaults to None.
-            locations_gdf (Optional[gpd.GeoDataFrame], optional): _description_.
+            locations_path: file path to the locations file.
+            polygons_path: file path to the polygons file.
+            image_layer: image layer for the label.
+            pixel_x_size: _description_. Defaults to None.
+            pixel_y_size: _description_. Defaults to None.
+            locations_gdf: _description_.
                 Defaults to None.
-            polygons_gdf (Optional[gpd.GeoDataFrame], optional): _description_.
+            polygons_gdf: _description_.
                 Defaults to None.
         """
         self.locations_path = locations_path
@@ -66,7 +66,7 @@ class LabelInfo:
         """Return the object information as readable string.
 
         Returns:
-            str: readable string representation of object.
+            Readable string representation of object.
         """
         repr_str = (
             f"LabelInfo(image_layer={self.image_layer}, locations_path="
@@ -112,7 +112,7 @@ class ValidationError(ValueError):
         """Formats validation errors to string.
 
         Returns:
-            str: returns the validation errors as string.
+            Returns the validation errors as string.
         """
         repr_str = super().__str__()
         if self.errors is not None and len(self.errors) > 0:
@@ -125,7 +125,7 @@ class ValidationError(ValueError):
         """Formats validation errors to html.
 
         Returns:
-            str: the validation errors as html.
+            The validation errors as html.
         """
         repr_str = super().__str__()
         if self.errors is not None and len(self.errors) > 0:
@@ -161,32 +161,32 @@ def prepare_traindatasets(
         dataversion: a version number for the dataset created/found
 
     Args:
-        label_infos (list[LabelInfo]): paths to the files with label polygons
+        label_infos: paths to the files with label polygons
             and locations to generate images for.
-        classes (dict): dict with the classes to detect as keys. The values
+        classes: dict with the classes to detect as keys. The values
             are the following:
                 - labelnames: list of labels to use for this class
                 - weight:
                 - burn_value:
-        image_layers (dict): the image layers available with their properties.
-        training_dir (Path): the directory to save the training data to.
-        labelname_column (str): the column where the label names are stored in
+        image_layers: the image layers available with their properties.
+        training_dir: the directory to save the training data to.
+        labelname_column: the column where the label names are stored in
             the polygon files. If the column name specified is not found, column
             "label_name" is used if it exists for backwards compatibility.
-        image_pixel_x_size (float): pixel size in x direction. Defaults to 0.25.
-        image_pixel_y_size (float): pixel size in y direction. Defaults to 0.25.
-        image_pixel_width (int): width of the image in pixels. Defaults to 512.
-        image_pixel_height (int): height of the image in pixels. Defaults to 512.
-        ssl_verify (bool or str, optional): True to use the default
+        image_pixel_x_size: pixel size in x direction. Defaults to 0.25.
+        image_pixel_y_size: pixel size in y direction. Defaults to 0.25.
+        image_pixel_width: width of the image in pixels. Defaults to 512.
+        image_pixel_height: height of the image in pixels. Defaults to 512.
+        ssl_verify: True to use the default
             certificate bundle as installed on your system. False disables
             certificate validation (NOT recommended!). If a path to a
             certificate bundle file (.pem) is passed, this will be used.
             In corporate networks using a proxy server this is often needed
             to avoid CERTIFICATE_VERIFY_FAILED errors. Defaults to True.
-        only_validate (bool, optional): True to only validate the input label data.
-        force (bool, opitional): True to force recreation of output files.
+        only_validate: True to only validate the input label data.
+        force: True to force recreation of output files.
             Defaults to False.
-        nb_concurrent_calls (int, optional): Number of concurrent worker threads used
+        nb_concurrent_calls: Number of concurrent worker threads used
             to prepare images/masks per traindata type. A conservative upper bound is
             enforced to avoid overwhelming remote image services. Defaults to 4.
     """
@@ -414,22 +414,22 @@ def prepare_labeldata(
     The GeoDataFrames returned can be used to fetch train images and burn masks.
 
     Args:
-        label_infos (list[LabelInfo]): the label files/data.
-        classes (dict): dict with classes and their corresponding
+        label_infos: the label files/data.
+        classes: dict with classes and their corresponding
             label class names + weights.
-        labelname_column (str): the column name in the label polygon files where the
+        labelname_column: the column name in the label polygon files where the
             label classname can be found. Defaults to "classname".
-        image_pixel_x_size (float): pixel size in x direction.
-        image_pixel_y_size (float): pixel size in y direction.
-        image_pixel_width (int): width of the image in pixels.
-        image_pixel_height (int): height of the image in pixels.
+        image_pixel_x_size: pixel size in x direction.
+        image_pixel_y_size: pixel size in y direction.
+        image_pixel_width: width of the image in pixels.
+        image_pixel_height: height of the image in pixels.
 
     Raises:
         ValidationError: if the data is somehow not valid. All issues are listed in the
             errors property.
 
     Returns:
-        list[tuple[gpd.GeoDataFrame, gpd.GeoDataFrame]]: returns a list of tuples with
+        returns a list of tuples with
             geodataframes with labellocations and labelpolygons to burn.
     """
     labeldata_result = []
@@ -722,16 +722,16 @@ def create_tmp_dir(
     directory for a while.
 
     Args:
-        parent_dir (Path): The dir to create the temp dir in.
-        dir_name (str): The name of the dir to base the temp dir on.
-        remove_existing (bool, optional): If True, existing TMP directories
+        parent_dir: The dir to create the temp dir in.
+        dir_name: The name of the dir to base the temp dir on.
+        remove_existing: If True, existing TMP directories
             will be removed if possible. Defaults to False.
 
     Raises:
         Exception: [description]
 
     Returns:
-        Path: [description]
+        [description]
     """
     # The final dir should not exists yet!
     final_dir = parent_dir / dir_name

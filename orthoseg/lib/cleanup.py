@@ -17,16 +17,16 @@ def clean_models(
     """Cleanup models.
 
     Args:
-        model_dir (Path): Path to the directory with the models to be cleaned
-        versions_to_retain (int): Number of traindata versions to retain the models for.
+        model_dir: Path to the directory with the models to be cleaned
+        versions_to_retain: Number of traindata versions to retain the models for.
             If < 0, all versions are retained.
-        simulate (bool): Simulate cleanup, files are logged, no files are deleted
+        simulate: Simulate cleanup, files are logged, no files are deleted
 
     Raises:
         RuntimeError: an error occurred while deleting a file
 
     Returns:
-        list[Path]: List of removed model files
+        List of removed model files
     """
     # Check input
     if versions_to_retain < 0:
@@ -78,16 +78,16 @@ def clean_training_data_directories(
     """Cleanup training data directories.
 
     Args:
-        training_dir (Path): Path to the directory with the training data
-        versions_to_retain (int): Number of traindata versions to retain the training
+        training_dir: Path to the directory with the training data
+        versions_to_retain: Number of traindata versions to retain the training
             data directories for. If < 0, all versions are retained.
-        simulate (bool): Simulate cleanup, directories are logged, no files are deleted
+        simulate: Simulate cleanup, directories are logged, no files are deleted
 
     Raises:
         RuntimeError: an error occcured while deleting a training directory
 
     Returns:
-        list[Path]: List of training directories to be removed
+        List of training directories to be removed
     """
     # Check input
     if versions_to_retain < 0:
@@ -135,17 +135,17 @@ def clean_predictions(
     is is not cleaned.
 
     Args:
-        output_vector_dir (Path): Path to the directory containing the vector
+        output_vector_dir: Path to the directory containing the vector
             predictions
-        versions_to_retain (int): Number of traindata versions to retain the
+        versions_to_retain: Number of traindata versions to retain the
             predictions for. If < 0, all versions are retained.
-        simulate (bool): Simulate cleanup, files are logged, no files are deleted
+        simulate: Simulate cleanup, files are logged, no files are deleted
 
     Raises:
         RuntimeError: an error occcured while deleting a training directory
 
     Returns:
-        list[Path]: List of prediction files to be removed
+        List of prediction files to be removed
     """
     # Check input
     if versions_to_retain < 0:
@@ -216,20 +216,20 @@ def clean_project_dir(
     """Cleanup project directory.
 
     Args:
-        model_dir (Path): Path to the directory with the models to be cleaned
-        model_versions_to_retain (int): Model versions to retain. If <0, all models are
+        model_dir: Path to the directory with the models to be cleaned
+        model_versions_to_retain: Model versions to retain. If <0, all models are
             retained.
-        training_dir (Path): Path to the directory with the training data to be cleaned
-        training_versions_to_retain (int): Training data versions to retain. If <0, all
+        training_dir: Path to the directory with the training data to be cleaned
+        training_versions_to_retain: Training data versions to retain. If <0, all
             versions are retainded.
-        output_vector_dir (Path): Path to the directory with the predictions to be
+        output_vector_dir: Path to the directory with the predictions to be
             cleaned
-        prediction_versions_to_retain (int): Prediction versions to retain. If <0, all
+        prediction_versions_to_retain: Prediction versions to retain. If <0, all
             versions are retained.
-        simulate (bool): Simulate cleanup, files are logged, no files are deleted
+        simulate: Simulate cleanup, files are logged, no files are deleted
 
     Returns:
-        dict: Dictionary with removed models, training directories and predictions
+        Dictionary with removed models, training directories and predictions
     """
     removed = {}
 

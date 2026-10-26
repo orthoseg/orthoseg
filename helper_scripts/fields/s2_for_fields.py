@@ -14,10 +14,10 @@ def get_s2_for_fields(output_dir: Path) -> Path:
     """Get sentinel 2 images for a hardcoded area.
 
     Args:
-        output_dir (Path): Directory where the output files will be saved.
+        output_dir: Directory where the output files will be saved.
 
     Returns:
-        Path: The path to the generated Sentinel-2 image file.
+        The path to the generated Sentinel-2 image file.
     """
     roi_name = "BEFL"
     roi = {"west": 469110.0, "south": 5613690.0, "east": 707210.0, "north": 5709000.0}

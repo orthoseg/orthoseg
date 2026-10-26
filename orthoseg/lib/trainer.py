@@ -52,9 +52,9 @@ def train(
         traindata_dir: dir where the train data is located
         validationdata_dir: dir where the validation data is located
         model_save_dir: dir where (intermediate) best models will be saved
-        segment_subject (str): segment subject
-        traindata_id (int): train data version
-        hyperparams (mh.HyperParams): the hyper parameters to use for the model
+        segment_subject: segment subject
+        traindata_id: train data version
+        hyperparams: the hyper parameters to use for the model
         weights_dir: directory where pretrained weights are cached and read from
         model_preload_filepath: filepath to the model to continue training on,
             or None if you want to start from scratch

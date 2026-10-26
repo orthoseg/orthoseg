@@ -22,8 +22,8 @@ def _apply_postprocess(input_path: Path, output_path: Path) -> None:
     the full postprocessing pipeline to the vector file.
 
     Args:
-        input_path (Path): Path to the input vector file to postprocess.
-        output_path (Path): Path to the output vector file.
+        input_path: Path to the input vector file to postprocess.
+        output_path: Path to the output vector file.
     """
     # Prepare some parameters for the postprocessing
     nb_parallel = conf.general.getint("nb_parallel", -1)
@@ -100,13 +100,13 @@ def postprocess(config_path: Path, config_overrules: list[str] | None = None) ->
     """Postprocess the output of a prediction for the config specified.
 
     Args:
-        config_path (Path): Path to the config file.
-        config_overrules (list[str], optional): list of config options that will
+        config_path: Path to the config file.
+        config_overrules: list of config options that will
             overrule other ways to supply configuration. They should be specified in the
             form of "<section>.<key>=<value>". Defaults to None.
 
     Returns:
-        Path: The path to the postprocessed output file.
+        The path to the postprocessed output file.
 
     """
     # Init

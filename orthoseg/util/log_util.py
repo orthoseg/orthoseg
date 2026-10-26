@@ -69,12 +69,12 @@ def init_logging_dictConfig(
         - it will resolve relative file paths in handlers.*.filename to tempdir.
 
     Args:
-        logconfig_path (Path, optional): Json file containing the dictConfig info.
+        logconfig_path: Json file containing the dictConfig info.
             Defaults to None.
-        logconfig_dict (dict, optional): Dict containing the dictConfig info.
+        logconfig_dict: Dict containing the dictConfig info.
             Defaults to None.
-        log_basedir (Path, optional): directory to log to.
-        loggername (str, optional): name of the logger.
+        log_basedir: directory to log to.
+        loggername: name of the logger.
     """
     # Init logging
     if logconfig_dict is None:
@@ -125,8 +125,8 @@ def main_log_init(log_dir: Path, log_basefilename: str):
     """Initialize logging.
 
     Args:
-        log_dir (Path): directory to log to.
-        log_basefilename (str): base file name to use for the logging files.
+        log_dir: directory to log to.
+        log_basefilename: base file name to use for the logging files.
 
     Returns:
         logging.Logger: the logger.
@@ -182,9 +182,9 @@ def clean_log_dir(log_dir: Path, nb_logfiles_tokeep: int, pattern: str = "*.*"):
     """Clean a log dir.
 
     Args:
-        log_dir (Path): dir with log files to clean.
-        nb_logfiles_tokeep (int): the number of log files to keep.
-        pattern (str, optional): pattern of the file names of the log files.
+        log_dir: dir with log files to clean.
+        nb_logfiles_tokeep: the number of log files to keep.
+        pattern: pattern of the file names of the log files.
             Defaults to '*.*'.
     """
     # Check input params

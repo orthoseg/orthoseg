@@ -77,17 +77,17 @@ def predict_dir(
     available, the prefix is the % white pixels in the prediction.
 
     Args:
-        model (Model): the model to use for the prediction
-        preprocess_input (Callable): the preprocessing function to apply to the input
+        model: the model to use for the prediction
+        preprocess_input: the preprocessing function to apply to the input
             images before passing them to the model
-        input_image_dir (Pathlike): dir where the input images are located
-        output_image_dir (Pathlike): dir where the output will be put
-        output_vector_path (Pathlike): the path to write the vector output to
-        classes (list): a list of the different class names. Mandatory
+        input_image_dir: dir where the input images are located
+        output_image_dir: dir where the output will be put
+        output_vector_path: the path to write the vector output to
+        classes: a list of the different class names. Mandatory
             if more than background + 1 class.
-        min_probability (float): Minimum probability to consider a pixel being of a
+        min_probability: Minimum probability to consider a pixel being of a
             certain class. Defaults to 0.5.
-        postprocess_tiles_config (dict | None, optional): specifies which postprocessing
+        postprocess_tiles_config: specifies which postprocessing
             should be applied to each predicted tile.
             Default is None, so no postprocessing.
         border_pixels_to_ignore: because the segmentation at the borders of the
@@ -101,17 +101,17 @@ def predict_dir(
             memory on you GPU.
         evaluate_mode: True to run in evaluate mode
         cancel_filepath: If the file in this path exists, processing stops asap
-        nb_parallel_read (int, optional): The number of parallel threads to read/load
+        nb_parallel_read: The number of parallel threads to read/load
             images for prediction. If -1, a default value is used. At the time of
             writing the default is 3 * `batch_size`. Defaults to -1.
-        nb_parallel_postprocess (int, optional): The number of parallel
+        nb_parallel_postprocess: The number of parallel
             processes used to vectorize,... the predictions. If -1, all
             available CPU's are used. Defaults to 1.
-        max_prediction_errors (int, optional): the maximum number of errors that is
+        max_prediction_errors: the maximum number of errors that is
             tolerated before stopping prediction. If -1, no limit. Defaults to 100.
         force: False to skip images that already have a prediction, true to
             ignore existing predictions and overwrite them
-        no_images_ok (bool, optional): False to throw `ValueError`
+        no_images_ok: False to throw `ValueError`
             when no images available in the `input_image_dir`,
             True to return without error. Defaults to False.
     """
@@ -219,29 +219,29 @@ def predict_layer(
     available, the prefix is the % white pixels in the prediction.
 
     Args:
-        model (Model): the model to use for the prediction
-        preprocess_input (Callable): the preprocessing function to apply to the input
+        model: the model to use for the prediction
+        preprocess_input: the preprocessing function to apply to the input
             images before passing them to the model.
         image_layer_config: configuration of the image layer to predict on.
-        image_pixel_x_size (float, optional): Pixel size of the image tiles to
+        image_pixel_x_size: Pixel size of the image tiles to
             create in the `crs` specified. Defaults to 0.25.
-        image_pixel_y_size (float, optional): Pixel size of the image tiles to
+        image_pixel_y_size: Pixel size of the image tiles to
             create in the `crs` specified. Defaults to 0.25.
-        image_pixel_width (int, optional): Width of the tiles to create in number of
+        image_pixel_width: Width of the tiles to create in number of
             pixels. Defaults to 1024.
-        image_pixel_height (int, optional): Height of the tiles to create in number of
+        image_pixel_height: Height of the tiles to create in number of
             pixels. Defaults to 1024.
-        image_pixels_overlap (int, optional): The number of pixels the tiles should be
+        image_pixels_overlap: The number of pixels the tiles should be
             enlarged in all directions to create overlapping tiles.
             Defaults to 0.
         input_image_dir (Pathlike): dir where the input images are located
-        output_image_dir (Pathlike): dir where the output will be put
-        output_vector_path (Pathlike): the path to write the vector output to
-        classes (list): a list of the different class names. Mandatory
+        output_image_dir: dir where the output will be put
+        output_vector_path: the path to write the vector output to
+        classes: a list of the different class names. Mandatory
             if more than background + 1 class.
-        min_probability (float): Minimum probability to consider a pixel being of a
+        min_probability: Minimum probability to consider a pixel being of a
             certain class. Defaults to 0.5.
-        postprocess_tiles_config (dict | None, optional): specifies which postprocessing
+        postprocess_tiles_config: specifies which postprocessing
             should be applied to each predicted tile.
             Default is None, so no postprocessing.
         border_pixels_to_ignore: because the segmentation at the borders of the
@@ -255,15 +255,15 @@ def predict_layer(
             memory on you GPU.
         evaluate_mode: True to run in evaluate mode
         cancel_filepath: If the file in this path exists, processing stops asap
-        nb_parallel_read (int, optional): The number of parallel threads to read/load
+        nb_parallel_read: The number of parallel threads to read/load
             images for prediction. If -1, a default value is used. At the time of
             writing the default is 3 * `batch_size`. Defaults to -1.
-        nb_parallel_postprocess (int, optional): The number of parallel
+        nb_parallel_postprocess: The number of parallel
             processes used to postprocess, e.g. vectorize,... the predictions. If -1,
             all available CPU's are used. Defaults to 1.
-        max_prediction_errors (int, optional): the maximum number of errors that is
+        max_prediction_errors: the maximum number of errors that is
             tolerated before stopping prediction. If -1, no limit. Defaults to 100.
-        ssl_verify (bool or str, optional): True to use the default
+        ssl_verify: True to use the default
             certificate bundle as installed on your system. False disables
             certificate validation (NOT recommended!). If a path to a
             certificate bundle file (.pem) is passed, this will be used.
@@ -271,7 +271,7 @@ def predict_layer(
             to avoid CERTIFICATE_VERIFY_FAILED errors. Defaults to True.
         force: False to skip images that already have a prediction, true to
             ignore existing predictions and overwrite them
-        no_images_ok (bool, optional): False to throw `ValueError`
+        no_images_ok: False to throw `ValueError`
             when no images available in the `input_image_dir`,
             True to return without error. Defaults to False.
     """
@@ -903,14 +903,14 @@ def read_image(
     """Read image file.
 
     Args:
-        image_path (Path): file path.
-        projection_if_missing (Optional[str], optional): the projection to use if the
+        image_path: file path.
+        projection_if_missing: the projection to use if the
             image to read does not contain projection information. Defaults to None.
-        preprocess_input (Optional[Callable], optional): the preprocessing function to
+        preprocess_input: the preprocessing function to
             apply to the image being read. Defaults to None.
 
     Returns:
-        dict: the data read from the image file.
+        the data read from the image file.
     """
     # Read input file
     # Because sometimes a read seems to fail, retry up to 3 times...
@@ -973,17 +973,17 @@ def load_image(
     """Load an image from the image_layer specified.
 
     Args:
-        bbox (Tuple): bounding box of the image to load.
-        size (Tuple): size of the image to load.
-        image_layer (dict): layer configuration to load the image.
-        ssl_verify (bool or str, optional): True to use the default certificate bundle
+        bbox: bounding box of the image to load.
+        size: size of the image to load.
+        image_layer: layer configuration to load the image.
+        ssl_verify: True to use the default certificate bundle
             as installed on your system. False disables certificate validation
             (NOT recommended!). If a path to a certificate bundle file (.pem) is passed,
             this will be used. In corporate networks using a proxy server this is often
             needed to avoid CERTIFICATE_VERIFY_FAILED errors. Defaults to True.
 
     Returns:
-        dict: the image and its properties.
+        the image and its properties.
     """
     # Load image
     crs = pyproj.CRS.from_user_input(image_layer["projection"])

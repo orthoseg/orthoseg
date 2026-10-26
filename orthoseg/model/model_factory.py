@@ -46,15 +46,15 @@ def get_model(
     """Get a model.
 
     Args:
-        architecture (str): Architecture of the network to create
-        input_width (int, optional): Width of the input images. Defaults to None.
-        input_height (int, optional): Height of the input images. Defaults to None.
-        nb_channels (int, optional): Nb of channels/bands of the input images.
+        architecture: Architecture of the network to create
+        input_width: Width of the input images. Defaults to None.
+        input_height: Height of the input images. Defaults to None.
+        nb_channels: Nb of channels/bands of the input images.
             Defaults to 3.
-        nb_classes (int, optional): Nb of classes to be segmented to. Defaults to 1.
-        activation (Activation, optional): Activation function of last layer.
+        nb_classes: Nb of classes to be segmented to. Defaults to 1.
+        activation: Activation function of last layer.
             Defaults to 'softmax'.
-        weights_type (str | None, optional): Type of weights to pre-load the network
+        weights_type: Type of weights to pre-load the network
             with. Supported options:
 
               - **aerial**: initialize the entire model with weights of a model
@@ -63,9 +63,9 @@ def get_model(
                 pretrained on imagenet, the decoder/backend is initialized randomly.
               - **None**: no weights are loaded, the model is initialized randomly.
 
-        weights_dir (Path | None, optional): Directory where pretrained weights are
+        weights_dir: Directory where pretrained weights are
             cached to and read from. If None, the system temp directory is used.
-        freeze (bool, optional): Freeze the weights of all layers that were initialized
+        freeze: Freeze the weights of all layers that were initialized
             with pretrained values. If only encoder/backend weight are preloaded (e.g.
             weights_type="imagenet"), only those layers are frozen, if all layers
             are pre-loaded (e.g. weights_type="aerial"), all layers except the top
@@ -73,7 +73,7 @@ def get_model(
             epochs to get a more robust network. Defaults to False.
 
     Returns:
-        Model: the model.
+        the model.
     """
     # Check architecture
     segment_architecture_parts = architecture.split("+")
@@ -181,7 +181,7 @@ def get_preprocess_input(architecture: str) -> Callable:
     pixel values to the range [-1, 1].
 
     Args:
-        architecture (str): the architecture to get the preprocessing function for.
+        architecture: the architecture to get the preprocessing function for.
     """
     # Check architecture
     segment_architecture_parts = architecture.split("+")
@@ -198,12 +198,12 @@ def get_preprocess_input_rescale(rescale_factor: float) -> Callable:
     """Get a preprocessing function that applies the rescale factor provided.
 
     Args:
-        rescale_factor (float): the factor to rescale pixel values with.
+        rescale_factor: the factor to rescale pixel values with.
             E.g. 1/255 or 0.0039215686274509803921568627451 to rescale pixel values to
             the range [0, 1].
 
     Returns:
-        Callable: the default preprocessing function.
+        the default preprocessing function.
     """
     return lambda x: _rescale(x, rescale_factor)
 
@@ -213,7 +213,7 @@ def _rescale(x, rescale_factor: float) -> Callable:
 
     Args:
         x: the input array, 3D or 4D, to preprocess.
-        rescale_factor (float): the factor to rescale pixel values with.
+        rescale_factor: the factor to rescale pixel values with.
             E.g. 1/255 or 0.0039215686274509803921568627451 to rescale pixel values to
             the range [0, 1].
 
@@ -235,17 +235,17 @@ def compile_model(
     """Compile the model for training.
 
     Args:
-        model (keras.models.Model): the keras model to compile.
-        optimizer (str): the optimizer to use.
-        optimizer_params (dict): parameters to use for optimizer.
-        loss (str): the loss function to use. One of:
+        model: the keras model to compile.
+        optimizer: the optimizer to use.
+        optimizer_params: parameters to use for optimizer.
+        loss: the loss function to use. One of:
             * categorical_crossentropy
             * categorical_focal_crossentropy
             * weighted_categorical_crossentropy
 
-        metrics (list[str], optional): metrics to use. Support to specify them is not
+        metrics: metrics to use. Support to specify them is not
             implemented... so should be None. Defaults to None.
-        class_weights (list[float], optional): class weights to use for the loss
+        class_weights: class weights to use for the loss
             function. Defaults to None.
     """
     # Get number classes of model
@@ -291,12 +291,12 @@ def _get_loss_func(
     """Get the loss function for a given loss name.
 
     Args:
-        loss (str): the name of the loss to get the function for.
-        class_weights (list[float], optional): class weights to use for the loss
+        loss: the name of the loss to get the function for.
+        class_weights: class weights to use for the loss
             function. Defaults to None.
 
     Returns:
-        Callable | str: the loss function.
+        the loss function.
     """
     loss_func: Callable | str
     if loss == "bcedice":
@@ -328,11 +328,11 @@ def _get_optimizer_func(optimizer: str, params: dict) -> Callable:
     """Get the optimizer function for a given optimizer name.
 
     Args:
-        optimizer (str): the name of the optimizer to get the function for.
-        params (dict): parameters to use for optimizer.
+        optimizer: the name of the optimizer to get the function for.
+        params: parameters to use for optimizer.
 
     Returns:
-        Callable: the optimizer function.
+        the optimizer function.
     """
     if hasattr(keras.optimizers, optimizer):
         optimizer_class = getattr(keras.optimizers, optimizer)
@@ -366,10 +366,10 @@ def load_model_hyperparams(model_path: Path) -> dict:
     """Load model hyperparameters from a json file.
 
     Args:
-        model_path (Path): the path to the model file to load the hyperparameters for.
+        model_path: the path to the model file to load the hyperparameters for.
 
     Returns:
-        dict: the loaded hyperparameters.
+        the loaded hyperparameters.
     """
     model_info = mh.parse_model_filename(model_path)
     model_hyperparams_path = (
@@ -399,8 +399,8 @@ def load_model(
        the weights are then loaded from the original file
 
     Args:
-        model_to_use_filepath (Path): The file to load the model from.
-        compile_model (bool, optional): True to get a compiled version back that is
+        model_to_use_filepath: The file to load the model from.
+        compile_model: True to get a compiled version back that is
             ready to train. Defaults to True.
 
     Raises:
@@ -408,7 +408,7 @@ def load_model(
             an error.
 
     Returns:
-        A tuple of (keras.models.Model, Callable): The loaded model and the function to
+        The loaded model and the function to
         use to preprocess input images when using the model.
     """
     errors = []
@@ -602,7 +602,7 @@ def set_dtype_policy(policy: str):
     """Set the keras dtype policy.
 
     Args:
-        policy (str): the policy to set. One of the following options:
+        policy: the policy to set. One of the following options:
             - "mixed_float16": Use mixed precision with float16 for computations and
               float32 for variables.
             - "float32": Use float32 for computations and variables.
@@ -621,7 +621,7 @@ def set_trainable(model, recompile: bool = True):
 
     Args:
         model (_type_): model to set trainable.
-        recompile (bool, optional): True to recompile the model so it is ready to train.
+        recompile: True to recompile the model so it is ready to train.
             Defaults to True.
     """
     # doesn't seem to work, so save and load model
@@ -634,9 +634,9 @@ def check_image_size(architecture: str, input_width: int, input_height: int):
     A ValueError is raised if the architecture is not compatible with the size.
 
     Args:
-        architecture (str): architecture to check compatibility for.
-        input_width (int): image width.
-        input_height (int): image height.
+        architecture: architecture to check compatibility for.
+        input_width: image width.
+        input_height: image height.
     """
     # Check architecture
     segment_architecture_parts = architecture.split("+")

@@ -25,12 +25,12 @@ class ProgressLogger:
         """ProgressLogger contructor.
 
         Args:
-            message (str): _description_
-            nb_steps_total (int): _description_
-            nb_steps_done (int, optional): _description_. Defaults to 0.
-            start_time (Optional[datetime], optional): _description_. Defaults to None.
-            time_between_reporting_s (int, optional): _description_. Defaults to 60.
-            calculate_eta_since_lastreporting (bool, optional): _description_.
+            message: _description_
+            nb_steps_total: _description_
+            nb_steps_done: _description_. Defaults to 0.
+            start_time: _description_. Defaults to None.
+            time_between_reporting_s: _description_. Defaults to 60.
+            calculate_eta_since_lastreporting: _description_.
                 Defaults to True.
         """
         self.message = message
@@ -54,10 +54,10 @@ class ProgressLogger:
         """Update the steps.
 
         Args:
-            nb_steps_done (int): number of steps done.
-            nb_steps_total (Optional[int], optional): total number of steps to be done.
+            nb_steps_done: number of steps done.
+            nb_steps_total: total number of steps to be done.
                 Defaults to None.
-            message (Optional[str], optional): message. Defaults to None.
+            message: message. Defaults to None.
         """
         if nb_steps_total is not None:
             self.nb_steps_total = nb_steps_total
@@ -68,8 +68,8 @@ class ProgressLogger:
         """Step the progress with the number of steps specified.
 
         Args:
-            message (Optional[str], optional): message. Defaults to None.
-            nb_steps (int, optional): number of steps. Defaults to 1.
+            message: message. Defaults to None.
+            nb_steps: number of steps. Defaults to 1.
         """
         # Increase done counter
         self.nb_steps_done += nb_steps
