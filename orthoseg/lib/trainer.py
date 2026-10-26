@@ -278,8 +278,11 @@ def train(
         )
         train_callbacks.append(tensorboard_logger)
     if hyperparams.train.log_csv is True:
-        csv_logger = keras.callbacks.CSVLogger(
-            str(csv_log_path), append=True, separator=";"
+        csv_logger = mh.CSVLoggerExt(
+            str(csv_log_path),
+            append=True,
+            separator=";",
+            custom_metrics={"monitor_metric": hyperparams.train.monitor_metric},
         )
         train_callbacks.append(csv_logger)
 
@@ -340,7 +343,7 @@ def train(
                 steps_per_epoch=train_steps_per_epoch,
                 epochs=hyperparams.train.nb_epoch_with_freeze,
                 validation_data=validation_gen,
-                # Number of items in validation/batch_size
+                shuffle=False,  # Shuffle is applied by the generator
                 validation_steps=validation_steps_per_epoch,
                 callbacks=train_callbacks,
                 initial_epoch=start_epoch,
@@ -361,7 +364,7 @@ def train(
             steps_per_epoch=train_steps_per_epoch,
             epochs=hyperparams.train.nb_epoch,
             validation_data=validation_gen,
-            # Number of items in validation/batch_size
+            shuffle=False,  # Shuffle is applied by the generator
             validation_steps=validation_steps_per_epoch,
             callbacks=train_callbacks,
             initial_epoch=start_epoch,

@@ -274,6 +274,47 @@ def test_prepare_labeldata_polygons_invalid(expected_error, geometry, classname)
     assert ex.value.errors[1].startswith(expected_error)
 
 
+def test_prepare_labeldata_polygons_invalid_non_default_geometry_column():
+    polygons_gdf = gpd.GeoDataFrame(
+        data={
+            "shape": [
+                TestData.polygon,
+                None,
+                TestData.polygon,
+                TestData.polygon,
+            ],
+            "geometry": [float("nan")] * 4,
+            "classname": ["unknown"] * 4,
+            "path": "/tmp/polygons.gdf",
+        },
+        geometry="shape",
+        crs="EPSG:31370",
+    )
+    label_info = prep_traindata.LabelInfo(
+        locations_path=Path("locations"),
+        polygons_path=Path("polygons"),
+        image_layer="BEFL-2019",
+        locations_gdf=TestData.locations_gdf,
+        polygons_gdf=polygons_gdf,
+    )
+
+    with pytest.raises(ValidationError, match="Errors found in label data") as ex:
+        prep_traindata.prepare_labeldata(
+            label_infos=[label_info],
+            classes=TestData.classes,
+            labelname_column="classname",
+            image_pixel_x_size=TestData.image_pixel_x_size,
+            image_pixel_y_size=TestData.image_pixel_y_size,
+            image_pixel_width=TestData.image_pixel_width,
+            image_pixel_height=TestData.image_pixel_height,
+        )
+
+    assert len(ex.value.errors) == 4
+    assert all(
+        error.startswith("Invalid class/label name ") for error in ex.value.errors
+    )
+
+
 def test_prepare_labeldata_polygons_columnname_backw_compat():
     # Test bacwards compatibility for old label column name
     # Prepare test data
