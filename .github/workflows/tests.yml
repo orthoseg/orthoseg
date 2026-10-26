@@ -83,7 +83,7 @@ jobs:
             ${{ matrix.extra }}
 
       - name: Clear TensorFlow executable-stack flags
-        if: runner.os == 'Linux' && matrix.env == 'latest'
+        if: runner.os == 'Linux' && matrix.env == 'latest' && matrix.python == '3.10'
         run: |
           set -euo pipefail
           tensorflow_package_dir="$(find "$CONDA_PREFIX" -type d -path '*/site-packages/tensorflow' -print -quit)"
