@@ -91,8 +91,16 @@ jobs:
             echo "Could not find the TensorFlow package in $CONDA_PREFIX" >&2
             exit 1
           fi
-          while IFS= read -r -d '' tensorflow_lib; do
+          mapfile -d '' -t tensorflow_libs < <(find "$CONDA_PREFIX" -type f \
+            \( -path "$tensorflow_package_dir/*" -o -name libtensorflow_cc.so.2 \) \
+            \( -name '*.so' -o -name '*.so.*' \) -print0)
+          if ((${#tensorflow_libs[@]} == 0)); then
+            echo "Could not find TensorFlow shared libraries in $CONDA_PREFIX" >&2
+            exit 1
+          fi
+          for tensorflow_lib in "${tensorflow_libs[@]}"; do
             execstack="$(patchelf --print-execstack "$tensorflow_lib")"
+            execstack="${execstack#execstack: }"
             case "$execstack" in
               X)
                 echo "Clearing executable-stack flag from $tensorflow_lib"
@@ -104,9 +112,7 @@ jobs:
                 exit 1
                 ;;
             esac
-          done < <(find "$CONDA_PREFIX" -type f \
-            \( -path "$tensorflow_package_dir/*" -o -name libtensorflow_cc.so.2 \) \
-            \( -name '*.so' -o -name '*.so.*' \) -print0)
+          done
 
       - name: Set KERAS_BACKEND if needed
         if: matrix.extra == 'jax'
