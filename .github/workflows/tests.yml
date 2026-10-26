@@ -91,14 +91,16 @@ jobs:
             echo "Could not find the TensorFlow package in $CONDA_PREFIX" >&2
             exit 1
           fi
-          mapfile -d '' -t tensorflow_libs < <(find "$CONDA_PREFIX" -type f \
-            \( -path "$tensorflow_package_dir/*" -o -name libtensorflow_cc.so.2 \) \
+          mapfile -d '' -t tensorflow_libs < <(find "$CONDA_PREFIX" \
+            \( -type f -o -type l \) \
+            \( -path "$tensorflow_package_dir/*" -o -name 'libtensorflow_cc.so*' \) \
             \( -name '*.so' -o -name '*.so.*' \) -print0)
           if ((${#tensorflow_libs[@]} == 0)); then
             echo "Could not find TensorFlow shared libraries in $CONDA_PREFIX" >&2
             exit 1
           fi
           for tensorflow_lib in "${tensorflow_libs[@]}"; do
+            tensorflow_lib="$(readlink -f "$tensorflow_lib")"
             execstack="$(patchelf --print-execstack "$tensorflow_lib")"
             execstack="${execstack#execstack: }"
             case "$execstack" in
