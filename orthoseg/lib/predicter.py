@@ -39,6 +39,7 @@ def predict_dir(
     input_image_dir: Path,
     output_image_dir: Path,
     output_vector_path: Path | None,
+    *,
     classes: list,
     min_probability: float = 0.5,
     postprocess_tiles_config: dict | None = None,
@@ -173,6 +174,7 @@ def predict_layer(
     model: keras.models.Model,
     preprocess_input: Callable | None,
     image_layer_config: dict[str, Any],
+    *,
     image_pixel_x_size: float,
     image_pixel_y_size: float,
     image_pixel_width: int,
@@ -360,6 +362,7 @@ def predict_layer(
 def _predict_layer(
     model: keras.models.Model,
     preprocess_input: Callable | None,
+    *,
     input_image_dir: Path | None,
     image_layer: dict[str, Any] | None,
     output_image_dir: Path,

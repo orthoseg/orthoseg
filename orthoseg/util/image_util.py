@@ -67,6 +67,7 @@ class WMSLayerSource:
         self,
         wms_server_url: str,
         layernames: list[str],
+        *,
         layerstyles: list[str] | None = None,
         bands: list[int] | None = None,
         username: str | None = None,
@@ -131,6 +132,7 @@ class FileLayerSource:
 def get_images_for_grid(
     output_image_dir: Path,
     crs: pyproj.CRS,
+    *,
     image_gen_bbox: tuple[float, float, float, float] | None = None,
     image_gen_roi_filepath: Path | None = None,
     grid_xmin: float = 0.0,
@@ -277,6 +279,7 @@ def load_images_to_cache(
     output_image_dir: Path,
     crs: str | pyproj.CRS,
     switch_axes: bool | None,
+    *,
     image_gen_bbox: tuple[float, float, float, float] | None = None,
     image_gen_roi_filepath: Path | None = None,
     grid_xmin: float = 0.0,
@@ -515,6 +518,7 @@ def _align_bbox_to_grid(
     grid_ymin: float,
     pixel_size_x: float,
     pixel_size_y: float,
+    *,
     log_level: int = logging.INFO,
 ) -> tuple[float, float, float, float]:
     """Align a bounding box to the grid specified.
@@ -608,6 +612,7 @@ def load_image_to_file(
     crs: str | pyproj.CRS,
     bbox: tuple[float, float, float, float],
     size: tuple[int, int],
+    *,
     ssl_verify: bool | str = True,
     image_format: str = FORMAT_GEOTIFF,
     image_format_save: str | None = None,
@@ -889,6 +894,7 @@ def load_image(
     crs: str | pyproj.CRS,
     bbox: tuple[float, float, float, float],
     size: tuple[int, int],
+    *,
     ssl_verify: bool | str = True,
     image_format: str = FORMAT_GEOTIFF,
     transparent: bool = False,

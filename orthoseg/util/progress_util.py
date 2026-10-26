@@ -16,6 +16,7 @@ class ProgressLogger:
         self,
         message: str,
         nb_steps_total: int,
+        *,
         nb_steps_done: int = 0,
         start_time: datetime.datetime | None = None,
         time_between_reporting_s: int = 60,

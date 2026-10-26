@@ -205,6 +205,7 @@ def clean_predictions(
 
 def clean_project_dir(
     model_dir: Path,
+    *,
     model_versions_to_retain: int,
     training_dir: Path,
     training_versions_to_retain: int,

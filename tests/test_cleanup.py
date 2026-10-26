@@ -374,6 +374,7 @@ def test_cleanup_project_dir(
     tmp_path: Path,
     simulate: bool,
     versions_to_retain: int,
+    *,
     removed_model_files: int,
     removed_training_dirs: int,
     removed_prediction_files: int,
