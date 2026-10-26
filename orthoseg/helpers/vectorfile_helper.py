@@ -15,6 +15,7 @@ def reclassify_neighbours(
     reclassify_column: str,
     query: str,
     output_path: Path,
+    *,
     class_background: str = "background",
     force: bool = False,
 ):

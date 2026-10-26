@@ -266,8 +266,10 @@ def test_validate_augmentations_defaults(tmp_path):
         (
             {"zoom_range": 0.1},
             {"zoom_range": 0.2},
-            "['when zoom_range is used, it should be in image_augmentations and "
-            "mask_augmentations with the same value'",
+            (
+                "['when zoom_range is used, it should be in image_augmentations and "
+                "mask_augmentations with the same value'"
+            ),
         ),
         (
             {"zoom_range": 9},

@@ -4,14 +4,15 @@ ci:
 
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: "v0.15.20"
+    rev: "v0.16.10"
     hooks:
       # Format the code
       - id: ruff-format
+        exclude: '^LICENSE\.MD$'
       # Lint the code
       - id: ruff-check
       #  args: [ --fix ] #, --unsafe-fixes ]
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: "v2.1.0"
+    rev: "v2.4.0"
     hooks:
       - id: mypy

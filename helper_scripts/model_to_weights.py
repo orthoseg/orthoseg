@@ -12,6 +12,7 @@ def convert_model(
     model_path: Path,
     weights_dir: Path,
     weight_type: str,
+    *,
     include_top: bool,
     version: int,
     overwrite: bool = True,
