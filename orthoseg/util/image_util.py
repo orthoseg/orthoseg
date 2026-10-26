@@ -585,8 +585,8 @@ def _prepare_auth(
         elif ssl_verify.lower() == "false":
             ssl_verify = False
         else:
-            ssl_verify = True
             cert = ssl_verify
+            ssl_verify = True
     elif not isinstance(ssl_verify, bool):
         raise ValueError(f"Invalid value for ssl_verify: {ssl_verify}")
 
