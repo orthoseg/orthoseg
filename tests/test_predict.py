@@ -10,6 +10,7 @@ from pathlib import Path
 import geofileops as gfo
 import geopandas as gpd
 import pytest
+from PIL import Image
 
 from orthoseg import predict
 from orthoseg.helpers import config_helper as conf
@@ -18,6 +19,150 @@ from tests import test_helper
 from tests.test_helper import SportsFields
 
 predict_module = importlib.import_module("orthoseg.predict")
+
+
+def _write_cache_jpg(cache_dir: Path, pixel_x_size: float, pixel_y_size: float):
+    image_dir = cache_dir / "first"
+    image_dir.mkdir(parents=True)
+    image_path = image_dir / "tile.jpg"
+    Image.new("RGB", (2, 2)).save(image_path)
+    image_path.with_suffix(".jgw").write_text(
+        f"{pixel_x_size}\n0\n0\n{-pixel_y_size}\n0\n0\n"
+    )
+
+
+def test_validate_input_image_dir(tmp_path, caplog):
+    configured_dir = tmp_path / "512x512_0pxOverlap"
+    fallback_dir = tmp_path / "1024x1024_0pxOverlap"
+    fallback_dir.mkdir()
+    _write_cache_jpg(fallback_dir, pixel_x_size=0.25, pixel_y_size=0.25)
+    (tmp_path / "not_a_cache_dir").mkdir()
+
+    result = predict_module._validate_input_image_dir(
+        configured_dir,
+        image_pixel_x_size=0.25,
+        image_pixel_y_size=0.25,
+        use_cache="yes",
+    )
+
+    assert result == fallback_dir
+    assert "Using compatible cache directory" in caplog.text
+
+
+def test_validate_input_image_dir_multiple_candidates(tmp_path, caplog):
+    configured_dir = tmp_path / "512x512_0pxOverlap"
+    candidate_dirs = [
+        tmp_path / "1024x1024_0pxOverlap",
+        tmp_path / "2048x2048_0pxOverlap",
+    ]
+    for candidate_dir in candidate_dirs:
+        candidate_dir.mkdir()
+
+    candidate_order = [path for path in tmp_path.iterdir() if path in candidate_dirs]
+    _write_cache_jpg(candidate_order[0], pixel_x_size=0.5, pixel_y_size=0.25)
+    _write_cache_jpg(candidate_order[1], pixel_x_size=0.25, pixel_y_size=0.25)
+
+    result = predict_module._validate_input_image_dir(
+        configured_dir,
+        image_pixel_x_size=0.25,
+        image_pixel_y_size=0.25,
+        use_cache="yes",
+    )
+
+    assert result == candidate_order[1]
+    assert f"Using compatible cache directory: {candidate_order[1]}" in caplog.text
+
+
+@pytest.mark.parametrize("create_parent", [True, False])
+@pytest.mark.parametrize(
+    "use_cache, should_raise",
+    [("yes", True), ("ifavailable", False), ("no", False)],
+)
+def test_validate_input_image_dir_without_candidates(
+    tmp_path, create_parent, use_cache, should_raise
+):
+    configured_dir = tmp_path / "cache" / "512x512_0pxOverlap"
+    if create_parent:
+        configured_dir.parent.mkdir()
+
+    if should_raise:
+        with pytest.raises(ValueError, match="Input image directory does not exist"):
+            predict_module._validate_input_image_dir(
+                configured_dir,
+                image_pixel_x_size=0.25,
+                image_pixel_y_size=0.25,
+                use_cache=use_cache,
+            )
+    else:
+        assert (
+            predict_module._validate_input_image_dir(
+                configured_dir,
+                image_pixel_x_size=0.25,
+                image_pixel_y_size=0.25,
+                use_cache=use_cache,
+            )
+            == configured_dir
+        )
+
+
+@pytest.mark.parametrize("use_cache", ["no", "ifavailable"])
+def test_validate_input_image_dir_skips_incompatible_cache(tmp_path, caplog, use_cache):
+    configured_dir = tmp_path / "512x512_0pxOverlap"
+    incompatible_dir = tmp_path / "1024x1024_0pxOverlap"
+    incompatible_dir.mkdir()
+    _write_cache_jpg(incompatible_dir, pixel_x_size=0.5, pixel_y_size=0.5)
+
+    assert (
+        predict_module._validate_input_image_dir(
+            configured_dir,
+            image_pixel_x_size=0.25,
+            image_pixel_y_size=0.25,
+            use_cache=use_cache,
+        )
+        == configured_dir
+    )
+    if use_cache == "ifavailable":
+        assert "fetching images directly" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "cached_pixel_x_size, cached_pixel_y_size, is_compatible",
+    [
+        (0.25, 0.5, True),
+        (0.5, 0.5, False),
+        (0.25, 0.75, False),
+    ],
+)
+def test_validate_input_image_dir_checks_pixel_sizes(
+    tmp_path, cached_pixel_x_size, cached_pixel_y_size, is_compatible
+):
+    input_image_dir = tmp_path / "512x512_0pxOverlap"
+    fallback_dir = tmp_path / "1024x1024_0pxOverlap"
+    fallback_dir.mkdir()
+    _write_cache_jpg(
+        fallback_dir,
+        pixel_x_size=cached_pixel_x_size,
+        pixel_y_size=cached_pixel_y_size,
+    )
+
+    if is_compatible:
+        assert (
+            predict_module._validate_input_image_dir(
+                input_image_dir,
+                image_pixel_x_size=0.25,
+                image_pixel_y_size=0.5,
+                use_cache="yes",
+            )
+            == fallback_dir
+        )
+    else:
+        with pytest.raises(ValueError, match="No compatible cache directory"):
+            predict_module._validate_input_image_dir(
+                input_image_dir,
+                image_pixel_x_size=0.25,
+                image_pixel_y_size=0.5,
+                use_cache="yes",
+            )
 
 
 @pytest.mark.parametrize(

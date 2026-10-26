@@ -1,13 +1,42 @@
 """Tests for the model_helper module."""
 
+import csv
 import re
 from pathlib import Path
 
+import keras
 import pytest
 
 from orthoseg._compat import KERAS_GTE_3
 from orthoseg.helpers import config_helper as conf
 from orthoseg.model import model_helper
+
+
+def test_csv_logger_ext_logs_custom_formula(tmp_path):
+    csv_path = tmp_path / "training.csv"
+    logs = {"accuracy": 0.8, "val_accuracy": 0.6}
+    logger = model_helper.CSVLoggerExt(
+        csv_path,
+        separator=";",
+        custom_metrics={
+            "monitor_metric": "({accuracy}+{val_accuracy})/2",
+            "accuracy_alias": "accuracy",
+        },
+    )
+
+    logger.set_model(keras.Sequential())
+    logger.on_train_begin()
+    logger.on_epoch_end(0, logs)
+    logger.on_train_end()
+
+    with csv_path.open(newline="") as csv_file:
+        row = next(csv.DictReader(csv_file, delimiter=";"))
+
+    assert row["accuracy"] == "0.8"
+    assert row["val_accuracy"] == "0.6"
+    assert row["monitor_metric"] == "0.7"
+    assert row["accuracy_alias"] == "0.8"
+    assert logs == {"accuracy": 0.8, "val_accuracy": 0.6}
 
 
 @pytest.mark.parametrize(

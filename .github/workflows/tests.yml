@@ -82,6 +82,44 @@ jobs:
             python=${{ matrix.python }}
             ${{ matrix.extra }}
 
+      - name: Clear TensorFlow executable-stack flags
+        if: runner.os == 'Linux' && matrix.env == 'latest' && matrix.python == '3.10'
+        run: |
+          set -euo pipefail
+          tensorflow_package_dir="$(find "$CONDA_PREFIX" -type d -path '*/site-packages/tensorflow' -print -quit)"
+          if [[ -z "$tensorflow_package_dir" ]]; then
+            echo "Could not find the TensorFlow package in $CONDA_PREFIX" >&2
+            exit 1
+          fi
+          mapfile -d '' -t tensorflow_libs < <(find "$CONDA_PREFIX" \
+            \( -type f -o -type l \) \
+            \( -path "$tensorflow_package_dir/*" -o -name 'libtensorflow_cc.so*' \) \
+            \( -name '*.so' -o -name '*.so.*' \) -print0)
+          if ((${#tensorflow_libs[@]} == 0)); then
+            echo "Could not find TensorFlow shared libraries in $CONDA_PREFIX" >&2
+            exit 1
+          fi
+          for tensorflow_lib in "${tensorflow_libs[@]}"; do
+            if [[ ! -f "$tensorflow_lib" ]]; then
+              echo "Skipping TensorFlow library path without a file target: $tensorflow_lib" >&2
+              continue
+            fi
+            tensorflow_lib="$(readlink -f "$tensorflow_lib")"
+            execstack="$(patchelf --print-execstack "$tensorflow_lib")"
+            execstack="${execstack#execstack: }"
+            case "$execstack" in
+              X)
+                echo "Clearing executable-stack flag from $tensorflow_lib"
+                patchelf --clear-execstack "$tensorflow_lib"
+                ;;
+              -) ;;
+              *)
+                echo "Unexpected patchelf output '$execstack' for $tensorflow_lib" >&2
+                exit 1
+                ;;
+            esac
+          done
+
       - name: Set KERAS_BACKEND if needed
         if: matrix.extra == 'jax'
         run: echo "KERAS_BACKEND=jax" >> $GITHUB_ENV
