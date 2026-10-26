@@ -310,7 +310,9 @@ def test_prepare_labeldata_polygons_invalid_non_default_geometry_column():
         )
 
     assert len(ex.value.errors) == 4
-    assert all(error.startswith("Invalid class/label name ") for error in ex.value.errors)
+    assert all(
+        error.startswith("Invalid class/label name ") for error in ex.value.errors
+    )
 
 
 def test_prepare_labeldata_polygons_columnname_backw_compat():

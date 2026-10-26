@@ -631,9 +631,7 @@ def prepare_labeldata(
                     labelnames.extend(classvalue["labelnames"])
                 geometry = invalid_row[labels_to_burn_gdf.geometry.name]
                 point = (
-                    geometry.representative_point()
-                    if not pd.isna(geometry)
-                    else None
+                    geometry.representative_point() if not pd.isna(geometry) else None
                 )
                 validation_errors.append(
                     f"Invalid class/label name at {point} "
