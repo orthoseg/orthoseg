@@ -35,6 +35,7 @@
   multilayer example for tests and documentation (#341)
 - If a layer cache directory with different image size but same resolution exists,
   use that when predicting (#362)
+- Use SSL bundle from REQUESTS_CA_BUNDLE for WMS fetching if specified (#367)
 - Improve performance of training data preparation (#344)
 - Improve handling of `switch_axes` and `ssl_verify` (#295)
 - When writing evaluation data for training images, don't write results with a
