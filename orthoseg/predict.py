@@ -2,11 +2,15 @@
 
 import argparse
 import logging
+import math
 import pprint
+import re
 import sys
 import traceback
 from pathlib import Path
 from typing import Any
+
+import rasterio as rio
 
 import orthoseg.model.model_factory as mf
 import orthoseg.model.model_helper as mh
@@ -17,6 +21,114 @@ from orthoseg.util import log_util
 
 # Get a logger...
 logger = logging.getLogger(__name__)
+
+
+def _validate_input_image_dir(
+    input_image_dir: Path,
+    image_pixel_x_size: float,
+    image_pixel_y_size: float,
+    use_cache: str,
+) -> Path:
+    """Validate the input image directory.
+
+    Returns the input image directory if it exists or a compatible sibling cache
+    directory if available. A missing cache is allowed when ``use_cache`` is
+    ``"ifavailable"`` or ``"no"``.
+
+    If the exactly configured image cache directory is not found, return a compatible
+    sibling cache directory if available. Check the first JPG in the first
+    subdirectory against the configured prediction pixel sizes.
+    """
+    if use_cache == "no":
+        return input_image_dir
+
+    if input_image_dir.exists():
+        return input_image_dir
+
+    if not input_image_dir.parent.is_dir():
+        if use_cache == "ifavailable":
+            return input_image_dir
+        raise ValueError(f"Input image directory does not exist: {input_image_dir}")
+
+    # Look for compatible sibling cache directories
+    cache_dir_pattern = re.compile(r"^\d+x\d+_\d+pxOverlap$")
+    matching_dirs = [
+        path
+        for path in input_image_dir.parent.iterdir()
+        if path.is_dir() and cache_dir_pattern.fullmatch(path.name)
+    ]
+    if not matching_dirs:
+        if use_cache == "ifavailable":
+            return input_image_dir
+        raise ValueError(f"Input image directory does not exist: {input_image_dir}")
+
+    incompatible_dirs = []
+    for candidate_dir in matching_dirs:
+        pixel_size_mismatch = _check_input_image_pixel_size(
+            candidate_dir,
+            image_pixel_x_size=image_pixel_x_size,
+            image_pixel_y_size=image_pixel_y_size,
+        )
+        if pixel_size_mismatch is None:
+            logger.warning(
+                f"Configured input_image_dir does not exist: {input_image_dir}. "
+                f"Using compatible cache directory: {candidate_dir}"
+            )
+            return candidate_dir
+
+        incompatible_dirs.append(f"{candidate_dir}: {pixel_size_mismatch}")
+
+    if use_cache == "ifavailable":
+        logger.warning(
+            f"No compatible cache directory found for {input_image_dir}; "
+            "fetching images directly"
+        )
+        return input_image_dir
+
+    raise ValueError(
+        f"Configured input_image_dir does not exist: {input_image_dir}. "
+        "No compatible cache directory found for predict pixel sizes "
+        f"x={image_pixel_x_size}, y={image_pixel_y_size}. "
+        f"Checked: {'; '.join(incompatible_dirs)}"
+    )
+
+
+def _check_input_image_pixel_size(
+    input_image_dir: Path, image_pixel_x_size: float, image_pixel_y_size: float
+) -> str | None:
+    """Checks whether the input directory has images with the specified pixel sizes.
+
+    Returns:
+        str | None: If there is a mismatch in pixel sizes, returns a string with a
+            message describing the mismatch, otherwise None.
+    """
+    first_subdirectory = next(
+        (path for path in input_image_dir.iterdir() if path.is_dir()),
+        None,
+    )
+    if first_subdirectory is None:
+        return "no subdirectory found"
+
+    first_jpg = next(first_subdirectory.rglob("*.jpg"), None)
+    if first_jpg is None:
+        return f"no JPG found in {first_subdirectory}"
+
+    try:
+        with rio.open(first_jpg) as image_ds:
+            cached_pixel_x_size = abs(image_ds.transform.a)
+            cached_pixel_y_size = abs(image_ds.transform.e)
+    except rio.errors.RasterioIOError as ex:
+        return f"could not read pixel sizes from {first_jpg}: {ex}"
+
+    mismatches = []
+    if not math.isclose(cached_pixel_x_size, image_pixel_x_size):
+        mismatches.append(f"x={cached_pixel_x_size} (configured {image_pixel_x_size})")
+    if not math.isclose(cached_pixel_y_size, image_pixel_y_size):
+        mismatches.append(f"y={cached_pixel_y_size} (configured {image_pixel_y_size})")
+    if mismatches:
+        return f"pixel sizes of {first_jpg} do not match: {', '.join(mismatches)}"
+
+    return None
 
 
 def _set_dtype_policy_for_predict(dtype_policy_raw: str | None):
@@ -122,7 +234,13 @@ def predict(
         if image_layer_config is None:
             raise ValueError(f"{image_layer=} is not configured in image_layers")
 
-        input_image_dir = conf.dirs.getpath("predict_image_input_dir")
+        use_cache = image_layer_config.get("use_cache", "yes")
+        input_image_dir = _validate_input_image_dir(
+            conf.dirs.getpath("predict_image_input_dir"),
+            image_pixel_x_size=conf.predict.getfloat("image_pixel_x_size"),
+            image_pixel_y_size=conf.predict.getfloat("image_pixel_y_size"),
+            use_cache=use_cache,
+        )
 
         # Create base filename of model to use
         # TODO: is force data version the most logical, or rather implement
@@ -327,9 +445,16 @@ def predict(
         )
 
         # Prepare the output dirs/paths
-        predict_output_dir = Path(
-            f"{conf.dirs['predict_image_output_basedir']}_{predict_out_subdir}"
+        # If the raw value of predict_image_output_basedir is a reference to the image
+        # input dir, just use the input_image_dir as base
+        predict_image_output_basedir_raw = conf.dirs.get(
+            "predict_image_output_basedir", raw=True
         )
+        if predict_image_output_basedir_raw == "${predict_image_input_dir}":
+            base_output_str = input_image_dir.as_posix()
+        else:
+            base_output_str = conf.dirs["predict_image_output_basedir"]
+        predict_output_dir = Path(f"{base_output_str}_{predict_out_subdir}")
 
         # Start predict for entire dataset
         # --------------------------------
@@ -337,7 +462,6 @@ def predict(
         email_helper.sendmail(f"Start predict for {model_name} on {image_layer}")
 
         # Check if we should use an image cache
-        use_cache = image_layer_config.get("use_cache", "yes")
         if use_cache == "ifavailable":
             use_cache = (
                 "yes"
