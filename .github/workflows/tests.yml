@@ -82,15 +82,31 @@ jobs:
             python=${{ matrix.python }}
             ${{ matrix.extra }}
 
-      - name: Clear TensorFlow executable-stack flag
+      - name: Clear TensorFlow executable-stack flags
         if: runner.os == 'Linux' && matrix.env == 'latest'
         run: |
-          tensorflow_cc_lib="$(find "$CONDA_PREFIX" -name libtensorflow_cc.so.2 -print -quit)"
-          if [[ -z "$tensorflow_cc_lib" ]]; then
-            echo "Could not find libtensorflow_cc.so.2 in $CONDA_PREFIX" >&2
+          set -euo pipefail
+          tensorflow_package_dir="$(find "$CONDA_PREFIX" -type d -path '*/site-packages/tensorflow' -print -quit)"
+          if [[ -z "$tensorflow_package_dir" ]]; then
+            echo "Could not find the TensorFlow package in $CONDA_PREFIX" >&2
             exit 1
           fi
-          patchelf --clear-execstack "$tensorflow_cc_lib"
+          while IFS= read -r -d '' tensorflow_lib; do
+            execstack="$(patchelf --print-execstack "$tensorflow_lib")"
+            case "$execstack" in
+              X)
+                echo "Clearing executable-stack flag from $tensorflow_lib"
+                patchelf --clear-execstack "$tensorflow_lib"
+                ;;
+              -) ;;
+              *)
+                echo "Unexpected patchelf output '$execstack' for $tensorflow_lib" >&2
+                exit 1
+                ;;
+            esac
+          done < <(find "$CONDA_PREFIX" -type f \
+            \( -path "$tensorflow_package_dir/*" -o -name libtensorflow_cc.so.2 \) \
+            \( -name '*.so' -o -name '*.so.*' \) -print0)
 
       - name: Set KERAS_BACKEND if needed
         if: matrix.extra == 'jax'
