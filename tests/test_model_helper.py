@@ -4,6 +4,7 @@ import csv
 import re
 from pathlib import Path
 
+import keras
 import pytest
 
 from orthoseg._compat import KERAS_GTE_3
@@ -23,6 +24,7 @@ def test_csv_logger_ext_logs_custom_formula(tmp_path):
         },
     )
 
+    logger.set_model(keras.Sequential())
     logger.on_train_begin()
     logger.on_epoch_end(0, logs)
     logger.on_train_end()
