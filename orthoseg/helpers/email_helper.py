@@ -17,9 +17,9 @@ def sendmail(subject: str, body: str | None = None, stop_on_error: bool = False)
     """Send an email.
 
     Args:
-        subject (str): subject of the email
-        body (Optional[str], optional): body of the email. Defaults to None.
-        stop_on_error (bool, optional): True to stop when an error occurs sending the
+        subject: subject of the email
+        body: body of the email. Defaults to None.
+        stop_on_error: True to stop when an error occurs sending the
             email. Defaults to False.
     """
     if conf is None:

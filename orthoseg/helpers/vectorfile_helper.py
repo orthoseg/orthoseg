@@ -31,13 +31,13 @@ def reclassify_neighbours(
         - perimeter (float): the perimeter of the geometry.
 
     Args:
-        input_path (Path): input file path.
-        reclassify_column (str): column to reclassify.
-        query (str): th query to find the features to reclassify.
-        output_path (Path): output file path.
-        class_background (str, optional): the classname to treat as background.
+        input_path: input file path.
+        reclassify_column: column to reclassify.
+        query: th query to find the features to reclassify.
+        output_path: output file path.
+        class_background: the classname to treat as background.
             Defaults to "background".
-        force (bool, optional): True to force calculation even if output file exists.
+        force: True to force calculation even if output file exists.
             Defaults to False.
 
     Raises:

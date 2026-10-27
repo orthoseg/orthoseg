@@ -388,7 +388,7 @@ def main(argv: list[str] | None = None) -> None:
     """Main entry point for the CLI.
 
     Args:
-        argv (list[str] | None, optional): Command-line arguments. Defaults to None.
+        argv: Command-line arguments. Defaults to None.
     """
     parser = argparse.ArgumentParser(
         description="Convert an INI file to a Sphinx RST file of confval directives."

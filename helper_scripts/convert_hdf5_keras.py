@@ -13,7 +13,7 @@ def convert_model(model_path: Path):
     """Convert model from .hdf5 to .keras.
 
     Args:
-        model_path (Path): Path to the hdf5 model.
+        model_path: Path to the hdf5 model.
     """
     if not keras.__version__.startswith("3."):
         raise RuntimeError(

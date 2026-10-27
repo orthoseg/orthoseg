@@ -54,8 +54,8 @@ def load_sampleprojects(dest_dir: Path, ssl_verify: bool | str = True):  # noqa:
     """Load the orthoseg sample projects.
 
     Args:
-        dest_dir (Path): directory to save them to.
-        ssl_verify (bool or str, optional): True to use the default certificate bundle
+        dest_dir: directory to save them to.
+        ssl_verify: True to use the default certificate bundle
             as installed on your system. False disables certificate validation
             (NOT recommended!). If a path to a certificate bundle file (.pem) is passed,
             this will be used. In corporate networks using a proxy server this is often

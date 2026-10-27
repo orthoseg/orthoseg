@@ -73,30 +73,30 @@ def postprocess_predictions(
     Args:
         input_path: path to the 'raw' prediction vector file.
         output_path: the base path where the output file(s) will be written to.
-        clip_path (Path, optional): Path to a vector file used to clip the input
+        clip_path: Path to a vector file used to clip the input
             before other postprocess steps. If None, no clipping is applied.
-        dissolve (bool): True if a dissolve needs to be applied
-        dissolve_tiles_path (PathLike, optional): Path to a geofile containing
+        dissolve: True if a dissolve needs to be applied
+        dissolve_tiles_path: Path to a geofile containing
             the tiles to be used for the dissolve. Defaults to None.
-        reclassify_to_neighbour_query (str, optional): Defaults to None.
-        simplify_algorithm (str, optional): Algorithm to use for simplification. If
+        reclassify_to_neighbour_query: Defaults to None.
+        simplify_algorithm: Algorithm to use for simplification. If
             None, no simplification is applied. Defaults to None.
-        simplify_tolerance (float): Tolerance to use for the simplification.
+        simplify_tolerance: Tolerance to use for the simplification.
             Defaults to 1.
-        simplify_lookahead (int): Lookahead to use for simplification. Default to 8.
-        output_style_path (Path, optional): Path to a QGIS .qml style file. If
+        simplify_lookahead: Lookahead to use for simplification. Default to 8.
+        output_style_path: Path to a QGIS .qml style file. If
             specified and output is a GeoPackage, the style is added to the layer.
         keep_original_file: If True, the input file  will be retained after
             postprocessing, otherwise it is removed.
         keep_intermediary_files: If True, intermediary postprocessing files are
             retained.
-        nb_parallel (int, optional): number of cpu's to use for postprocessing.
+        nb_parallel: number of cpu's to use for postprocessing.
             Use all cpu's if it is -1. Defaults to -1.
         force: False to skip results that already exist, True to
                ignore existing results and overwrite them
 
     Returns:
-        dict[str, Path]: Dictionary with the paths of the created intermediary files.
+        Dictionary with the paths of the created intermediary files.
             The keys are the postprocessing steps that were applied. E.g. "clip",
             "dissolve", "reclass", "simplify". The values are the paths to the created
             files. If no postprocessing was applied or if `keep_intermediary_files` is
@@ -290,10 +290,10 @@ def read_prediction_file(filepath: Path) -> gpd.GeoDataFrame | None:
     """Read the prediction file specified.
 
     Args:
-        filepath (Path): path to the prediction file.
+        filepath: path to the prediction file.
 
     Returns:
-        Optional[gpd.GeoDataFrame]: the vectorized and cleaned prediction.
+        the vectorized and cleaned prediction.
     """
     ext_lower = filepath.suffix.lower()
     if ext_lower == ".geojson":
@@ -324,42 +324,42 @@ def postprocess_prediction_to_file(
     """Postprocess a prediction to file(s).
 
     Args:
-        image_pred_arr (np.ndarray): The prediction as returned by keras.
-        image_crs (str): Crs of the prediction image.
+        image_pred_arr: The prediction as returned by keras.
+        image_crs: Crs of the prediction image.
         image_transform (_type_): transform of the prediction image.
-        classes (list): _description_
-        output_vector_path (Path | None, optional): The path to write the polygonized
+        classes: _description_
+        output_vector_path: The path to write the polygonized
             prediction to. If None, no polygonized result is written. Defaults to None.
-        output_image_dir (Path | None, optional): The directory to write the prediction
+        output_image_dir: The directory to write the prediction
             to as an image. If None, no image of the prediction is written.
             Defaults to None.
-        input_image_filepath (Path | None, optional): The path to the image that was
+        input_image_filepath: The path to the image that was
             predicted image. Is mandatory if output_image_dir is not None.
             Defaults to None.
-        evaluate_mode (bool, optional): True to write additional images to
+        evaluate_mode: True to write additional images to
             `output_image_dir` that can help to evaluate the prediction quality. E.g.
             the original image the the image mask (if available). Defaults to False.
-        input_image_dir (Path | None, optional): Only relevant if `evaluate_mode=True`.
+        input_image_dir: Only relevant if `evaluate_mode=True`.
             The base directory where the input images for the prediction can be found.
             Defaults to None.
-        input_mask_dir (Path | None, optional): Only relevant if `evaluate_mode=True`.
+        input_mask_dir: Only relevant if `evaluate_mode=True`.
             The base directory where mask images for the input images can be found.
             Defaults to None.
-        min_probability (float): Minimum probability to consider a pixel being of a
+        min_probability: Minimum probability to consider a pixel being of a
             certain class. Defaults to 0.5.
-        border_pixels_to_ignore (int, optional): number of pixels at all borders that
+        border_pixels_to_ignore: number of pixels at all borders that
             should be ignored. Defaults to 0.
-        postprocess_tiles_config (dict | None, optional): specifies which postprocessing
+        postprocess_tiles_config: specifies which postprocessing
             should be applied to each predicted tile.
             Default is None, so no postprocessing.
-        force (bool, optional): True to force calculation even if output file(s) exist.
+        force: True to force calculation even if output file(s) exist.
             Defaults to False.
 
     Raises:
         ValueError: invalid input parameters specified.
 
     Returns:
-        dict[str, Any]: Returns debugging information.
+        Returns debugging information.
     """
     result: dict[str, Any] = {}
 
@@ -408,11 +408,11 @@ def to_binary_uint8(in_arr: np.ndarray, thresshold_ok: int = 128) -> np.ndarray:
     """Convert input array to binary UINT8.
 
     Args:
-        in_arr (np.ndarray): input array
-        thresshold_ok (int, optional): thresshold to use. Defaults to 128.
+        in_arr: input array
+        thresshold_ok: thresshold to use. Defaults to 128.
 
     Returns:
-        np.ndarray: result
+        result
     """
     # Check input parameters
     if in_arr.dtype != np.uint8:
@@ -458,22 +458,22 @@ def postprocess_for_evaluation(
         - if no mask is available, the % of pixels that is white
 
     Args:
-        image_filepath (Path): _description_
-        image_crs (str): _description_
+        image_filepath: _description_
+        image_crs: _description_
         image_transform (_type_): _description_
-        image_pred_filepath (Path): _description_
-        image_pred_uint8_cleaned_bin (np.ndarray): _description_
-        class_id (int): _description_
-        class_name (str): _description_
-        nb_classes (int): _description_
-        output_dir (Path): _description_
-        output_suffix (Optional[str], optional): _description_. Defaults to None.
-        input_image_dir (Optional[Path], optional): _description_. Defaults to None.
-        input_mask_dir (Optional[Path], optional): _description_. Defaults to None.
-        max_similarity_to_save (float | None, optional): Maximum similarity
+        image_pred_filepath: _description_
+        image_pred_uint8_cleaned_bin: _description_
+        class_id: _description_
+        class_name: _description_
+        nb_classes: _description_
+        output_dir: _description_
+        output_suffix: _description_. Defaults to None.
+        input_image_dir: _description_. Defaults to None.
+        input_mask_dir: _description_. Defaults to None.
+        max_similarity_to_save: Maximum similarity
             for which evaluation outputs should be saved. If the measured
             similarity is higher, evaluation outputs are skipped. Defaults to 0.999.
-        border_pixels_to_ignore (int, optional): number of pixels at all borders that
+        border_pixels_to_ignore: number of pixels at all borders that
             should be ignored. Defaults to 0.
 
     Raises:
@@ -664,9 +664,9 @@ def polygonize_pred_for_evaluation(
 
     Args:
         image_pred_uint8_bin (_type_): _description_
-        image_crs (str): _description_
+        image_crs: _description_
         image_transform (_type_): _description_
-        output_basefilepath (Path): _description_
+        output_basefilepath: _description_
     """
     # Polygonize result
     try:
@@ -767,12 +767,12 @@ def polygonize_pred_from_file(
     """Polygonize a prediction from a file.
 
     Args:
-        image_pred_filepath (Path): path to the file to be read.
-        save_to_file (bool, optional): If True, save te result to a file.
+        image_pred_filepath: path to the file to be read.
+        save_to_file: If True, save te result to a file.
             Defaults to False.
 
     Returns:
-        Optional[gpd.GeoDataFrame]: _description_
+        _description_
     """
     try:
         with rio.open(image_pred_filepath) as image_ds:
@@ -826,23 +826,23 @@ def polygonize_pred_multiclass_to_file(
     """Polygonize a multiclass prediction to a file.
 
     Args:
-        image_pred_arr (np.ndarray): The prediction as returned by keras.
-        image_crs (str): Crs of the prediction image.
+        image_pred_arr: The prediction as returned by keras.
+        image_crs: Crs of the prediction image.
         image_transform (_type_): transform of the prediction image.
-        classes (list): List of class names.
-        output_vector_path (Path): Path to the output vector file.
-        min_probability (float): Minimum probability to consider a pixel being of a
+        classes: List of class names.
+        output_vector_path: Path to the output vector file.
+        min_probability: Minimum probability to consider a pixel being of a
             certain class. Defaults to 0.5.
-        postprocess_tiles_config (dict | None, optional): specifies which postprocessing
+        postprocess_tiles_config: specifies which postprocessing
             should be applied to each predicted tile.
             Default is None, so no postprocessing.
-        border_pixels_to_ignore (int, optional): number of pixels at all borders that
+        border_pixels_to_ignore: number of pixels at all borders that
             should be ignored. Defaults to 0.
-        force (bool, optional): Whether to overwrite the output file if it exists.
+        force: Whether to overwrite the output file if it exists.
             Defaults to False.
 
     Returns:
-        dict: Dictionary containing the number of features written and the columns of
+        Dictionary containing the number of features written and the columns of
               the resulting GeoDataFrame.
     """
     if output_vector_path.exists():
@@ -890,20 +890,20 @@ def polygonize_pred_multiclass(
     """Polygonize a multiclass prediction.
 
     Args:
-        image_pred_arr (np.ndarray): _description_
-        image_crs (str): _description_
+        image_pred_arr: _description_
+        image_crs: _description_
         image_transform (_type_): _description_
-        classes (list): _description_
-        min_probability (float): Minimum probability to consider a pixel being of a
+        classes: _description_
+        min_probability: Minimum probability to consider a pixel being of a
             certain class. Defaults to 0.5.
-        postprocess_tiles_config (dict | None, optional): specifies which postprocessing
+        postprocess_tiles_config: specifies which postprocessing
             should be applied to each predicted tile.
             Default is None, so no postprocessing.
-        border_pixels_to_ignore (int, optional): number of pixels at all borders that
+        border_pixels_to_ignore: number of pixels at all borders that
             should be ignored. Defaults to 0.
 
     Returns:
-        Optional[gpd.GeoDataFrame]: The resulting GeoDataFrame if any polygons were
+        The resulting GeoDataFrame if any polygons were
             created, otherwise None.
     """
     # Init
@@ -1058,17 +1058,17 @@ def polygonize_pred(
 
     Args:
         image_pred_uint8_bin (_type_): _description_
-        image_crs (str): _description_
+        image_crs: _description_
         image_transform (_type_): _description_
-        mask_background (bool, optional): _description_. Defaults to True.
-        classnames (Optional[list[str]], optional): _description_. Defaults to None.
-        output_basefilepath (Optional[Path], optional): _description_. Defaults to None.
+        mask_background: _description_. Defaults to True.
+        classnames: _description_. Defaults to None.
+        output_basefilepath: _description_. Defaults to None.
 
     Raises:
         Exception: _description_
 
     Returns:
-        Optional[gpd.GeoDataFrame]: _description_
+        _description_
     """
     # Polygonize result
     try:
@@ -1128,18 +1128,18 @@ def clean_and_save_prediction(
     """Clean the prediction and save it.
 
     Args:
-        image_pred_arr (np.ndarray): The prediction as returned by keras.
-        image_crs (str): _description_
-        image_transform (str): _description_
-        classes (list): _description_
-        output_dir (Path): _description_
-        input_image_filepath (Path): _description_
-        evaluate_mode (bool, optional): _description_. Defaults to False.
-        input_image_dir (Optional[Path], optional): _description_. Defaults to None.
-        input_mask_dir (Optional[Path], optional): _description_. Defaults to None.
-        border_pixels_to_ignore (int, optional): number of pixels at all borders that
+        image_pred_arr: The prediction as returned by keras.
+        image_crs: _description_
+        image_transform: _description_
+        classes: _description_
+        output_dir: _description_
+        input_image_filepath: _description_
+        evaluate_mode: _description_. Defaults to False.
+        input_image_dir: _description_. Defaults to None.
+        input_mask_dir: _description_. Defaults to None.
+        border_pixels_to_ignore: number of pixels at all borders that
             should be ignored. Defaults to 0.
-        min_probability (float): Minimum probability to consider a pixel being of a
+        min_probability: Minimum probability to consider a pixel being of a
             certain class. Defaults to 0.5.
         force (bool, optional): _description_. Defaults to False.
 
@@ -1147,7 +1147,7 @@ def clean_and_save_prediction(
         Exception: _description_
 
     Returns:
-        bool: _description_
+        _description_
     """
     # If nb. channels in prediction > 1, skip the first as it is the background
     image_pred_shape = image_pred_arr.shape
@@ -1228,15 +1228,15 @@ def clean_prediction(
     """Cleans a prediction result and returns a cleaned, uint8 array.
 
     Args:
-        image_pred_arr (np.array): The prediction as returned by keras.
-        border_pixels_to_ignore (int, optional): number of pixels at all borders that
+        image_pred_arr: The prediction as returned by keras.
+        border_pixels_to_ignore: number of pixels at all borders that
             should be ignored. Defaults to 0.
-        output_color_depth (str, optional): Color depth desired. Defaults to '2'.
+        output_color_depth: Color depth desired. Defaults to '2'.
             * binary: 0 or 255
             * full: 256 different values
 
     Returns:
-        np.array: The cleaned result.
+        The cleaned result.
     """
     if output_color_depth not in ["binary", "full"]:
         raise Exception(f"Unsupported output_color_depth: {output_color_depth}")
@@ -1281,10 +1281,10 @@ def save_prediction_uint8(
     """Save the prediction as UINT8.
 
     Args:
-        image_pred_uint8_cleaned (np.ndarray): the prediction to save as uint8.
-        image_crs (str): the crs of the prediction.
-        image_transform (str): the transform of the prediction.
-        output_path (Path): the path to write the prediction to.
+        image_pred_uint8_cleaned: the prediction to save as uint8.
+        image_crs: the crs of the prediction.
+        image_transform: the transform of the prediction.
+        output_path: the path to write the prediction to.
 
     Raises:
         ValueError: an invalid image_transform was passed.
@@ -1333,7 +1333,7 @@ def get_pixelsize_x(transform) -> float:
         transform (_type_): input transform
 
     Returns:
-        float: the x pixel size.
+        the x pixel size.
     """
     return transform[0]
 

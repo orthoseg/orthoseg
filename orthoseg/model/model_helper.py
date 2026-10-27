@@ -65,15 +65,15 @@ class ArchitectureParams:
         """Class containing the hyper parameters needed to create the model.
 
         Args:
-            architecture (str): the model architecture to use.
-            classes (list, optional): list of classes that will be detected by
+            architecture: the model architecture to use.
+            classes: list of classes that will be detected by
                 the model. Default to None, and then 2 generic classes are
                 supposed.
-            nb_channels (int, optional): Number of channels of the images.
+            nb_channels: Number of channels of the images.
                 Defaults to 3.
-            activation_function (str, optional): activation function to use.
+            activation_function: activation function to use.
                 Defaults to softmax.
-            architecture_id (int, optional): id of the architecture.
+            architecture_id: id of the architecture.
                 Defaults to 0.
         """
         self.architecture = architecture
@@ -89,7 +89,7 @@ class ArchitectureParams:
         """Serialize to JSON string.
 
         Returns:
-            str: JSON string
+            JSON string
         """
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
 
@@ -126,13 +126,13 @@ class TrainParams:
         """Class containing the hyper parameters needed to perform a training.
 
         Args:
-            image_augmentations (dict): The augmentations to use on the input image
+            image_augmentations: The augmentations to use on the input image
                 during training.
-            mask_augmentations (dict): The augmentations to use on the input mask
+            mask_augmentations: The augmentations to use on the input mask
                 during training.
             architecture_id (int, optional): id of the architecture. Defaults to 0.
-            trainparams_id (int, optional): id of the hyperparams. Defaults to 0.
-            weights_type (str | None, optional): the type of pretrained weights to
+            trainparams_id: id of the hyperparams. Defaults to 0.
+            weights_type: the type of pretrained weights to
                 initialize the model with. Supported values are:
 
                   - **aerial**: preload the entire model with weights pre-trained on
@@ -143,46 +143,46 @@ class TrainParams:
                   - **None**: do not use any pretrained weights.
 
                 Defaults to "aerial".
-            class_weights (list, optional): the weights to use for each class.
+            class_weights: the weights to use for each class.
                 Defaults to None.
-            batch_size (int, optional): batch size to use while training. This must be
+            batch_size: batch size to use while training. This must be
                 choosen depending on the neural network architecture
                 and available memory on you GPU. Defaults to 4.
-            optimizer (str, optional): Optimizer to use for training.
+            optimizer: Optimizer to use for training.
                 Defaults to 'Adam'.
-            optimizer_params (dict, optional): Optimizer params to use.
+            optimizer_params: Optimizer params to use.
                 Defaults to { 'learning_rate': 0.0001 }.
-            loss_function (str, optional): Loss function to use for training.
+            loss_function: Loss function to use for training.
                 Defaults to None.
-            monitor_metric (str, optional): Metric to monitor. If not specified
+            monitor_metric: Metric to monitor. If not specified
                 the loss function will drive the metric. Defaults to None.
-            monitor_metric_mode (str, optional): Mode of the metric to monitor.
+            monitor_metric_mode: Mode of the metric to monitor.
                 Defaults to 'auto'.
-            save_format (str, optional): Format to save the model. Options are:
+            save_format: Format to save the model. Options are:
                 - **"keras"**: new keras format
                 - **"h5"**: legacy keras format
                 - **"tf"**: tensorflow savedmodel
                 Defaults to 'keras'.
-            save_best_only (bool, optional): True to save only the best model.
+            save_best_only: True to save only the best model.
                 Defaults to True.
-            save_min_accuracy (float, optional): minimum accuracy to save a model.
+            save_min_accuracy: minimum accuracy to save a model.
                 Defaults to 0.95.
-            nb_epoch (int, optional): maximum number of epochs to train.
+            nb_epoch: maximum number of epochs to train.
                 Defaults to 1000.
-            nb_epoch_with_freeze (int, optional): number epochs to train with
+            nb_epoch_with_freeze: number epochs to train with
                     part of the layers frozen. Defaults to 20.
-            earlystop_patience (int, optional): [description]. Defaults to 100.
-            earlystop_monitor_metric (str, optional): [description]. Defaults to None.
-            earlystop_monitor_metric_mode (Literal["auto", "min", "max"], optional):
+            earlystop_patience: [description]. Defaults to 100.
+            earlystop_monitor_metric: [description]. Defaults to None.
+            earlystop_monitor_metric_mode:
                 Mode to monitor the metric. Defaults to 'auto'. Options are:
 
                 - **"max"**: if the metric should be as high as possible,
                 - **"min"**: if it should be low.
                 - **"auto"**: to determine automatically.
 
-            log_tensorboard (bool, optional): True to activate tensorboard
+            log_tensorboard: True to activate tensorboard
                 logging. Defaults to False.
-            log_csv (bool, optional): True to activate logging to a csv.
+            log_csv: True to activate logging to a csv.
                 Defaults to True
             kwargs: dict, optional: to allow for deprecated parameters.
 
@@ -262,7 +262,7 @@ class TrainParams:
         """Serializes object to a JSON string.
 
         Returns:
-            str: JSON string
+            JSON string
         """
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
 
@@ -279,13 +279,13 @@ class HyperParams:
         """Class to store the hyperparameters to use for the machine learning algorythm.
 
         Args:
-            architecture (ArchitectureParams): the fixed parameters that define the
+            architecture: the fixed parameters that define the
                 architecture of the neural network. When training a network, it is
                 possible to reuse the weights of another network if these parameters
                 are the same.
-            train (TrainParams): these are the parameters that can be changed with each
+            train: these are the parameters that can be changed with each
                 training.
-            path (Optional[Path]): file path to read the hyper parameters from.
+            path: file path to read the hyper parameters from.
         """
         self.fileversion = 1.1
         if architecture is not None:
@@ -313,7 +313,7 @@ class HyperParams:
         """Serialize the data to a JSON string.
 
         Returns:
-            str: the object serialized as JSON string.
+            the object serialized as JSON string.
         """
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
 
@@ -423,7 +423,7 @@ def format_model_filename(
         trainparams_id: the version of the hyper parameters used to train
         monitor_metric_accuracy: the monitor metric accuracy
         epoch: the epoch during training that reached these model weights
-        save_format (str): the format to save in:
+        save_format: the format to save in:
             * keras format: 'keras'
             * legacy keras format: 'h5'
             * tensorflow savedmodel: 'tf'
@@ -477,7 +477,7 @@ def parse_model_filename(filepath: Path) -> ModelInfo:
             to extract the necessary info.
 
     Returns:
-        ModelInfo: parsed model info object.
+        parsed model info object.
     """
     # Prepare filepath to extract info
     if filepath.is_dir():
@@ -569,14 +569,14 @@ def get_models(
             * tensorflow savedmodel: 'tf'
 
     Args:
-        model_dir (Path): dir containing the models
-        segment_subject (str, optional): only models with this the segment subject
-        traindata_id (int, optional): only models with this traindata version
-        architecture_id (int, optional): only models with this this architecture_id
-        trainparams_id (int, optional): only models with this hyperparams version
+        model_dir: dir containing the models
+        segment_subject: only models with this the segment subject
+        traindata_id: only models with this traindata version
+        architecture_id: only models with this this architecture_id
+        trainparams_id: only models with this hyperparams version
 
     Returns:
-        list[ModelInfo]: a list of model info objects.
+        a list of model info objects.
     """
     # List models
     model_paths: list[Path] = []
@@ -659,13 +659,13 @@ def get_best_model(
 
     Args:
         model_dir: dir containing the models
-        segment_subject (str, optional): only models with this the segment subject
-        traindata_id (int, optional): only models with this train data id
-        architecture_id (int, optional): only models with this the architecture_id
-        trainparams_id (int, optional): only models with this hyperparams id
+        segment_subject: only models with this the segment subject
+        traindata_id: only models with this train data id
+        architecture_id: only models with this the architecture_id
+        trainparams_id: only models with this hyperparams id
 
     Returns:
-        ModelInfo | None: best model info object or None if nothing was found.
+        best model info object or None if nothing was found.
     """
     # Get list of existing models for this train dataset
     model_info_list = get_models(
@@ -744,7 +744,7 @@ def get_number_gpus() -> int:
     """Get the number of GPUs available.
 
     Returns:
-        int: the number of GPUs available.
+        the number of GPUs available.
     """
     import tensorflow as tf  # noqa: PLC0415
 
@@ -755,7 +755,7 @@ def get_min_gpu_compute_capability() -> tuple[int, int] | None:
     """Get the lowest compute capability of the available GPUs.
 
     Returns:
-        tuple[int, int] | None: the lowest (major, minor) compute capability of the
+        the lowest (major, minor) compute capability of the
             available GPUs, or None if no GPU is available or the compute
             capability could not be determined.
     """
@@ -806,30 +806,30 @@ class ModelCheckpointExt(callbacks.Callback):
         """Constructor.
 
         Args:
-            model_save_dir (Path): [description]
-            segment_subject (str): segment subject
-            traindata_id (int): train data id
-            architecture_id (int): model architecture id
-            trainparams_id (int): id of the hyper parameters used
-            monitor_metric (str): The metric to monitor for accuracy
-            monitor_metric_mode (str): use 'min' if the accuracy metrics
+            model_save_dir: [description]
+            segment_subject: segment subject
+            traindata_id: train data id
+            architecture_id: model architecture id
+            trainparams_id: id of the hyper parameters used
+            monitor_metric: The metric to monitor for accuracy
+            monitor_metric_mode: use 'min' if the accuracy metrics
                 should be  as low as possible, 'max' if a higher values is
                 better.
-            save_format (str, optional): The format to save in:
+            save_format: The format to save in:
                 'h5' (legacy keras format), 'keras' (new keras format), or 'tf'
                 (tensorflow savedmodel). Defaults to 'keras'.
-            save_best_only (bool, optional): only keep the best model.
+            save_best_only: only keep the best model.
                 Defaults to True.
-            save_min_accuracy (float, optional): minimum accuracy to be
+            save_min_accuracy: minimum accuracy to be
                 reached to save model. Defaults to 0.9.
-            save_min_accuracy_ignored_epoch (int, optional): at this epoch the
+            save_min_accuracy_ignored_epoch: at this epoch the
                 save_min_accuracy is ignored, to make sure there is a model
                 saved, even if the minimum accuracy is never reached.
             save_weights_only: optional: only save weights
             model_template_for_save: optional, if using multi-GPU training,
                 pass the original model here to use this as template for saving
-            verbose (bool, optional): [description]. Defaults to True.
-            only_report (bool, optional): [description]. Defaults to False.
+            verbose: [description]. Defaults to True.
+            only_report: [description]. Defaults to False.
         """
         monitor_metric_mode_values = ["min", "max"]
         if monitor_metric_mode not in monitor_metric_mode_values:
@@ -969,33 +969,33 @@ def save_and_clean_models(
     if they are worse than the new or other existing models.
 
     Args:
-        model_save_dir (Path): dir containing the models
-        segment_subject (str): segment subject
-        traindata_id (int): train data id
-        architecture_id (int): model architecture id
-        trainparams_id (int): id of the train params
-        monitor_metric_mode (MetricMode): use 'min' if the monitored
+        model_save_dir: dir containing the models
+        segment_subject: segment subject
+        traindata_id: train data id
+        architecture_id: model architecture id
+        trainparams_id: id of the train params
+        monitor_metric_mode: use 'min' if the monitored
             metrics should be as low as possible, 'max' if a higher values
             is better.
         new_model (optional): the keras model object that will be saved
-        new_model_monitor_value (float, optional): the monitored metric value
-        new_model_epoch (int, optional): the epoch in the training
-        save_format (SaveFormat, optional): The format to save in:
+        new_model_monitor_value: the monitored metric value
+        new_model_epoch: the epoch in the training
+        save_format: The format to save in:
             * keras: new keras format
             * h5: legacy keras format (= default)
             * tf: tensorflow savedmodel
-        save_best_only (bool, optional): only keep the best model
-        save_min_accuracy (float, optional): minimum accuracy to save the
+        save_best_only: only keep the best model
+        save_min_accuracy: minimum accuracy to save the
             model. Defaults to 0.9.
-        save_min_accuracy_ignored_epoch (int, optional): at this epoch the
+        save_min_accuracy_ignored_epoch: at this epoch the
             save_min_accuracy is ignored, to make sure there is a model saved,
             even if the minimum accuracy is never reached.
-        save_weights_only (bool, optional): only save weights
+        save_weights_only: only save weights
         model_template_for_save (optional): if using multi-GPU training, pass
             the original model here to use this as template for saving
-        verbose (bool, optional): report the best model after save and cleanup
-        debug (bool, optional): write debug logging
-        only_report (bool, optional): only report which models would be cleaned up
+        verbose: report the best model after save and cleanup
+        debug: write debug logging
+        only_report: only report which models would be cleaned up
     """
     # Check validaty of input
     monitor_metric_mode_values = ["min", "max"]

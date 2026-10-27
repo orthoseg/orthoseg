@@ -82,17 +82,17 @@ class WMSLayerSource:
         """Constructor of WMSLayerSource.
 
         Args:
-            wms_server_url (str): _description_
-            layernames (list[str]): _description_
-            layerstyles (Optional[list[str]], optional): _description_.
+            wms_server_url: _description_
+            layernames: _description_
+            layerstyles: _description_.
                 Defaults to None.
-            bands (Optional[list[int]], optional): _description_. Defaults to None.
-            username (str, optional): username to logon with. Defaults to None.
-            password (str, optional): password to logon with. Defaults to None.
-            wms_version (str, optional): _description_. Defaults to "1.3.0".
-            wms_ignore_capabilities_url (bool, optional): _description_.
+            bands: _description_. Defaults to None.
+            username: username to logon with. Defaults to None.
+            password: password to logon with. Defaults to None.
+            wms_version: _description_. Defaults to "1.3.0".
+            wms_ignore_capabilities_url: _description_.
                 Defaults to False.
-            random_sleep (int, optional): _description_. Defaults to 0.
+            random_sleep: _description_. Defaults to 0.
             wms_service: The WMS service. Defaults to None.
         """
         self.wms_server_url = wms_server_url
@@ -119,9 +119,9 @@ class FileLayerSource:
         """Constructor for FileLayerSource.
 
         Args:
-            path (Union[str, Path]): Path to the layer.
-            layernames (list[str]): list of layer names.
-            bands (list[int], optional): list of bands. Defaults to None.
+            path: Path to the layer.
+            layernames: list of layer names.
+            bands: list of bands. Defaults to None.
 
         """
         self.path = Path(path)
@@ -147,27 +147,27 @@ def get_images_for_grid(
     """Get a list of all images in the grid specified.
 
     Args:
-        output_image_dir (Path): Directory to save the images to.
-        crs (Union[str, pyproj.CRS]): The crs of the source and destination images.
-        image_gen_bbox (tuple[float, float, float, float], optional): bbox of the roi to
+        output_image_dir: Directory to save the images to.
+        crs: The crs of the source and destination images.
+        image_gen_bbox: bbox of the roi to
             request/save images for. Defaults to None.
-        image_gen_roi_filepath (Optional[Path], optional): File with the roi
+        image_gen_roi_filepath: File with the roi
             where images should be requested/saved for. Defaults to None.
-        grid_xmin (float, optional): xmin for the grid to be used.
+        grid_xmin: xmin for the grid to be used.
             Defaults to 0.0.
-        grid_ymin (float, optional): ymin for the grid to be used.
+        grid_ymin: ymin for the grid to be used.
             Defaults to 0.0.
-        image_crs_pixel_x_size (float, optional): Pixel size of the image tiles to
+        image_crs_pixel_x_size: Pixel size of the image tiles to
             create in the `crs` specified. Defaults to 0.25.
-        image_crs_pixel_y_size (float, optional): Pixel size of the image tiles to
+        image_crs_pixel_y_size: Pixel size of the image tiles to
             create in the `crs` specified. Defaults to 0.25.
-        image_pixel_width (int, optional): Width of the tiles to create in number of
+        image_pixel_width: Width of the tiles to create in number of
             pixels. Defaults to 1024.
-        image_pixel_height (int, optional): Height of the tiles to create in number of
+        image_pixel_height: Height of the tiles to create in number of
             pixels. Defaults to 1024.
-        image_format (str, optional): The image format to save to. Defaults to
+        image_format: The image format to save to. Defaults to
             FORMAT_GEOTIFF.
-        pixels_overlap (int, optional): The number of pixels the tiles should be
+        pixels_overlap: The number of pixels the tiles should be
             enlarged in all directions to create overlapping tiles.
             Defaults to 0.
     """
@@ -304,50 +304,50 @@ def load_images_to_cache(
     """Loads all images in a grid from a layer source to a cache directory.
 
     Args:
-        layersources (list[dict]): Layer sources to get images from. Multiple
+        layersources: Layer sources to get images from. Multiple
             sources can be specified to create a combined image, eg. use band
             1 of a WMS service with band 2 and 3 of another one.
-        output_image_dir (Path): Directory to save the images to.
-        crs (Union[str, pyproj.CRS]): The crs of the source and destination images.
-        switch_axes (bool | None): True if the x and y axes of the bounding boxes should
+        output_image_dir: Directory to save the images to.
+        crs: The crs of the source and destination images.
+        switch_axes: True if the x and y axes of the bounding boxes should
             be switched. If None, it will be determined automatically based on the CRS.
-        image_gen_bbox (tuple[float, float, float, float], optional): bbox of the roi to
+        image_gen_bbox: bbox of the roi to
             request/save images for. Defaults to None.
-        image_gen_roi_filepath (Optional[Path], optional): File with the roi
+        image_gen_roi_filepath: File with the roi
             where images should be requested/saved for. Defaults to None.
-        grid_xmin (float, optional): xmin for the grid to be used.
+        grid_xmin: xmin for the grid to be used.
             Defaults to 0.0.
-        grid_ymin (float, optional): ymin for the grid to be used.
+        grid_ymin: ymin for the grid to be used.
             Defaults to 0.0.
-        image_crs_pixel_x_size (float, optional): Pixel size of the image tiles to
+        image_crs_pixel_x_size: Pixel size of the image tiles to
             create in the `crs` specified. Defaults to 0.25.
-        image_crs_pixel_y_size (float, optional): Pixel size of the image tiles to
+        image_crs_pixel_y_size: Pixel size of the image tiles to
             create in the `crs` specified. Defaults to 0.25.
-        image_pixel_width (int, optional): Width of the tiles to create in number of
+        image_pixel_width: Width of the tiles to create in number of
             pixels. Defaults to 1024.
-        image_pixel_height (int, optional): Height of the tiles to create in number of
+        image_pixel_height: Height of the tiles to create in number of
             pixels. Defaults to 1024.
-        image_pixels_ignore_border (int, optional): [description]. Defaults to 0.
-        nb_concurrent_calls (int, optional): Number of images to treat in
+        image_pixels_ignore_border: [description]. Defaults to 0.
+        nb_concurrent_calls: Number of images to treat in
             parallel. Will increase the load on the WMS server! Defaults to 1.
-        cron_schedule (str, optional): [description]. Defaults to None.
-        image_format (str, optional): The image format to get. Defaults to
+        cron_schedule: [description]. Defaults to None.
+        image_format: The image format to get. Defaults to
             FORMAT_GEOTIFF.
-        image_format_save (str, optional): The image format to save to.
+        image_format_save: The image format to save to.
             Defaults to None.
-        tiff_compress (str, optional): [description]. Defaults to 'lzw'.
-        transparent (bool, optional): [description]. Defaults to False.
-        pixels_overlap (int, optional): The number of pixels the tiles should be
+        tiff_compress: [description]. Defaults to 'lzw'.
+        transparent: [description]. Defaults to False.
+        pixels_overlap: The number of pixels the tiles should be
             enlarged in all directions to create overlapping tiles.
             Defaults to 0.
-        nb_images_to_skip (int, optional): [description]. Defaults to 0.
-        max_nb_images (int, optional): [description]. Defaults to -1.
-        ssl_verify (bool or str, optional): True to use the default certificate bundle
+        nb_images_to_skip: [description]. Defaults to 0.
+        max_nb_images: [description]. Defaults to -1.
+        ssl_verify: True to use the default certificate bundle
             as installed on your system. False disables certificate validation
             (NOT recommended!). If a path to a certificate bundle file (.pem) is passed,
             this will be used. In corporate networks using a proxy server this is often
             needed to avoid CERTIFICATE_VERIFY_FAILED errors. Defaults to True.
-        force (bool, optional): [description]. Defaults to False.
+        force: [description]. Defaults to False.
     """
     # Init
     if image_format_save is None:
@@ -524,15 +524,15 @@ def _align_bbox_to_grid(
     """Align a bounding box to the grid specified.
 
     Args:
-        bbox (tuple[float, float, float, float]): the bounding box
-        grid_xmin (float): xmin of the grid to align to.
-        grid_ymin (float): ymin of the grid to align to.
-        pixel_size_x (float): pixel size for x.
-        pixel_size_y (float): pixel size for y.
-        log_level (int, optional): the log level to use. Defaults to logging.INFO.
+        bbox: the bounding box
+        grid_xmin: xmin of the grid to align to.
+        grid_ymin: ymin of the grid to align to.
+        pixel_size_x: pixel size for x.
+        pixel_size_y: pixel size for y.
+        log_level: the log level to use. Defaults to logging.INFO.
 
     Returns:
-        tuple[float, float, float, float]: the aligned bbox.
+        the aligned bbox.
     """
     # Make bounds compatible with the grid
     bbox_tmp = list(bbox)
@@ -570,11 +570,11 @@ def _prepare_auth(
     """Prepare OWS authentication object.
 
     Args:
-        username (str | None): Username for authentication. If None, no
+        username: Username for authentication. If None, no
             authentication will be used.
-        password (str | None): Password for authentication. If None, no
+        password: Password for authentication. If None, no
             authentication will be used.
-        ssl_verify (bool or str): True to use the default certificate bundle as
+        ssl_verify: True to use the default certificate bundle as
             installed on your system. False disables certificate validation
             (NOT recommended!). If a path to a certificate bundle file (.pem) is passed,
             this will be used. In corporate networks using a proxy server this is often
@@ -628,37 +628,37 @@ def load_image_to_file(
     """Loads an image from a layer source and saves it to a file.
 
     Args:
-        layersources (WMSLayerSource, FileLayerSource, List): Layer source(s) to get
+        layersources: Layer source(s) to get
             images from. Multiple sources can be specified to create a combined image,
             eg. use band 1 of a layersource with band 2 and 3 of another one.
-        output_dir (Path): Directory to save the images to.
-        crs (pyproj.CRS): The crs of the source and destination images.
-        bbox (tuple[float, float, float, float]): Bbox of the image to get.
-        size (tuple[int, int]): The image width and height.
-        ssl_verify (bool or str, optional): True to use the default
+        output_dir: Directory to save the images to.
+        crs: The crs of the source and destination images.
+        bbox: Bbox of the image to get.
+        size: The image width and height.
+        ssl_verify: True to use the default
             certificate bundle as installed on your system. False disables
             certificate validation (NOT recommended!). If a path to a
             certificate bundle file (.pem) is passed, this will be used.
             In corporate networks using a proxy server this is often needed
             to avoid CERTIFICATE_VERIFY_FAILED errors. Defaults to True.
-        image_format (str, optional): [description]. Defaults to FORMAT_GEOTIFF.
-        image_format_save (str, optional): [description]. Defaults to None.
-        output_filename (str, optional): [description]. Defaults to None.
-        transparent (bool, optional): [description]. Defaults to False.
-        tiff_compress (str, optional): [description]. Defaults to 'lzw'.
-        image_pixels_ignore_border (int, optional): [description]. Defaults to 0.
-        force (bool, optional): [description]. Defaults to False.
-        layername_in_filename (bool, optional): [description]. Defaults to False.
-        switch_axes (bool, optional): True if x and y axes should be switched
+        image_format: [description]. Defaults to FORMAT_GEOTIFF.
+        image_format_save: [description]. Defaults to None.
+        output_filename: [description]. Defaults to None.
+        transparent: [description]. Defaults to False.
+        tiff_compress: [description]. Defaults to 'lzw'.
+        image_pixels_ignore_border: [description]. Defaults to 0.
+        force: [description]. Defaults to False.
+        layername_in_filename: [description]. Defaults to False.
+        switch_axes: True if x and y axes should be switched
             in the WMS GetMap request. If None, an effort is made to determine it
             automatically based on the CRS. Defaults to None.
-        on_outside_layer_bounds (str, optional): What to do if the bbox asked is outside
+        on_outside_layer_bounds: What to do if the bbox asked is outside
             the layer bounds. Defaults to "raise". Options:
             - "raise": raise an error.
             - "return": don't save a file and return None.
 
     Returns:
-        Optional[Path]: The path the file is created at if created succesfully. None if
+        The path the file is created at if created succesfully. None if
             the file is not created.
     """
     # Init
@@ -904,26 +904,26 @@ def load_image(
     """Loads an image from a layer source and returns the image data and profile.
 
     Args:
-        layersources (WMSLayerSource, FileLayerSource, List): Layer source(s) to get
+        layersources: Layer source(s) to get
             images from. Multiple sources can be specified to create a combined image,
             eg. use band 1 of a layersource with band 2 and 3 of another one.
-        crs (pyproj.CRS): The crs of the source and destination images.
-        bbox (tuple[float, float, float, float]): Bbox of the image to get.
-        size (tuple[int, int]): The image width and height.
-        ssl_verify (bool or str, optional): True to use the default
+        crs: The crs of the source and destination images.
+        bbox: Bbox of the image to get.
+        size: The image width and height.
+        ssl_verify: True to use the default
             certificate bundle as installed on your system. False disables
             certificate validation (NOT recommended!). If a path to a
             certificate bundle file (.pem) is passed, this will be used.
             In corporate networks using a proxy server this is often needed
             to avoid CERTIFICATE_VERIFY_FAILED errors. Defaults to True.
-        image_format (str, optional): The format to load the image in if it is loaded
+        image_format: The format to load the image in if it is loaded
             from a WMS service. Defaults to FORMAT_GEOTIFF.
-        transparent (bool, optional): Whether the image should be transparent.
+        transparent: Whether the image should be transparent.
             Defaults to False.
-        image_pixels_ignore_border (int, optional): The number of pixels to ignore at
+        image_pixels_ignore_border: The number of pixels to ignore at
             the border of the image. Defaults to 0.
         force (bool, optional): Whether to force the operation. Defaults to False.
-        switch_axes (bool, optional): True if x and y axes should be switched to
+        switch_axes: True if x and y axes should be switched to
             in the WMS GetMap request. If None, an effort is made to determine it
             automatically based on the crs. Defaults to None.
 
@@ -931,7 +931,7 @@ def load_image(
         RuntimeError: If the image can't be retrieved.
 
     Returns:
-        tuple(ndarray, dict): a tuple with an array with the image data (shape is bands,
+        a tuple with an array with the image data (shape is bands,
             height, width) and a dict with the profile information of the file
             (transform, width, height,...).
     """
@@ -1244,14 +1244,14 @@ def create_filename(
     """Create filename.
 
     Args:
-        crs (pyproj.CRS): crs
+        crs: crs
         bbox (_type_): bbox
         size (_type_): size
-        image_format (str): format
-        layername (Optional[str], optional): layername. Defaults to None.
+        image_format: format
+        layername: layername. Defaults to None.
 
     Returns:
-        str: filename
+        filename
     """
     # Get image extension based on format
     image_ext = _get_ext_for_image_format(image_format)
@@ -1287,12 +1287,12 @@ def create_roi_for_dir(
     """Create a roi file for the directory.
 
     Args:
-        dir_path (Path): The path to the directory to create the roi for.
-        patterns (str | list[str]): The pattern(s) to match raster files.
-        crs (str | CRS | None): The coordinate reference system for the roi file.
+        dir_path: The path to the directory to create the roi for.
+        patterns: The pattern(s) to match raster files.
+        crs: The coordinate reference system for the roi file.
             If None, the CRS of the first file with a crs other than None will be used.
             Defaults to None.
-        output_path (Path | None): The path to save the roi file. If None, the roi file
+        output_path: The path to save the roi file. If None, the roi file
             will be saved in the directory with the name "orthoseg.gpkg".
             Defaults to None.
 
@@ -1338,10 +1338,10 @@ def create_vrt_for_dir(
     """Create a vrt file for the directory.
 
     Args:
-        dir_path (Path): The path to the directory to create the vrt for.
-        patterns (str | list[str]): The pattern(s) to match raster files.
-        crs (str): The coordinate reference system for the VRT.
-        output_path (Path | None): The path to save the vrt file. If None, the vrt file
+        dir_path: The path to the directory to create the vrt for.
+        patterns: The pattern(s) to match raster files.
+        crs: The coordinate reference system for the VRT.
+        output_path: The path to save the vrt file. If None, the vrt file
             will be saved in the directory with the name "orthoseg.vrt".
             Defaults to None.
     """
@@ -1371,7 +1371,7 @@ def has_switched_axes(crs: pyproj.CRS):
     """Determine if the axes of the CRS are switched (y, x instead of x, y).
 
     Args:
-        crs (pyproj.CRS): The CRS to check.
+        crs: The CRS to check.
     """
     if len(crs.axis_info) < 2:
         logger.warning(

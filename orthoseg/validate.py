@@ -49,8 +49,8 @@ def validate(config_path: Path, config_overrules: list[str] | None = None):
     """Run a validating session for the config specified.
 
     Args:
-        config_path (Path): Path to the config file to use.
-        config_overrules (list[str], optional): list of config options that will
+        config_path: Path to the config file to use.
+        config_overrules: list of config options that will
             overrule other ways to supply configuration. They should be specified in the
             form of "<section>.<key>=<value>". Defaults to None.
     """

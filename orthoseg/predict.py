@@ -99,7 +99,7 @@ def _check_input_image_pixel_size(
     """Checks whether the input directory has images with the specified pixel sizes.
 
     Returns:
-        str | None: If there is a mismatch in pixel sizes, returns a string with a
+        If there is a mismatch in pixel sizes, returns a string with a
             message describing the mismatch, otherwise None.
     """
     first_subdirectory = next(
@@ -135,7 +135,7 @@ def _set_dtype_policy_for_predict(dtype_policy_raw: str | None):
     """Resolve and apply dtype policy for prediction.
 
     Args:
-        dtype_policy_raw (str | None): Raw config value from `predict.dtype_policy`.
+        dtype_policy_raw: Raw config value from `predict.dtype_policy`.
             - `None` or empty: set mixed_float16 on GPU with compute capability >= 7,
               else keep the default (float32).
             - "None" as string: don't set any policy, let Keras use the default
@@ -201,15 +201,15 @@ def predict(
     """Run a prediction for the config specified.
 
     Args:
-        config_path (Path): Path to the config file to use.
-        config_overrules (list[str], optional): list of config options that will
+        config_path: Path to the config file to use.
+        config_overrules: list of config options that will
             overrule other ways to supply configuration. They should be specified in the
             form of "<section>.<key>=<value>". Defaults to None.
-        postprocess (bool, optional): Whether to apply postprocessing to the output
+        postprocess: Whether to apply postprocessing to the output
             file of the prediction. Defaults to True.
 
     Returns:
-        Path: The path to the output vector file (postprocessed if postprocess=True).
+        The path to the output vector file (postprocessed if postprocess=True).
     """
     # Init
     # Load the config and save in a bunch of global variables zo it

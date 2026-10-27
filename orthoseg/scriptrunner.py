@@ -157,11 +157,11 @@ def load_scriptrunner_config(
     """Load the configuration of scriptrunner.
 
     Args:
-        config_path (str): config file to load.
-        script_dir (Path): _description_
+        config_path: config file to load.
+        script_dir: _description_
 
     Returns:
-        configparser.ConfigParser: _description_
+        _description_
     """
     # Load defaults first
     scriptrunner_py_dir = Path(__file__).resolve().parent

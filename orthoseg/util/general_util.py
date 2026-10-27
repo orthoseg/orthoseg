@@ -38,11 +38,11 @@ def report_progress(
     """Function to report progress to the output.
 
     Args:
-        start_time (datetime): time when the processing started.
-        nb_done (int): number of steps done.
-        nb_todo (int): total number of steps to do.
-        operation (Optional[str], optional): operation being done. Defaults to None.
-        nb_parallel (int, optional): number of parallel workers doing the processing.
+        start_time: time when the processing started.
+        nb_done: number of steps done.
+        nb_todo: total number of steps to do.
+        operation: operation being done. Defaults to None.
+        nb_parallel: number of parallel workers doing the processing.
             Defaults to 1.
     """
     # Init
@@ -82,10 +82,10 @@ def formatbytes(nb_bytes: float) -> str:
     """Return the given bytes as a human friendly KB, MB, GB, or TB string.
 
     Args:
-        nb_bytes (float): number of bytes to format.
+        nb_bytes: number of bytes to format.
 
     Returns:
-        str: number of bytes as a readable sting.
+        number of bytes as a readable sting.
     """
     bytes_float = float(nb_bytes)
     KB = float(1024)
