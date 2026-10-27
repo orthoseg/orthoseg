@@ -197,7 +197,7 @@ def train(
     if rescale_train is not None:
         model_preprocess_input = None
 
-    train_gen, train_dataset_size = create_train_dataset(
+    train_dataset, train_dataset_size = create_train_dataset(
         input_data_dir=traindata_dir,
         image_subdir=image_subdir,
         mask_subdir=mask_subdir,
@@ -219,7 +219,7 @@ def train(
     rescale_mask = hyperparams.train.mask_augmentations.get("rescale")
     validation_mask_augm = {"rescale": rescale_mask} if rescale_mask is not None else {}
 
-    validation_gen, validation_dataset_size = create_train_dataset(
+    validation_dataset, validation_dataset_size = create_train_dataset(
         input_data_dir=validationdata_dir,
         image_subdir=image_subdir,
         mask_subdir=mask_subdir,
@@ -298,9 +298,9 @@ def train(
 
     # Prepare the parameters to pass to fit...
     # Calculate the number of steps within an epoch
-    train_steps_per_epoch = int(tf.data.experimental.cardinality(train_gen).numpy())
+    train_steps_per_epoch = int(tf.data.experimental.cardinality(train_dataset).numpy())
     validation_steps_per_epoch = int(
-        tf.data.experimental.cardinality(validation_gen).numpy()
+        tf.data.experimental.cardinality(validation_dataset).numpy()
     )
 
     # Start training
@@ -322,10 +322,10 @@ def train(
                 "frozen layers"
             )
             model_for_train.fit(
-                train_gen,
+                train_dataset,
                 steps_per_epoch=train_steps_per_epoch,
                 epochs=hyperparams.train.nb_epoch_with_freeze,
-                validation_data=validation_gen,
+                validation_data=validation_dataset,
                 validation_steps=validation_steps_per_epoch,
                 callbacks=train_callbacks,
                 initial_epoch=start_epoch,
@@ -343,10 +343,10 @@ def train(
 
         # Train!
         model_for_train.fit(
-            train_gen,
+            train_dataset,
             steps_per_epoch=train_steps_per_epoch,
             epochs=hyperparams.train.nb_epoch,
-            validation_data=validation_gen,
+            validation_data=validation_dataset,
             validation_steps=validation_steps_per_epoch,
             callbacks=train_callbacks,
             initial_epoch=start_epoch,
