@@ -36,7 +36,7 @@ setuptools.setup(
         "segmodels-keras",
         "shapely>=2",
         "simplification",
-        "tensorflow>=2.8",
+        "tensorflow>=2.10",
     ],
     entry_points="""
             [console_scripts]
