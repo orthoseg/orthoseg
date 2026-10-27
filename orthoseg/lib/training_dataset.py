@@ -2,6 +2,7 @@
 
 import logging
 from collections.abc import Callable
+from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -103,37 +104,18 @@ def create_train_dataset(
         )
     dataset = dataset.enumerate()
 
-    def load_pair(index: tf.Tensor, paths: tuple[tf.Tensor, tf.Tensor]):
-        image = _decode_and_resize(
-            paths[0], color_mode=image_color_mode, target_size=target_size
-        )
-        mask = _decode_and_resize(
-            paths[1], color_mode=mask_color_mode, target_size=target_size
-        )
-        if _has_spatial_augmentation(image_augment_dict):
-            transform = _make_projective_transform(
-                image_augment_dict,
-                seed=seed,
-                index=index,
-                height=tf.shape(image)[0],
-                width=tf.shape(image)[1],
-            )
-            image = _apply_projective_transform(
-                image, transform, image_augment_dict, is_mask=False
-            )
-            mask = _apply_projective_transform(
-                mask, transform, mask_augment_dict, is_mask=True
-            )
-
-        image_rescale = image_augment_dict.get("rescale")
-        if image_rescale is not None:
-            image *= tf.cast(image_rescale, tf.float32)
-        mask_rescale = mask_augment_dict.get("rescale")
-        if mask_rescale is not None:
-            mask *= tf.cast(mask_rescale, tf.float32)
-        return image, mask
-
-    dataset = dataset.map(load_pair, num_parallel_calls=tf.data.AUTOTUNE)
+    dataset = dataset.map(
+        partial(
+            _load_pair,
+            image_color_mode=image_color_mode,
+            mask_color_mode=mask_color_mode,
+            target_size=target_size,
+            image_augmentations=image_augment_dict,
+            mask_augmentations=mask_augment_dict,
+            seed=seed,
+        ),
+        num_parallel_calls=tf.data.AUTOTUNE,
+    )
     dataset = dataset.batch(batch_size)
     dataset = dataset.enumerate()
 
@@ -145,48 +127,111 @@ def create_train_dataset(
     image_brightness = image_augment_dict.get("brightness_range")
     image_rescale = image_augment_dict.get("rescale")
 
-    def prepare_batch(batch_index: tf.Tensor, batch: tuple[tf.Tensor, tf.Tensor]):
-        image, mask = batch
-        if image_brightness is not None and (
-            image_brightness[0] != 1 or image_brightness[1] != 1
-        ):
-            brightness = _stateless_uniform(
-                seed,
-                batch_index,
-                100,
-                float(image_brightness[0]),
-                float(image_brightness[1]),
-            )
-            image *= brightness
-
-        if nb_classes > 1:
-            mask = tf.one_hot(
-                tf.cast(tf.squeeze(mask, axis=-1), tf.int32),
-                depth=nb_classes,
-            )
-
-        if save_to_dir is not None:
-            save_token = tf.numpy_function(
-                lambda images, masks, index: _save_augmented_batch(
-                    images,
-                    masks,
-                    index,
-                    save_to_dir=save_to_dir,
-                    image_rescale=image_rescale,
-                ),
-                [image, mask, batch_index],
-                tf.int64,
-            )
-            with tf.control_dependencies([save_token]):
-                image = tf.identity(image)
-                mask = tf.identity(mask)
-
-        if model_preprocess_input is not None:
-            image = model_preprocess_input(image)
-        return image, mask
-
-    dataset = dataset.map(prepare_batch, num_parallel_calls=tf.data.AUTOTUNE)
+    dataset = dataset.map(
+        partial(
+            _prepare_batch,
+            image_brightness=image_brightness,
+            seed=seed,
+            nb_classes=nb_classes,
+            save_to_dir=save_to_dir,
+            image_rescale=image_rescale,
+            model_preprocess_input=model_preprocess_input,
+        ),
+        num_parallel_calls=tf.data.AUTOTUNE,
+    )
     return dataset.prefetch(tf.data.AUTOTUNE), len(pairs)
+
+
+def _load_pair(
+    index: tf.Tensor,
+    paths: tuple[tf.Tensor, tf.Tensor],
+    *,
+    image_color_mode: str,
+    mask_color_mode: str,
+    target_size: tuple[int, int],
+    image_augmentations: dict[str, Any],
+    mask_augmentations: dict[str, Any],
+    seed: int,
+) -> tuple[tf.Tensor, tf.Tensor]:
+    image = _decode_and_resize(
+        paths[0], color_mode=image_color_mode, target_size=target_size
+    )
+    mask = _decode_and_resize(
+        paths[1], color_mode=mask_color_mode, target_size=target_size
+    )
+    if _has_spatial_augmentation(image_augmentations):
+        transform = _make_projective_transform(
+            image_augmentations,
+            seed=seed,
+            index=index,
+            height=tf.shape(image)[0],
+            width=tf.shape(image)[1],
+        )
+        image = _apply_projective_transform(
+            image, transform, image_augmentations, is_mask=False
+        )
+        mask = _apply_projective_transform(
+            mask, transform, mask_augmentations, is_mask=True
+        )
+
+    image_rescale = image_augmentations.get("rescale")
+    if image_rescale is not None:
+        image *= tf.cast(image_rescale, tf.float32)
+    mask_rescale = mask_augmentations.get("rescale")
+    if mask_rescale is not None:
+        mask *= tf.cast(mask_rescale, tf.float32)
+    return image, mask
+
+
+def _prepare_batch(
+    batch_index: tf.Tensor,
+    batch: tuple[tf.Tensor, tf.Tensor],
+    *,
+    image_brightness: list[float] | tuple[float, float] | None,
+    seed: int,
+    nb_classes: int,
+    save_to_dir: Path | None,
+    image_rescale: float | None,
+    model_preprocess_input: Callable | None,
+) -> tuple[tf.Tensor, tf.Tensor]:
+    image, mask = batch
+    if image_brightness is not None and (
+        image_brightness[0] != 1 or image_brightness[1] != 1
+    ):
+        brightness = _stateless_uniform(
+            seed,
+            batch_index,
+            100,
+            float(image_brightness[0]),
+            float(image_brightness[1]),
+        )
+        image *= brightness
+
+    if nb_classes > 1:
+        mask = tf.one_hot(
+            tf.cast(tf.squeeze(mask, axis=-1), tf.int32),
+            depth=nb_classes,
+        )
+
+    if save_to_dir is not None:
+        save_token = tf.numpy_function(
+            lambda images, masks, index: _save_augmented_batch(
+                images,
+                masks,
+                index,
+                save_to_dir=save_to_dir,
+                image_rescale=image_rescale,
+            ),
+            [image, mask, batch_index],
+            tf.int64,
+        )
+        with tf.control_dependencies([save_token]):
+            image = tf.identity(image)
+            mask = tf.identity(mask)
+
+    if model_preprocess_input is not None:
+        image = model_preprocess_input(image)
+    return image, mask
 
 
 def _list_image_mask_pairs(
