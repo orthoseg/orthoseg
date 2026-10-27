@@ -9,8 +9,182 @@ from orthoseg.lib import training_dataset
 
 
 @pytest.mark.parametrize(
+    ("augmentations", "message"),
+    [
+        ({"interpolation_order": 2}, "interpolation_order must be 0 or 1"),
+        ({"fill_mode": "invalid"}, "Unsupported augmentation fill_mode"),
+    ],
+)
+def test_apply_projective_transform_errors(augmentations, message):
+    image = tf.zeros((2, 2, 1))
+    identity_transform = tf.constant([1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0])
+
+    with pytest.raises(ValueError, match=message):
+        training_dataset._apply_projective_transform(
+            image, identity_transform, augmentations, is_mask=False
+        )
+
+
+def test_apply_projective_transform_interpolates_images_and_masks_correctly():
+    image = np.zeros((3, 3, 1), dtype=np.float32)
+    image[1, 1, 0] = 1.0
+    image_tensor = tf.constant(image)
+    half_pixel_transform = tf.constant([1.0, 0.0, 0.5, 0.0, 1.0, 0.5, 0.0, 0.0])
+    augmentations = {"interpolation_order": 1, "fill_mode": "constant"}
+
+    bilinear_image = training_dataset._apply_projective_transform(
+        image_tensor, half_pixel_transform, augmentations, is_mask=False
+    )
+    nearest_mask = training_dataset._apply_projective_transform(
+        image_tensor, half_pixel_transform, augmentations, is_mask=True
+    )
+    nearest_image = training_dataset._apply_projective_transform(
+        image_tensor,
+        half_pixel_transform,
+        {"interpolation_order": 0, "fill_mode": "constant"},
+        is_mask=False,
+    )
+
+    bilinear_values = bilinear_image.numpy()
+    assert np.any((bilinear_values > 0) & (bilinear_values < 1))
+    assert set(np.unique(nearest_mask.numpy())) <= {0.0, 1.0}
+    np.testing.assert_array_equal(nearest_mask.numpy(), nearest_image.numpy())
+
+
+@pytest.mark.parametrize(
+    ("image_augmentations", "mask_augmentations", "nb_classes", "message"),
+    [
+        (
+            {"fill_mode": "invalid"},
+            {"fill_mode": "invalid"},
+            1,
+            "Unsupported augmentation fill_mode",
+        ),
+        (
+            {"interpolation_order": 2},
+            {"interpolation_order": 2},
+            1,
+            "interpolation_order must be 0 or 1",
+        ),
+        (
+            {"rescale": 0.5},
+            {"rescale": 0.5},
+            3,
+            "mask rescale must be 1",
+        ),
+    ],
+)
+def test_create_train_dataset_errors(
+    tmp_path, image_augmentations, mask_augmentations, nb_classes, message
+):
+    with pytest.raises(ValueError, match=message):
+        training_dataset.create_train_dataset(
+            input_data_dir=tmp_path,
+            image_subdir="image",
+            mask_subdir="mask",
+            image_augment_dict=image_augmentations,
+            mask_augment_dict=mask_augmentations,
+            model_preprocess_input=None,
+            nb_classes=nb_classes,
+        )
+
+
+def test_create_train_dataset_warns(tmp_path, caplog):
+    image_dir = tmp_path / "image"
+    mask_dir = tmp_path / "mask"
+    image_dir.mkdir()
+    mask_dir.mkdir()
+    Image.fromarray(np.full((2, 2, 3), 12, dtype=np.uint8)).save(image_dir / "tile.png")
+    Image.fromarray(np.array([[0, 1], [1, 0]], dtype=np.uint8)).save(
+        mask_dir / "tile.png"
+    )
+
+    dataset, dataset_size = training_dataset.create_train_dataset(
+        input_data_dir=tmp_path,
+        image_subdir="image",
+        mask_subdir="mask",
+        image_augment_dict={"fill_mode": "constant", "cval": 0},
+        mask_augment_dict={"fill_mode": "constant", "cval": 1},
+        model_preprocess_input=None,
+        batch_size=1,
+        target_size=(2, 2),
+        shuffle=True,
+    )
+
+    images, masks = next(iter(dataset))
+    assert dataset_size == 1
+    assert images.shape == (1, 2, 2, 3)
+    assert masks.shape == (1, 2, 2, 1)
+    assert "cval for the mask should typically be 0" in caplog.text
+
+
+def test_decode_and_resize_decodes_rgb_png(tmp_path):
+    image_path = tmp_path / "rgb.png"
+    image_values = np.array(
+        [[[10, 20, 30], [40, 50, 60]], [[70, 80, 90], [100, 110, 120]]],
+        dtype=np.uint8,
+    )
+    Image.fromarray(image_values).save(image_path)
+
+    decoded = training_dataset._decode_and_resize(
+        tf.constant(str(image_path)), color_mode="rgb", target_size=(2, 2)
+    )
+
+    assert decoded.dtype == tf.float32
+    np.testing.assert_array_equal(decoded.numpy(), image_values.astype(np.float32))
+
+
+def test_decode_and_resize_errors():
+    with pytest.raises(ValueError, match="Unsupported color mode"):
+        training_dataset._decode_and_resize(
+            tf.constant("image.png"), color_mode="indexed", target_size=(2, 2)
+        )
+
+
+def test_decode_tiff_with_pil_grayscale(tmp_path):
+    image_path = tmp_path / "gray.tif"
+    Image.fromarray(np.array([[0, 1], [2, 3]], dtype=np.uint8)).save(image_path)
+
+    decoded = training_dataset._decode_tiff_with_pil(
+        np.asarray(str(image_path).encode("utf-8")), np.asarray(b"grayscale")
+    )
+
+    assert decoded.shape == (2, 2, 1)
+    np.testing.assert_array_equal(decoded[:, :, 0], [[0, 1], [2, 3]])
+
+
+def test_decode_tiff_with_pil_rgb(tmp_path):
+    image_path = tmp_path / "rgb.tif"
+    image_values = np.full((2, 2, 3), 37, dtype=np.uint8)
+    Image.fromarray(image_values).save(image_path)
+
+    decoded = training_dataset._decode_tiff_with_pil(
+        np.asarray(str(image_path)), np.asarray("rgb")
+    )
+
+    assert decoded.shape == (2, 2, 3)
+    np.testing.assert_array_equal(decoded, image_values)
+
+
+@pytest.mark.parametrize(
+    ("augmentations", "expected"),
+    [
+        ({}, False),
+        ({"zoom_range": (1.0, 1.0)}, False),
+        ({"width_shift_range": [0.0, 0.25]}, True),
+        ({"horizontal_flip": True}, True),
+        ({"rotation_range": 0}, False),
+        ({"rotation_range": 5}, True),
+    ],
+)
+def test_has_spatial_augmentation(augmentations, expected):
+    assert training_dataset._has_spatial_augmentation(augmentations) is expected
+
+
+@pytest.mark.parametrize(
     ("image_filenames", "mask_filenames", "message"),
     [
+        ((), (), "No training images found"),
         (
             ("tile.png",),
             ("tile.png", "orphan.png"),
@@ -37,6 +211,95 @@ def test_list_image_mask_pairs_errors(
 
     with pytest.raises(ValueError, match=message):
         training_dataset._list_image_mask_pairs(tmp_path, "image", "mask")
+
+
+@pytest.mark.parametrize(
+    ("augmentations", "expected"),
+    [
+        ({}, [1, 0, 0, 0, 1, 0, 0, 0]),
+        (
+            {
+                "rotation_range": [0.0, 0.0],
+                "shear_range": [0.0, 0.0],
+                "width_shift_range": [0.25, 0.25],
+                "height_shift_range": [0.5, 0.5],
+                "zoom_range": [1.0, 1.0],
+                "horizontal_flip": False,
+                "vertical_flip": False,
+            },
+            [1, 0, 2, 0, 1, 2, 0, 0],
+        ),
+    ],
+)
+def test_make_projective_transform(augmentations, expected):
+    transform = training_dataset._make_projective_transform(
+        augmentations,
+        seed=3,
+        index=tf.constant(0),
+        height=tf.constant(4),
+        width=tf.constant(8),
+    )
+
+    np.testing.assert_allclose(transform.numpy(), expected, atol=1e-6)
+
+
+def test_sample_range_error():
+    with pytest.raises(ValueError, match="two-value augmentation range"):
+        training_dataset._sample_range([0.1], seed=3, index=tf.constant(0), stream=1)
+
+
+def test_sample_range_integer_scalar_is_not_scaled_by_dimension():
+    sample = training_dataset._sample_range(
+        1,
+        seed=3,
+        index=tf.constant(0),
+        stream=1,
+        dimension=tf.constant(8.0),
+    )
+
+    assert -1.0 <= float(sample.numpy()) <= 1.0
+
+
+@pytest.mark.parametrize(
+    ("value", "dimension", "expected"),
+    [
+        ([0.25, 0.25], 8.0, 2.0),
+        (None, None, 0.0),
+    ],
+)
+def test_sample_range_scales(value, dimension, expected):
+    sample = training_dataset._sample_range(
+        value,
+        seed=3,
+        index=tf.constant(0),
+        stream=1,
+        dimension=tf.constant(dimension) if dimension is not None else None,
+    )
+    assert float(sample.numpy()) == expected
+
+
+def test_save_augmented_batch(tmp_path):
+    images = np.full((1, 4, 4, 1), 40, dtype=np.float32)
+    masks = np.zeros((1, 4, 4, 2), dtype=np.float32)
+    masks[..., 1] = 1.0
+
+    result = training_dataset._save_augmented_batch(
+        images,
+        masks,
+        np.asarray(3),
+        save_to_dir=tmp_path,
+        image_rescale=0.5,
+    )
+
+    output_dir = tmp_path / "0003"
+    assert result == 0
+    with Image.open(output_dir / "0_image.jpg") as saved_image:
+        assert saved_image.mode == "L"
+        assert np.asarray(saved_image).mean() == pytest.approx(80, abs=2)
+    with Image.open(output_dir / "0_mask_0.png") as saved_mask:
+        assert np.asarray(saved_mask).max() == 0
+    with Image.open(output_dir / "0_mask_1.png") as saved_mask:
+        assert np.asarray(saved_mask).min() == 255
 
 
 @pytest.mark.parametrize(
@@ -84,67 +347,6 @@ def test_validate_dataset_augmentations_errors(
 
 
 @pytest.mark.parametrize(
-    ("image_augmentations", "mask_augmentations", "nb_classes", "message"),
-    [
-        (
-            {"fill_mode": "invalid"},
-            {"fill_mode": "invalid"},
-            1,
-            "Unsupported augmentation fill_mode",
-        ),
-        (
-            {"interpolation_order": 2},
-            {"interpolation_order": 2},
-            1,
-            "interpolation_order must be 0 or 1",
-        ),
-        (
-            {"rescale": 0.5},
-            {"rescale": 0.5},
-            3,
-            "mask rescale must be 1",
-        ),
-    ],
-)
-def test_create_train_dataset_errors(
-    tmp_path, image_augmentations, mask_augmentations, nb_classes, message
-):
-    with pytest.raises(ValueError, match=message):
-        training_dataset.create_train_dataset(
-            input_data_dir=tmp_path,
-            image_subdir="image",
-            mask_subdir="mask",
-            image_augment_dict=image_augmentations,
-            mask_augment_dict=mask_augmentations,
-            model_preprocess_input=None,
-            nb_classes=nb_classes,
-        )
-
-
-@pytest.mark.parametrize(
-    ("value", "dimension", "expected"),
-    [
-        ([0.25, 0.25], 8.0, 2.0),
-        (None, None, 0.0),
-    ],
-)
-def test_sample_range_scales(value, dimension, expected):
-    sample = training_dataset._sample_range(
-        value,
-        seed=3,
-        index=tf.constant(0),
-        stream=1,
-        dimension=tf.constant(dimension) if dimension is not None else None,
-    )
-    assert float(sample.numpy()) == expected
-
-
-def test_sample_range_error():
-    with pytest.raises(ValueError, match="two-value augmentation range"):
-        training_dataset._sample_range([0.1], seed=3, index=tf.constant(0), stream=1)
-
-
-@pytest.mark.parametrize(
     ("value", "expected"),
     [
         (None, (1.0, 1.0)),
@@ -159,59 +361,3 @@ def test_zoom_bounds(value, expected):
 def test_zoom_bounds_error():
     with pytest.raises(ValueError, match="two-value zoom range"):
         training_dataset._zoom_bounds([0.8])
-
-
-@pytest.mark.parametrize(
-    ("augmentations", "expected"),
-    [
-        ({}, False),
-        ({"zoom_range": (1.0, 1.0)}, False),
-        ({"width_shift_range": [0.0, 0.25]}, True),
-        ({"horizontal_flip": True}, True),
-    ],
-)
-def test_has_spatial_augmentation(augmentations, expected):
-    assert training_dataset._has_spatial_augmentation(augmentations) is expected
-
-
-def test_decode_and_resize_errors():
-    with pytest.raises(ValueError, match="Unsupported color mode"):
-        training_dataset._decode_and_resize(
-            tf.constant("image.png"), color_mode="indexed", target_size=(2, 2)
-        )
-
-
-def test_decode_tiff_with_pil(tmp_path):
-    image_path = tmp_path / "gray.tif"
-    Image.fromarray(np.array([[0, 1], [2, 3]], dtype=np.uint8)).save(image_path)
-
-    decoded = training_dataset._decode_tiff_with_pil(
-        np.asarray(str(image_path).encode("utf-8")), np.asarray(b"grayscale")
-    )
-
-    assert decoded.shape == (2, 2, 1)
-    np.testing.assert_array_equal(decoded[:, :, 0], [[0, 1], [2, 3]])
-
-
-def test_save_augmented_batch(tmp_path):
-    images = np.full((1, 4, 4, 1), 40, dtype=np.float32)
-    masks = np.zeros((1, 4, 4, 2), dtype=np.float32)
-    masks[..., 1] = 1.0
-
-    result = training_dataset._save_augmented_batch(
-        images,
-        masks,
-        np.asarray(3),
-        save_to_dir=tmp_path,
-        image_rescale=0.5,
-    )
-
-    output_dir = tmp_path / "0003"
-    assert result == 0
-    with Image.open(output_dir / "0_image.jpg") as saved_image:
-        assert saved_image.mode == "L"
-        assert np.asarray(saved_image).mean() == pytest.approx(80, abs=2)
-    with Image.open(output_dir / "0_mask_0.png") as saved_mask:
-        assert np.asarray(saved_mask).max() == 0
-    with Image.open(output_dir / "0_mask_1.png") as saved_mask:
-        assert np.asarray(saved_mask).min() == 255
