@@ -295,9 +295,7 @@ def train(
 
     # Prepare the parameters to pass to fit...
     # Calculate the number of steps within an epoch
-    train_steps_per_epoch = int(
-        tf.data.experimental.cardinality(train_gen).numpy()
-    )
+    train_steps_per_epoch = int(tf.data.experimental.cardinality(train_gen).numpy())
     validation_steps_per_epoch = int(
         tf.data.experimental.cardinality(validation_gen).numpy()
     )

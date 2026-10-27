@@ -300,18 +300,8 @@ def _make_projective_transform(
 
     center_x = (tf.cast(width, tf.float32) - 1.0) / 2.0
     center_y = (tf.cast(height, tf.float32) - 1.0) / 2.0
-    offset_x = (
-        center_x
-        - linear[0, 0] * center_x
-        - linear[0, 1] * center_y
-        + shift_x
-    )
-    offset_y = (
-        center_y
-        - linear[1, 0] * center_x
-        - linear[1, 1] * center_y
-        + shift_y
-    )
+    offset_x = center_x - linear[0, 0] * center_x - linear[0, 1] * center_y + shift_x
+    offset_y = center_y - linear[1, 0] * center_x - linear[1, 1] * center_y + shift_y
     return tf.stack(
         [
             linear[0, 0],
@@ -413,9 +403,7 @@ def _save_augmented_batch(
         output_dir.mkdir(parents=True, exist_ok=True)
         Image.fromarray(image_to_save).save(output_dir / f"{image_id}_image.jpg")
         for channel_id in range(mask.shape[-1]):
-            mask_to_save = np.clip(mask[..., channel_id] * 255, 0, 255).astype(
-                np.uint8
-            )
+            mask_to_save = np.clip(mask[..., channel_id] * 255, 0, 255).astype(np.uint8)
             Image.fromarray(mask_to_save).save(
                 output_dir / f"{image_id}_mask_{channel_id}.png"
             )
@@ -461,9 +449,7 @@ def create_train_dataset(
         and mask_augment_dict.get("rescale") is not None
         and mask_augment_dict["rescale"] != 1
     ):
-        raise ValueError(
-            f"With nb_classes > 2 ({nb_classes}), mask rescale must be 1"
-        )
+        raise ValueError(f"With nb_classes > 2 ({nb_classes}), mask rescale must be 1")
 
     pairs = _list_image_mask_pairs(input_data_dir, image_subdir, mask_subdir)
     dataset = tf.data.Dataset.from_tensor_slices(

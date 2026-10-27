@@ -87,9 +87,7 @@ def test_create_train_dataset_pairs_files_and_one_hot_encodes_masks(tmp_path):
     assert int(dataset.cardinality().numpy()) == 1
     assert images.shape == (2, 2, 2, 3)
     assert masks.shape == (2, 2, 2, 2)
-    np.testing.assert_array_equal(
-        images.numpy()[0], image_a.astype(np.float32) / 10.0
-    )
+    np.testing.assert_array_equal(images.numpy()[0], image_a.astype(np.float32) / 10.0)
     np.testing.assert_array_equal(masks.numpy()[0, :, :, 1], mask_a)
     np.testing.assert_array_equal(masks.numpy()[1, :, :, 1], mask_b)
 
@@ -179,9 +177,7 @@ def test_create_train_dataset_pairs_jpeg_with_png_mask_and_saves_output(tmp_path
     mask_dir = data_dir / "mask"
     image_dir.mkdir(parents=True)
     mask_dir.mkdir()
-    Image.fromarray(np.full((2, 2, 3), 80, dtype=np.uint8)).save(
-        image_dir / "tile.jpg"
-    )
+    Image.fromarray(np.full((2, 2, 3), 80, dtype=np.uint8)).save(image_dir / "tile.jpg")
     Image.fromarray(np.array([[0, 1], [1, 0]], dtype=np.uint8)).save(
         mask_dir / "tile.png"
     )
