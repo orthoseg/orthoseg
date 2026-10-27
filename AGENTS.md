@@ -33,6 +33,7 @@
 
 ## Repository conventions
 
+- In Python modules, define public functions before private helper functions.
 - Keep project-specific behavior in configuration rather than adding per-project
   Python code. Load and validate project settings through
   `orthoseg.helpers.config_helper`; use its typed accessors for values such as paths,

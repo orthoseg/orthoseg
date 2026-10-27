@@ -47,6 +47,148 @@ _GEOMETRIC_AUGMENTATION_KEYS = (
 )
 
 
+def create_train_dataset(
+    input_data_dir: Path,
+    image_subdir: str,
+    mask_subdir: str,
+    image_augment_dict: dict[str, Any],
+    mask_augment_dict: dict[str, Any],
+    *,
+    model_preprocess_input: Callable | None,
+    batch_size: int = 32,
+    image_color_mode: str = "rgb",
+    mask_color_mode: str = "grayscale",
+    save_to_subdir: str | None = None,
+    nb_classes: int = 1,
+    target_size: tuple[int, int] = (256, 256),
+    shuffle: bool = True,
+    seed: int = 1,
+) -> tuple[tf.data.Dataset, int]:
+    """Create a streaming TensorFlow dataset of paired images and masks."""
+    image_augment_dict = dict(image_augment_dict or {})
+    mask_augment_dict = dict(mask_augment_dict or {})
+    _validate_dataset_augmentations(image_augment_dict, mask_augment_dict)
+    if mask_augment_dict.get("cval", 0) != 0:
+        logger.warning(
+            "cval for the mask should typically be 0 (background); configured value: "
+            f"{mask_augment_dict['cval']}"
+        )
+    for augmentations in (image_augment_dict, mask_augment_dict):
+        fill_mode = str(augmentations.get("fill_mode", "nearest")).upper()
+        if fill_mode not in {"CONSTANT", "REFLECT", "WRAP", "NEAREST"}:
+            raise ValueError(f"Unsupported augmentation fill_mode: {fill_mode}")
+        if int(augmentations.get("interpolation_order", 1)) not in {0, 1}:
+            raise ValueError(
+                "interpolation_order must be 0 or 1 for the tf.data pipeline"
+            )
+    if (
+        nb_classes > 2
+        and mask_augment_dict.get("rescale") is not None
+        and mask_augment_dict["rescale"] != 1
+    ):
+        raise ValueError(f"With nb_classes > 2 ({nb_classes}), mask rescale must be 1")
+
+    pairs = _list_image_mask_pairs(input_data_dir, image_subdir, mask_subdir)
+    dataset = tf.data.Dataset.from_tensor_slices(
+        (
+            [str(image_path) for image_path, _ in pairs],
+            [str(mask_path) for _, mask_path in pairs],
+        )
+    )
+    if shuffle:
+        dataset = dataset.shuffle(
+            buffer_size=len(pairs),
+            seed=seed,
+            reshuffle_each_iteration=True,
+        )
+    dataset = dataset.enumerate()
+
+    def load_pair(index: tf.Tensor, paths: tuple[tf.Tensor, tf.Tensor]):
+        image = _decode_and_resize(
+            paths[0], color_mode=image_color_mode, target_size=target_size
+        )
+        mask = _decode_and_resize(
+            paths[1], color_mode=mask_color_mode, target_size=target_size
+        )
+        if _has_spatial_augmentation(image_augment_dict):
+            transform = _make_projective_transform(
+                image_augment_dict,
+                seed=seed,
+                index=index,
+                height=tf.shape(image)[0],
+                width=tf.shape(image)[1],
+            )
+            image = _apply_projective_transform(
+                image, transform, image_augment_dict, is_mask=False
+            )
+            mask = _apply_projective_transform(
+                mask, transform, mask_augment_dict, is_mask=True
+            )
+
+        image_rescale = image_augment_dict.get("rescale")
+        if image_rescale is not None:
+            image *= tf.cast(image_rescale, tf.float32)
+        mask_rescale = mask_augment_dict.get("rescale")
+        if mask_rescale is not None:
+            mask *= tf.cast(mask_rescale, tf.float32)
+        return image, mask
+
+    dataset = dataset.map(load_pair, num_parallel_calls=tf.data.AUTOTUNE)
+    dataset = dataset.batch(batch_size)
+    dataset = dataset.enumerate()
+
+    save_to_dir = None
+    if save_to_subdir is not None:
+        save_to_dir = input_data_dir / save_to_subdir
+        save_to_dir.mkdir(parents=True, exist_ok=True)
+
+    image_brightness = image_augment_dict.get("brightness_range")
+    image_rescale = image_augment_dict.get("rescale")
+
+    def prepare_batch(batch_index: tf.Tensor, batch: tuple[tf.Tensor, tf.Tensor]):
+        image, mask = batch
+        if image_brightness is not None and (
+            image_brightness[0] != 1 or image_brightness[1] != 1
+        ):
+            brightness = _stateless_uniform(
+                seed,
+                batch_index,
+                100,
+                float(image_brightness[0]),
+                float(image_brightness[1]),
+            )
+            image *= brightness
+
+        if nb_classes > 1:
+            mask = tf.one_hot(
+                tf.cast(tf.squeeze(mask, axis=-1), tf.int32),
+                depth=nb_classes,
+            )
+
+        if save_to_dir is not None:
+            save_token = tf.numpy_function(
+                lambda images, masks, index: _save_augmented_batch(
+                    images,
+                    masks,
+                    index,
+                    save_to_dir=save_to_dir,
+                    image_rescale=image_rescale,
+                ),
+                [image, mask, batch_index],
+                tf.int64,
+            )
+            with tf.control_dependencies([save_token]):
+                image = tf.identity(image)
+                mask = tf.identity(mask)
+
+        if model_preprocess_input is not None:
+            image = model_preprocess_input(image)
+        return image, mask
+
+    dataset = dataset.map(prepare_batch, num_parallel_calls=tf.data.AUTOTUNE)
+    return dataset.prefetch(tf.data.AUTOTUNE), len(pairs)
+
+
 def _list_image_mask_pairs(
     input_data_dir: Path, image_subdir: str, mask_subdir: str
 ) -> list[tuple[Path, Path]]:
@@ -300,18 +442,8 @@ def _make_projective_transform(
 
     center_x = (tf.cast(width, tf.float32) - 1.0) / 2.0
     center_y = (tf.cast(height, tf.float32) - 1.0) / 2.0
-    offset_x = (
-        center_x
-        - linear[0, 0] * center_x
-        - linear[0, 1] * center_y
-        + shift_x
-    )
-    offset_y = (
-        center_y
-        - linear[1, 0] * center_x
-        - linear[1, 1] * center_y
-        + shift_y
-    )
+    offset_x = center_x - linear[0, 0] * center_x - linear[0, 1] * center_y + shift_x
+    offset_y = center_y - linear[1, 0] * center_x - linear[1, 1] * center_y + shift_y
     return tf.stack(
         [
             linear[0, 0],
@@ -413,154 +545,8 @@ def _save_augmented_batch(
         output_dir.mkdir(parents=True, exist_ok=True)
         Image.fromarray(image_to_save).save(output_dir / f"{image_id}_image.jpg")
         for channel_id in range(mask.shape[-1]):
-            mask_to_save = np.clip(mask[..., channel_id] * 255, 0, 255).astype(
-                np.uint8
-            )
+            mask_to_save = np.clip(mask[..., channel_id] * 255, 0, 255).astype(np.uint8)
             Image.fromarray(mask_to_save).save(
                 output_dir / f"{image_id}_mask_{channel_id}.png"
             )
     return np.int64(0)
-
-
-def create_train_dataset(
-    input_data_dir: Path,
-    image_subdir: str,
-    mask_subdir: str,
-    image_augment_dict: dict[str, Any],
-    mask_augment_dict: dict[str, Any],
-    *,
-    model_preprocess_input: Callable | None,
-    batch_size: int = 32,
-    image_color_mode: str = "rgb",
-    mask_color_mode: str = "grayscale",
-    save_to_subdir: str | None = None,
-    nb_classes: int = 1,
-    target_size: tuple[int, int] = (256, 256),
-    shuffle: bool = True,
-    seed: int = 1,
-) -> tuple[tf.data.Dataset, int]:
-    """Create a streaming TensorFlow dataset of paired images and masks."""
-    image_augment_dict = dict(image_augment_dict or {})
-    mask_augment_dict = dict(mask_augment_dict or {})
-    _validate_dataset_augmentations(image_augment_dict, mask_augment_dict)
-    if mask_augment_dict.get("cval", 0) != 0:
-        logger.warning(
-            "cval for the mask should typically be 0 (background); configured value: "
-            f"{mask_augment_dict['cval']}"
-        )
-    for augmentations in (image_augment_dict, mask_augment_dict):
-        fill_mode = str(augmentations.get("fill_mode", "nearest")).upper()
-        if fill_mode not in {"CONSTANT", "REFLECT", "WRAP", "NEAREST"}:
-            raise ValueError(f"Unsupported augmentation fill_mode: {fill_mode}")
-        if int(augmentations.get("interpolation_order", 1)) not in {0, 1}:
-            raise ValueError(
-                "interpolation_order must be 0 or 1 for the tf.data pipeline"
-            )
-    if (
-        nb_classes > 2
-        and mask_augment_dict.get("rescale") is not None
-        and mask_augment_dict["rescale"] != 1
-    ):
-        raise ValueError(
-            f"With nb_classes > 2 ({nb_classes}), mask rescale must be 1"
-        )
-
-    pairs = _list_image_mask_pairs(input_data_dir, image_subdir, mask_subdir)
-    dataset = tf.data.Dataset.from_tensor_slices(
-        (
-            [str(image_path) for image_path, _ in pairs],
-            [str(mask_path) for _, mask_path in pairs],
-        )
-    )
-    if shuffle:
-        dataset = dataset.shuffle(
-            buffer_size=len(pairs),
-            seed=seed,
-            reshuffle_each_iteration=True,
-        )
-    dataset = dataset.enumerate()
-
-    def load_pair(index: tf.Tensor, paths: tuple[tf.Tensor, tf.Tensor]):
-        image = _decode_and_resize(
-            paths[0], color_mode=image_color_mode, target_size=target_size
-        )
-        mask = _decode_and_resize(
-            paths[1], color_mode=mask_color_mode, target_size=target_size
-        )
-        if _has_spatial_augmentation(image_augment_dict):
-            transform = _make_projective_transform(
-                image_augment_dict,
-                seed=seed,
-                index=index,
-                height=tf.shape(image)[0],
-                width=tf.shape(image)[1],
-            )
-            image = _apply_projective_transform(
-                image, transform, image_augment_dict, is_mask=False
-            )
-            mask = _apply_projective_transform(
-                mask, transform, mask_augment_dict, is_mask=True
-            )
-
-        image_rescale = image_augment_dict.get("rescale")
-        if image_rescale is not None:
-            image *= tf.cast(image_rescale, tf.float32)
-        mask_rescale = mask_augment_dict.get("rescale")
-        if mask_rescale is not None:
-            mask *= tf.cast(mask_rescale, tf.float32)
-        return image, mask
-
-    dataset = dataset.map(load_pair, num_parallel_calls=tf.data.AUTOTUNE)
-    dataset = dataset.batch(batch_size)
-    dataset = dataset.enumerate()
-
-    save_to_dir = None
-    if save_to_subdir is not None:
-        save_to_dir = input_data_dir / save_to_subdir
-        save_to_dir.mkdir(parents=True, exist_ok=True)
-
-    image_brightness = image_augment_dict.get("brightness_range")
-    image_rescale = image_augment_dict.get("rescale")
-
-    def prepare_batch(batch_index: tf.Tensor, batch: tuple[tf.Tensor, tf.Tensor]):
-        image, mask = batch
-        if image_brightness is not None and (
-            image_brightness[0] != 1 or image_brightness[1] != 1
-        ):
-            brightness = _stateless_uniform(
-                seed,
-                batch_index,
-                100,
-                float(image_brightness[0]),
-                float(image_brightness[1]),
-            )
-            image *= brightness
-
-        if nb_classes > 1:
-            mask = tf.one_hot(
-                tf.cast(tf.squeeze(mask, axis=-1), tf.int32),
-                depth=nb_classes,
-            )
-
-        if save_to_dir is not None:
-            save_token = tf.numpy_function(
-                lambda images, masks, index: _save_augmented_batch(
-                    images,
-                    masks,
-                    index,
-                    save_to_dir=save_to_dir,
-                    image_rescale=image_rescale,
-                ),
-                [image, mask, batch_index],
-                tf.int64,
-            )
-            with tf.control_dependencies([save_token]):
-                image = tf.identity(image)
-                mask = tf.identity(mask)
-
-        if model_preprocess_input is not None:
-            image = model_preprocess_input(image)
-        return image, mask
-
-    dataset = dataset.map(prepare_batch, num_parallel_calls=tf.data.AUTOTUNE)
-    return dataset.prefetch(tf.data.AUTOTUNE), len(pairs)
