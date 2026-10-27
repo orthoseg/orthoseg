@@ -100,7 +100,7 @@ def test_create_train_dataset_pairs_files_and_one_hot_encodes_masks(tmp_path):
         ]
     )
     model.compile(optimizer="sgd", loss="categorical_crossentropy")
-    history = model.fit(dataset, epochs=1, verbose=0)
+    history = model.fit(dataset, epochs=1, verbose=0, shuffle=False)
     assert len(history.history["loss"]) == 1
 
 

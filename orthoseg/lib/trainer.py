@@ -208,10 +208,13 @@ def train(
         target_size=(image_width, image_height),
         nb_classes=len(hyperparams.architecture.classes),
         save_to_subdir=save_augmented_subdir,
+        shuffle=True,
         seed=2,
     )
 
-    # For validation data, don't apply augmentation except potentially rescaling.
+    # For validation data:
+    #   - don't apply augmentation except potentially rescaling
+    #   - don't shuffle the validation dataset
     validation_augm = {"rescale": rescale_train} if rescale_train is not None else {}
     rescale_mask = hyperparams.train.mask_augmentations.get("rescale")
     validation_mask_augm = {"rescale": rescale_mask} if rescale_mask is not None else {}
@@ -295,9 +298,7 @@ def train(
 
     # Prepare the parameters to pass to fit...
     # Calculate the number of steps within an epoch
-    train_steps_per_epoch = int(
-        tf.data.experimental.cardinality(train_gen).numpy()
-    )
+    train_steps_per_epoch = int(tf.data.experimental.cardinality(train_gen).numpy())
     validation_steps_per_epoch = int(
         tf.data.experimental.cardinality(validation_gen).numpy()
     )
@@ -329,6 +330,7 @@ def train(
                 callbacks=train_callbacks,
                 initial_epoch=start_epoch,
                 verbose=2,
+                shuffle=False,  # Shuffle is done by the dataset itself
             )
             mf.set_trainable(model=model_for_train, recompile=False)
             model_for_train = mf.compile_model(
@@ -349,6 +351,7 @@ def train(
             callbacks=train_callbacks,
             initial_epoch=start_epoch,
             verbose=2,
+            shuffle=False,  # Shuffle is done by the dataset itself
         )
 
         # Write some reporting
