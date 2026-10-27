@@ -33,6 +33,11 @@
 
 ## Repository conventions
 
+- In Python modules, define public functions before private helper functions.
+- Keep successful behavior and error cases in separate tests. Use
+  `pytest.mark.parametrize` when several cases share setup and assertions, keep
+  one-off test names concise, and order test functions alphabetically within each
+  test module.
 - Keep project-specific behavior in configuration rather than adding per-project
   Python code. Load and validate project settings through
   `orthoseg.helpers.config_helper`; use its typed accessors for values such as paths,

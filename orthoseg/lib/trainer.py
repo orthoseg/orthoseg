@@ -1,19 +1,16 @@
 """Module with high-level operations to segment images."""
 
 import logging
-import math
-from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 import keras
-import numpy as np
 import pandas as pd
-from PIL import Image
-from tensorflow.keras import preprocessing
+import tensorflow as tf
 
 import orthoseg.model.model_factory as mf
 import orthoseg.model.model_helper as mh
+from orthoseg.lib.training_dataset import create_train_dataset
 
 # Get a logger...
 logger = logging.getLogger(__name__)
@@ -200,7 +197,7 @@ def train(
     if rescale_train is not None:
         model_preprocess_input = None
 
-    train_gen = create_train_generator(
+    train_dataset, train_dataset_size = create_train_dataset(
         input_data_dir=traindata_dir,
         image_subdir=image_subdir,
         mask_subdir=mask_subdir,
@@ -211,15 +208,18 @@ def train(
         target_size=(image_width, image_height),
         nb_classes=len(hyperparams.architecture.classes),
         save_to_subdir=save_augmented_subdir,
+        shuffle=True,
         seed=2,
     )
 
-    # For validation data, don't apply augmentation except potentially rescaling.
+    # For validation data:
+    #   - don't apply augmentation except potentially rescaling
+    #   - don't shuffle the validation dataset
     validation_augm = {"rescale": rescale_train} if rescale_train is not None else {}
     rescale_mask = hyperparams.train.mask_augmentations.get("rescale")
     validation_mask_augm = {"rescale": rescale_mask} if rescale_mask is not None else {}
 
-    validation_gen = create_train_generator(
+    validation_dataset, validation_dataset_size = create_train_dataset(
         input_data_dir=validationdata_dir,
         image_subdir=image_subdir,
         mask_subdir=mask_subdir,
@@ -297,28 +297,10 @@ def train(
     train_callbacks.append(early_stopping)
 
     # Prepare the parameters to pass to fit...
-    # Supported filetypes to train/validate on
-    input_ext = [".tif", ".jpg", ".png"]
-
-    # Calculate the size of the input datasets
-    # train_dataset_size = len(glob.glob(f"{traindata_dir}/{image_subdir}/*.*"))
-    train_dataset_size = 0
-    for input_ext_cur in input_ext:
-        traindata_image_dir = traindata_dir / image_subdir
-        train_dataset_size += len(list(traindata_image_dir.rglob("*" + input_ext_cur)))
-    validation_dataset_size = 0
-    for input_ext_cur in input_ext:
-        validationdata_image_dir = validationdata_dir / image_subdir
-        validation_dataset_size += len(
-            list(validationdata_image_dir.rglob("*" + input_ext_cur))
-        )
-
     # Calculate the number of steps within an epoch
-    # Remark: number of steps per epoch should be at least 1, even if nb samples
-    # < batch size...
-    train_steps_per_epoch = math.ceil(train_dataset_size / hyperparams.train.batch_size)
-    validation_steps_per_epoch = math.ceil(
-        validation_dataset_size / hyperparams.train.batch_size
+    train_steps_per_epoch = int(tf.data.experimental.cardinality(train_dataset).numpy())
+    validation_steps_per_epoch = int(
+        tf.data.experimental.cardinality(validation_dataset).numpy()
     )
 
     # Start training
@@ -340,15 +322,15 @@ def train(
                 "frozen layers"
             )
             model_for_train.fit(
-                train_gen,
+                train_dataset,
                 steps_per_epoch=train_steps_per_epoch,
                 epochs=hyperparams.train.nb_epoch_with_freeze,
-                validation_data=validation_gen,
-                shuffle=False,  # Shuffle is applied by the generator
+                validation_data=validation_dataset,
                 validation_steps=validation_steps_per_epoch,
                 callbacks=train_callbacks,
                 initial_epoch=start_epoch,
                 verbose=2,
+                shuffle=False,  # Shuffle is done by the dataset itself
             )
             mf.set_trainable(model=model_for_train, recompile=False)
             model_for_train = mf.compile_model(
@@ -361,15 +343,15 @@ def train(
 
         # Train!
         model_for_train.fit(
-            train_gen,
+            train_dataset,
             steps_per_epoch=train_steps_per_epoch,
             epochs=hyperparams.train.nb_epoch,
-            validation_data=validation_gen,
-            shuffle=False,  # Shuffle is applied by the generator
+            validation_data=validation_dataset,
             validation_steps=validation_steps_per_epoch,
             callbacks=train_callbacks,
             initial_epoch=start_epoch,
             verbose=2,
+            shuffle=False,  # Shuffle is done by the dataset itself
         )
 
         # Write some reporting
@@ -391,253 +373,3 @@ def train(
         # from keras import backend as K
         # K.clear_session()
         keras.backend.clear_session()
-
-
-def create_train_generator(
-    input_data_dir: Path,
-    image_subdir: str,
-    mask_subdir: str,
-    image_augment_dict: dict,
-    mask_augment_dict: dict,
-    *,
-    model_preprocess_input: Callable | None,
-    batch_size: int = 32,
-    image_color_mode: str = "rgb",
-    mask_color_mode: str = "grayscale",
-    save_to_subdir: str | None = None,
-    image_save_prefix: str = "image",
-    mask_save_prefix: str = "mask",
-    nb_classes: int = 1,
-    target_size: tuple[int, int] = (256, 256),
-    shuffle: bool = True,
-    seed: int = 1,
-):
-    """Creates a generator to generate and augment train images.
-
-    The augmentations
-    specified in aug_dict will be applied. For the augmentations that can be
-    specified in aug_dict look at the documentation of
-    keras.preprocessing.image.ImageDataGenerator
-
-    For more info about the other parameters, check keras flow_from_directory.
-
-    Remarks: * use the same seed for image_datagen and mask_datagen to ensure
-               the transformation for image and mask is the same
-             * set save_to_dir = "your path" to check results of the generator
-             * it is possible to convert the generator to a Dataset using
-               tf.data.Dataset.from_generator, but this halves training speed.
-                    return tf.data.Dataset.from_generator(
-                        lambda: train_gen,
-                        output_types=(tf.float32, tf.float32),
-                        output_shapes=(
-                            [None, target_size[0], target_size[1], 3],
-                            [None, target_size[0], target_size[1], nb_classes],
-                        ),
-                    )
-    """
-    # Init
-    # Do some checks on the augmentations specified, as it is easy to
-    # introduce illogical values
-    if (image_augment_dict is not None and mask_augment_dict is None) or (
-        image_augment_dict is not None and mask_augment_dict is None
-    ):
-        logger.warning(
-            "Only augmentations specified for either image or mask: "
-            f"image_augment_dict: {image_augment_dict}, mask_augment_dict: "
-            f"{mask_augment_dict}"
-        )
-
-    # Checks that involve comparing augmentations between the image and the mask
-    if image_augment_dict is not None and mask_augment_dict is not None:
-        # If an augmentation is specified for image, it should be specified
-        # for the mask as well and the other way around to avoid issues
-        for augmentation in image_augment_dict:
-            if augmentation not in mask_augment_dict:
-                raise Exception(
-                    f"{augmentation} in image_augment_dict but not in mask_augment_dict"
-                )
-        for augmentation in mask_augment_dict:
-            if augmentation not in image_augment_dict:
-                raise Exception(
-                    f"{augmentation} in mask_augment_dict but not in image_augment_dict"
-                )
-
-        # Check if the brightness range has valid values
-        image_brightness_range = image_augment_dict.get("brightness_range")
-        mask_brightness_range = mask_augment_dict.get("brightness_range")
-        if image_brightness_range is None and mask_brightness_range is not None:
-            # If brightness_range None for image, it should be None for the mask as well
-            raise Exception(
-                "augmentation brightness_range is None (null) in image_augment_dict "
-                f"but isn't in mask_augment_dict: {mask_brightness_range}"
-            )
-        elif image_brightness_range is not None and mask_brightness_range is None:
-            # If brightness_range None for mask, it should be None for the image as well
-            raise Exception(
-                "augmentation brightness_range is None (null) in mask_augment_dict but "
-                f"isn't in image_augment_dict: {image_brightness_range}"
-            )
-        elif image_brightness_range is not None and mask_brightness_range is not None:
-            # The brightness_range values should be >= 0
-            if image_brightness_range[0] < 0 or image_brightness_range[1] < 0:
-                raise Exception(
-                    "augmentation brightness_range values should be > 0: value 1.0 = "
-                    "don't do anything, 0 = black"
-                )
-            # brightness_range is applied to the image, it should be [1,1] for the mask
-            if mask_brightness_range[0] != 1.0 or mask_brightness_range[1] != 1.0:
-                raise ValueError(
-                    "augmentation brightness_range is specified on the image: then the "
-                    f"mask should get range [1, 1], not {mask_brightness_range}"
-                )
-
-    # Some checks specific for the mask
-    if mask_augment_dict is not None:
-        # Check cval value
-        if "cval" in mask_augment_dict and mask_augment_dict["cval"] != 0:
-            logger.warning(
-                "cval typically should be 0 for the mask, even if it is different for "
-                "the image, as the cval of the mask refers to these locations being of "
-                f"class 'background'. It is: {mask_augment_dict['cval']}"
-            )
-
-        # If there are more than two classes, the mask will have integers as values
-        # to code the different masks in, and one hot-encoding will be applied to
-        # it, so it should not be rescaled!!!
-        if (
-            nb_classes > 2
-            and "rescale" in mask_augment_dict
-            and mask_augment_dict["rescale"] != 1
-        ):
-            raise Exception(
-                f"With nb_classes > 2 ({nb_classes}), the mask should have a rescale "
-                f"value of 1, not {mask_augment_dict['rescale']}"
-            )
-
-    # Now create the generators
-    # Create the image generators with the augment info
-
-    # TODO: brightness_range is buggy on 2021-08-11, with keras preprocessing
-    # version 1.1, so is implemented here in a hacky way!
-    image_augment_dict_temp = {
-        key: value
-        for (key, value) in image_augment_dict.items()
-        if key != "brightness_range"
-    }
-    mask_augment_dict_temp = {
-        key: value
-        for (key, value) in mask_augment_dict.items()
-        if key != "brightness_range"
-    }
-    image_datagen = preprocessing.image.ImageDataGenerator(**image_augment_dict_temp)
-    mask_datagen = preprocessing.image.ImageDataGenerator(**mask_augment_dict_temp)
-
-    # Format save_to_dir
-    # Remark: flow_from_directory doesn't support Path, so supply str immediately as
-    # well, otherwise, if str(Path) is used later on, it becomes 'None' instead of None!
-    save_to_dir = None
-    if save_to_subdir is not None:
-        save_to_dir = input_data_dir / save_to_subdir
-        if not save_to_dir.exists():
-            save_to_dir.mkdir(parents=True)
-
-    image_generator = image_datagen.flow_from_directory(
-        directory=str(input_data_dir),
-        classes=[image_subdir],
-        class_mode=None,
-        color_mode=image_color_mode,
-        target_size=target_size,
-        batch_size=batch_size,
-        save_to_dir=None,
-        save_prefix=image_save_prefix,
-        shuffle=shuffle,
-        seed=seed,
-    )
-
-    mask_generator = mask_datagen.flow_from_directory(
-        directory=str(input_data_dir),
-        classes=[mask_subdir],
-        class_mode=None,
-        color_mode=mask_color_mode,
-        target_size=target_size,
-        batch_size=batch_size,
-        save_to_dir=None,
-        save_prefix=mask_save_prefix,
-        shuffle=shuffle,
-        seed=seed,
-    )
-
-    train_generator = zip(image_generator, mask_generator, strict=True)
-
-    for batch_id, (image, mask) in enumerate(train_generator):
-        # Cast to arrays to avoid type errors
-        image = np.array(image)
-        mask = np.array(mask)
-
-        # TODO: brightness_range is buggy on 2021-08-11, with keras preprocessing
-        # version 1.1, so is implemented here in a hacky way!
-        if (
-            "brightness_range" in image_augment_dict
-            and image_augment_dict["brightness_range"] is not None
-            and (
-                image_augment_dict["brightness_range"][0] != 1
-                or image_augment_dict["brightness_range"][1] != 1
-            )
-        ):
-            # Random brightness shift to apply to all images in batch
-            brightness_shift = np.random.uniform(  # noqa: NPY002
-                image_augment_dict["brightness_range"][0],
-                image_augment_dict["brightness_range"][1],
-            )
-            image = image * brightness_shift
-
-        # One-hot encode mask if multiple classes
-        if nb_classes > 1:
-            mask = keras.utils.to_categorical(mask, nb_classes)
-
-        # Because the default save_to_dir option doesn't support saving the
-        # augmented masks in seperate files per class, implement this here.
-        if save_to_dir is not None:
-            # Save mask for every class seperately
-            # Get the number of images in this batch + the nb classes
-            mask_shape = mask.shape
-            nb_images = mask_shape[0]
-            nb_classes = mask_shape[3]
-
-            # Loop through images in this batch
-            for image_id in range(nb_images):
-                # Slice the next image from the array
-                image_to_save = image[image_id, :, :, :]
-
-                # Reverse the rescale if there is one
-                if (
-                    image_augment_dict is not None
-                    and "rescale" in image_augment_dict
-                    and image_augment_dict["rescale"] != 1
-                ):
-                    image_to_save = image_to_save / image_augment_dict["rescale"]
-
-                # Now convert to uint8 image and save!
-                # , image_color_mode
-                colormode = None
-                if image_color_mode.upper() == "RGB":
-                    colormode = "RGB"
-                im = Image.fromarray(image_to_save.astype(np.uint8), mode=colormode)
-                image_dir = save_to_dir / f"{batch_id:0>4}"
-                image_dir.mkdir(parents=True, exist_ok=True)
-                image_path = image_dir / f"{image_id}_image.jpg"
-                im.save(image_path)
-
-                # Loop through the masks for each class
-                for channel_id in range(nb_classes):
-                    mask_to_save = mask[image_id, :, :, channel_id]
-                    mask_dir = save_to_dir / f"{batch_id:0>4}"
-                    mask_path = mask_dir / f"{image_id}_mask_{channel_id}.png"
-                    im = Image.fromarray((mask_to_save * 255).astype(np.uint8))
-                    im.save(mask_path)
-
-        # Apply the model preprocess function if there is one
-        if model_preprocess_input is not None:
-            image = model_preprocess_input(image)
-
-        yield (image, mask)
