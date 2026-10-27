@@ -6,10 +6,12 @@ import logging
 import multiprocessing
 import shutil
 import tempfile
+import threading
 import time
 import traceback
 from collections.abc import Callable
 from concurrent import futures
+from contextlib import nullcontext
 from datetime import datetime
 from pathlib import Path
 from time import perf_counter
@@ -101,9 +103,8 @@ def predict_dir(
             memory on you GPU.
         evaluate_mode: True to run in evaluate mode
         cancel_filepath: If the file in this path exists, processing stops asap
-        nb_parallel_read: The number of parallel threads to read/load
-            images for prediction. If -1, a default value is used. At the time of
-            writing the default is 3 * `batch_size`. Defaults to -1.
+        nb_parallel_read: The number of parallel reads for cached images, handled
+            through `tf.data`. If -1, the default is 3 * `batch_size`. Defaults to -1.
         nb_parallel_postprocess: The number of parallel
             processes used to vectorize,... the predictions. If -1, all
             available CPU's are used. Defaults to 1.
@@ -255,9 +256,8 @@ def predict_layer(
             memory on you GPU.
         evaluate_mode: True to run in evaluate mode
         cancel_filepath: If the file in this path exists, processing stops asap
-        nb_parallel_read: The number of parallel threads to read/load
-            images for prediction. If -1, a default value is used. At the time of
-            writing the default is 3 * `batch_size`. Defaults to -1.
+        nb_parallel_read: The number of parallel reader threads used to load live
+            imagery. If -1, the default is 3 * `batch_size`. Defaults to -1.
         nb_parallel_postprocess: The number of parallel
             processes used to postprocess, e.g. vectorize,... the predictions. If -1,
             all available CPU's are used. Defaults to 1.
@@ -447,8 +447,35 @@ def _predict_layer(
         nb_parallel_read = batch_size * 3
     if nb_parallel_postprocess == -1:
         nb_parallel_postprocess = multiprocessing.cpu_count()
+
+    read_dataset_iterator = None
+    read_image_metadata: dict[Path, tuple[Any, Any]] = {}
+    read_image_metadata_lock = threading.Lock()
+    if image_layer is None:
+        projection_for_read = projection_if_missing
+        if projection_if_missing is not None:
+            projection_for_read = rio_crs.CRS.from_user_input(projection_if_missing)
+
+        image_paths_to_read = [
+            image_file["path"]
+            for image_file in image_files
+            if force or image_file["path"].name not in image_done_filenames
+        ]
+        nb_to_predict = len(image_paths_to_read)
+        read_dataset = _create_image_read_dataset(
+            image_paths=image_paths_to_read,
+            projection_if_missing=projection_for_read,
+            preprocess_input=preprocess_input,
+            image_dtype=tf.as_dtype(model.inputs[0].dtype),
+            nb_parallel_read=nb_parallel_read,
+            image_metadata=read_image_metadata,
+            image_metadata_lock=read_image_metadata_lock,
+        )
+        read_dataset_iterator = iter(read_dataset.as_numpy_iterator())
+
     predict_queue: list[dict] = []
-    nb_to_predict = nb_images
+    if image_layer is not None:
+        nb_to_predict = nb_images
     nb_done = 0
     nb_errors = 0
     read_sleep_last_logged = None
@@ -464,8 +491,13 @@ def _predict_layer(
     def init_postprocess_worker():
         _processing_util.setprocessnice(15)
 
+    read_pool_context = (
+        futures.ThreadPoolExecutor(nb_parallel_read)
+        if image_layer is not None
+        else nullcontext()
+    )
     with (
-        futures.ThreadPoolExecutor(nb_parallel_read) as read_pool,
+        read_pool_context as read_pool,
         futures.ProcessPoolExecutor(
             nb_parallel_postprocess, initializer=init_postprocess_worker()
         ) as postprocess_pool,
@@ -479,6 +511,7 @@ def _predict_layer(
             if (
                 last_image_reached
                 and len(read_queue) == 0
+                and len(predict_queue) == 0
                 and len(postp_queue) == 0
                 and len(write_queue) == 0
             ):
@@ -495,31 +528,56 @@ def _predict_layer(
 
             # Fill the read queue
             # -------------------
-            while not last_image_reached and len(read_queue) <= nb_parallel_read:
-                image_id += 1
+            if image_layer is None:
+                while not last_image_reached and len(read_queue) <= nb_parallel_read:
+                    if read_dataset_iterator is None:
+                        raise RuntimeError("Cached-image dataset was not initialized")
+                    try:
+                        (
+                            image_path_value,
+                            image_data,
+                            read_error,
+                            read_error_traceback,
+                        ) = next(read_dataset_iterator)
+                    except StopIteration:
+                        last_image_reached = True
+                        break
 
-                # Last image reached
-                if image_id >= len(image_files) - 1:
-                    last_image_reached = True
+                    image_path = Path(image_path_value.decode("utf-8"))
+                    read_result = {
+                        "image_data": image_data,
+                        "read_error": read_error,
+                        "read_error_traceback": read_error_traceback,
+                    }
+                    if not read_error:
+                        with read_image_metadata_lock:
+                            (
+                                read_result["image_crs"],
+                                read_result["image_transform"],
+                            ) = read_image_metadata.pop(image_path)
 
-                image_file = image_files[image_id]
+                    read_future: futures.Future = futures.Future()
+                    read_future.set_result(read_result)
+                    read_queue[read_future] = image_path
+            else:
+                while not last_image_reached and len(read_queue) <= nb_parallel_read:
+                    image_id += 1
 
-                # Check if the image has been processed already
-                if not force and image_file["path"].name in image_done_filenames:
-                    nb_to_predict -= 1
-                    continue
+                    # Last image reached
+                    if image_id >= len(image_files) - 1:
+                        last_image_reached = True
 
-                # Schedule file to be read/loaded
-                if image_layer is None:
-                    # No layer config specified, so the file should just be read
-                    read_future = read_pool.submit(
-                        read_image,
-                        image_path=image_file["path"],
-                        projection_if_missing=projection_if_missing,
-                        preprocess_input=preprocess_input,
-                    )
-                    read_queue[read_future] = image_file["path"]
-                else:
+                    image_file = image_files[image_id]
+
+                    # Check if the image has been processed already
+                    if not force and image_file["path"].name in image_done_filenames:
+                        nb_to_predict -= 1
+                        continue
+
+                    if read_pool is None:
+                        raise RuntimeError("Live-layer reader thread pool was not set")
+
+                    # Schedule the live-layer image to be loaded
                     # Layer config specified, so load the image realtime
                     read_future = read_pool.submit(
                         load_image,
@@ -544,6 +602,18 @@ def _predict_layer(
                         # Get the result from the read
                         read_result = future.result()
                         image_filepath_read = read_queue[future]
+
+                        if read_result.get("read_error"):
+                            nb_errors += 1
+                            _handle_error(
+                                image_filepath_read,
+                                RuntimeError(read_result["read_error"].decode("utf-8")),
+                                images_error_log_filepath,
+                                exception_trace=read_result[
+                                    "read_error_traceback"
+                                ].decode("utf-8"),
+                            )
+                            continue
 
                         # Prepare the filepath for the output
                         output_suffix = ".tif"
@@ -876,9 +946,15 @@ def _write_to_done_log(image_path: Path, images_done_log_filepath: Path):
                 raise RuntimeError(message) from ex
 
 
-def _handle_error(image_path: Path, ex: Exception, log_path: Path):
+def _handle_error(
+    image_path: Path,
+    ex: Exception,
+    log_path: Path,
+    exception_trace: str | None = None,
+):
     # Print exception + trace
-    exception_trace = traceback.format_exc()
+    if exception_trace is None:
+        exception_trace = traceback.format_exc()
     exception_trace_print = exception_trace.replace("\n", "\n\t")
     logger.error(f"Error postprocessing pred for {image_path}: {exception_trace_print}")
 
@@ -895,9 +971,96 @@ def _handle_error(image_path: Path, ex: Exception, log_path: Path):
         writer.writerow(fields)
 
 
+def _create_image_read_dataset(
+    image_paths: list[Path],
+    *,
+    projection_if_missing: str | rio_crs.CRS | None,
+    preprocess_input: Callable | None,
+    image_dtype: tf.dtypes.DType,
+    nb_parallel_read: int,
+    image_metadata: dict[Path, tuple[Any, Any]],
+    image_metadata_lock: Any,
+) -> tf.data.Dataset:
+    dataset = tf.data.Dataset.from_tensor_slices(
+        tf.constant([str(path) for path in image_paths], dtype=tf.string)
+    )
+    image_numpy_dtype = image_dtype.as_numpy_dtype
+
+    def read_image_dataset_item(image_path: tf.Tensor):
+        read_outputs = tf.numpy_function(
+            func=lambda path_value: _read_image_for_dataset(
+                path_value,
+                projection_if_missing=projection_if_missing,
+                preprocess_input=preprocess_input,
+                image_dtype=image_numpy_dtype,
+                image_metadata=image_metadata,
+                image_metadata_lock=image_metadata_lock,
+            ),
+            inp=[image_path],
+            Tout=(image_dtype, tf.string, tf.string),
+        )
+        image_data, read_error, read_error_traceback = read_outputs
+        image_data.set_shape([None, None, None])
+        return (
+            image_path,
+            image_data,
+            read_error,
+            read_error_traceback,
+        )
+
+    return dataset.map(
+        read_image_dataset_item,
+        num_parallel_calls=nb_parallel_read,
+        deterministic=False,
+    ).prefetch(1)
+
+
+def _read_image_for_dataset(
+    image_path_value: np.ndarray,
+    *,
+    projection_if_missing: str | rio_crs.CRS | None,
+    preprocess_input: Callable | None,
+    image_dtype: Any,
+    image_metadata: dict[Path, tuple[Any, Any]],
+    image_metadata_lock: Any,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    image_path = np.asarray(image_path_value).item()
+    if isinstance(image_path, bytes):
+        image_path = image_path.decode("utf-8")
+
+    try:
+        image_info = read_image(
+            image_path=Path(image_path),
+            projection_if_missing=projection_if_missing,
+            preprocess_input=preprocess_input,
+        )
+    except Exception as ex:
+        return (
+            np.empty((0, 0, 0), dtype=image_dtype),
+            np.asarray(str(ex).encode("utf-8", errors="replace"), dtype=np.bytes_),
+            np.asarray(
+                traceback.format_exc().encode("utf-8", errors="replace"),
+                dtype=np.bytes_,
+            ),
+        )
+
+    image_data = np.asarray(image_info["image_data"], dtype=image_dtype)
+    with image_metadata_lock:
+        image_metadata[Path(image_path)] = (
+            image_info["image_crs"],
+            image_info["image_transform"],
+        )
+
+    return (
+        image_data,
+        np.asarray(b"", dtype=np.bytes_),
+        np.asarray(b"", dtype=np.bytes_),
+    )
+
+
 def read_image(
     image_path: Path,
-    projection_if_missing: str | None = None,
+    projection_if_missing: str | rio_crs.CRS | None = None,
     preprocess_input: Callable | None = None,
 ) -> dict:
     """Read image file.
@@ -945,7 +1108,10 @@ def read_image(
     # file and/or if one was provided
     if image_crs is None:
         if projection_if_missing is not None:
-            image_crs = rio_crs.CRS.from_user_input(projection_if_missing)
+            if isinstance(projection_if_missing, rio_crs.CRS):
+                image_crs = projection_if_missing
+            else:
+                image_crs = rio_crs.CRS.from_user_input(projection_if_missing)
         else:
             message = (
                 f"Image has no proj and projection_if_missing is None: {image_path}"
