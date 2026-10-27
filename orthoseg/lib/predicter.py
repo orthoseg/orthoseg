@@ -11,7 +11,6 @@ import time
 import traceback
 from collections.abc import Callable
 from concurrent import futures
-from contextlib import nullcontext
 from datetime import datetime
 from pathlib import Path
 from time import perf_counter
@@ -103,8 +102,10 @@ def predict_dir(
             memory on you GPU.
         evaluate_mode: True to run in evaluate mode
         cancel_filepath: If the file in this path exists, processing stops asap
-        nb_parallel_read: The number of parallel reads for cached images, handled
-            through `tf.data`. If -1, the default is 3 * `batch_size`. Defaults to -1.
+        nb_parallel_read: The read-ahead threshold for cached images and the maximum
+            number of parallel live-image reads. Cached `tf.data` parallel mapping
+            and prefetching use TensorFlow autotuning. If -1, the default is
+            3 * `batch_size`. Defaults to -1.
         nb_parallel_postprocess: The number of parallel
             processes used to vectorize,... the predictions. If -1, all
             available CPU's are used. Defaults to 1.
@@ -256,8 +257,8 @@ def predict_layer(
             memory on you GPU.
         evaluate_mode: True to run in evaluate mode
         cancel_filepath: If the file in this path exists, processing stops asap
-        nb_parallel_read: The number of parallel reader threads used to load live
-            imagery. If -1, the default is 3 * `batch_size`. Defaults to -1.
+        nb_parallel_read: The maximum number of parallel live-image fetches used by
+            `tf.data`. If -1, the default is 3 * `batch_size`. Defaults to -1.
         nb_parallel_postprocess: The number of parallel
             processes used to postprocess, e.g. vectorize,... the predictions. If -1,
             all available CPU's are used. Defaults to 1.
@@ -445,6 +446,7 @@ def _predict_layer(
     # Loop through all files to process them
     if nb_parallel_read == -1:
         nb_parallel_read = batch_size * 3
+        print(f"nb_parallel_read set to {nb_parallel_read}")
     if nb_parallel_postprocess == -1:
         nb_parallel_postprocess = multiprocessing.cpu_count()
 
@@ -467,15 +469,30 @@ def _predict_layer(
             projection_if_missing=projection_for_read,
             preprocess_input=preprocess_input,
             image_dtype=tf.as_dtype(model.inputs[0].dtype),
-            nb_parallel_read=nb_parallel_read,
+            read_batch_size=min(batch_size, nb_parallel_read),
             image_metadata=read_image_metadata,
             image_metadata_lock=read_image_metadata_lock,
         )
-        read_dataset_iterator = iter(read_dataset.as_numpy_iterator())
+    else:
+        image_files_to_read = [
+            image_file
+            for image_file in image_files
+            if force or image_file["path"].name not in image_done_filenames
+        ]
+        nb_to_predict = len(image_files_to_read)
+        read_dataset = _create_live_image_read_dataset(
+            image_files=image_files_to_read,
+            image_layer=image_layer,
+            ssl_verify=ssl_verify,
+            image_dtype=tf.as_dtype(model.inputs[0].dtype),
+            nb_parallel_read=nb_parallel_read,
+            read_batch_size=min(batch_size, nb_parallel_read),
+            image_metadata=read_image_metadata,
+            image_metadata_lock=read_image_metadata_lock,
+        )
+    read_dataset_iterator = iter(read_dataset)
 
     predict_queue: list[dict] = []
-    if image_layer is not None:
-        nb_to_predict = nb_images
     nb_done = 0
     nb_errors = 0
     read_sleep_last_logged = None
@@ -483,7 +500,6 @@ def _predict_layer(
     read_queue: dict[futures.Future, Path] = {}
     postp_queue: dict[futures.Future, Path] = {}
     write_queue: dict[futures.Future, Path] = {}
-    image_id = -1
     last_image_reached = False
 
     # We don't want the postprocess workers to block the entire system,
@@ -491,13 +507,7 @@ def _predict_layer(
     def init_postprocess_worker():
         _processing_util.setprocessnice(15)
 
-    read_pool_context = (
-        futures.ThreadPoolExecutor(nb_parallel_read)
-        if image_layer is not None
-        else nullcontext()
-    )
     with (
-        read_pool_context as read_pool,
         futures.ProcessPoolExecutor(
             nb_parallel_postprocess, initializer=init_postprocess_worker()
         ) as postprocess_pool,
@@ -528,28 +538,43 @@ def _predict_layer(
 
             # Fill the read queue
             # -------------------
-            if image_layer is None:
-                while not last_image_reached and len(read_queue) <= nb_parallel_read:
-                    if read_dataset_iterator is None:
-                        raise RuntimeError("Cached-image dataset was not initialized")
-                    try:
-                        (
-                            image_path_value,
-                            image_data,
-                            read_error,
-                            read_error_traceback,
-                        ) = next(read_dataset_iterator)
-                    except StopIteration:
-                        last_image_reached = True
-                        break
+            while not last_image_reached and len(read_queue) <= nb_parallel_read:
+                if read_dataset_iterator is None:
+                    raise RuntimeError("Image read dataset was not initialized")
+                try:
+                    (
+                        image_paths_batch,
+                        image_data_batch,
+                        image_shapes_batch,
+                        read_errors_batch,
+                        read_error_tracebacks_batch,
+                    ) = next(read_dataset_iterator)
+                except StopIteration:
+                    last_image_reached = True
+                    break
 
+                image_path_values = image_paths_batch.numpy()
+                image_shapes = image_shapes_batch.numpy()
+                read_errors = read_errors_batch.numpy()
+                read_error_tracebacks = read_error_tracebacks_batch.numpy()
+                for batch_index, image_path_value in enumerate(image_path_values):
                     image_path = Path(image_path_value.decode("utf-8"))
+                    read_error = read_errors[batch_index]
                     read_result = {
-                        "image_data": image_data,
+                        "image_data": None,
                         "read_error": read_error,
-                        "read_error_traceback": read_error_traceback,
+                        "read_error_traceback": read_error_tracebacks[batch_index],
                     }
                     if not read_error:
+                        image_height, image_width, image_channels = (
+                            int(value) for value in image_shapes[batch_index]
+                        )
+                        read_result["image_data"] = image_data_batch[
+                            batch_index,
+                            :image_height,
+                            :image_width,
+                            :image_channels,
+                        ]
                         with read_image_metadata_lock:
                             (
                                 read_result["image_crs"],
@@ -559,34 +584,6 @@ def _predict_layer(
                     read_future: futures.Future = futures.Future()
                     read_future.set_result(read_result)
                     read_queue[read_future] = image_path
-            else:
-                while not last_image_reached and len(read_queue) <= nb_parallel_read:
-                    image_id += 1
-
-                    # Last image reached
-                    if image_id >= len(image_files) - 1:
-                        last_image_reached = True
-
-                    image_file = image_files[image_id]
-
-                    # Check if the image has been processed already
-                    if not force and image_file["path"].name in image_done_filenames:
-                        nb_to_predict -= 1
-                        continue
-
-                    if read_pool is None:
-                        raise RuntimeError("Live-layer reader thread pool was not set")
-
-                    # Schedule the live-layer image to be loaded
-                    # Layer config specified, so load the image realtime
-                    read_future = read_pool.submit(
-                        load_image,
-                        bbox=image_file["bbox"],
-                        size=image_file["size"],
-                        image_layer=image_layer,
-                        ssl_verify=ssl_verify,
-                    )
-                    read_queue[read_future] = image_file["path"]
 
             # Check read_queue for images read and add them to predict_queue
             # --------------------------------------------------------------
@@ -691,22 +688,14 @@ def _predict_layer(
                 # --------
                 logger.debug(f"Start prediction for {len(predict_queue)} images")
                 perf_time_start = datetime.now()
-                curr_batch_image_list = [
-                    batch_image_info["image_data"] for batch_image_info in predict_queue
-                ]
-                batch_image_arr = np.stack(curr_batch_image_list)
-                batch_pred_arr = model.predict_on_batch(batch_image_arr)
+                batch_pred_arr = _predict_image_batch(
+                    model,
+                    [image_info["image_data"] for image_info in predict_queue],
+                )
 
                 perf_time_now = datetime.now()
                 perfinfo += f", predict took {perf_time_now - perf_time_start}"
                 perf_time_start = perf_time_now
-
-                # In tf > 2.1 a tf.tensor object is returned, but we want an ndarray
-                if isinstance(batch_pred_arr, tf.Tensor):
-                    arr = batch_pred_arr.numpy()  # pyright: ignore[reportOptionalCall]
-                    batch_pred_arr = np.array(arr)
-                else:
-                    batch_pred_arr = np.array(batch_pred_arr)
 
                 # Add predictions to postprocess queue
                 # ------------------------------------
@@ -977,7 +966,7 @@ def _create_image_read_dataset(
     projection_if_missing: str | rio_crs.CRS | None,
     preprocess_input: Callable | None,
     image_dtype: tf.dtypes.DType,
-    nb_parallel_read: int,
+    read_batch_size: int,
     image_metadata: dict[Path, tuple[Any, Any]],
     image_metadata_lock: Any,
 ) -> tf.data.Dataset:
@@ -1004,15 +993,223 @@ def _create_image_read_dataset(
         return (
             image_path,
             image_data,
+            tf.shape(image_data, out_type=tf.int32),
             read_error,
             read_error_traceback,
         )
 
-    return dataset.map(
+    dataset = dataset.map(
         read_image_dataset_item,
+        num_parallel_calls=tf.data.AUTOTUNE,
+        deterministic=False,
+    )
+    return _batch_image_read_dataset(
+        dataset,
+        image_dtype=image_dtype,
+        read_batch_size=read_batch_size,
+    )
+
+
+def _create_live_image_read_dataset(
+    image_files: list[dict[str, Any]],
+    *,
+    image_layer: dict[str, Any],
+    ssl_verify: bool | str,
+    image_dtype: tf.dtypes.DType,
+    nb_parallel_read: int,
+    read_batch_size: int,
+    image_metadata: dict[Path, tuple[Any, Any]],
+    image_metadata_lock: Any,
+) -> tf.data.Dataset:
+    image_paths = [str(image_file["path"]) for image_file in image_files]
+    image_bboxes = np.asarray(
+        [image_file["bbox"] for image_file in image_files],
+        dtype=np.float64,
+    ).reshape((-1, 4))
+    image_sizes = np.asarray(
+        [image_file["size"] for image_file in image_files],
+        dtype=np.int32,
+    ).reshape((-1, 2))
+    dataset = tf.data.Dataset.from_tensor_slices(
+        (
+            tf.constant(image_paths, dtype=tf.string),
+            tf.constant(image_bboxes, dtype=tf.float64),
+            tf.constant(image_sizes, dtype=tf.int32),
+        )
+    )
+
+    def read_live_image_dataset_item(
+        image_path: tf.Tensor,
+        bbox: tf.Tensor,
+        size: tf.Tensor,
+    ):
+        read_outputs = tf.numpy_function(
+            func=lambda path_value, bbox_value, size_value: (
+                _read_live_image_for_dataset(
+                    path_value,
+                    bbox_value,
+                    size_value,
+                    image_layer=image_layer,
+                    ssl_verify=ssl_verify,
+                    image_dtype=image_dtype.as_numpy_dtype,
+                    image_metadata=image_metadata,
+                    image_metadata_lock=image_metadata_lock,
+                )
+            ),
+            inp=[image_path, bbox, size],
+            Tout=(image_dtype, tf.string, tf.string),
+        )
+        image_data, read_error, read_error_traceback = read_outputs
+        image_data.set_shape([None, None, None])
+        return (
+            image_path,
+            image_data,
+            tf.shape(image_data, out_type=tf.int32),
+            read_error,
+            read_error_traceback,
+        )
+
+    dataset = dataset.map(
+        read_live_image_dataset_item,
         num_parallel_calls=nb_parallel_read,
         deterministic=False,
-    ).prefetch(1)
+    )
+    return _batch_image_read_dataset(
+        dataset,
+        image_dtype=image_dtype,
+        read_batch_size=read_batch_size,
+    )
+
+
+def _batch_image_read_dataset(
+    dataset: tf.data.Dataset,
+    *,
+    image_dtype: tf.dtypes.DType,
+    read_batch_size: int,
+) -> tf.data.Dataset:
+    return dataset.padded_batch(
+        read_batch_size,
+        padded_shapes=([], [None, None, None], [3], [], []),
+        padding_values=(
+            tf.constant(b"", dtype=tf.string),
+            tf.constant(0, dtype=image_dtype),
+            tf.constant(0, dtype=tf.int32),
+            tf.constant(b"", dtype=tf.string),
+            tf.constant(b"", dtype=tf.string),
+        ),
+    ).prefetch(tf.data.AUTOTUNE)
+
+
+def _read_live_image_for_dataset(
+    image_path_value: np.ndarray,
+    bbox_value: np.ndarray,
+    size_value: np.ndarray,
+    *,
+    image_layer: dict[str, Any],
+    ssl_verify: bool | str,
+    image_dtype: Any,
+    image_metadata: dict[Path, tuple[Any, Any]],
+    image_metadata_lock: Any,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    image_path = np.asarray(image_path_value).item()
+    if isinstance(image_path, bytes):
+        image_path = image_path.decode("utf-8")
+    image_path = Path(image_path)
+
+    bbox_values = np.asarray(bbox_value).tolist()
+    bbox = (
+        float(bbox_values[0]),
+        float(bbox_values[1]),
+        float(bbox_values[2]),
+        float(bbox_values[3]),
+    )
+    size_values = np.asarray(size_value).tolist()
+    size = (int(size_values[0]), int(size_values[1]))
+
+    try:
+        image_info = load_image(
+            bbox=bbox,
+            size=size,
+            image_layer=image_layer,
+            ssl_verify=ssl_verify,
+        )
+    except Exception as ex:
+        return (
+            np.empty((0, 0, 0), dtype=image_dtype),
+            np.asarray(str(ex).encode("utf-8", errors="replace"), dtype=np.bytes_),
+            np.asarray(
+                traceback.format_exc().encode("utf-8", errors="replace"),
+                dtype=np.bytes_,
+            ),
+        )
+
+    image_data = np.asarray(image_info["image_data"], dtype=image_dtype)
+    with image_metadata_lock:
+        image_metadata[image_path] = (
+            image_info["image_crs"],
+            image_info["image_transform"],
+        )
+
+    return (
+        image_data,
+        np.asarray(b"", dtype=np.bytes_),
+        np.asarray(b"", dtype=np.bytes_),
+    )
+
+
+def _predict_image_batch(
+    model: keras.models.Model,
+    image_tensors: list[tf.Tensor],
+) -> list[np.ndarray]:
+    image_indices_by_shape: dict[tuple[int, ...], list[int]] = {}
+    for image_index, image_tensor in enumerate(image_tensors):
+        image_shape = tuple(image_tensor.shape)
+        image_indices_by_shape.setdefault(image_shape, []).append(image_index)
+
+    predictions_by_image: dict[int, np.ndarray] = {}
+    for image_indices in image_indices_by_shape.values():
+        batch_image_tensor = tf.stack(
+            [image_tensors[image_index] for image_index in image_indices]
+        )
+        batch_predictions = _predict_tensor_batch(model, batch_image_tensor)
+        for batch_index, image_index in enumerate(image_indices):
+            predictions_by_image[image_index] = batch_predictions[batch_index]
+
+    return [
+        predictions_by_image[image_index] for image_index in range(len(image_tensors))
+    ]
+
+
+def _predict_tensor_batch(
+    model: keras.models.Model,
+    batch_image_tensor: tf.Tensor,
+) -> np.ndarray:
+    try:
+        batch_predictions = model.predict_on_batch(batch_image_tensor)
+    except tf.errors.ResourceExhaustedError:
+        batch_size = batch_image_tensor.shape[0]
+        if batch_size is None or batch_size <= 1:
+            raise
+
+        split_index = batch_size // 2
+        logger.warning(
+            "Prediction batch of %s images exhausted device resources; "
+            "retrying as batches of %s and %s",
+            batch_size,
+            split_index,
+            batch_size - split_index,
+        )
+        first_predictions = _predict_tensor_batch(
+            model, batch_image_tensor[:split_index]
+        )
+        second_predictions = _predict_tensor_batch(
+            model, batch_image_tensor[split_index:]
+        )
+        return np.concatenate((first_predictions, second_predictions), axis=0)
+
+    if isinstance(batch_predictions, tf.Tensor):
+        batch_predictions = batch_predictions.numpy()
+    return np.array(batch_predictions)
 
 
 def _read_image_for_dataset(
