@@ -32,7 +32,7 @@ dependencies:
   # dependencies of tensorflow that need to be conda versions to avoid binary compatibility issues
   - h5py <3.11  # When a version > 3.10 is used with tf 2.10: segmentation fault
   # testing
-  - pytest <9.2  # Avoid the 9.2.0 Windows CI access violations while investigating.
+  - pytest
   - pytest-cov
   - pytest-order
   - pip:

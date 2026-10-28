@@ -31,7 +31,7 @@ dependencies:
   # TensorFlow 2.19 can segfault on Windows with h5py versions above 3.13.
   - sel(win): "h5py <3.14"
   # testing
-  - pytest <9.2  # Avoid the 9.2.0 Windows CI access violations while investigating.
+  - pytest
   - pytest-cov
   - pytest-order
   - pip:
