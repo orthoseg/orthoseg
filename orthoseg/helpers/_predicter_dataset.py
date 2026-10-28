@@ -19,6 +19,247 @@ from orthoseg.util import image_util
 logger = logging.getLogger(__name__)
 
 
+def create_image_read_dataset(
+    image_paths: list[Path],
+    *,
+    projection_if_missing: str | rio_crs.CRS | None,
+    preprocess_input: Callable | None,
+    image_dtype: tf.dtypes.DType,
+    read_batch_size: int,
+    image_metadata: dict[Path, tuple[Any, Any]],
+    image_metadata_lock: Any,
+) -> tf.data.Dataset:
+    dataset = tf.data.Dataset.from_tensor_slices(
+        tf.constant([str(path) for path in image_paths], dtype=tf.string)
+    )
+
+    dataset = dataset.map(
+        partial(
+            _read_image_dataset_item,
+            projection_if_missing=projection_if_missing,
+            preprocess_input=preprocess_input,
+            image_dtype=image_dtype,
+            image_metadata=image_metadata,
+            image_metadata_lock=image_metadata_lock,
+        ),
+        num_parallel_calls=tf.data.AUTOTUNE,
+        deterministic=False,
+    )
+    return _batch_image_read_dataset(
+        dataset,
+        image_dtype=image_dtype,
+        read_batch_size=read_batch_size,
+    )
+
+
+def create_live_image_read_dataset(
+    image_files: list[dict[str, Any]],
+    *,
+    image_layer: dict[str, Any],
+    ssl_verify: bool | str,
+    image_dtype: tf.dtypes.DType,
+    nb_parallel_read: int,
+    read_batch_size: int,
+    image_metadata: dict[Path, tuple[Any, Any]],
+    image_metadata_lock: Any,
+) -> tf.data.Dataset:
+    image_paths = [str(image_file["path"]) for image_file in image_files]
+    image_bboxes = np.asarray(
+        [image_file["bbox"] for image_file in image_files],
+        dtype=np.float64,
+    ).reshape((-1, 4))
+    image_sizes = np.asarray(
+        [image_file["size"] for image_file in image_files],
+        dtype=np.int32,
+    ).reshape((-1, 2))
+    if not image_files:
+        dataset = tf.data.Dataset.from_tensor_slices(
+            (
+                tf.constant([], dtype=tf.string),
+                tf.zeros((0, 1, 1, 1), dtype=image_dtype),
+                tf.zeros((0, 3), dtype=tf.int32),
+                tf.constant([], dtype=tf.string),
+                tf.constant([], dtype=tf.string),
+            )
+        )
+        return _batch_image_read_dataset(
+            dataset,
+            image_dtype=image_dtype,
+            read_batch_size=read_batch_size,
+        )
+
+    dataset = tf.data.Dataset.from_tensor_slices(
+        (
+            tf.constant(image_paths, dtype=tf.string),
+            tf.constant(image_bboxes, dtype=tf.float64),
+            tf.constant(image_sizes, dtype=tf.int32),
+        )
+    )
+
+    projection_crs = pyproj.CRS.from_user_input(image_layer["projection"])
+    projection_switch_axes = image_layer.get("switch_axes")
+    if projection_switch_axes is None:
+        projection_switch_axes = image_util.has_switched_axes(projection_crs)
+    projection_wms_srs = f"epsg:{image_util._get_epsg_code(projection_crs)}"
+
+    dataset = dataset.map(
+        partial(
+            _read_live_image_dataset_item,
+            image_layer=image_layer,
+            ssl_verify=ssl_verify,
+            image_dtype=image_dtype,
+            projection_crs=projection_crs,
+            projection_switch_axes=projection_switch_axes,
+            projection_wms_srs=projection_wms_srs,
+            image_metadata=image_metadata,
+            image_metadata_lock=image_metadata_lock,
+        ),
+        num_parallel_calls=nb_parallel_read,
+        deterministic=False,
+    )
+    return _batch_image_read_dataset(
+        dataset,
+        image_dtype=image_dtype,
+        read_batch_size=read_batch_size,
+    )
+
+
+def read_image(
+    image_path: Path,
+    projection_if_missing: str | rio_crs.CRS | None = None,
+    preprocess_input: Callable | None = None,
+) -> dict:
+    """Read image file.
+
+    Args:
+        image_path: file path.
+        projection_if_missing: the projection to use if the
+            image to read does not contain projection information. Defaults to None.
+        preprocess_input: the preprocessing function to
+            apply to the image being read. Defaults to None.
+
+    Returns:
+        the data read from the image file.
+    """
+    # Read input file
+    # Because sometimes a read seems to fail, retry up to 3 times...
+    retry_count = 0
+    while True:
+        try:
+            with rio.open(str(image_path)) as image_ds:
+                # Read geo info
+                image_crs = image_ds.profile["crs"]
+                image_transform = image_ds.transform
+
+                # Read pixels
+                image_data = image_ds.read()
+
+            # change from (channels, width, height) to
+            # (width, height, channels) + normalize to between 0 and 1
+            image_data = rio_plot.reshape_as_image(image_data)
+            if preprocess_input is not None:
+                image_data = preprocess_input(image_data)
+
+            # Read worked, so jump out of the loop...
+            break
+        except Exception as ex:  # pragma: no cover
+            retry_count += 1
+            logger.warning(f"Read failed, retry nb {retry_count} for {image_path}")
+            if retry_count >= 3:
+                message = f"Read failed {retry_count} times for {image_path}: {ex}"
+                logger.error(message)
+                raise RuntimeError(message) from ex
+
+    # The read was successfull, now check if there was a projection in the
+    # file and/or if one was provided
+    if image_crs is None:
+        if projection_if_missing is not None:
+            if isinstance(projection_if_missing, rio_crs.CRS):
+                image_crs = projection_if_missing
+            else:
+                image_crs = rio_crs.CRS.from_user_input(projection_if_missing)
+        else:
+            message = (
+                f"Image has no proj and projection_if_missing is None: {image_path}"
+            )
+            logger.error(message)
+            raise ValueError(message)
+
+    # Now return the result
+    image = {
+        "image_data": image_data,
+        "image_crs": image_crs,
+        "image_transform": image_transform,
+        "image_path": image_path,
+    }
+
+    return image
+
+
+def load_image(
+    bbox: tuple[float, float, float, float],
+    size: tuple[int, int],
+    image_layer: dict,
+    ssl_verify: bool | str = True,
+    *,
+    projection_crs: pyproj.CRS | None = None,
+    projection_switch_axes: bool | None = None,
+    projection_wms_srs: str | None = None,
+) -> dict:
+    """Load an image from the image_layer specified.
+
+    Args:
+        bbox: bounding box of the image to load.
+        size: size of the image to load.
+        image_layer: layer configuration to load the image.
+        ssl_verify: True to use the default certificate bundle
+            as installed on your system. False disables certificate validation
+            (NOT recommended!). If a path to a certificate bundle file (.pem) is passed,
+            this will be used. In corporate networks using a proxy server this is often
+            needed to avoid CERTIFICATE_VERIFY_FAILED errors. Defaults to True.
+        projection_crs: CRS prepared before parallel live-image reads.
+        projection_switch_axes: Whether coordinates need their axes switched.
+        projection_wms_srs: Precomputed WMS CRS identifier.
+
+    Returns:
+        the image and its properties.
+    """
+    # Load image
+    crs = (
+        projection_crs
+        if projection_crs is not None
+        else pyproj.CRS.from_user_input(image_layer["projection"])
+    )
+    if projection_switch_axes is None:
+        projection_switch_axes = image_layer.get("switch_axes")
+    image_data, profile = image_util.load_image(
+        layersources=image_layer["layersources"],
+        crs=crs,
+        bbox=bbox,
+        size=size,
+        ssl_verify=ssl_verify,
+        image_format=image_layer.get("image_format", image_util.FORMAT_JPEG),
+        # transparent=transparent,
+        image_pixels_ignore_border=image_layer["image_pixels_ignore_border"],
+        switch_axes=projection_switch_axes,
+        wms_srs=projection_wms_srs,
+    )
+
+    # change from (channels, width, height) to
+    # (width, height, channels) + normalize to between 0 and 1
+    image_data = rio_plot.reshape_as_image(image_data)
+    image_data = image_data / 255.0
+
+    # Now return the result
+    image = {
+        "image_data": image_data,
+        "image_crs": crs,
+        "image_transform": profile["transform"],
+    }
+
+    return image
+
+
 def _read_image_dataset_item(
     image_path: tf.Tensor,
     *,
@@ -90,111 +331,6 @@ def _read_live_image_dataset_item(
         tf.shape(image_data, out_type=tf.int32),
         read_error,
         read_error_traceback,
-    )
-
-
-def _create_image_read_dataset(
-    image_paths: list[Path],
-    *,
-    projection_if_missing: str | rio_crs.CRS | None,
-    preprocess_input: Callable | None,
-    image_dtype: tf.dtypes.DType,
-    read_batch_size: int,
-    image_metadata: dict[Path, tuple[Any, Any]],
-    image_metadata_lock: Any,
-) -> tf.data.Dataset:
-    dataset = tf.data.Dataset.from_tensor_slices(
-        tf.constant([str(path) for path in image_paths], dtype=tf.string)
-    )
-
-    dataset = dataset.map(
-        partial(
-            _read_image_dataset_item,
-            projection_if_missing=projection_if_missing,
-            preprocess_input=preprocess_input,
-            image_dtype=image_dtype,
-            image_metadata=image_metadata,
-            image_metadata_lock=image_metadata_lock,
-        ),
-        num_parallel_calls=tf.data.AUTOTUNE,
-        deterministic=False,
-    )
-    return _batch_image_read_dataset(
-        dataset,
-        image_dtype=image_dtype,
-        read_batch_size=read_batch_size,
-    )
-
-
-def _create_live_image_read_dataset(
-    image_files: list[dict[str, Any]],
-    *,
-    image_layer: dict[str, Any],
-    ssl_verify: bool | str,
-    image_dtype: tf.dtypes.DType,
-    nb_parallel_read: int,
-    read_batch_size: int,
-    image_metadata: dict[Path, tuple[Any, Any]],
-    image_metadata_lock: Any,
-) -> tf.data.Dataset:
-    image_paths = [str(image_file["path"]) for image_file in image_files]
-    image_bboxes = np.asarray(
-        [image_file["bbox"] for image_file in image_files],
-        dtype=np.float64,
-    ).reshape((-1, 4))
-    image_sizes = np.asarray(
-        [image_file["size"] for image_file in image_files],
-        dtype=np.int32,
-    ).reshape((-1, 2))
-    if not image_files:
-        dataset = tf.data.Dataset.from_tensor_slices(
-            (
-                tf.constant([], dtype=tf.string),
-                tf.zeros((0, 1, 1, 1), dtype=image_dtype),
-                tf.zeros((0, 3), dtype=tf.int32),
-                tf.constant([], dtype=tf.string),
-                tf.constant([], dtype=tf.string),
-            )
-        )
-        return _batch_image_read_dataset(
-            dataset,
-            image_dtype=image_dtype,
-            read_batch_size=read_batch_size,
-        )
-
-    dataset = tf.data.Dataset.from_tensor_slices(
-        (
-            tf.constant(image_paths, dtype=tf.string),
-            tf.constant(image_bboxes, dtype=tf.float64),
-            tf.constant(image_sizes, dtype=tf.int32),
-        )
-    )
-
-    projection_crs = pyproj.CRS.from_user_input(image_layer["projection"])
-    projection_switch_axes = image_layer.get("switch_axes")
-    if projection_switch_axes is None:
-        projection_switch_axes = image_util.has_switched_axes(projection_crs)
-    projection_wms_srs = f"epsg:{image_util._get_epsg_code(projection_crs)}"
-
-    dataset = dataset.map(
-        partial(
-            _read_live_image_dataset_item,
-            image_layer=image_layer,
-            ssl_verify=ssl_verify,
-            image_dtype=image_dtype,
-            projection_crs=projection_crs,
-            projection_switch_axes=projection_switch_axes,
-            projection_wms_srs=projection_wms_srs,
-            image_metadata=image_metadata,
-            image_metadata_lock=image_metadata_lock,
-        ),
-        num_parallel_calls=nb_parallel_read,
-        deterministic=False,
-    )
-    return _batch_image_read_dataset(
-        dataset,
-        image_dtype=image_dtype,
-        read_batch_size=read_batch_size,
     )
 
 
@@ -370,139 +506,3 @@ def _read_image_for_dataset(
         np.asarray(b"", dtype=np.bytes_),
         np.asarray(b"", dtype=np.bytes_),
     )
-
-
-def read_image(
-    image_path: Path,
-    projection_if_missing: str | rio_crs.CRS | None = None,
-    preprocess_input: Callable | None = None,
-) -> dict:
-    """Read image file.
-
-    Args:
-        image_path: file path.
-        projection_if_missing: the projection to use if the
-            image to read does not contain projection information. Defaults to None.
-        preprocess_input: the preprocessing function to
-            apply to the image being read. Defaults to None.
-
-    Returns:
-        the data read from the image file.
-    """
-    # Read input file
-    # Because sometimes a read seems to fail, retry up to 3 times...
-    retry_count = 0
-    while True:
-        try:
-            with rio.open(str(image_path)) as image_ds:
-                # Read geo info
-                image_crs = image_ds.profile["crs"]
-                image_transform = image_ds.transform
-
-                # Read pixels
-                image_data = image_ds.read()
-
-            # change from (channels, width, height) to
-            # (width, height, channels) + normalize to between 0 and 1
-            image_data = rio_plot.reshape_as_image(image_data)
-            if preprocess_input is not None:
-                image_data = preprocess_input(image_data)
-
-            # Read worked, so jump out of the loop...
-            break
-        except Exception as ex:  # pragma: no cover
-            retry_count += 1
-            logger.warning(f"Read failed, retry nb {retry_count} for {image_path}")
-            if retry_count >= 3:
-                message = f"Read failed {retry_count} times for {image_path}: {ex}"
-                logger.error(message)
-                raise RuntimeError(message) from ex
-
-    # The read was successfull, now check if there was a projection in the
-    # file and/or if one was provided
-    if image_crs is None:
-        if projection_if_missing is not None:
-            if isinstance(projection_if_missing, rio_crs.CRS):
-                image_crs = projection_if_missing
-            else:
-                image_crs = rio_crs.CRS.from_user_input(projection_if_missing)
-        else:
-            message = (
-                f"Image has no proj and projection_if_missing is None: {image_path}"
-            )
-            logger.error(message)
-            raise ValueError(message)
-
-    # Now return the result
-    image = {
-        "image_data": image_data,
-        "image_crs": image_crs,
-        "image_transform": image_transform,
-        "image_path": image_path,
-    }
-
-    return image
-
-
-def load_image(
-    bbox: tuple[float, float, float, float],
-    size: tuple[int, int],
-    image_layer: dict,
-    ssl_verify: bool | str = True,
-    *,
-    projection_crs: pyproj.CRS | None = None,
-    projection_switch_axes: bool | None = None,
-    projection_wms_srs: str | None = None,
-) -> dict:
-    """Load an image from the image_layer specified.
-
-    Args:
-        bbox: bounding box of the image to load.
-        size: size of the image to load.
-        image_layer: layer configuration to load the image.
-        ssl_verify: True to use the default certificate bundle
-            as installed on your system. False disables certificate validation
-            (NOT recommended!). If a path to a certificate bundle file (.pem) is passed,
-            this will be used. In corporate networks using a proxy server this is often
-            needed to avoid CERTIFICATE_VERIFY_FAILED errors. Defaults to True.
-        projection_crs: CRS prepared before parallel live-image reads.
-        projection_switch_axes: Whether coordinates need their axes switched.
-        projection_wms_srs: Precomputed WMS CRS identifier.
-
-    Returns:
-        the image and its properties.
-    """
-    # Load image
-    crs = (
-        projection_crs
-        if projection_crs is not None
-        else pyproj.CRS.from_user_input(image_layer["projection"])
-    )
-    if projection_switch_axes is None:
-        projection_switch_axes = image_layer.get("switch_axes")
-    image_data, profile = image_util.load_image(
-        layersources=image_layer["layersources"],
-        crs=crs,
-        bbox=bbox,
-        size=size,
-        ssl_verify=ssl_verify,
-        image_format=image_layer.get("image_format", image_util.FORMAT_JPEG),
-        # transparent=transparent,
-        image_pixels_ignore_border=image_layer["image_pixels_ignore_border"],
-        switch_axes=projection_switch_axes,
-        wms_srs=projection_wms_srs,
-    )
-
-    # change from (channels, width, height) to
-    # (width, height, channels) + normalize to between 0 and 1
-    image_data = rio_plot.reshape_as_image(image_data)
-    image_data = image_data / 255.0
-
-    # Now return the result
-    image = {
-        "image_data": image_data,
-        "image_crs": crs,
-        "image_transform": profile["transform"],
-    }
-
-    return image

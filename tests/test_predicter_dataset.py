@@ -6,7 +6,7 @@ import pytest
 import rasterio as rio
 import rasterio.transform as rio_transform
 
-from orthoseg.helpers import predicter_dataset
+from orthoseg.helpers import _predicter_dataset
 
 
 def test_create_image_read_dataset_matches_read_image(tmp_path):
@@ -29,16 +29,16 @@ def test_create_image_read_dataset_matches_read_image(tmp_path):
     def preprocess_input(image):
         return image / 255.0
 
-    expected = predicter_dataset.read_image(
+    expected = _predicter_dataset.read_image(
         image_path=image_path,
         preprocess_input=preprocess_input,
     )
     image_metadata = {}
-    dataset = predicter_dataset._create_image_read_dataset(
+    dataset = _predicter_dataset.create_image_read_dataset(
         image_paths=[image_path],
         projection_if_missing=None,
         preprocess_input=preprocess_input,
-        image_dtype=predicter_dataset.tf.float32,
+        image_dtype=_predicter_dataset.tf.float32,
         read_batch_size=1,
         image_metadata=image_metadata,
         image_metadata_lock=threading.Lock(),
@@ -98,18 +98,18 @@ def test_iter_image_read_results_preserves_success_and_errors(tmp_path):
 
     image_metadata = {}
     image_metadata_lock = threading.Lock()
-    dataset = predicter_dataset._create_image_read_dataset(
+    dataset = _predicter_dataset.create_image_read_dataset(
         image_paths=[image_path, error_image_path],
         projection_if_missing=None,
         preprocess_input=None,
-        image_dtype=predicter_dataset.tf.float32,
+        image_dtype=_predicter_dataset.tf.float32,
         read_batch_size=2,
         image_metadata=image_metadata,
         image_metadata_lock=image_metadata_lock,
     )
 
     results = dict(
-        predicter_dataset._iter_image_read_results(
+        _predicter_dataset._iter_image_read_results(
             dataset,
             image_metadata=image_metadata,
             image_metadata_lock=image_metadata_lock,
@@ -148,11 +148,11 @@ def test_create_image_read_dataset_reports_read_errors(tmp_path):
         image_ds.write(np.zeros((1, 2, 2), dtype=np.uint8))
 
     image_metadata = {}
-    dataset = predicter_dataset._create_image_read_dataset(
+    dataset = _predicter_dataset.create_image_read_dataset(
         image_paths=[image_path],
         projection_if_missing=None,
         preprocess_input=None,
-        image_dtype=predicter_dataset.tf.float32,
+        image_dtype=_predicter_dataset.tf.float32,
         read_batch_size=1,
         image_metadata=image_metadata,
         image_metadata_lock=threading.Lock(),
@@ -199,11 +199,11 @@ def test_create_image_read_dataset_batches_read_errors(tmp_path):
         image_ds.write(np.zeros((1, 2, 2), dtype=np.uint8))
 
     image_metadata = {}
-    dataset = predicter_dataset._create_image_read_dataset(
+    dataset = _predicter_dataset.create_image_read_dataset(
         image_paths=[image_path, error_image_path],
         projection_if_missing=None,
         preprocess_input=None,
-        image_dtype=predicter_dataset.tf.float32,
+        image_dtype=_predicter_dataset.tf.float32,
         read_batch_size=2,
         image_metadata=image_metadata,
         image_metadata_lock=threading.Lock(),
@@ -236,11 +236,11 @@ def test_create_image_read_dataset_batches_read_errors(tmp_path):
 
 
 def test_create_image_read_dataset_empty_paths():
-    dataset = predicter_dataset._create_image_read_dataset(
+    dataset = _predicter_dataset.create_image_read_dataset(
         image_paths=[],
         projection_if_missing=None,
         preprocess_input=None,
-        image_dtype=predicter_dataset.tf.float32,
+        image_dtype=_predicter_dataset.tf.float32,
         read_batch_size=1,
         image_metadata={},
         image_metadata_lock=threading.Lock(),
@@ -267,11 +267,11 @@ def test_read_image_dataset_item_returns_metadata_and_shape(tmp_path):
         image_ds.write(image_pixels)
 
     image_metadata = {}
-    item = predicter_dataset._read_image_dataset_item(
-        predicter_dataset.tf.constant(str(image_path)),
+    item = _predicter_dataset._read_image_dataset_item(
+        _predicter_dataset.tf.constant(str(image_path)),
         projection_if_missing=None,
         preprocess_input=None,
-        image_dtype=predicter_dataset.tf.float32,
+        image_dtype=_predicter_dataset.tf.float32,
         image_metadata=image_metadata,
         image_metadata_lock=threading.Lock(),
     )
@@ -312,13 +312,15 @@ def test_read_image_for_dataset_uses_projection_if_missing(
         image_ds.write(image_pixels)
 
     image_metadata = {}
-    image, read_error, read_error_traceback = predicter_dataset._read_image_for_dataset(
-        np.asarray(str(image_path).encode("utf-8")),
-        projection_if_missing=projection_if_missing,
-        preprocess_input=None,
-        image_dtype=np.float32,
-        image_metadata=image_metadata,
-        image_metadata_lock=threading.Lock(),
+    image, read_error, read_error_traceback = (
+        _predicter_dataset._read_image_for_dataset(
+            np.asarray(str(image_path).encode("utf-8")),
+            projection_if_missing=projection_if_missing,
+            preprocess_input=None,
+            image_dtype=np.float32,
+            image_metadata=image_metadata,
+            image_metadata_lock=threading.Lock(),
+        )
     )
 
     np.testing.assert_array_equal(
@@ -335,16 +337,18 @@ def test_read_image_for_dataset_returns_read_error_details(monkeypatch):
     def fail_read_image(**_kwargs):
         raise RuntimeError("image decoder failed")
 
-    monkeypatch.setattr(predicter_dataset, "read_image", fail_read_image)
+    monkeypatch.setattr(_predicter_dataset, "read_image", fail_read_image)
     image_metadata = {}
 
-    image, read_error, read_error_traceback = predicter_dataset._read_image_for_dataset(
-        np.asarray(b"missing.tif"),
-        projection_if_missing=None,
-        preprocess_input=None,
-        image_dtype=np.float32,
-        image_metadata=image_metadata,
-        image_metadata_lock=threading.Lock(),
+    image, read_error, read_error_traceback = (
+        _predicter_dataset._read_image_for_dataset(
+            np.asarray(b"missing.tif"),
+            projection_if_missing=None,
+            preprocess_input=None,
+            image_dtype=np.float32,
+            image_metadata=image_metadata,
+            image_metadata_lock=threading.Lock(),
+        )
     )
 
     assert image.shape == (1, 1, 1)
@@ -369,17 +373,17 @@ def test_read_live_image_dataset_item_returns_metadata_and_shape(monkeypatch, tm
             "image_transform": image_transform,
         }
 
-    monkeypatch.setattr(predicter_dataset, "load_image", fake_load_image)
+    monkeypatch.setattr(_predicter_dataset, "load_image", fake_load_image)
     image_metadata = {}
-    item = predicter_dataset._read_live_image_dataset_item(
-        predicter_dataset.tf.constant(str(image_path)),
-        predicter_dataset.tf.constant(
-            [1.0, 2.0, 3.0, 4.0], dtype=predicter_dataset.tf.float64
+    item = _predicter_dataset._read_live_image_dataset_item(
+        _predicter_dataset.tf.constant(str(image_path)),
+        _predicter_dataset.tf.constant(
+            [1.0, 2.0, 3.0, 4.0], dtype=_predicter_dataset.tf.float64
         ),
-        predicter_dataset.tf.constant([3, 2], dtype=predicter_dataset.tf.int32),
+        _predicter_dataset.tf.constant([3, 2], dtype=_predicter_dataset.tf.int32),
         image_layer=image_layer,
         ssl_verify=False,
-        image_dtype=predicter_dataset.tf.float32,
+        image_dtype=_predicter_dataset.tf.float32,
         projection_crs=projection_crs,
         projection_switch_axes=True,
         projection_wms_srs="epsg:31370",
@@ -405,11 +409,11 @@ def test_read_live_image_for_dataset_returns_read_error_details(monkeypatch):
     def fail_load_image(**_kwargs):
         raise RuntimeError("live image read failed")
 
-    monkeypatch.setattr(predicter_dataset, "load_image", fail_load_image)
+    monkeypatch.setattr(_predicter_dataset, "load_image", fail_load_image)
     image_metadata = {}
 
     image, read_error, read_error_traceback = (
-        predicter_dataset._read_live_image_for_dataset(
+        _predicter_dataset._read_live_image_for_dataset(
             np.asarray(b"live.tif"),
             np.asarray([1.0, 2.0, 3.0, 4.0]),
             np.asarray([3, 2]),
@@ -463,7 +467,7 @@ def test_create_live_image_read_dataset_reads_batches_and_preserves_metadata(
     read_requests = []
     epsg_lookup_thread_ids = []
     caller_thread_id = threading.get_ident()
-    get_epsg_code = predicter_dataset.image_util._get_epsg_code
+    get_epsg_code = _predicter_dataset.image_util._get_epsg_code
 
     def track_epsg_lookup(crs):
         epsg_lookup_thread_ids.append(threading.get_ident())
@@ -505,15 +509,15 @@ def test_create_live_image_read_dataset_reads_batches_and_preserves_metadata(
         }
 
     monkeypatch.setattr(
-        predicter_dataset.image_util, "_get_epsg_code", track_epsg_lookup
+        _predicter_dataset.image_util, "_get_epsg_code", track_epsg_lookup
     )
-    monkeypatch.setattr(predicter_dataset, "load_image", fake_load_image)
+    monkeypatch.setattr(_predicter_dataset, "load_image", fake_load_image)
     image_metadata = {}
-    dataset = predicter_dataset._create_live_image_read_dataset(
+    dataset = _predicter_dataset.create_live_image_read_dataset(
         image_files=image_files,
         image_layer=image_layer,
         ssl_verify=False,
-        image_dtype=predicter_dataset.tf.float32,
+        image_dtype=_predicter_dataset.tf.float32,
         nb_parallel_read=2,
         read_batch_size=2,
         image_metadata=image_metadata,
@@ -585,11 +589,11 @@ def test_create_live_image_read_dataset_reads_batches_and_preserves_metadata(
 
 
 def test_create_live_image_read_dataset_empty_files():
-    dataset = predicter_dataset._create_live_image_read_dataset(
+    dataset = _predicter_dataset.create_live_image_read_dataset(
         image_files=[],
         image_layer={},
         ssl_verify=True,
-        image_dtype=predicter_dataset.tf.float32,
+        image_dtype=_predicter_dataset.tf.float32,
         nb_parallel_read=2,
         read_batch_size=2,
         image_metadata={},
@@ -614,9 +618,9 @@ def test_load_image_uses_prepared_projection_and_normalizes(monkeypatch):
         observed_arguments.update(kwargs)
         return image_pixels, {"transform": image_transform}
 
-    monkeypatch.setattr(predicter_dataset.image_util, "load_image", fake_load_image)
+    monkeypatch.setattr(_predicter_dataset.image_util, "load_image", fake_load_image)
 
-    result = predicter_dataset.load_image(
+    result = _predicter_dataset.load_image(
         bbox=(1.0, 2.0, 3.0, 4.0),
         size=(2, 2),
         image_layer=image_layer,
@@ -632,7 +636,7 @@ def test_load_image_uses_prepared_projection_and_normalizes(monkeypatch):
         "bbox": (1.0, 2.0, 3.0, 4.0),
         "size": (2, 2),
         "ssl_verify": False,
-        "image_format": predicter_dataset.image_util.FORMAT_JPEG,
+        "image_format": _predicter_dataset.image_util.FORMAT_JPEG,
         "image_pixels_ignore_border": 2,
         "switch_axes": False,
         "wms_srs": "epsg:31370",
@@ -661,9 +665,9 @@ def test_load_image_uses_layer_projection_when_not_precomputed(monkeypatch):
         observed_arguments.update(kwargs)
         return image_pixels, {"transform": image_transform}
 
-    monkeypatch.setattr(predicter_dataset.image_util, "load_image", fake_load_image)
+    monkeypatch.setattr(_predicter_dataset.image_util, "load_image", fake_load_image)
 
-    result = predicter_dataset.load_image(
+    result = _predicter_dataset.load_image(
         bbox=(1.0, 2.0, 3.0, 4.0),
         size=(2, 2),
         image_layer=image_layer,

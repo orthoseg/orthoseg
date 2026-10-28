@@ -24,7 +24,7 @@ import rasterio.crs as rio_crs
 import tensorflow as tf
 
 import orthoseg.lib.postprocess_predictions as postp
-from orthoseg.helpers import predicter_dataset
+from orthoseg.helpers import _predicter_dataset
 from orthoseg.util import _processing_util, image_util
 from orthoseg.util.progress_util import ProgressLogger
 
@@ -464,7 +464,7 @@ def _predict_layer(
             if force or image_file["path"].name not in image_done_filenames
         ]
         nb_to_predict = len(image_paths_to_read)
-        read_dataset = predicter_dataset._create_image_read_dataset(
+        read_dataset = _predicter_dataset.create_image_read_dataset(
             image_paths=image_paths_to_read,
             projection_if_missing=projection_for_read,
             preprocess_input=preprocess_input,
@@ -480,7 +480,7 @@ def _predict_layer(
             if force or image_file["path"].name not in image_done_filenames
         ]
         nb_to_predict = len(image_files_to_read)
-        read_dataset = predicter_dataset._create_live_image_read_dataset(
+        read_dataset = _predicter_dataset.create_live_image_read_dataset(
             image_files=image_files_to_read,
             image_layer=image_layer,
             ssl_verify=ssl_verify,
@@ -491,7 +491,7 @@ def _predict_layer(
             image_metadata_lock=read_image_metadata_lock,
         )
     read_results_iterator = iter(
-        predicter_dataset._iter_image_read_results(
+        _predicter_dataset._iter_image_read_results(
             read_dataset,
             image_metadata=read_image_metadata,
             image_metadata_lock=read_image_metadata_lock,

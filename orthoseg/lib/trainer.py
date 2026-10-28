@@ -10,7 +10,7 @@ import tensorflow as tf
 
 import orthoseg.model.model_factory as mf
 import orthoseg.model.model_helper as mh
-from orthoseg.helpers.trainer_dataset import create_train_dataset
+from orthoseg.helpers._trainer_dataset import create_train_dataset
 
 # Get a logger...
 logger = logging.getLogger(__name__)
