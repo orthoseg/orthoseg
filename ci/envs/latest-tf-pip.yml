@@ -28,7 +28,8 @@ dependencies:
   - scikit-image
   - simplification
   # dependencies of tensorflow that need to be conda versions to avoid binary compatibility issues
-  #- h5py <3.14  # When a version > 3.13 is used with tf 2.19: segmentation fault
+  # TensorFlow 2.19 can segfault on Windows with h5py versions above 3.13.
+  - sel(win): "h5py <3.14"
   # testing
   - pytest
   - pytest-cov
