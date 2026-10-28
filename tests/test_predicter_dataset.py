@@ -312,15 +312,13 @@ def test_read_image_for_dataset_uses_projection_if_missing(
         image_ds.write(image_pixels)
 
     image_metadata = {}
-    image, read_error, read_error_traceback = (
-        predicter_dataset._read_image_for_dataset(
-            np.asarray(str(image_path).encode("utf-8")),
-            projection_if_missing=projection_if_missing,
-            preprocess_input=None,
-            image_dtype=np.float32,
-            image_metadata=image_metadata,
-            image_metadata_lock=threading.Lock(),
-        )
+    image, read_error, read_error_traceback = predicter_dataset._read_image_for_dataset(
+        np.asarray(str(image_path).encode("utf-8")),
+        projection_if_missing=projection_if_missing,
+        preprocess_input=None,
+        image_dtype=np.float32,
+        image_metadata=image_metadata,
+        image_metadata_lock=threading.Lock(),
     )
 
     np.testing.assert_array_equal(
@@ -334,21 +332,19 @@ def test_read_image_for_dataset_uses_projection_if_missing(
 
 
 def test_read_image_for_dataset_returns_read_error_details(monkeypatch):
-    def fail_read_image(**kwargs):
+    def fail_read_image(**_kwargs):
         raise RuntimeError("image decoder failed")
 
     monkeypatch.setattr(predicter_dataset, "read_image", fail_read_image)
     image_metadata = {}
 
-    image, read_error, read_error_traceback = (
-        predicter_dataset._read_image_for_dataset(
-            np.asarray(b"missing.tif"),
-            projection_if_missing=None,
-            preprocess_input=None,
-            image_dtype=np.float32,
-            image_metadata=image_metadata,
-            image_metadata_lock=threading.Lock(),
-        )
+    image, read_error, read_error_traceback = predicter_dataset._read_image_for_dataset(
+        np.asarray(b"missing.tif"),
+        projection_if_missing=None,
+        preprocess_input=None,
+        image_dtype=np.float32,
+        image_metadata=image_metadata,
+        image_metadata_lock=threading.Lock(),
     )
 
     assert image.shape == (1, 1, 1)
@@ -358,9 +354,7 @@ def test_read_image_for_dataset_returns_read_error_details(monkeypatch):
     assert image_metadata == {}
 
 
-def test_read_live_image_dataset_item_returns_metadata_and_shape(
-    monkeypatch, tmp_path
-):
+def test_read_live_image_dataset_item_returns_metadata_and_shape(monkeypatch, tmp_path):
     image_path = tmp_path / "live.tif"
     image_layer = {"name": "live-source", "projection": "EPSG:31370"}
     projection_crs = pyproj.CRS.from_epsg(31370)
@@ -408,7 +402,7 @@ def test_read_live_image_dataset_item_returns_metadata_and_shape(
 
 
 def test_read_live_image_for_dataset_returns_read_error_details(monkeypatch):
-    def fail_load_image(**kwargs):
+    def fail_load_image(**_kwargs):
         raise RuntimeError("live image read failed")
 
     monkeypatch.setattr(predicter_dataset, "load_image", fail_load_image)
