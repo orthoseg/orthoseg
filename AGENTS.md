@@ -21,8 +21,7 @@
 
 ## Build, test, and lint
 
-- Create the development environment with `conda env create -f env-tf-dev.yml`;
-  activate it with `conda activate orthoseg-tf-dev`.
+- Activate the conda environment selected for the workspace in the IDE.
 - Run the test suite with `pytest tests/`. Run one test with, for example:
   `pytest tests/test_trainer.py::test_train_error_model_exists_no_preload`.
 - Run the configured formatter, linter, and type checker with

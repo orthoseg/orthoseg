@@ -5,6 +5,7 @@ import math
 import os
 import random
 import tempfile
+import threading
 import time
 import warnings
 from pathlib import Path
@@ -58,6 +59,14 @@ FORMAT_PNG_EXT_WORLD = ".pgw"
 
 # Get a logger...
 logger = logging.getLogger(__name__)
+_pyproj_crs_to_epsg_lock = threading.Lock()
+
+
+def _get_epsg_code(crs: pyproj.CRS) -> int | None:
+    # Live tf.data readers precompute this before entering parallel map callbacks to
+    # avoid segmentation faults.
+    with _pyproj_crs_to_epsg_lock:
+        return crs.to_epsg()
 
 
 class WMSLayerSource:
@@ -900,6 +909,7 @@ def load_image(
     transparent: bool = False,
     image_pixels_ignore_border: int = 0,
     switch_axes: bool | None = None,
+    wms_srs: str | None = None,
 ) -> tuple[np.ndarray, dict[str, Any]]:
     """Loads an image from a layer source and returns the image data and profile.
 
@@ -926,6 +936,8 @@ def load_image(
         switch_axes: True if x and y axes should be switched to
             in the WMS GetMap request. If None, an effort is made to determine it
             automatically based on the crs. Defaults to None.
+        wms_srs: Precomputed CRS identifier for WMS requests. If None, it is derived
+            from crs when needed.
 
     Raises:
         RuntimeError: If the image can't be retrieved.
@@ -985,6 +997,9 @@ def load_image(
         try:
             # If it is a WMS layer source
             if isinstance(layersource, WMSLayerSource):
+                source_srs = (
+                    wms_srs if wms_srs is not None else f"epsg:{_get_epsg_code(crs)}"
+                )
                 # Initialize WMS if this hasn't been done yet
                 if layersource.wms_service is None:
                     auth = _prepare_auth(
@@ -1017,7 +1032,7 @@ def load_image(
                         response = layersource.wms_service.getmap(
                             layers=layersource.layernames,
                             styles=layersource.layerstyles,
-                            srs=f"epsg:{crs.to_epsg()}",
+                            srs=source_srs,
                             bbox=bbox_with_border,
                             size=size_with_border,
                             format=image_format,
