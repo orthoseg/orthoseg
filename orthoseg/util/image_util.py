@@ -5,6 +5,7 @@ import math
 import os
 import random
 import tempfile
+import threading
 import time
 import warnings
 from pathlib import Path
@@ -58,6 +59,14 @@ FORMAT_PNG_EXT_WORLD = ".pgw"
 
 # Get a logger...
 logger = logging.getLogger(__name__)
+_pyproj_crs_to_epsg_lock = threading.Lock()
+
+
+def _get_epsg_code(crs: pyproj.CRS) -> int | None:
+    # Live tf.data reads have triggered native crashes when pyproj 3.7.1 does this
+    # lookup concurrently.
+    with _pyproj_crs_to_epsg_lock:
+        return crs.to_epsg()
 
 
 class WMSLayerSource:
@@ -1017,7 +1026,7 @@ def load_image(
                         response = layersource.wms_service.getmap(
                             layers=layersource.layernames,
                             styles=layersource.layerstyles,
-                            srs=f"epsg:{crs.to_epsg()}",
+                            srs=f"epsg:{_get_epsg_code(crs)}",
                             bbox=bbox_with_border,
                             size=size_with_border,
                             format=image_format,

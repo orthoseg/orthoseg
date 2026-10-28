@@ -1,5 +1,9 @@
 """Tests for functionalities in image_util."""
 
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
+
 import geopandas as gpd
 import pandas as pd
 import pyproj
@@ -101,6 +105,30 @@ def test_create_vrt_from_dir_empty_dir(tmp_path):
 )
 def test_has_switched_axes(crs_epsg: int, exp_switched_axes: bool):
     assert image_util.has_switched_axes(pyproj.CRS(crs_epsg)) is exp_switched_axes
+
+
+def test_get_epsg_code_serializes_pyproj_calls(monkeypatch):
+    crs = pyproj.CRS.from_epsg(31370)
+    active_calls = 0
+    max_active_calls = 0
+    active_calls_lock = threading.Lock()
+
+    def fake_to_epsg(_self):
+        nonlocal active_calls, max_active_calls
+        with active_calls_lock:
+            active_calls += 1
+            max_active_calls = max(max_active_calls, active_calls)
+        time.sleep(0.01)
+        with active_calls_lock:
+            active_calls -= 1
+        return 31370
+
+    monkeypatch.setattr(pyproj.CRS, "to_epsg", fake_to_epsg)
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        epsg_codes = list(executor.map(image_util._get_epsg_code, [crs] * 16))
+
+    assert epsg_codes == [31370] * 16
+    assert max_active_calls == 1
 
 
 def test_load_image_invalid_layersource():
