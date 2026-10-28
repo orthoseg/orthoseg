@@ -268,7 +268,11 @@ def test_predict_image_batch_retries_smaller_batches_on_oom(monkeypatch):
 def test_create_live_image_read_dataset_reads_batches_and_preserves_metadata(
     monkeypatch, tmp_path
 ):
-    image_layer = {"name": "live-source"}
+    image_layer = {
+        "name": "live-source",
+        "projection": "EPSG:31370",
+        "switch_axes": None,
+    }
     image_files = [
         {
             "path": tmp_path / "tile-1.tif",
@@ -287,9 +291,35 @@ def test_create_live_image_read_dataset_reads_batches_and_preserves_metadata(
         },
     ]
     read_requests = []
+    epsg_lookup_thread_ids = []
+    caller_thread_id = threading.get_ident()
+    get_epsg_code = predicter.image_util._get_epsg_code
 
-    def fake_load_image(*, bbox, size, image_layer, ssl_verify):
-        read_requests.append((bbox, size, image_layer, ssl_verify))
+    def track_epsg_lookup(crs):
+        epsg_lookup_thread_ids.append(threading.get_ident())
+        return get_epsg_code(crs)
+
+    def fake_load_image(
+        *,
+        bbox,
+        size,
+        image_layer,
+        ssl_verify,
+        projection_crs,
+        projection_switch_axes,
+        projection_wms_srs,
+    ):
+        read_requests.append(
+            (
+                bbox,
+                size,
+                image_layer,
+                ssl_verify,
+                projection_crs,
+                projection_switch_axes,
+                projection_wms_srs,
+            )
+        )
         if bbox[0] == 3.0:
             raise RuntimeError("live image read failed")
         image_width, image_height = size
@@ -304,6 +334,7 @@ def test_create_live_image_read_dataset_reads_batches_and_preserves_metadata(
             "image_transform": f"transform-{int(bbox[0])}",
         }
 
+    monkeypatch.setattr(predicter.image_util, "_get_epsg_code", track_epsg_lookup)
     monkeypatch.setattr(predicter, "load_image", fake_load_image)
     image_metadata = {}
     dataset = predicter._create_live_image_read_dataset(
@@ -331,14 +362,30 @@ def test_create_live_image_read_dataset_reads_batches_and_preserves_metadata(
 
     assert sorted(batch_sizes) == [1, 2]
     assert {
-        (bbox, size, ssl_verify) for bbox, size, _, ssl_verify in read_requests
+        (bbox, size, ssl_verify) for bbox, size, _, ssl_verify, _, _, _ in read_requests
     } == {
         (tuple(image_file["bbox"]), tuple(image_file["size"]), False)
         for image_file in image_files
     }
     assert all(
-        requested_layer is image_layer for _, _, requested_layer, _ in read_requests
+        requested_layer is image_layer
+        for _, _, requested_layer, _, _, _, _ in read_requests
     )
+    assert all(
+        requested_crs is read_requests[0][4]
+        and requested_switch_axes is False
+        and requested_wms_srs == "epsg:31370"
+        for (
+            _,
+            _,
+            _,
+            _,
+            requested_crs,
+            requested_switch_axes,
+            requested_wms_srs,
+        ) in read_requests
+    )
+    assert epsg_lookup_thread_ids == [caller_thread_id]
 
     for image_file in image_files[:2]:
         path = str(image_file["path"])

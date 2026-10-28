@@ -964,6 +964,22 @@ def _create_live_image_read_dataset(
         [image_file["size"] for image_file in image_files],
         dtype=np.int32,
     ).reshape((-1, 2))
+    if not image_files:
+        dataset = tf.data.Dataset.from_tensor_slices(
+            (
+                tf.constant([], dtype=tf.string),
+                tf.zeros((0, 1, 1, 1), dtype=image_dtype),
+                tf.zeros((0, 3), dtype=tf.int32),
+                tf.constant([], dtype=tf.string),
+                tf.constant([], dtype=tf.string),
+            )
+        )
+        return _batch_image_read_dataset(
+            dataset,
+            image_dtype=image_dtype,
+            read_batch_size=read_batch_size,
+        )
+
     dataset = tf.data.Dataset.from_tensor_slices(
         (
             tf.constant(image_paths, dtype=tf.string),
@@ -971,6 +987,12 @@ def _create_live_image_read_dataset(
             tf.constant(image_sizes, dtype=tf.int32),
         )
     )
+
+    projection_crs = pyproj.CRS.from_user_input(image_layer["projection"])
+    projection_switch_axes = image_layer.get("switch_axes")
+    if projection_switch_axes is None:
+        projection_switch_axes = image_util.has_switched_axes(projection_crs)
+    projection_wms_srs = f"epsg:{image_util._get_epsg_code(projection_crs)}"
 
     def read_live_image_dataset_item(
         image_path: tf.Tensor,
@@ -986,6 +1008,9 @@ def _create_live_image_read_dataset(
                     image_layer=image_layer,
                     ssl_verify=ssl_verify,
                     image_dtype=image_dtype.as_numpy_dtype,
+                    projection_crs=projection_crs,
+                    projection_switch_axes=projection_switch_axes,
+                    projection_wms_srs=projection_wms_srs,
                     image_metadata=image_metadata,
                     image_metadata_lock=image_metadata_lock,
                 )
@@ -1091,6 +1116,9 @@ def _read_live_image_for_dataset(
     image_layer: dict[str, Any],
     ssl_verify: bool | str,
     image_dtype: Any,
+    projection_crs: pyproj.CRS,
+    projection_switch_axes: bool,
+    projection_wms_srs: str,
     image_metadata: dict[Path, tuple[Any, Any]],
     image_metadata_lock: Any,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -1115,6 +1143,9 @@ def _read_live_image_for_dataset(
             size=size,
             image_layer=image_layer,
             ssl_verify=ssl_verify,
+            projection_crs=projection_crs,
+            projection_switch_axes=projection_switch_axes,
+            projection_wms_srs=projection_wms_srs,
         )
     except Exception as ex:
         return (
@@ -1318,6 +1349,10 @@ def load_image(
     size: tuple[int, int],
     image_layer: dict,
     ssl_verify: bool | str = True,
+    *,
+    projection_crs: pyproj.CRS | None = None,
+    projection_switch_axes: bool | None = None,
+    projection_wms_srs: str | None = None,
 ) -> dict:
     """Load an image from the image_layer specified.
 
@@ -1330,12 +1365,21 @@ def load_image(
             (NOT recommended!). If a path to a certificate bundle file (.pem) is passed,
             this will be used. In corporate networks using a proxy server this is often
             needed to avoid CERTIFICATE_VERIFY_FAILED errors. Defaults to True.
+        projection_crs: CRS prepared before parallel live-image reads.
+        projection_switch_axes: Whether coordinates need their axes switched.
+        projection_wms_srs: Precomputed WMS CRS identifier.
 
     Returns:
         the image and its properties.
     """
     # Load image
-    crs = pyproj.CRS.from_user_input(image_layer["projection"])
+    crs = (
+        projection_crs
+        if projection_crs is not None
+        else pyproj.CRS.from_user_input(image_layer["projection"])
+    )
+    if projection_switch_axes is None:
+        projection_switch_axes = image_layer.get("switch_axes")
     image_data, profile = image_util.load_image(
         layersources=image_layer["layersources"],
         crs=crs,
@@ -1345,7 +1389,8 @@ def load_image(
         image_format=image_layer.get("image_format", image_util.FORMAT_JPEG),
         # transparent=transparent,
         image_pixels_ignore_border=image_layer["image_pixels_ignore_border"],
-        switch_axes=image_layer.get("switch_axes"),
+        switch_axes=projection_switch_axes,
+        wms_srs=projection_wms_srs,
     )
 
     # change from (channels, width, height) to
