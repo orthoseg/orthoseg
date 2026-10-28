@@ -197,7 +197,7 @@ def test_create_image_read_dataset_batches_read_errors(tmp_path):
     assert image_error == b""
 
     _, error_shape, read_error, read_error_traceback = records[str(error_image_path)]
-    assert error_shape.tolist() == [0, 0, 0]
+    assert error_shape.tolist() == [1, 1, 1]
     assert b"Image has no proj" in read_error
     assert b"read_image" in read_error_traceback
     assert image_metadata.keys() == {image_path}
@@ -359,7 +359,7 @@ def test_create_live_image_read_dataset_reads_batches_and_preserves_metadata(
         )
 
     _, error_shape, read_error, read_error_trace = records[str(image_files[2]["path"])]
-    assert error_shape.tolist() == [0, 0, 0]
+    assert error_shape.tolist() == [1, 1, 1]
     assert b"live image read failed" in read_error
     assert b"_read_live_image_for_dataset" in read_error_trace
     assert image_metadata == {}

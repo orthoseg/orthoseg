@@ -945,7 +945,7 @@ def _handle_error(
     if exception_trace is None:
         exception_trace = traceback.format_exc()
     exception_trace_print = exception_trace.replace("\n", "\n\t")
-    logger.error(f"Error postprocessing pred for {image_path}: {exception_trace_print}")
+    logger.error(f"Error processing image {image_path}: {exception_trace_print}")
 
     # Write error to error log file
     first_error = False
@@ -1100,6 +1100,11 @@ def _batch_image_read_dataset(
     ).prefetch(tf.data.AUTOTUNE)
 
 
+def _image_read_error_placeholder(image_dtype: Any) -> np.ndarray:
+    # TensorFlow 2.21 segfaults when tf.numpy_function returns a zero-sized array.
+    return np.zeros((1, 1, 1), dtype=image_dtype)
+
+
 def _read_live_image_for_dataset(
     image_path_value: np.ndarray,
     bbox_value: np.ndarray,
@@ -1135,7 +1140,7 @@ def _read_live_image_for_dataset(
         )
     except Exception as ex:
         return (
-            np.empty((0, 0, 0), dtype=image_dtype),
+            _image_read_error_placeholder(image_dtype),
             np.asarray(str(ex).encode("utf-8", errors="replace"), dtype=np.bytes_),
             np.asarray(
                 traceback.format_exc().encode("utf-8", errors="replace"),
@@ -1233,7 +1238,7 @@ def _read_image_for_dataset(
         )
     except Exception as ex:
         return (
-            np.empty((0, 0, 0), dtype=image_dtype),
+            _image_read_error_placeholder(image_dtype),
             np.asarray(str(ex).encode("utf-8", errors="replace"), dtype=np.bytes_),
             np.asarray(
                 traceback.format_exc().encode("utf-8", errors="replace"),
