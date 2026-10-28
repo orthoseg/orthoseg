@@ -3,6 +3,7 @@
 import logging
 import traceback
 from collections.abc import Callable, Iterator
+from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +19,80 @@ from orthoseg.util import image_util
 logger = logging.getLogger(__name__)
 
 
+def _read_image_dataset_item(
+    image_path: tf.Tensor,
+    *,
+    projection_if_missing: str | rio_crs.CRS | None,
+    preprocess_input: Callable | None,
+    image_dtype: tf.dtypes.DType,
+    image_metadata: dict[Path, tuple[Any, Any]],
+    image_metadata_lock: Any,
+) -> tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor]:
+    read_outputs = tf.numpy_function(
+        func=lambda path_value: _read_image_for_dataset(
+            path_value,
+            projection_if_missing=projection_if_missing,
+            preprocess_input=preprocess_input,
+            image_dtype=image_dtype.as_numpy_dtype,
+            image_metadata=image_metadata,
+            image_metadata_lock=image_metadata_lock,
+        ),
+        inp=[image_path],
+        Tout=(image_dtype, tf.string, tf.string),
+    )
+    image_data, read_error, read_error_traceback = read_outputs
+    image_data.set_shape([None, None, None])
+    return (
+        image_path,
+        image_data,
+        tf.shape(image_data, out_type=tf.int32),
+        read_error,
+        read_error_traceback,
+    )
+
+
+def _read_live_image_dataset_item(
+    image_path: tf.Tensor,
+    bbox: tf.Tensor,
+    size: tf.Tensor,
+    *,
+    image_layer: dict[str, Any],
+    ssl_verify: bool | str,
+    image_dtype: tf.dtypes.DType,
+    projection_crs: pyproj.CRS,
+    projection_switch_axes: bool,
+    projection_wms_srs: str,
+    image_metadata: dict[Path, tuple[Any, Any]],
+    image_metadata_lock: Any,
+) -> tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor]:
+    read_outputs = tf.numpy_function(
+        func=lambda path_value, bbox_value, size_value: _read_live_image_for_dataset(
+            path_value,
+            bbox_value,
+            size_value,
+            image_layer=image_layer,
+            ssl_verify=ssl_verify,
+            image_dtype=image_dtype.as_numpy_dtype,
+            projection_crs=projection_crs,
+            projection_switch_axes=projection_switch_axes,
+            projection_wms_srs=projection_wms_srs,
+            image_metadata=image_metadata,
+            image_metadata_lock=image_metadata_lock,
+        ),
+        inp=[image_path, bbox, size],
+        Tout=(image_dtype, tf.string, tf.string),
+    )
+    image_data, read_error, read_error_traceback = read_outputs
+    image_data.set_shape([None, None, None])
+    return (
+        image_path,
+        image_data,
+        tf.shape(image_data, out_type=tf.int32),
+        read_error,
+        read_error_traceback,
+    )
+
+
 def _create_image_read_dataset(
     image_paths: list[Path],
     *,
@@ -31,33 +106,16 @@ def _create_image_read_dataset(
     dataset = tf.data.Dataset.from_tensor_slices(
         tf.constant([str(path) for path in image_paths], dtype=tf.string)
     )
-    image_numpy_dtype = image_dtype.as_numpy_dtype
-
-    def read_image_dataset_item(image_path: tf.Tensor):
-        read_outputs = tf.numpy_function(
-            func=lambda path_value: _read_image_for_dataset(
-                path_value,
-                projection_if_missing=projection_if_missing,
-                preprocess_input=preprocess_input,
-                image_dtype=image_numpy_dtype,
-                image_metadata=image_metadata,
-                image_metadata_lock=image_metadata_lock,
-            ),
-            inp=[image_path],
-            Tout=(image_dtype, tf.string, tf.string),
-        )
-        image_data, read_error, read_error_traceback = read_outputs
-        image_data.set_shape([None, None, None])
-        return (
-            image_path,
-            image_data,
-            tf.shape(image_data, out_type=tf.int32),
-            read_error,
-            read_error_traceback,
-        )
 
     dataset = dataset.map(
-        read_image_dataset_item,
+        partial(
+            _read_image_dataset_item,
+            projection_if_missing=projection_if_missing,
+            preprocess_input=preprocess_input,
+            image_dtype=image_dtype,
+            image_metadata=image_metadata,
+            image_metadata_lock=image_metadata_lock,
+        ),
         num_parallel_calls=tf.data.AUTOTUNE,
         deterministic=False,
     )
@@ -118,42 +176,18 @@ def _create_live_image_read_dataset(
         projection_switch_axes = image_util.has_switched_axes(projection_crs)
     projection_wms_srs = f"epsg:{image_util._get_epsg_code(projection_crs)}"
 
-    def read_live_image_dataset_item(
-        image_path: tf.Tensor,
-        bbox: tf.Tensor,
-        size: tf.Tensor,
-    ):
-        read_outputs = tf.numpy_function(
-            func=lambda path_value, bbox_value, size_value: (
-                _read_live_image_for_dataset(
-                    path_value,
-                    bbox_value,
-                    size_value,
-                    image_layer=image_layer,
-                    ssl_verify=ssl_verify,
-                    image_dtype=image_dtype.as_numpy_dtype,
-                    projection_crs=projection_crs,
-                    projection_switch_axes=projection_switch_axes,
-                    projection_wms_srs=projection_wms_srs,
-                    image_metadata=image_metadata,
-                    image_metadata_lock=image_metadata_lock,
-                )
-            ),
-            inp=[image_path, bbox, size],
-            Tout=(image_dtype, tf.string, tf.string),
-        )
-        image_data, read_error, read_error_traceback = read_outputs
-        image_data.set_shape([None, None, None])
-        return (
-            image_path,
-            image_data,
-            tf.shape(image_data, out_type=tf.int32),
-            read_error,
-            read_error_traceback,
-        )
-
     dataset = dataset.map(
-        read_live_image_dataset_item,
+        partial(
+            _read_live_image_dataset_item,
+            image_layer=image_layer,
+            ssl_verify=ssl_verify,
+            image_dtype=image_dtype,
+            projection_crs=projection_crs,
+            projection_switch_axes=projection_switch_axes,
+            projection_wms_srs=projection_wms_srs,
+            image_metadata=image_metadata,
+            image_metadata_lock=image_metadata_lock,
+        ),
         num_parallel_calls=nb_parallel_read,
         deterministic=False,
     )

@@ -41,6 +41,29 @@ def test_predict_dir_input_image_dir_empty(
         )
 
 
+@pytest.mark.parametrize(
+    ("provide_directory", "provide_image_layer", "message"),
+    [
+        (False, False, "input_image_dir or image_layer should be provided"),
+        (True, True, "cannot be provided together"),
+    ],
+)
+def test_predict_layer_requires_exactly_one_input_source(
+    tmp_path, provide_directory, provide_image_layer, message
+):
+    with pytest.raises(ValueError, match=message):
+        predicter._predict_layer(
+            model=None,  # type: ignore[arg-type]
+            preprocess_input=None,
+            input_image_dir=tmp_path / "input" if provide_directory else None,
+            image_layer={"projection": "EPSG:31370"} if provide_image_layer else None,
+            output_image_dir=tmp_path / "output",
+            output_vector_path=None,
+            classes=[],
+            image_files=[],
+        )
+
+
 def test_predict_image_batch_preserves_order_for_different_shapes():
     inputs = predicter.keras.layers.Input(shape=(None, None, 1))
     outputs = predicter.keras.layers.Activation("linear")(inputs)
@@ -87,3 +110,55 @@ def test_predict_image_batch_retries_smaller_batches_on_oom(monkeypatch):
     assert observed_batch_sizes == [3, 1, 2, 1, 1]
     for prediction, value in zip(predictions, (1, 2, 3), strict=True):
         np.testing.assert_array_equal(prediction, np.full((2, 2, 1), value))
+
+
+@pytest.mark.parametrize("return_tensor", [False, True])
+def test_predict_tensor_batch_converts_non_tensorflow_backend_input(
+    monkeypatch, return_tensor
+):
+    inputs = predicter.keras.layers.Input(shape=(2, 2, 1))
+    outputs = predicter.keras.layers.Activation("linear")(inputs)
+    model = predicter.keras.models.Model(inputs=inputs, outputs=outputs)
+
+    def predict_on_batch(image_batch):
+        assert isinstance(image_batch, np.ndarray)
+        predictions = image_batch + 1
+        if return_tensor:
+            return predicter.tf.convert_to_tensor(predictions)
+        return predictions
+
+    monkeypatch.setattr(predicter.keras.backend, "backend", lambda: "jax")
+    monkeypatch.setattr(model, "predict_on_batch", predict_on_batch)
+
+    image_batch = predicter.tf.ones((2, 2, 2, 1), dtype=predicter.tf.float32)
+    predictions = predicter._predict_tensor_batch(model, image_batch)
+
+    assert isinstance(predictions, np.ndarray)
+    np.testing.assert_array_equal(predictions, np.full((2, 2, 2, 1), 2.0))
+
+
+def test_predict_tensor_batch_reraises_oom_for_single_image(monkeypatch):
+    inputs = predicter.keras.layers.Input(shape=(2, 2, 1))
+    outputs = predicter.keras.layers.Activation("linear")(inputs)
+    model = predicter.keras.models.Model(inputs=inputs, outputs=outputs)
+
+    def raise_oom(image_batch):
+        raise predicter.tf.errors.ResourceExhaustedError(
+            None, None, "single-image batch is too large"
+        )
+
+    monkeypatch.setattr(model, "predict_on_batch", raise_oom)
+
+    with pytest.raises(predicter.tf.errors.ResourceExhaustedError):
+        predicter._predict_tensor_batch(
+            model,
+            predicter.tf.ones((1, 2, 2, 1), dtype=predicter.tf.float32),
+        )
+
+
+def test_predict_image_batch_with_no_images_returns_empty_list():
+    inputs = predicter.keras.layers.Input(shape=(2, 2, 1))
+    outputs = predicter.keras.layers.Activation("linear")(inputs)
+    model = predicter.keras.models.Model(inputs=inputs, outputs=outputs)
+
+    assert predicter._predict_image_batch(model, []) == []
