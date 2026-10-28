@@ -46,6 +46,7 @@ def test_train(config_path, exp_error):
 
 def test_train_error_handling(monkeypatch, tmp_path):
     """Force an error so the general error handler in train is tested."""
+
     def fail_get_train_label_infos():
         raise ValueError("forced training error")
 
@@ -59,9 +60,7 @@ def test_train_error_handling(monkeypatch, tmp_path):
         remove_run_tmp_dir=lambda: None,
     )
     monkeypatch.setattr(train_module, "conf", fake_conf)
-    monkeypatch.setattr(
-        train_module.log_util, "clean_log_dir", lambda **_kwargs: None
-    )
+    monkeypatch.setattr(train_module.log_util, "clean_log_dir", lambda **_kwargs: None)
     monkeypatch.setattr(
         train_module.log_util,
         "main_log_init",

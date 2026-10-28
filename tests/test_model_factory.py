@@ -120,6 +120,10 @@ def test_get_compile_save_load_model(
         ["inceptionresnetv2+unet", "aerial"],
     ],
 )
+@pytest.mark.skipif(
+    "GITHUB_ACTIONS" in os.environ and os.name == "nt",
+    reason="crashes on github CI on windows",
+)
 def test_get_model(architecture: str, weights_type: str):
     model, preprocess_input = mf.get_model(
         architecture=architecture, weights_type=weights_type
