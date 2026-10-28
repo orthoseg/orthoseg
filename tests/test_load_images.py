@@ -1,7 +1,10 @@
 """Tests for the load_images module."""
 
+import importlib
+import logging
 import os
 import shutil
+from types import SimpleNamespace
 
 import pytest
 
@@ -10,6 +13,8 @@ from orthoseg import load_images
 from orthoseg.load_images import _load_images_args
 from tests import test_helper
 from tests.test_helper import SportsFields
+
+load_images_module = importlib.import_module("orthoseg.load_images")
 
 
 @pytest.mark.parametrize(
@@ -31,12 +36,36 @@ def test_load_images_args(args):
     assert valid_args.config_overrules is not None
 
 
-def test_load_images_error_handling():
+def test_load_images_error_handling(monkeypatch, tmp_path):
     """Force an error so the general error handler in predict is tested."""
+    fake_conf = SimpleNamespace(
+        read_orthoseg_config=lambda *_args, **_kwargs: None,
+        dirs=SimpleNamespace(getpath=lambda key: tmp_path / key),
+        logging_conf=SimpleNamespace(getint=lambda _key: 1),
+        predict=SimpleNamespace(
+            getint=lambda _key: int("INVALID_TYPE"),
+        ),
+        pformat_config=lambda: "",
+        remove_run_tmp_dir=lambda: None,
+    )
+    monkeypatch.setattr(load_images_module, "conf", fake_conf)
+    monkeypatch.setattr(
+        load_images_module.log_util, "clean_log_dir", lambda **_kwargs: None
+    )
+    monkeypatch.setattr(
+        load_images_module.log_util,
+        "main_log_init",
+        lambda *_args: logging.getLogger(__name__),
+    )
+    monkeypatch.setattr(
+        load_images_module.email_helper,
+        "sendmail",
+        lambda *_args, **_kwargs: None,
+    )
+
     with pytest.raises(RuntimeError, match="ERROR in load_images for sportsfields"):
         load_images(
             config_path=SportsFields.config_path,
-            config_overrules=["predict.image_pixel_width=INVALID_TYPE"],
         )
 
 

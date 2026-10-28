@@ -3,6 +3,7 @@
 import argparse
 import logging
 import shutil
+import ssl
 import sys
 import tempfile
 import urllib.request
@@ -50,7 +51,7 @@ def _parse_load_sampleprojects_args(args) -> dict:
     return {"dest_dir": dest_dir, "ssl_verify": ssl_verify}
 
 
-def load_sampleprojects(dest_dir: Path, ssl_verify: bool | str = True):  # noqa: ARG001
+def load_sampleprojects(dest_dir: Path, ssl_verify: bool | str = True):
     """Load the orthoseg sample projects.
 
     Args:
@@ -73,7 +74,18 @@ def load_sampleprojects(dest_dir: Path, ssl_verify: bool | str = True):  # noqa:
         base_url = "https://github.com/orthoseg/orthoseg/archive/refs/tags/v"
         url = f"{base_url}{__version__}.zip"
         tmp_zip_path = Path(tmp_dir) / "orthoseg_src.zip"
-        urllib.request.urlretrieve(url, tmp_zip_path)
+        if ssl_verify is False:
+            ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+        elif isinstance(ssl_verify, str):
+            ssl_context = ssl.create_default_context(cafile=ssl_verify)
+        else:
+            ssl_context = ssl.create_default_context()
+
+        with urllib.request.urlopen(url, context=ssl_context) as response:
+            with tmp_zip_path.open("wb") as tmp_zip_file:
+                shutil.copyfileobj(response, tmp_zip_file)
 
         # Unzip the downloaded file
         tmp_proj_dir = Path(tmp_dir) / "orthoseg_src_tmp"
