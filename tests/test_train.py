@@ -1,8 +1,10 @@
 """Tests for module train."""
 
 import importlib
+import logging
 from contextlib import nullcontext
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -42,12 +44,39 @@ def test_train(config_path, exp_error):
         train(config_path=config_path)
 
 
-def test_train_error_handling():
+def test_train_error_handling(monkeypatch, tmp_path):
     """Force an error so the general error handler in train is tested."""
+    def fail_get_train_label_infos():
+        raise ValueError("forced training error")
+
+    fake_conf = SimpleNamespace(
+        read_orthoseg_config=lambda *_args, **_kwargs: None,
+        dirs=SimpleNamespace(getpath=lambda key: tmp_path / key),
+        logging_conf=SimpleNamespace(getint=lambda _key: 1),
+        train=SimpleNamespace(get=lambda _key, default=None: default),
+        get_train_label_infos=fail_get_train_label_infos,
+        pformat_config=lambda: "",
+        remove_run_tmp_dir=lambda: None,
+    )
+    monkeypatch.setattr(train_module, "conf", fake_conf)
+    monkeypatch.setattr(
+        train_module.log_util, "clean_log_dir", lambda **_kwargs: None
+    )
+    monkeypatch.setattr(
+        train_module.log_util,
+        "main_log_init",
+        lambda *_args: logging.getLogger(__name__),
+    )
+    monkeypatch.setattr(train_module.mf, "set_dtype_policy", lambda _policy: None)
+    monkeypatch.setattr(
+        train_module.email_helper,
+        "sendmail",
+        lambda *_args, **_kwargs: None,
+    )
+
     with pytest.raises(RuntimeError, match="ERROR in train for sportsfields"):
         train(
             config_path=test_helper.SportsFields.config_path,
-            config_overrules=["train.force_model_traindata_id=INVALID_TYPE"],
         )
 
 

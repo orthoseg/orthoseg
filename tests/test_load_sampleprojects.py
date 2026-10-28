@@ -40,9 +40,9 @@ def test_load_images_args(args, exp_ssl_verify):
         assert valid_args["ssl_verify"] == exp_ssl_verify
 
 
-@pytest.mark.xfail(
-    not os.environ.get("TESTS_INSTALLED", "FALSE") == "TRUE",
-    reason="When not testing the installed package, xfail this test to avoid failing",
+@pytest.mark.skipif(
+    os.environ.get("TESTS_INSTALLED", "FALSE") != "TRUE",
+    reason="Only run this download integration test when testing the installed package",
 )
 def test_load_sampleprojects(request):
     """Test loading the sample projects.
