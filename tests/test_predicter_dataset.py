@@ -109,7 +109,7 @@ def test_iter_image_read_results_preserves_success_and_errors(tmp_path):
     )
 
     results = dict(
-        _predicter_dataset._iter_image_read_results(
+        _predicter_dataset.iter_image_read_results(
             dataset,
             image_metadata=image_metadata,
             image_metadata_lock=image_metadata_lock,

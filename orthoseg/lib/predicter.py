@@ -491,7 +491,7 @@ def _predict_layer(
             image_metadata_lock=read_image_metadata_lock,
         )
     read_results_iterator = iter(
-        _predicter_dataset._iter_image_read_results(
+        _predicter_dataset.iter_image_read_results(
             read_dataset,
             image_metadata=read_image_metadata,
             image_metadata_lock=read_image_metadata_lock,

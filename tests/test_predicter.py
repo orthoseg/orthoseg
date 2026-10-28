@@ -167,19 +167,13 @@ def test_predict_layer_uses_file_dataset_and_processes_final_partial_batch(
         postprocess_arguments.append(kwargs)
 
     monkeypatch.setattr(
-        predicter._predicter_dataset,
-        "_create_image_read_dataset",
-        create_image_dataset,
+        predicter._predicter_dataset, "create_image_read_dataset", create_image_dataset
     )
     monkeypatch.setattr(
-        predicter._predicter_dataset,
-        "_iter_image_read_results",
-        iter_read_results,
+        predicter._predicter_dataset, "iter_image_read_results", iter_read_results
     )
     monkeypatch.setattr(
-        predicter.postp,
-        "postprocess_prediction_to_file",
-        postprocess_prediction,
+        predicter.postp, "postprocess_prediction_to_file", postprocess_prediction
     )
 
     predicter._predict_layer(
@@ -254,13 +248,11 @@ def test_predict_layer_uses_live_dataset_and_force_reprocesses_in_evaluate_mode(
 
     monkeypatch.setattr(
         predicter._predicter_dataset,
-        "_create_live_image_read_dataset",
+        "create_live_image_read_dataset",
         create_live_image_dataset,
     )
     monkeypatch.setattr(
-        predicter._predicter_dataset,
-        "_iter_image_read_results",
-        iter_read_results,
+        predicter._predicter_dataset, "iter_image_read_results", iter_read_results
     )
     monkeypatch.setattr(
         predicter.postp,
@@ -308,12 +300,12 @@ def test_predict_layer_logs_read_errors_and_stops_at_error_limit(monkeypatch, tm
 
     monkeypatch.setattr(
         predicter._predicter_dataset,
-        "_create_image_read_dataset",
+        "create_image_read_dataset",
         lambda **_kwargs: read_dataset,
     )
     monkeypatch.setattr(
         predicter._predicter_dataset,
-        "_iter_image_read_results",
+        "iter_image_read_results",
         lambda _dataset, **_kwargs: iter(
             [
                 (

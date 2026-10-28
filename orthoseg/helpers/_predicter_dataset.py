@@ -353,7 +353,7 @@ def _batch_image_read_dataset(
     ).prefetch(tf.data.AUTOTUNE)
 
 
-def _iter_image_read_results(
+def iter_image_read_results(
     dataset: tf.data.Dataset,
     *,
     image_metadata: dict[Path, tuple[Any, Any]],
