@@ -47,8 +47,7 @@ def sendmail(subject: str, body: str | None = None, stop_on_error: bool = False)
         msg.add_header("to", mail_to)
         msg.add_header("subject", subject)
         if body is not None:
-            msg.set_payload(body)
-            msg.add_header("Content-Type", "text/html")
+            msg.set_content(body, subtype="html", charset="utf-8")
 
         # Send the email
         server = smtplib.SMTP(mail_server)

@@ -6,13 +6,13 @@ import logging
 import multiprocessing
 import shutil
 import tempfile
+import threading
 import time
 import traceback
 from collections.abc import Callable
 from concurrent import futures
 from datetime import datetime
 from pathlib import Path
-from time import perf_counter
 from typing import Any
 
 import geofileops as gfo
@@ -20,12 +20,11 @@ import keras.models
 import numpy as np
 import pandas as pd
 import pyproj
-import rasterio as rio
 import rasterio.crs as rio_crs
-import rasterio.plot as rio_plot
 import tensorflow as tf
 
 import orthoseg.lib.postprocess_predictions as postp
+from orthoseg.helpers import _predicter_dataset
 from orthoseg.util import _processing_util, image_util
 from orthoseg.util.progress_util import ProgressLogger
 
@@ -101,9 +100,11 @@ def predict_dir(
             memory on you GPU.
         evaluate_mode: True to run in evaluate mode
         cancel_filepath: If the file in this path exists, processing stops asap
-        nb_parallel_read: The number of parallel threads to read/load
-            images for prediction. If -1, a default value is used. At the time of
-            writing the default is 3 * `batch_size`. Defaults to -1.
+        nb_parallel_read: The maximum number of parallel live-image reads. For cached
+            images, this sets the `tf.data` read batch size to
+            `min(batch_size, nb_parallel_read)`; parallel mapping and prefetching use
+            TensorFlow autotuning. If -1, the default is 3 * `batch_size`. Defaults
+            to -1.
         nb_parallel_postprocess: The number of parallel
             processes used to vectorize,... the predictions. If -1, all
             available CPU's are used. Defaults to 1.
@@ -255,9 +256,10 @@ def predict_layer(
             memory on you GPU.
         evaluate_mode: True to run in evaluate mode
         cancel_filepath: If the file in this path exists, processing stops asap
-        nb_parallel_read: The number of parallel threads to read/load
-            images for prediction. If -1, a default value is used. At the time of
-            writing the default is 3 * `batch_size`. Defaults to -1.
+        nb_parallel_read: The maximum number of parallel live-image fetches used by
+            `tf.data`. For cached images, this sets the `tf.data` read batch size to
+            `min(batch_size, nb_parallel_read)`. If -1, the default is
+            3 * `batch_size`. Defaults to -1.
         nb_parallel_postprocess: The number of parallel
             processes used to postprocess, e.g. vectorize,... the predictions. If -1,
             all available CPU's are used. Defaults to 1.
@@ -445,18 +447,63 @@ def _predict_layer(
     # Loop through all files to process them
     if nb_parallel_read == -1:
         nb_parallel_read = batch_size * 3
+        print(f"nb_parallel_read set to {nb_parallel_read}")
     if nb_parallel_postprocess == -1:
         nb_parallel_postprocess = multiprocessing.cpu_count()
+
+    read_image_metadata: dict[Path, tuple[Any, Any]] = {}
+    read_image_metadata_lock = threading.Lock()
+    if image_layer is None:
+        projection_for_read = projection_if_missing
+        if projection_if_missing is not None:
+            projection_for_read = rio_crs.CRS.from_user_input(projection_if_missing)
+
+        image_paths_to_read = [
+            image_file["path"]
+            for image_file in image_files
+            if force or image_file["path"].name not in image_done_filenames
+        ]
+        nb_to_predict = len(image_paths_to_read)
+        read_dataset = _predicter_dataset.create_image_read_dataset(
+            image_paths=image_paths_to_read,
+            projection_if_missing=projection_for_read,
+            preprocess_input=preprocess_input,
+            image_dtype=tf.as_dtype(model.inputs[0].dtype),
+            read_batch_size=min(batch_size, nb_parallel_read),
+            image_metadata=read_image_metadata,
+            image_metadata_lock=read_image_metadata_lock,
+        )
+    else:
+        image_files_to_read = [
+            image_file
+            for image_file in image_files
+            if force or image_file["path"].name not in image_done_filenames
+        ]
+        nb_to_predict = len(image_files_to_read)
+        read_dataset = _predicter_dataset.create_live_image_read_dataset(
+            image_files=image_files_to_read,
+            image_layer=image_layer,
+            ssl_verify=ssl_verify,
+            image_dtype=tf.as_dtype(model.inputs[0].dtype),
+            nb_parallel_read=nb_parallel_read,
+            read_batch_size=min(batch_size, nb_parallel_read),
+            image_metadata=read_image_metadata,
+            image_metadata_lock=read_image_metadata_lock,
+        )
+    read_results_iterator = iter(
+        _predicter_dataset.iter_image_read_results(
+            read_dataset,
+            image_metadata=read_image_metadata,
+            image_metadata_lock=read_image_metadata_lock,
+        )
+    )
+
     predict_queue: list[dict] = []
-    nb_to_predict = nb_images
     nb_done = 0
     nb_errors = 0
-    read_sleep_last_logged = None
     progress = None
-    read_queue: dict[futures.Future, Path] = {}
     postp_queue: dict[futures.Future, Path] = {}
     write_queue: dict[futures.Future, Path] = {}
-    image_id = -1
     last_image_reached = False
 
     # We don't want the postprocess workers to block the entire system,
@@ -465,7 +512,6 @@ def _predict_layer(
         _processing_util.setprocessnice(15)
 
     with (
-        futures.ThreadPoolExecutor(nb_parallel_read) as read_pool,
         futures.ProcessPoolExecutor(
             nb_parallel_postprocess, initializer=init_postprocess_worker()
         ) as postprocess_pool,
@@ -478,7 +524,7 @@ def _predict_layer(
             # If we are ready, stop!
             if (
                 last_image_reached
-                and len(read_queue) == 0
+                and len(predict_queue) == 0
                 and len(postp_queue) == 0
                 and len(write_queue) == 0
             ):
@@ -493,120 +539,74 @@ def _predict_layer(
             # Init for new loop
             perfinfo: list[str] = []
 
-            # Fill the read queue
-            # -------------------
-            while not last_image_reached and len(read_queue) <= nb_parallel_read:
-                image_id += 1
-
-                # Last image reached
-                if image_id >= len(image_files) - 1:
+            # Fill the prediction queue from the tf.data iterator
+            # ----------------------------------------------------
+            while not last_image_reached and len(predict_queue) < batch_size:
+                if cancel_filepath is not None and cancel_filepath.exists():
+                    break
+                try:
+                    image_filepath_read, read_result = next(read_results_iterator)
+                except StopIteration:
                     last_image_reached = True
-
-                image_file = image_files[image_id]
-
-                # Check if the image has been processed already
-                if not force and image_file["path"].name in image_done_filenames:
-                    nb_to_predict -= 1
-                    continue
-
-                # Schedule file to be read/loaded
-                if image_layer is None:
-                    # No layer config specified, so the file should just be read
-                    read_future = read_pool.submit(
-                        read_image,
-                        image_path=image_file["path"],
-                        projection_if_missing=projection_if_missing,
-                        preprocess_input=preprocess_input,
-                    )
-                    read_queue[read_future] = image_file["path"]
-                else:
-                    # Layer config specified, so load the image realtime
-                    read_future = read_pool.submit(
-                        load_image,
-                        bbox=image_file["bbox"],
-                        size=image_file["size"],
-                        image_layer=image_layer,
-                        ssl_verify=ssl_verify,
-                    )
-                    read_queue[read_future] = image_file["path"]
-
-            # Check read_queue for images read and add them to predict_queue
-            # --------------------------------------------------------------
-            while len(read_queue) > 0 and len(predict_queue) < batch_size:
-                # Prepare the images that have been read for predicting
-                futures_done = [future for future in read_queue if future.done()]
-                for future in futures_done:
-                    # predict_queue should contain maximum batch_size images!
-                    if len(predict_queue) >= batch_size:
-                        break
-
-                    try:
-                        # Get the result from the read
-                        read_result = future.result()
-                        image_filepath_read = read_queue[future]
-
-                        # Prepare the filepath for the output
-                        output_suffix = ".tif"
-                        if evaluate_mode:
-                            # In evaluate mode, put everyting in output base dir for
-                            # easier comparison
-                            output_image_pred_dir = output_image_dir
-
-                            # Prepare complete filepath for image prediction
-                            output_image_pred_path = (
-                                output_image_dir / image_filepath_read.stem
-                            )
-                        else:
-                            # If saving predictions to images for real, keep hierarchic
-                            # structure if present
-                            tmp_output_filepath = Path(
-                                str(image_filepath_read).replace(
-                                    str(input_image_dir), str(output_image_dir)
-                                )
-                            )
-                            output_image_pred_dir = tmp_output_filepath.parent
-                            output_image_pred_path = (
-                                output_image_pred_dir
-                                / f"{image_filepath_read.stem}_pred{output_suffix}"
-                            )
-
-                        predict_queue.append(
-                            {
-                                "input_image_filepath": image_filepath_read,
-                                "output_pred_filepath": output_image_pred_path,
-                                "output_image_pred_dir": output_image_pred_dir,
-                                "image_crs": read_result["image_crs"],
-                                "image_transform": read_result["image_transform"],
-                                "image_data": read_result["image_data"],
-                            }
-                        )
-
-                    except Exception as ex:  # pragma: no cover
-                        nb_errors += 1
-                        image_path = read_queue[future]
-                        _handle_error(image_path, ex, images_error_log_filepath)
-
-                    finally:
-                        # Remove from queue...
-                        del read_queue[future]
-
-                # If enough images in predict_queue or if the read queue is not full
-                # stop this loop
-                if (
-                    len(predict_queue) == batch_size
-                    or len(read_queue) < nb_parallel_read
-                ):
                     break
 
-                # Wait a bit for images to be read, then try finding images again
-                cur_counter = perf_counter()
-                if (
-                    not read_sleep_last_logged
-                    or (read_sleep_last_logged - cur_counter) > 5
-                ):
-                    logger.info("Wait for images to be read")
-                    read_sleep_last_logged = cur_counter
-                time.sleep(0.01)
+                try:
+                    if read_result["read_error"]:
+                        nb_errors += 1
+                        _handle_error(
+                            image_filepath_read,
+                            RuntimeError(read_result["read_error"].decode("utf-8")),
+                            images_error_log_filepath,
+                            exception_trace=read_result["read_error_traceback"].decode(
+                                "utf-8"
+                            ),
+                        )
+                        if (
+                            max_prediction_errors >= 0
+                            and nb_errors >= max_prediction_errors
+                        ):
+                            break
+                        continue
+
+                    # Prepare the filepath for the output
+                    output_suffix = ".tif"
+                    if evaluate_mode:
+                        # In evaluate mode, put everything in the output base dir
+                        output_image_pred_dir = output_image_dir
+                        output_image_pred_path = (
+                            output_image_dir / image_filepath_read.stem
+                        )
+                    else:
+                        # Preserve the input directory structure in the output
+                        tmp_output_filepath = Path(
+                            str(image_filepath_read).replace(
+                                str(input_image_dir), str(output_image_dir)
+                            )
+                        )
+                        output_image_pred_dir = tmp_output_filepath.parent
+                        output_image_pred_path = (
+                            output_image_pred_dir
+                            / f"{image_filepath_read.stem}_pred{output_suffix}"
+                        )
+
+                    predict_queue.append(
+                        {
+                            "input_image_filepath": image_filepath_read,
+                            "output_pred_filepath": output_image_pred_path,
+                            "output_image_pred_dir": output_image_pred_dir,
+                            "image_crs": read_result["image_crs"],
+                            "image_transform": read_result["image_transform"],
+                            "image_data": read_result["image_data"],
+                        }
+                    )
+
+                except Exception as ex:  # pragma: no cover
+                    nb_errors += 1
+                    _handle_error(
+                        image_filepath_read,
+                        ex,
+                        images_error_log_filepath,
+                    )
 
             # If sufficient images in predict queue -> predict
             # ------------------------------------------------
@@ -621,22 +621,14 @@ def _predict_layer(
                 # --------
                 logger.debug(f"Start prediction for {len(predict_queue)} images")
                 perf_time_start = datetime.now()
-                curr_batch_image_list = [
-                    batch_image_info["image_data"] for batch_image_info in predict_queue
-                ]
-                batch_image_arr = np.stack(curr_batch_image_list)
-                batch_pred_arr = model.predict_on_batch(batch_image_arr)
+                batch_pred_arr = _predict_image_batch(
+                    model,
+                    [image_info["image_data"] for image_info in predict_queue],
+                )
 
                 perf_time_now = datetime.now()
                 perfinfo += f", predict took {perf_time_now - perf_time_start}"
                 perf_time_start = perf_time_now
-
-                # In tf > 2.1 a tf.tensor object is returned, but we want an ndarray
-                if isinstance(batch_pred_arr, tf.Tensor):
-                    arr = batch_pred_arr.numpy()  # pyright: ignore[reportOptionalCall]
-                    batch_pred_arr = np.array(arr)
-                else:
-                    batch_pred_arr = np.array(batch_pred_arr)
 
                 # Add predictions to postprocess queue
                 # ------------------------------------
@@ -876,11 +868,17 @@ def _write_to_done_log(image_path: Path, images_done_log_filepath: Path):
                 raise RuntimeError(message) from ex
 
 
-def _handle_error(image_path: Path, ex: Exception, log_path: Path):
+def _handle_error(
+    image_path: Path,
+    ex: Exception,
+    log_path: Path,
+    exception_trace: str | None = None,
+):
     # Print exception + trace
-    exception_trace = traceback.format_exc()
+    if exception_trace is None:
+        exception_trace = traceback.format_exc()
     exception_trace_print = exception_trace.replace("\n", "\n\t")
-    logger.error(f"Error postprocessing pred for {image_path}: {exception_trace_print}")
+    logger.error(f"Error processing image {image_path}: {exception_trace_print}")
 
     # Write error to error log file
     first_error = False
@@ -895,120 +893,59 @@ def _handle_error(image_path: Path, ex: Exception, log_path: Path):
         writer.writerow(fields)
 
 
-def read_image(
-    image_path: Path,
-    projection_if_missing: str | None = None,
-    preprocess_input: Callable | None = None,
-) -> dict:
-    """Read image file.
+def _predict_image_batch(
+    model: keras.models.Model,
+    image_tensors: list[tf.Tensor],
+) -> list[np.ndarray]:
+    image_indices_by_shape: dict[tuple[int, ...], list[int]] = {}
+    for image_index, image_tensor in enumerate(image_tensors):
+        image_shape = tuple(image_tensor.shape)
+        image_indices_by_shape.setdefault(image_shape, []).append(image_index)
 
-    Args:
-        image_path: file path.
-        projection_if_missing: the projection to use if the
-            image to read does not contain projection information. Defaults to None.
-        preprocess_input: the preprocessing function to
-            apply to the image being read. Defaults to None.
+    predictions_by_image: dict[int, np.ndarray] = {}
+    for image_indices in image_indices_by_shape.values():
+        batch_image_tensor = tf.stack(
+            [image_tensors[image_index] for image_index in image_indices]
+        )
+        batch_predictions = _predict_tensor_batch(model, batch_image_tensor)
+        for batch_index, image_index in enumerate(image_indices):
+            predictions_by_image[image_index] = batch_predictions[batch_index]
 
-    Returns:
-        the data read from the image file.
-    """
-    # Read input file
-    # Because sometimes a read seems to fail, retry up to 3 times...
-    retry_count = 0
-    while True:
-        try:
-            with rio.open(str(image_path)) as image_ds:
-                # Read geo info
-                image_crs = image_ds.profile["crs"]
-                image_transform = image_ds.transform
-
-                # Read pixels
-                image_data = image_ds.read()
-
-            # change from (channels, width, height) to
-            # (width, height, channels) + normalize to between 0 and 1
-            image_data = rio_plot.reshape_as_image(image_data)
-            if preprocess_input is not None:
-                image_data = preprocess_input(image_data)
-
-            # Read worked, so jump out of the loop...
-            break
-        except Exception as ex:  # pragma: no cover
-            retry_count += 1
-            logger.warning(f"Read failed, retry nb {retry_count} for {image_path}")
-            if retry_count >= 3:
-                message = f"Read failed {retry_count} times for {image_path}: {ex}"
-                logger.error(message)
-                raise RuntimeError(message) from ex
-
-    # The read was successfull, now check if there was a projection in the
-    # file and/or if one was provided
-    if image_crs is None:
-        if projection_if_missing is not None:
-            image_crs = rio_crs.CRS.from_user_input(projection_if_missing)
-        else:
-            message = (
-                f"Image has no proj and projection_if_missing is None: {image_path}"
-            )
-            logger.error(message)
-            raise ValueError(message)
-
-    # Now return the result
-    image = {
-        "image_data": image_data,
-        "image_crs": image_crs,
-        "image_transform": image_transform,
-        "image_path": image_path,
-    }
-
-    return image
+    return [
+        predictions_by_image[image_index] for image_index in range(len(image_tensors))
+    ]
 
 
-def load_image(
-    bbox: tuple[float, float, float, float],
-    size: tuple[int, int],
-    image_layer: dict,
-    ssl_verify: bool | str = True,
-) -> dict:
-    """Load an image from the image_layer specified.
+def _predict_tensor_batch(
+    model: keras.models.Model,
+    batch_image_tensor: tf.Tensor,
+) -> np.ndarray:
+    try:
+        model_input = batch_image_tensor
+        if keras.backend.backend() != "tensorflow":
+            model_input = batch_image_tensor.numpy()
+        batch_predictions = model.predict_on_batch(model_input)
+    except tf.errors.ResourceExhaustedError:
+        batch_size = batch_image_tensor.shape[0]
+        if batch_size is None or batch_size <= 1:
+            raise
 
-    Args:
-        bbox: bounding box of the image to load.
-        size: size of the image to load.
-        image_layer: layer configuration to load the image.
-        ssl_verify: True to use the default certificate bundle
-            as installed on your system. False disables certificate validation
-            (NOT recommended!). If a path to a certificate bundle file (.pem) is passed,
-            this will be used. In corporate networks using a proxy server this is often
-            needed to avoid CERTIFICATE_VERIFY_FAILED errors. Defaults to True.
+        split_index = batch_size // 2
+        logger.warning(
+            "Prediction batch of %s images exhausted device resources; "
+            "retrying as batches of %s and %s",
+            batch_size,
+            split_index,
+            batch_size - split_index,
+        )
+        first_predictions = _predict_tensor_batch(
+            model, batch_image_tensor[:split_index]
+        )
+        second_predictions = _predict_tensor_batch(
+            model, batch_image_tensor[split_index:]
+        )
+        return np.concatenate((first_predictions, second_predictions), axis=0)
 
-    Returns:
-        the image and its properties.
-    """
-    # Load image
-    crs = pyproj.CRS.from_user_input(image_layer["projection"])
-    image_data, profile = image_util.load_image(
-        layersources=image_layer["layersources"],
-        crs=crs,
-        bbox=bbox,
-        size=size,
-        ssl_verify=ssl_verify,
-        image_format=image_layer.get("image_format", image_util.FORMAT_JPEG),
-        # transparent=transparent,
-        image_pixels_ignore_border=image_layer["image_pixels_ignore_border"],
-        switch_axes=image_layer.get("switch_axes"),
-    )
-
-    # change from (channels, width, height) to
-    # (width, height, channels) + normalize to between 0 and 1
-    image_data = rio_plot.reshape_as_image(image_data)
-    image_data = image_data / 255.0
-
-    # Now return the result
-    image = {
-        "image_data": image_data,
-        "image_crs": crs,
-        "image_transform": profile["transform"],
-    }
-
-    return image
+    if isinstance(batch_predictions, tf.Tensor):
+        batch_predictions = batch_predictions.numpy()
+    return np.array(batch_predictions)

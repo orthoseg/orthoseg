@@ -5,7 +5,7 @@ import pytest
 import tensorflow as tf
 from PIL import Image
 
-from orthoseg.lib import training_dataset
+from orthoseg.helpers import _trainer_dataset
 
 
 def test_apply_projective_transform():
@@ -15,13 +15,13 @@ def test_apply_projective_transform():
     half_pixel_transform = tf.constant([1.0, 0.0, 0.5, 0.0, 1.0, 0.5, 0.0, 0.0])
     augmentations = {"interpolation_order": 1, "fill_mode": "constant"}
 
-    bilinear_image = training_dataset._apply_projective_transform(
+    bilinear_image = _trainer_dataset._apply_projective_transform(
         image_tensor, half_pixel_transform, augmentations, is_mask=False
     )
-    nearest_mask = training_dataset._apply_projective_transform(
+    nearest_mask = _trainer_dataset._apply_projective_transform(
         image_tensor, half_pixel_transform, augmentations, is_mask=True
     )
-    nearest_image = training_dataset._apply_projective_transform(
+    nearest_image = _trainer_dataset._apply_projective_transform(
         image_tensor,
         half_pixel_transform,
         {"interpolation_order": 0, "fill_mode": "constant"},
@@ -46,7 +46,7 @@ def test_apply_projective_transform_errors(augmentations, message):
     identity_transform = tf.constant([1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0])
 
     with pytest.raises(ValueError, match=message):
-        training_dataset._apply_projective_transform(
+        _trainer_dataset._apply_projective_transform(
             image, identity_transform, augmentations, is_mask=False
         )
 
@@ -59,7 +59,7 @@ def test_create_train_dataset(tmp_path):
     Image.fromarray(np.full((2, 2, 3), 80, dtype=np.uint8)).save(image_dir / "tile.png")
     Image.fromarray(np.full((2, 2), 2, dtype=np.uint8)).save(mask_dir / "tile.png")
 
-    dataset, _ = training_dataset.create_train_dataset(
+    dataset, _ = _trainer_dataset.create_train_dataset(
         input_data_dir=tmp_path,
         image_subdir="image",
         mask_subdir="mask",
@@ -115,7 +115,7 @@ def test_create_train_dataset_errors(
     tmp_path, image_augmentations, mask_augmentations, nb_classes, message
 ):
     with pytest.raises(ValueError, match=message):
-        training_dataset.create_train_dataset(
+        _trainer_dataset.create_train_dataset(
             input_data_dir=tmp_path,
             image_subdir="image",
             mask_subdir="mask",
@@ -136,7 +136,7 @@ def test_create_train_dataset_warns(tmp_path, caplog):
         mask_dir / "tile.png"
     )
 
-    dataset, dataset_size = training_dataset.create_train_dataset(
+    dataset, dataset_size = _trainer_dataset.create_train_dataset(
         input_data_dir=tmp_path,
         image_subdir="image",
         mask_subdir="mask",
@@ -185,7 +185,7 @@ def test_decode_and_resize(tmp_path, extension, color_mode, image_values):
     image_path = tmp_path / f"image{extension}"
     Image.fromarray(image_values).save(image_path)
 
-    decoded = training_dataset._decode_and_resize(
+    decoded = _trainer_dataset._decode_and_resize(
         tf.constant(str(image_path)),
         color_mode=color_mode,
         target_size=(2, 2),
@@ -197,7 +197,7 @@ def test_decode_and_resize(tmp_path, extension, color_mode, image_values):
 
 def test_decode_and_resize_errors():
     with pytest.raises(ValueError, match="Unsupported color mode"):
-        training_dataset._decode_and_resize(
+        _trainer_dataset._decode_and_resize(
             tf.constant("image.png"), color_mode="indexed", target_size=(2, 2)
         )
 
@@ -206,7 +206,7 @@ def test_decode_tiff_with_pil_grayscale(tmp_path):
     image_path = tmp_path / "gray.tif"
     Image.fromarray(np.array([[0, 1], [2, 3]], dtype=np.uint8)).save(image_path)
 
-    decoded = training_dataset._decode_tiff_with_pil(
+    decoded = _trainer_dataset._decode_tiff_with_pil(
         np.asarray(str(image_path).encode("utf-8")), np.asarray(b"grayscale")
     )
 
@@ -219,7 +219,7 @@ def test_decode_tiff_with_pil_rgb(tmp_path):
     image_values = np.full((2, 2, 3), 37, dtype=np.uint8)
     Image.fromarray(image_values).save(image_path)
 
-    decoded = training_dataset._decode_tiff_with_pil(
+    decoded = _trainer_dataset._decode_tiff_with_pil(
         np.asarray(str(image_path)), np.asarray("rgb")
     )
 
@@ -239,7 +239,7 @@ def test_decode_tiff_with_pil_rgb(tmp_path):
     ],
 )
 def test_has_spatial_augmentation(augmentations, expected):
-    assert training_dataset._has_spatial_augmentation(augmentations) is expected
+    assert _trainer_dataset._has_spatial_augmentation(augmentations) is expected
 
 
 @pytest.mark.parametrize(
@@ -271,7 +271,7 @@ def test_list_image_mask_pairs_errors(
         Image.new("L", (2, 2)).save(mask_dir / filename)
 
     with pytest.raises(ValueError, match=message):
-        training_dataset._list_image_mask_pairs(tmp_path, "image", "mask")
+        _trainer_dataset._list_image_mask_pairs(tmp_path, "image", "mask")
 
 
 @pytest.mark.parametrize("horizontal_flip", [False, True])
@@ -284,7 +284,7 @@ def test_load_pair(tmp_path, horizontal_flip):
     Image.fromarray(mask_values).save(mask_path)
     augmentations = {"horizontal_flip": horizontal_flip, "rescale": 0.5}
 
-    image, mask = training_dataset._load_pair(
+    image, mask = _trainer_dataset._load_pair(
         tf.constant(0),
         (tf.constant(str(image_path)), tf.constant(str(mask_path))),
         image_color_mode="rgb",
@@ -318,7 +318,7 @@ def test_load_pair(tmp_path, horizontal_flip):
     ],
 )
 def test_make_projective_transform(augmentations, expected):
-    transform = training_dataset._make_projective_transform(
+    transform = _trainer_dataset._make_projective_transform(
         augmentations,
         seed=3,
         index=tf.constant(0),
@@ -333,7 +333,7 @@ def test_prepare_batch_applies_brightness_one_hot_and_preprocess():
     images = tf.fill((1, 2, 2, 1), 10.0)
     masks = tf.constant([[[[0.0], [1.0]], [[1.0], [0.0]]]])
 
-    processed_images, one_hot_masks = training_dataset._prepare_batch(
+    processed_images, one_hot_masks = _trainer_dataset._prepare_batch(
         tf.constant(0),
         (images, masks),
         image_brightness=[2.0, 2.0],
@@ -355,7 +355,7 @@ def test_prepare_batch_saves_examples(tmp_path):
     images = tf.fill((1, 2, 2, 3), 80.0)
     masks = tf.ones((1, 2, 2, 1))
 
-    prepared_images, prepared_masks = training_dataset._prepare_batch(
+    prepared_images, prepared_masks = _trainer_dataset._prepare_batch(
         tf.constant(5),
         (images, masks),
         image_brightness=None,
@@ -376,7 +376,7 @@ def test_prepare_batch_without_optional_processing():
     images = tf.ones((1, 2, 2, 1))
     masks = tf.zeros((1, 2, 2, 1))
 
-    prepared_images, prepared_masks = training_dataset._prepare_batch(
+    prepared_images, prepared_masks = _trainer_dataset._prepare_batch(
         tf.constant(0),
         (images, masks),
         image_brightness=None,
@@ -393,11 +393,11 @@ def test_prepare_batch_without_optional_processing():
 
 def test_sample_range_error():
     with pytest.raises(ValueError, match="two-value augmentation range"):
-        training_dataset._sample_range([0.1], seed=3, index=tf.constant(0), stream=1)
+        _trainer_dataset._sample_range([0.1], seed=3, index=tf.constant(0), stream=1)
 
 
 def test_sample_range_integer_scalar_is_not_scaled_by_dimension():
-    sample = training_dataset._sample_range(
+    sample = _trainer_dataset._sample_range(
         1,
         seed=3,
         index=tf.constant(0),
@@ -415,8 +415,8 @@ def test_sample_range_is_reproducible_for_seed_and_index():
         "stream": 3,
     }
 
-    first = training_dataset._sample_range([0.2, 0.8], **kwargs)
-    second = training_dataset._sample_range([0.2, 0.8], **kwargs)
+    first = _trainer_dataset._sample_range([0.2, 0.8], **kwargs)
+    second = _trainer_dataset._sample_range([0.2, 0.8], **kwargs)
 
     assert float(first.numpy()) == float(second.numpy())
     assert 0.2 <= float(first.numpy()) <= 0.8
@@ -430,7 +430,7 @@ def test_sample_range_is_reproducible_for_seed_and_index():
     ],
 )
 def test_sample_range_scales(value, dimension, expected):
-    sample = training_dataset._sample_range(
+    sample = _trainer_dataset._sample_range(
         value,
         seed=3,
         index=tf.constant(0),
@@ -445,7 +445,7 @@ def test_save_augmented_batch(tmp_path):
     masks = np.zeros((1, 4, 4, 2), dtype=np.float32)
     masks[..., 1] = 1.0
 
-    result = training_dataset._save_augmented_batch(
+    result = _trainer_dataset._save_augmented_batch(
         images,
         masks,
         np.asarray(3),
@@ -503,7 +503,7 @@ def test_validate_dataset_augmentations_errors(
     image_augmentations, mask_augmentations, message
 ):
     with pytest.raises(ValueError, match=message):
-        training_dataset._validate_dataset_augmentations(
+        _trainer_dataset._validate_dataset_augmentations(
             image_augmentations, mask_augmentations
         )
 
@@ -517,9 +517,9 @@ def test_validate_dataset_augmentations_errors(
     ],
 )
 def test_zoom_bounds(value, expected):
-    assert training_dataset._zoom_bounds(value) == expected
+    assert _trainer_dataset._zoom_bounds(value) == expected
 
 
 def test_zoom_bounds_error():
     with pytest.raises(ValueError, match="two-value zoom range"):
-        training_dataset._zoom_bounds([0.8])
+        _trainer_dataset._zoom_bounds([0.8])
