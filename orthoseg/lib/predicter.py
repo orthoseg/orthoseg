@@ -1190,7 +1190,10 @@ def _predict_tensor_batch(
     batch_image_tensor: tf.Tensor,
 ) -> np.ndarray:
     try:
-        batch_predictions = model.predict_on_batch(batch_image_tensor)
+        model_input = batch_image_tensor
+        if keras.backend.backend() != "tensorflow":
+            model_input = batch_image_tensor.numpy()
+        batch_predictions = model.predict_on_batch(model_input)
     except tf.errors.ResourceExhaustedError:
         batch_size = batch_image_tensor.shape[0]
         if batch_size is None or batch_size <= 1:
