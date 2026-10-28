@@ -9,11 +9,10 @@ import tempfile
 import threading
 import time
 import traceback
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from concurrent import futures
 from datetime import datetime
 from pathlib import Path
-from time import perf_counter
 from typing import Any
 
 import geofileops as gfo
@@ -102,10 +101,11 @@ def predict_dir(
             memory on you GPU.
         evaluate_mode: True to run in evaluate mode
         cancel_filepath: If the file in this path exists, processing stops asap
-        nb_parallel_read: The read-ahead threshold for cached images and the maximum
-            number of parallel live-image reads. Cached `tf.data` parallel mapping
-            and prefetching use TensorFlow autotuning. If -1, the default is
-            3 * `batch_size`. Defaults to -1.
+        nb_parallel_read: The maximum number of parallel live-image reads. For cached
+            images, this sets the `tf.data` read batch size to
+            `min(batch_size, nb_parallel_read)`; parallel mapping and prefetching use
+            TensorFlow autotuning. If -1, the default is 3 * `batch_size`. Defaults
+            to -1.
         nb_parallel_postprocess: The number of parallel
             processes used to vectorize,... the predictions. If -1, all
             available CPU's are used. Defaults to 1.
@@ -258,7 +258,9 @@ def predict_layer(
         evaluate_mode: True to run in evaluate mode
         cancel_filepath: If the file in this path exists, processing stops asap
         nb_parallel_read: The maximum number of parallel live-image fetches used by
-            `tf.data`. If -1, the default is 3 * `batch_size`. Defaults to -1.
+            `tf.data`. For cached images, this sets the `tf.data` read batch size to
+            `min(batch_size, nb_parallel_read)`. If -1, the default is
+            3 * `batch_size`. Defaults to -1.
         nb_parallel_postprocess: The number of parallel
             processes used to postprocess, e.g. vectorize,... the predictions. If -1,
             all available CPU's are used. Defaults to 1.
@@ -450,7 +452,6 @@ def _predict_layer(
     if nb_parallel_postprocess == -1:
         nb_parallel_postprocess = multiprocessing.cpu_count()
 
-    read_dataset_iterator = None
     read_image_metadata: dict[Path, tuple[Any, Any]] = {}
     read_image_metadata_lock = threading.Lock()
     if image_layer is None:
@@ -490,14 +491,18 @@ def _predict_layer(
             image_metadata=read_image_metadata,
             image_metadata_lock=read_image_metadata_lock,
         )
-    read_dataset_iterator = iter(read_dataset)
+    read_results_iterator = iter(
+        _iter_image_read_results(
+            read_dataset,
+            image_metadata=read_image_metadata,
+            image_metadata_lock=read_image_metadata_lock,
+        )
+    )
 
     predict_queue: list[dict] = []
     nb_done = 0
     nb_errors = 0
-    read_sleep_last_logged = None
     progress = None
-    read_queue: dict[futures.Future, Path] = {}
     postp_queue: dict[futures.Future, Path] = {}
     write_queue: dict[futures.Future, Path] = {}
     last_image_reached = False
@@ -520,7 +525,6 @@ def _predict_layer(
             # If we are ready, stop!
             if (
                 last_image_reached
-                and len(read_queue) == 0
                 and len(predict_queue) == 0
                 and len(postp_queue) == 0
                 and len(write_queue) == 0
@@ -536,144 +540,74 @@ def _predict_layer(
             # Init for new loop
             perfinfo: list[str] = []
 
-            # Fill the read queue
-            # -------------------
-            while not last_image_reached and len(read_queue) <= nb_parallel_read:
-                if read_dataset_iterator is None:
-                    raise RuntimeError("Image read dataset was not initialized")
+            # Fill the prediction queue from the tf.data iterator
+            # ----------------------------------------------------
+            while not last_image_reached and len(predict_queue) < batch_size:
+                if cancel_filepath is not None and cancel_filepath.exists():
+                    break
                 try:
-                    (
-                        image_paths_batch,
-                        image_data_batch,
-                        image_shapes_batch,
-                        read_errors_batch,
-                        read_error_tracebacks_batch,
-                    ) = next(read_dataset_iterator)
+                    image_filepath_read, read_result = next(read_results_iterator)
                 except StopIteration:
                     last_image_reached = True
                     break
 
-                image_path_values = image_paths_batch.numpy()
-                image_shapes = image_shapes_batch.numpy()
-                read_errors = read_errors_batch.numpy()
-                read_error_tracebacks = read_error_tracebacks_batch.numpy()
-                for batch_index, image_path_value in enumerate(image_path_values):
-                    image_path = Path(image_path_value.decode("utf-8"))
-                    read_error = read_errors[batch_index]
-                    read_result = {
-                        "image_data": None,
-                        "read_error": read_error,
-                        "read_error_traceback": read_error_tracebacks[batch_index],
-                    }
-                    if not read_error:
-                        image_height, image_width, image_channels = (
-                            int(value) for value in image_shapes[batch_index]
-                        )
-                        read_result["image_data"] = image_data_batch[
-                            batch_index,
-                            :image_height,
-                            :image_width,
-                            :image_channels,
-                        ]
-                        with read_image_metadata_lock:
-                            (
-                                read_result["image_crs"],
-                                read_result["image_transform"],
-                            ) = read_image_metadata.pop(image_path)
-
-                    read_future: futures.Future = futures.Future()
-                    read_future.set_result(read_result)
-                    read_queue[read_future] = image_path
-
-            # Check read_queue for images read and add them to predict_queue
-            # --------------------------------------------------------------
-            while len(read_queue) > 0 and len(predict_queue) < batch_size:
-                # Prepare the images that have been read for predicting
-                futures_done = [future for future in read_queue if future.done()]
-                for future in futures_done:
-                    # predict_queue should contain maximum batch_size images!
-                    if len(predict_queue) >= batch_size:
-                        break
-
-                    try:
-                        # Get the result from the read
-                        read_result = future.result()
-                        image_filepath_read = read_queue[future]
-
-                        if read_result.get("read_error"):
-                            nb_errors += 1
-                            _handle_error(
-                                image_filepath_read,
-                                RuntimeError(read_result["read_error"].decode("utf-8")),
-                                images_error_log_filepath,
-                                exception_trace=read_result[
-                                    "read_error_traceback"
-                                ].decode("utf-8"),
-                            )
-                            continue
-
-                        # Prepare the filepath for the output
-                        output_suffix = ".tif"
-                        if evaluate_mode:
-                            # In evaluate mode, put everyting in output base dir for
-                            # easier comparison
-                            output_image_pred_dir = output_image_dir
-
-                            # Prepare complete filepath for image prediction
-                            output_image_pred_path = (
-                                output_image_dir / image_filepath_read.stem
-                            )
-                        else:
-                            # If saving predictions to images for real, keep hierarchic
-                            # structure if present
-                            tmp_output_filepath = Path(
-                                str(image_filepath_read).replace(
-                                    str(input_image_dir), str(output_image_dir)
-                                )
-                            )
-                            output_image_pred_dir = tmp_output_filepath.parent
-                            output_image_pred_path = (
-                                output_image_pred_dir
-                                / f"{image_filepath_read.stem}_pred{output_suffix}"
-                            )
-
-                        predict_queue.append(
-                            {
-                                "input_image_filepath": image_filepath_read,
-                                "output_pred_filepath": output_image_pred_path,
-                                "output_image_pred_dir": output_image_pred_dir,
-                                "image_crs": read_result["image_crs"],
-                                "image_transform": read_result["image_transform"],
-                                "image_data": read_result["image_data"],
-                            }
-                        )
-
-                    except Exception as ex:  # pragma: no cover
+                try:
+                    if read_result["read_error"]:
                         nb_errors += 1
-                        image_path = read_queue[future]
-                        _handle_error(image_path, ex, images_error_log_filepath)
+                        _handle_error(
+                            image_filepath_read,
+                            RuntimeError(read_result["read_error"].decode("utf-8")),
+                            images_error_log_filepath,
+                            exception_trace=read_result["read_error_traceback"].decode(
+                                "utf-8"
+                            ),
+                        )
+                        if (
+                            max_prediction_errors >= 0
+                            and nb_errors >= max_prediction_errors
+                        ):
+                            break
+                        continue
 
-                    finally:
-                        # Remove from queue...
-                        del read_queue[future]
+                    # Prepare the filepath for the output
+                    output_suffix = ".tif"
+                    if evaluate_mode:
+                        # In evaluate mode, put everything in the output base dir
+                        output_image_pred_dir = output_image_dir
+                        output_image_pred_path = (
+                            output_image_dir / image_filepath_read.stem
+                        )
+                    else:
+                        # Preserve the input directory structure in the output
+                        tmp_output_filepath = Path(
+                            str(image_filepath_read).replace(
+                                str(input_image_dir), str(output_image_dir)
+                            )
+                        )
+                        output_image_pred_dir = tmp_output_filepath.parent
+                        output_image_pred_path = (
+                            output_image_pred_dir
+                            / f"{image_filepath_read.stem}_pred{output_suffix}"
+                        )
 
-                # If enough images in predict_queue or if the read queue is not full
-                # stop this loop
-                if (
-                    len(predict_queue) == batch_size
-                    or len(read_queue) < nb_parallel_read
-                ):
-                    break
+                    predict_queue.append(
+                        {
+                            "input_image_filepath": image_filepath_read,
+                            "output_pred_filepath": output_image_pred_path,
+                            "output_image_pred_dir": output_image_pred_dir,
+                            "image_crs": read_result["image_crs"],
+                            "image_transform": read_result["image_transform"],
+                            "image_data": read_result["image_data"],
+                        }
+                    )
 
-                # Wait a bit for images to be read, then try finding images again
-                cur_counter = perf_counter()
-                if (
-                    not read_sleep_last_logged
-                    or (read_sleep_last_logged - cur_counter) > 5
-                ):
-                    logger.info("Wait for images to be read")
-                    read_sleep_last_logged = cur_counter
-                time.sleep(0.01)
+                except Exception as ex:  # pragma: no cover
+                    nb_errors += 1
+                    _handle_error(
+                        image_filepath_read,
+                        ex,
+                        images_error_log_filepath,
+                    )
 
             # If sufficient images in predict queue -> predict
             # ------------------------------------------------
@@ -1098,6 +1032,50 @@ def _batch_image_read_dataset(
             tf.constant(b"", dtype=tf.string),
         ),
     ).prefetch(tf.data.AUTOTUNE)
+
+
+def _iter_image_read_results(
+    dataset: tf.data.Dataset,
+    *,
+    image_metadata: dict[Path, tuple[Any, Any]],
+    image_metadata_lock: Any,
+) -> Iterator[tuple[Path, dict[str, Any]]]:
+    for (
+        image_paths_batch,
+        image_data_batch,
+        image_shapes_batch,
+        read_errors_batch,
+        read_error_tracebacks_batch,
+    ) in dataset:
+        image_path_values = image_paths_batch.numpy()
+        image_shapes = image_shapes_batch.numpy()
+        read_errors = read_errors_batch.numpy()
+        read_error_tracebacks = read_error_tracebacks_batch.numpy()
+        for batch_index, image_path_value in enumerate(image_path_values):
+            image_path = Path(image_path_value.decode("utf-8"))
+            read_error = read_errors[batch_index]
+            read_result: dict[str, Any] = {
+                "image_data": None,
+                "read_error": read_error,
+                "read_error_traceback": read_error_tracebacks[batch_index],
+            }
+            if not read_error:
+                image_height, image_width, image_channels = (
+                    int(value) for value in image_shapes[batch_index]
+                )
+                read_result["image_data"] = image_data_batch[
+                    batch_index,
+                    :image_height,
+                    :image_width,
+                    :image_channels,
+                ]
+                with image_metadata_lock:
+                    (
+                        read_result["image_crs"],
+                        read_result["image_transform"],
+                    ) = image_metadata.pop(image_path)
+
+            yield image_path, read_result
 
 
 def _image_read_error_placeholder(image_dtype: Any) -> np.ndarray:
