@@ -590,28 +590,23 @@ def _prepare_auth(
             needed to avoid CERTIFICATE_VERIFY_FAILED errors.
     """
     # Interprete ssl_verify
-    cert = None
     if isinstance(ssl_verify, str):
         # If it is actually a bool string, cast it to bool
         if ssl_verify.lower() == "true":
             ssl_verify = True
         elif ssl_verify.lower() == "false":
             ssl_verify = False
-        else:
-            cert = ssl_verify
-            ssl_verify = True
     elif not isinstance(ssl_verify, bool):
         raise ValueError(f"Invalid value for ssl_verify: {ssl_verify}")
 
-    if not ssl_verify:
+    if ssl_verify is False:
         urllib3.disable_warnings()
         logger.warning("SSL VERIFICATION IS TURNED OFF FOR OWSLIB!!!")
-
-    if ssl_verify and cert is None:
-        cert = os.environ.get("REQUESTS_CA_BUNDLE")
+    elif ssl_verify is True and "REQUESTS_CA_BUNDLE" in os.environ:
+        ssl_verify = os.environ["REQUESTS_CA_BUNDLE"]
 
     return owslib.util.Authentication(
-        username=username, password=password, cert=cert, verify=ssl_verify
+        username=username, password=password, verify=ssl_verify
     )
 
 

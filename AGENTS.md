@@ -21,7 +21,8 @@
 
 ## Build, test, and lint
 
-- Activate the conda environment selected for the workspace in the IDE.
+- First activate the conda environment selected for the workspace in the IDE to be able
+  to run python scripts, tests,...
 - Run the test suite with `pytest tests/`. Run one test with, for example:
   `pytest tests/test_trainer.py::test_train_error_model_exists_no_preload`.
 - Run the configured formatter, linter, and type checker with

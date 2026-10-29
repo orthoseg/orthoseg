@@ -1,10 +1,15 @@
 """Tests for module load_sampleprojects."""
 
 import filecmp
+import io
 import os
 import shutil
+import ssl
+import urllib.request
+import zipfile
 from packaging.version import Version
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -103,6 +108,39 @@ def test_load_sampleprojects(request):
         ignore=["models"],
         ignore_crlf_suffixes=[".ini", ".py", ".txt", ".xml"],
     )
+
+
+def test_ssl_verify_false_is_honored(tmp_path, monkeypatch):
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w") as zip_file:
+        zip_file.writestr("source/sample_projects/example.ini", "example")
+
+    def fake_ssl_context(protocol):
+        assert protocol == ssl.PROTOCOL_TLS_CLIENT
+        return SimpleNamespace(
+            check_hostname=True,
+            verify_mode=ssl.CERT_REQUIRED,
+        )
+
+    def fake_urlopen(_url, context):
+        assert context.verify_mode == ssl.CERT_NONE
+        assert context.check_hostname is False
+        return io.BytesIO(zip_buffer.getvalue())
+
+    monkeypatch.setattr(
+        load_sampleprojects,
+        "ssl",
+        SimpleNamespace(
+            SSLContext=fake_ssl_context,
+            PROTOCOL_TLS_CLIENT=ssl.PROTOCOL_TLS_CLIENT,
+            CERT_NONE=ssl.CERT_NONE,
+        ),
+    )
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    dest_dir = tmp_path / "orthoseg"
+    load_sampleprojects.load_sampleprojects(dest_dir=dest_dir, ssl_verify=False)
+
+    assert (dest_dir / "sample_projects" / "example.ini").read_text() == "example"
 
 
 def _assert_dirs_equal(
