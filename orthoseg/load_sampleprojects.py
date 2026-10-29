@@ -67,6 +67,12 @@ def load_sampleprojects(dest_dir: Path, ssl_verify: bool | str = True):
     if dest_dir_full.exists():
         raise ValueError(f"Destination directory already exists: {dest_dir_full}")
 
+    if isinstance(ssl_verify, str):
+        if ssl_verify.lower() == "false":
+            ssl_verify = False
+        elif ssl_verify.lower() == "true":
+            ssl_verify = True
+
     # Download
     print(f"Start download of sample projects to {dest_dir_full!s}")
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
