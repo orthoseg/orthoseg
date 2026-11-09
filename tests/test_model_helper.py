@@ -40,22 +40,18 @@ def test_csv_logger_ext_logs_custom_formula(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "traindata_id, architecture_id, trainparams_id, model_config_name, expected",
+    "traindata_id, model_config_name, expected",
     [
-        (3, 0, 0, None, "subj_03"),
-        (3, 2, 5, None, "subj_03.2.5"),
-        (3, 2, 5, "custom.v1", "subj_03.custom.v1"),
+        (3, "", "subj_03"),
+        (3, "2.5", "subj_03.2.5"),
+        (3, "custom.v1", "subj_03.custom.v1"),
     ],
 )
-def test_format_model_basefilename(
-    traindata_id, architecture_id, trainparams_id, model_config_name, expected
-):
+def test_format_model_basefilename(traindata_id, model_config_name, expected):
     assert (
         model_helper.format_model_basefilename(
             segment_subject="subj",
             traindata_id=traindata_id,
-            architecture_id=architecture_id,
-            trainparams_id=trainparams_id,
             model_config_name=model_config_name,
         )
         == expected

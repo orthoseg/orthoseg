@@ -70,19 +70,14 @@ class ModelInfo:
         return format_model_version(self.traindata_id, self.model_config_name)
 
     @property
-    def is_default_ids(self) -> bool:
-        """True if model configuration is default."""
-        return not self.model_config_name
-
-    @property
-    def is_default_config(self) -> bool:
-        """True if model configuration is default."""
-        return not self.model_config_name
+    def has_model_config_name(self) -> bool:
+        """True if a model configuration name is specified."""
+        return bool(self.model_config_name)
 
     @property
     def base_output_name(self) -> str:
         """Output basename in current naming style, without image layer or suffix."""
-        if self.is_default_config or self.epoch is None:
+        if not self.has_model_config_name or self.epoch is None:
             return self.basefilename
         return f"{self.basefilename}-{self.epoch}"
 
@@ -438,8 +433,7 @@ def _validate_augmentations(
 def format_model_basefilename(
     segment_subject: str,
     traindata_id: int,
-    model_config_name: str | None = None,
-    **kwargs: Any,
+    model_config_name: str = "",
 ) -> str:
     """Format the parameters into a model_filename.
 
@@ -447,15 +441,8 @@ def format_model_basefilename(
         segment_subject: the segment subject
         traindata_id: the id of the data used to train the model
         model_config_name: name used to distinguish model configurations.
-            Defaults to None.
-        kwargs: optional deprecated parameters (e.g. architecture_id, trainparams_id).
+            Defaults to "".
     """
-    if model_config_name is None:
-        model_config_name = format_model_config_name(
-            model_config_name="",
-            architecture_id=kwargs.get("architecture_id", 0),
-            trainparams_id=kwargs.get("trainparams_id", 0),
-        )
     return f"{segment_subject}_{format_model_version(traindata_id, model_config_name)}"
 
 
@@ -466,8 +453,7 @@ def format_model_filename(
     monitor_metric_accuracy: float,
     epoch: int,
     save_format: str,
-    model_config_name: str | None = None,
-    **kwargs: Any,
+    model_config_name: str = "",
 ) -> str:
     """Format the parameters into a model_filename.
 
@@ -481,15 +467,13 @@ def format_model_filename(
             * legacy keras format: 'h5'
             * tensorflow savedmodel: 'tf'
         model_config_name: name used to distinguish model configurations.
-            Defaults to None.
-        kwargs: optional deprecated parameters.
+            Defaults to "".
     """
     # Format file name
     filename = format_model_basefilename(
         segment_subject=segment_subject,
         traindata_id=traindata_id,
         model_config_name=model_config_name,
-        **kwargs,
     )
     filename += f"_{monitor_metric_accuracy:.5f}_{epoch}"
 
@@ -597,7 +581,6 @@ def get_models(
     traindata_id: int | None = None,
     *,
     model_config_name: str | None = None,
-    **kwargs: Any,
 ) -> list[ModelInfo]:
     """Return the list of models in the `model_dir` specified.
 
@@ -621,7 +604,6 @@ def get_models(
         segment_subject: only models with this the segment subject
         traindata_id: only models with this traindata version
         model_config_name: only models with this model_config_name. Defaults to None.
-        kwargs: optional deprecated parameters (e.g. architecture_id, trainparams_id).
 
     Returns:
         a list of model info objects.
@@ -643,18 +625,6 @@ def get_models(
         except ValueError as e:
             logger.warning(f"Skipping model {model_path}: {e}")
             continue
-
-    if model_config_name is None and (
-        "architecture_id" in kwargs or "trainparams_id" in kwargs
-    ):
-        arch_id = kwargs.get("architecture_id")
-        train_id = kwargs.get("trainparams_id")
-        if (arch_id is not None and arch_id > 0) or (
-            train_id is not None and train_id > 0
-        ):
-            model_config_name = format_model_config_name(
-                "", arch_id or 0, train_id or 0
-            )
 
     # Filter, if filters provided
     if len(model_info_list) > 0:
@@ -686,7 +656,6 @@ def get_best_model(
     traindata_id: int | None = None,
     *,
     model_config_name: str | None = None,
-    **kwargs: Any,
 ) -> ModelInfo | None:
     """Get the model with the highest combined accuracy.
 
@@ -715,7 +684,6 @@ def get_best_model(
         segment_subject: only models with this the segment subject
         traindata_id: only models with this train data id
         model_config_name: only models with this model_config_name. Defaults to None.
-        kwargs: optional deprecated parameters (e.g. architecture_id, trainparams_id).
 
     Returns:
         best model info object or None if nothing was found.
@@ -726,7 +694,6 @@ def get_best_model(
         segment_subject=segment_subject,
         traindata_id=traindata_id,
         model_config_name=model_config_name,
-        **kwargs,
     )
 
     # Sort the models so we also have a deterministic order and result further on.
@@ -845,7 +812,7 @@ class ModelCheckpointExt(callbacks.Callback):
         traindata_id: int,
         monitor_metric: str,
         monitor_metric_mode: str,
-        model_config_name: str | None = None,
+        model_config_name: str = "",
         save_format: str = "keras",
         save_best_only: bool = False,
         save_min_accuracy: float = 0.90,
@@ -854,7 +821,6 @@ class ModelCheckpointExt(callbacks.Callback):
         model_template_for_save=None,
         verbose: bool = True,
         only_report: bool = False,
-        **kwargs: Any,
     ):
         """Constructor.
 
@@ -867,7 +833,7 @@ class ModelCheckpointExt(callbacks.Callback):
                 should be  as low as possible, 'max' if a higher values is
                 better.
             model_config_name: name used to distinguish model configurations.
-                Defaults to None.
+                Defaults to "".
             save_format: The format to save in:
                 'h5' (legacy keras format), 'keras' (new keras format), or 'tf'
                 (tensorflow savedmodel). Defaults to 'keras'.
@@ -883,8 +849,6 @@ class ModelCheckpointExt(callbacks.Callback):
                 pass the original model here to use this as template for saving
             verbose: [description]. Defaults to True.
             only_report: [description]. Defaults to False.
-            kwargs: optional deprecated parameters
-                (e.g. architecture_id, trainparams_id).
         """
         monitor_metric_mode_values = ["min", "max"]
         if monitor_metric_mode not in monitor_metric_mode_values:
@@ -897,13 +861,6 @@ class ModelCheckpointExt(callbacks.Callback):
             raise Exception(
                 f"Invalid value for save_format: {save_format}, should be one of "
                 f"{save_format_values}"
-            )
-
-        if model_config_name is None:
-            model_config_name = format_model_config_name(
-                model_config_name="",
-                architecture_id=kwargs.get("architecture_id", 0),
-                trainparams_id=kwargs.get("trainparams_id", 0),
             )
 
         self.model_save_dir = model_save_dir
@@ -1008,7 +965,7 @@ def save_and_clean_models(
     *,
     traindata_id: int,
     monitor_metric_mode: str,
-    model_config_name: str | None = None,
+    model_config_name: str = "",
     new_model=None,
     new_model_monitor_value: float | None = None,
     new_model_epoch: int | None = None,
@@ -1021,7 +978,6 @@ def save_and_clean_models(
     verbose: bool = True,
     debug: bool = False,
     only_report: bool = False,
-    **kwargs: Any,
 ):
     """Save the new model.
 
@@ -1036,7 +992,7 @@ def save_and_clean_models(
             metrics should be as low as possible, 'max' if a higher values
             is better.
         model_config_name: name used to distinguish model configurations.
-            Defaults to None.
+            Defaults to "".
         new_model (optional): the keras model object that will be saved
         new_model_monitor_value: the monitored metric value
         new_model_epoch: the epoch in the training
@@ -1056,7 +1012,6 @@ def save_and_clean_models(
         verbose: report the best model after save and cleanup
         debug: write debug logging
         only_report: only report which models would be cleaned up
-        kwargs: optional deprecated parameters (e.g. architecture_id, trainparams_id).
     """
     # Check validaty of input
     monitor_metric_mode_values = ["min", "max"]
@@ -1070,13 +1025,6 @@ def save_and_clean_models(
         raise ValueError(
             f"Invalid value for save_format: {save_format}, should be one of "
             f"{save_format_values}"
-        )
-
-    if model_config_name is None:
-        model_config_name = format_model_config_name(
-            model_config_name="",
-            architecture_id=kwargs.get("architecture_id", 0),
-            trainparams_id=kwargs.get("trainparams_id", 0),
         )
 
     # Get a list of all relevant existing models
