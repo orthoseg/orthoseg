@@ -69,14 +69,12 @@ def train(
         model_dir=model_save_dir,
         segment_subject=segment_subject,
         traindata_id=traindata_id,
-        architecture_id=hyperparams.architecture.architecture_id,
-        trainparams_id=hyperparams.train.trainparams_id,
+        model_config_name=hyperparams.model_config_name,
     )
     model_save_base_filename = mh.format_model_basefilename(
         segment_subject=segment_subject,
         traindata_id=traindata_id,
-        architecture_id=hyperparams.architecture.architecture_id,
-        trainparams_id=hyperparams.train.trainparams_id,
+        model_config_name=hyperparams.model_config_name,
     )
 
     # If there is an existing model and we want to continue training on that, recuperate
@@ -258,8 +256,7 @@ def train(
         model_save_dir=model_save_dir,
         segment_subject=segment_subject,
         traindata_id=traindata_id,
-        architecture_id=hyperparams.architecture.architecture_id,
-        trainparams_id=hyperparams.train.trainparams_id,
+        model_config_name=hyperparams.model_config_name,
         monitor_metric=hyperparams.train.monitor_metric,
         monitor_metric_mode=hyperparams.train.monitor_metric_mode,
         save_format=hyperparams.train.save_format,

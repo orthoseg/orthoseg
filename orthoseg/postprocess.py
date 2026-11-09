@@ -138,20 +138,20 @@ def postprocess(config_path: Path, config_overrules: list[str] | None = None) ->
             traindata_id = force_model_traindata_id
 
         # Get the best model that already exists for this train dataset
-        architecture_id = conf.model.getint("architecture_id")
-        trainparams_id = conf.train.getint("trainparams_id")
+        model_config_name = conf.model["model_config_name"]
         best_model = mh.get_best_model(
             model_dir=conf.dirs.getpath("model_dir"),
             segment_subject=conf.general["segment_subject"],
             traindata_id=traindata_id,
-            architecture_id=architecture_id,
-            trainparams_id=trainparams_id,
+            model_config_name=model_config_name,
         )
         if best_model is None:
             raise RuntimeError(
-                f"No best model found in {conf.dirs.getpath('model_dir')}"
+                f"No best model found in {conf.dirs.getpath('model_dir')} for "
+                f"{model_config_name=}"
             )
 
+        conf.model["model_version"] = best_model.model_version
         model_name = best_model.basefilename
         message = f"Start postprocess for {model_name} on {image_layer}"
         email_helper.sendmail(message)

@@ -40,6 +40,39 @@ def test_csv_logger_ext_logs_custom_formula(tmp_path):
 
 
 @pytest.mark.parametrize(
+    "traindata_id, architecture_id, trainparams_id, model_config_name, expected",
+    [
+        (3, 0, 0, None, "subj_03"),
+        (3, 2, 5, None, "subj_03.2.5"),
+        (3, 2, 5, "custom.v1", "subj_03.custom.v1"),
+    ],
+)
+def test_format_model_basefilename(
+    traindata_id, architecture_id, trainparams_id, model_config_name, expected
+):
+    assert (
+        model_helper.format_model_basefilename(
+            segment_subject="subj",
+            traindata_id=traindata_id,
+            architecture_id=architecture_id,
+            trainparams_id=trainparams_id,
+            model_config_name=model_config_name,
+        )
+        == expected
+    )
+
+
+@pytest.mark.parametrize(
+    "traindata_id, model_config_name, expected",
+    [(3, "", "03"), (3, "custom.v1", "03.custom.v1")],
+)
+def test_format_model_version(traindata_id, model_config_name, expected):
+    assert (
+        model_helper.format_model_version(traindata_id, model_config_name) == expected
+    )
+
+
+@pytest.mark.parametrize(
     "input_names, expected_name",
     [
         (
@@ -83,6 +116,19 @@ def test_get_best_model(tmp_path, input_names, expected_name):
         if not KERAS_GTE_3 and expected_name.endswith(".keras"):
             expected_name = expected_name.replace(".keras", ".hdf5")
         assert Path(best_model.filepath).name == expected_name
+
+
+def test_get_best_model_by_config_name(tmp_path):
+    (tmp_path / "subj_03.alpha_0.8_10.keras").touch()
+    (tmp_path / "subj_03.beta_0.95_15.keras").touch()
+
+    best_model = model_helper.get_best_model(
+        tmp_path, segment_subject="subj", model_config_name="alpha"
+    )
+
+    assert best_model is not None
+    assert best_model.model_config_name == "alpha"
+    assert best_model.model_version == "03.alpha"
 
 
 @pytest.mark.parametrize(
@@ -136,9 +182,25 @@ def test_get_best_model(tmp_path, input_names, expected_name):
             "subj_3.2.5_0.85_15_tf",
             {
                 "traindata_id": 3,
+                "model_config_name": "2.5",
                 "monitor_metric_accuracy": 0.85,
                 "epoch": 15,
                 "save_format": "tf",
+                "model_version": "03.2.5",
+            },
+        ),
+        (
+            "subj_3.custom.v1_0.85_15_tf",
+            {
+                "traindata_id": 3,
+                "model_config_name": "custom.v1",
+                "model_version": "03.custom.v1",
+                "monitor_metric_accuracy": 0.85,
+                "epoch": 15,
+                "save_format": "tf",
+                "basefilename": "subj_03.custom.v1",
+                "base_output_name": "subj_03.custom.v1-15",
+                "base_output_legacy_name": "subj_03.custom.v1_15",
             },
         ),
     ],
@@ -210,7 +272,6 @@ def test_trainparams_defaults(class_weights):
         class_weights=class_weights,
     )
 
-    assert params.trainparams_id == 0
     assert params.weights_type == "aerial"
     assert params.save_format == "keras" if KERAS_GTE_3 else "h5"
     if class_weights is not None:
@@ -218,6 +279,34 @@ def test_trainparams_defaults(class_weights):
     else:
         expected_loss_function = "categorical_crossentropy"
     assert params.loss_function == expected_loss_function
+
+
+def test_hyperparams_legacy_json_compatibility(tmp_path):
+    """Test loading legacy hyperparams JSON with architecture_id & trainparams_id."""
+    legacy_json = tmp_path / "legacy_hyperparams.json"
+    legacy_json.write_text(
+        """{
+        "fileversion": 1.1,
+        "architecture": {
+            "architecture": "mobilenetv2+unet",
+            "classes": ["background", "field"],
+            "nb_channels": 3,
+            "activation_function": "softmax",
+            "architecture_id": 2
+        },
+        "train": {
+            "trainparams_id": 5,
+            "image_augmentations": {"cval": 0, "fill_mode": "constant"},
+            "mask_augmentations": {"cval": 0, "fill_mode": "constant"}
+        }
+    }"""
+    )
+
+    hp = model_helper.HyperParams(path=legacy_json)
+    assert hp.architecture.architecture == "mobilenetv2+unet"
+    assert hp.model_config_name == "2.5"
+    assert not hasattr(hp.architecture, "architecture_id")
+    assert not hasattr(hp.train, "trainparams_id")
 
 
 @pytest.mark.parametrize(
