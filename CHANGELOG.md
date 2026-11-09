@@ -10,7 +10,10 @@
 - Support for all optimizers offered by keras was added, but the setting has now become 
   case sensitive. For Keras >= 3, AdamW is now the default optimizer
   (#334, #335, #338).
-- The minimal version of geofileops is now 0.11 (#350)
+- The minimal version of geofileops is now 0.11 (#350).
+- Replace `model.architecture_id` and `train.trainparams_id` by a new parameter
+  `model.model_config_name` The replaced parameters are deprecated but are still used
+  if `model.model_config_name` is not specified for backwards compatibility (#375).
 - For standard predictions, the "epoch" is removed from the output files, as it is not
   really relevant (#356)
 - Running `predict` now (by default) includes postprocessing the output. If you want to
