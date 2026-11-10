@@ -447,7 +447,6 @@ def _predict_layer(
     # Loop through all files to process them
     if nb_parallel_read == -1:
         nb_parallel_read = batch_size * 3
-        print(f"nb_parallel_read set to {nb_parallel_read}")
     if nb_parallel_postprocess == -1:
         nb_parallel_postprocess = multiprocessing.cpu_count()
 

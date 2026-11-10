@@ -134,10 +134,20 @@ def train(config_path: Path, config_overrules: list[str] | None = None):
                 ssl_verify=conf.general.get("ssl_verify", True),
             )
 
+        model_config_name = conf.model["model_config_name"]
+        conf.model["model_version"] = mh.format_model_version(
+            traindata_id=traindata_id,
+            model_config_name=model_config_name,
+        )
+
         # Send mail that we are starting train
-        email_helper.sendmail(f"Start train for {config_path.stem} ({traindata_id=})")
+        email_helper.sendmail(
+            f"Start train for {config_path.stem} "
+            f"({traindata_id=}, model_version={conf.model['model_version']})"
+        )
         logger.info(
-            f"Traindata dir to use is {training_dir}, with traindata_id: {traindata_id}"
+            f"Traindata dir to use is {training_dir}, with traindata_id: "
+            f"{traindata_id} and model_version: {conf.model['model_version']}"
         )
         traindata_dir = training_dir / "train"
         validationdata_dir = training_dir / "validation"
@@ -150,7 +160,6 @@ def train(config_path: Path, config_overrules: list[str] | None = None):
             architecture=conf.model["architecture"],
             classes=list(classes),
             nb_channels=conf.model.getint("nb_channels"),
-            architecture_id=conf.model.getint("architecture_id"),
             activation_function="softmax",
         )
 
@@ -161,7 +170,6 @@ def train(config_path: Path, config_overrules: list[str] | None = None):
             class_weights = None  # type: ignore[assignment]
 
         trainparams = mh.TrainParams(
-            trainparams_id=conf.train.getint("trainparams_id"),
             image_augmentations=conf.train.getdict("image_augmentations"),
             mask_augmentations=conf.train.getdict("mask_augmentations"),
             weights_type=conf.train.get("weights_type"),
@@ -200,8 +208,7 @@ def train(config_path: Path, config_overrules: list[str] | None = None):
             model_dir=model_dir,
             segment_subject=segment_subject,
             traindata_id=traindata_id,
-            architecture_id=architectureparams.architecture_id,
-            trainparams_id=trainparams.trainparams_id,
+            model_config_name=model_config_name,
         )
 
         # Determine if training is needed,...
@@ -243,8 +250,7 @@ def train(config_path: Path, config_overrules: list[str] | None = None):
             best_recent_model = mh.get_best_model(
                 model_dir=model_dir,
                 segment_subject=segment_subject,
-                architecture_id=architectureparams.architecture_id,
-                trainparams_id=trainparams.trainparams_id,
+                model_config_name=model_config_name,
             )
             if best_recent_model is not None:
                 try:
@@ -322,7 +328,9 @@ def train(config_path: Path, config_overrules: list[str] | None = None):
 
             # Combine all hyperparameters in hyperparams object
             hyperparams = mh.HyperParams(
-                architecture=architectureparams, train=trainparams
+                architecture=architectureparams,
+                train=trainparams,
+                model_config_name=model_config_name,
             )
 
             trainer.train(
@@ -344,8 +352,7 @@ def train(config_path: Path, config_overrules: list[str] | None = None):
                 model_dir=model_dir,
                 segment_subject=segment_subject,
                 traindata_id=traindata_id,
-                architecture_id=architectureparams.architecture_id,
-                trainparams_id=trainparams.trainparams_id,
+                model_config_name=model_config_name,
             )
 
         # Assert to avoid typing warnings

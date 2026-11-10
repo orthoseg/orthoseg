@@ -16,6 +16,40 @@ from orthoseg._compat import KERAS_GTE_3, __version__
 logger = logging.getLogger(__name__)
 
 
+def validate_model_config_name(model_config_name: str) -> None:
+    """Validate a model configuration name as a filename-safe identifier."""
+    invalid_chars = '_\\/:*?"<>|'
+    if any(ord(char) < 32 or char in invalid_chars for char in model_config_name):
+        raise ValueError(
+            "model_config_name must not contain underscores, control characters, "
+            f"or filename-invalid characters: {model_config_name!r}"
+        )
+
+
+def format_model_config_name(
+    model_config_name: str,
+    architecture_id: int = 0,
+    trainparams_id: int = 0,
+) -> str:
+    """Format an empty model configuration name from deprecated numeric IDs."""
+    if model_config_name == "" and (architecture_id > 0 or trainparams_id > 0):
+        model_config_name = f"{architecture_id}.{trainparams_id}"
+    validate_model_config_name(model_config_name)
+    return model_config_name
+
+
+resolve_model_config_name = format_model_config_name
+
+
+def format_model_version(traindata_id: int, model_config_name: str) -> str:
+    """Format the model version from a training-data ID and configuration name."""
+    validate_model_config_name(model_config_name)
+    model_version = f"{traindata_id:02d}"
+    if model_config_name:
+        model_version += f".{model_config_name}"
+    return model_version
+
+
 @dataclass
 class ModelInfo:
     """Info parsed from a model filename/path."""
@@ -25,21 +59,25 @@ class ModelInfo:
     basefilename: str
     segment_subject: str
     traindata_id: int
-    architecture_id: int
-    trainparams_id: int
+    model_config_name: str
     monitor_metric_accuracy: float | None
     epoch: int | None
     save_format: Literal["keras", "h5", "tf"]
 
     @property
-    def is_default_ids(self) -> bool:
-        """True if both architecture and train params ids are default."""
-        return self.architecture_id == 0 and self.trainparams_id == 0
+    def model_version(self) -> str:
+        """The version derived from the training-data version and configuration name."""
+        return format_model_version(self.traindata_id, self.model_config_name)
+
+    @property
+    def has_model_config_name(self) -> bool:
+        """True if a model configuration name is specified."""
+        return bool(self.model_config_name)
 
     @property
     def base_output_name(self) -> str:
         """Output basename in current naming style, without image layer or suffix."""
-        if self.is_default_ids or self.epoch is None:
+        if not self.has_model_config_name or self.epoch is None:
             return self.basefilename
         return f"{self.basefilename}-{self.epoch}"
 
@@ -60,7 +98,7 @@ class ArchitectureParams:
         classes: list | None = None,
         nb_channels: int = 3,
         activation_function: str = "softmax",
-        architecture_id: int = 0,
+        **kwargs: Any,
     ):
         """Class containing the hyper parameters needed to create the model.
 
@@ -73,9 +111,10 @@ class ArchitectureParams:
                 Defaults to 3.
             activation_function: activation function to use.
                 Defaults to softmax.
-            architecture_id: id of the architecture.
-                Defaults to 0.
+            kwargs: dict, optional: to allow for deprecated parameters
+                (e.g. architecture_id).
         """
+        _ = kwargs
         self.architecture = architecture
         if classes is not None:
             self.classes = classes
@@ -83,7 +122,6 @@ class ArchitectureParams:
             self.classes = ["background", "segmentsubject"]
         self.nb_channels = nb_channels
         self.activation_function = activation_function
-        self.architecture_id = architecture_id
 
     def toJSON(self) -> str:
         """Serialize to JSON string.
@@ -102,7 +140,6 @@ class TrainParams:
         image_augmentations: dict,
         mask_augmentations: dict,
         *,
-        trainparams_id: int = 0,
         weights_type: str | None = "aerial",
         class_weights: list | None = None,
         batch_size: int = 4,
@@ -121,7 +158,7 @@ class TrainParams:
         earlystop_monitor_metric_mode: Literal["auto", "min", "max"] = "auto",
         log_tensorboard: bool = False,
         log_csv: bool = True,
-        **kwargs: dict[str, Any],
+        **kwargs: Any,
     ):
         """Class containing the hyper parameters needed to perform a training.
 
@@ -130,8 +167,6 @@ class TrainParams:
                 during training.
             mask_augmentations: The augmentations to use on the input mask
                 during training.
-            architecture_id (int, optional): id of the architecture. Defaults to 0.
-            trainparams_id: id of the hyperparams. Defaults to 0.
             weights_type: the type of pretrained weights to
                 initialize the model with. Supported values are:
 
@@ -192,7 +227,6 @@ class TrainParams:
         # Validate if the augmentations specified are OK
         _validate_augmentations(image_augmentations, mask_augmentations)
 
-        self.trainparams_id = trainparams_id
         self.image_augmentations = image_augmentations
         self.mask_augmentations = mask_augmentations
         if "weights" in kwargs:
@@ -275,6 +309,7 @@ class HyperParams:
         architecture: ArchitectureParams | None = None,
         train: TrainParams | None = None,
         path: Path | None = None,
+        model_config_name: str = "",
     ):
         """Class to store the hyperparameters to use for the machine learning algorythm.
 
@@ -286,8 +321,11 @@ class HyperParams:
             train: these are the parameters that can be changed with each
                 training.
             path: file path to read the hyper parameters from.
+            model_config_name: name used to distinguish model configurations.
+                Defaults to "".
         """
-        self.fileversion = 1.1
+        self.fileversion = 1.2
+        self.model_config_name = model_config_name
         if architecture is not None:
             self.architecture = architecture
         if train is not None:
@@ -301,10 +339,21 @@ class HyperParams:
                 if "fileversion" in data:
                     self.fileversion = data["fileversion"]
 
+                if "model_config_name" in data:
+                    self.model_config_name = data["model_config_name"]
+                else:
+                    arch_id = data.get("architecture", {}).get("architecture_id", 0)
+                    train_id = data.get("train", {}).get("trainparams_id", 0)
+                    self.model_config_name = resolve_model_config_name(
+                        "", arch_id, train_id
+                    )
+
                 # Now parse the real data. For backwards compatibility, remove
                 # 'nb_classes' parameter if it exists
                 if "nb_classes" in data["architecture"]:
                     del data["architecture"]["nb_classes"]
+                data["architecture"].pop("architecture_id", None)
+                data["train"].pop("trainparams_id", None)
 
                 self.architecture = ArchitectureParams(**data["architecture"])
                 self.train = TrainParams(**data["train"])
@@ -384,56 +433,47 @@ def _validate_augmentations(
 def format_model_basefilename(
     segment_subject: str,
     traindata_id: int,
-    architecture_id: int = 0,
-    trainparams_id: int = 0,
+    model_config_name: str = "",
 ) -> str:
     """Format the parameters into a model_filename.
 
-    Args;
+    Args:
         segment_subject: the segment subject
         traindata_id: the id of the data used to train the model
-        architecture_id: the id of the model architecture used
-        trainparams_id: the id of the hyper parameters used to train the model
+        model_config_name: name used to distinguish model configurations.
+            Defaults to "".
     """
-    # Format file name
-    filename = f"{segment_subject}_{traindata_id:02d}"
-
-    # If an architecture id and/or hyperparams id is specified, add those as well
-    if architecture_id > 0 or trainparams_id > 0:
-        filename = f"{filename}.{architecture_id}.{trainparams_id}"
-    return filename
+    return f"{segment_subject}_{format_model_version(traindata_id, model_config_name)}"
 
 
 def format_model_filename(
     segment_subject: str,
     *,
     traindata_id: int,
-    architecture_id: int,
-    trainparams_id: int,
     monitor_metric_accuracy: float,
     epoch: int,
     save_format: str,
+    model_config_name: str = "",
 ) -> str:
     """Format the parameters into a model_filename.
 
     Args:
         segment_subject: the segment subject
         traindata_id: the version of the data used to train the model
-        architecture_id: the id of the model architecture used
-        trainparams_id: the version of the hyper parameters used to train
         monitor_metric_accuracy: the monitor metric accuracy
         epoch: the epoch during training that reached these model weights
         save_format: the format to save in:
             * keras format: 'keras'
             * legacy keras format: 'h5'
             * tensorflow savedmodel: 'tf'
+        model_config_name: name used to distinguish model configurations.
+            Defaults to "".
     """
     # Format file name
     filename = format_model_basefilename(
         segment_subject=segment_subject,
         traindata_id=traindata_id,
-        architecture_id=architecture_id,
-        trainparams_id=trainparams_id,
+        model_config_name=model_config_name,
     )
     filename += f"_{monitor_metric_accuracy:.5f}_{epoch}"
 
@@ -508,15 +548,10 @@ def parse_model_filename(filepath: Path) -> ModelInfo:
 
     segment_subject = param_values[0]
 
-    model_info = param_values[1]
-    model_info_values = model_info.split(".")
+    model_version = param_values[1]
+    model_info_values = model_version.split(".")
     traindata_id = int(model_info_values[0])
-    architecture_id = 0
-    trainparams_id = 0
-    if len(model_info_values) > 1:
-        architecture_id = int(model_info_values[1])
-        if len(model_info_values) > 2:
-            trainparams_id = int(model_info_values[2])
+    model_config_name = ".".join(model_info_values[1:])
 
     monitor_metric_accuracy = float(param_values[2]) if len(param_values) > 2 else None
     epoch = int(param_values[3]) if len(param_values) > 3 else None
@@ -524,8 +559,7 @@ def parse_model_filename(filepath: Path) -> ModelInfo:
     basefilename = format_model_basefilename(
         segment_subject=segment_subject,
         traindata_id=traindata_id,
-        architecture_id=architecture_id,
-        trainparams_id=trainparams_id,
+        model_config_name=model_config_name,
     )
 
     return ModelInfo(
@@ -534,8 +568,7 @@ def parse_model_filename(filepath: Path) -> ModelInfo:
         basefilename=basefilename,
         segment_subject=segment_subject,
         traindata_id=traindata_id,
-        architecture_id=architecture_id,
-        trainparams_id=trainparams_id,
+        model_config_name=model_config_name,
         monitor_metric_accuracy=monitor_metric_accuracy,
         epoch=epoch,
         save_format=cast("Literal['keras', 'h5', 'tf']", save_format),
@@ -546,8 +579,8 @@ def get_models(
     model_dir: Path,
     segment_subject: str | None = None,
     traindata_id: int | None = None,
-    architecture_id: int | None = None,
-    trainparams_id: int | None = None,
+    *,
+    model_config_name: str | None = None,
 ) -> list[ModelInfo]:
     """Return the list of models in the `model_dir` specified.
 
@@ -558,8 +591,6 @@ def get_models(
         * basefilename: the base name of the model file
         * segment_subject: the segment subject
         * traindata_id: the version of the data used to train the model
-        * architecture_id: the architecture ID of the model
-        * trainparams_id: the version of the hyper parameters used to train
         * monitor_metric_accuracy: the monitored metric accuracy
         * epoch: the epoch during training that reached these model weights
         * save_format (str): the format to save in:
@@ -572,8 +603,7 @@ def get_models(
         model_dir: dir containing the models
         segment_subject: only models with this the segment subject
         traindata_id: only models with this traindata version
-        architecture_id: only models with this this architecture_id
-        trainparams_id: only models with this hyperparams version
+        model_config_name: only models with this model_config_name. Defaults to None.
 
     Returns:
         a list of model info objects.
@@ -610,17 +640,11 @@ def get_models(
                 for model_info in model_info_list
                 if model_info.traindata_id == traindata_id
             ]
-        if trainparams_id is not None:
+        if model_config_name is not None:
             model_info_list = [
                 model_info
                 for model_info in model_info_list
-                if model_info.trainparams_id == trainparams_id
-            ]
-        if architecture_id is not None:
-            model_info_list = [
-                model_info
-                for model_info in model_info_list
-                if model_info.architecture_id == architecture_id
+                if model_info.model_config_name == model_config_name
             ]
 
     return model_info_list
@@ -630,8 +654,8 @@ def get_best_model(
     model_dir: Path,
     segment_subject: str | None = None,
     traindata_id: int | None = None,
-    architecture_id: int | None = None,
-    trainparams_id: int | None = None,
+    *,
+    model_config_name: str | None = None,
 ) -> ModelInfo | None:
     """Get the model with the highest combined accuracy.
 
@@ -644,8 +668,6 @@ def get_best_model(
         * basefilename: the base name of the model file
         * segment_subject: the segment subject
         * traindata_id: the version of the data used to train the model
-        * architecture_id: the architecture ID of the model
-        * trainparams_id: the version of the hyper parameters used to train
         * monitor_metric_accuracy: the monitored metric accuracy
         * epoch: the epoch during training that reached these model weights
         * save_format (str): the format to save in:
@@ -661,8 +683,7 @@ def get_best_model(
         model_dir: dir containing the models
         segment_subject: only models with this the segment subject
         traindata_id: only models with this train data id
-        architecture_id: only models with this the architecture_id
-        trainparams_id: only models with this hyperparams id
+        model_config_name: only models with this model_config_name. Defaults to None.
 
     Returns:
         best model info object or None if nothing was found.
@@ -672,8 +693,7 @@ def get_best_model(
         model_dir=model_dir,
         segment_subject=segment_subject,
         traindata_id=traindata_id,
-        architecture_id=architecture_id,
-        trainparams_id=trainparams_id,
+        model_config_name=model_config_name,
     )
 
     # Sort the models so we also have a deterministic order and result further on.
@@ -790,10 +810,9 @@ class ModelCheckpointExt(callbacks.Callback):
         segment_subject: str,
         *,
         traindata_id: int,
-        architecture_id: int,
-        trainparams_id: int,
         monitor_metric: str,
         monitor_metric_mode: str,
+        model_config_name: str = "",
         save_format: str = "keras",
         save_best_only: bool = False,
         save_min_accuracy: float = 0.90,
@@ -809,12 +828,12 @@ class ModelCheckpointExt(callbacks.Callback):
             model_save_dir: [description]
             segment_subject: segment subject
             traindata_id: train data id
-            architecture_id: model architecture id
-            trainparams_id: id of the hyper parameters used
             monitor_metric: The metric to monitor for accuracy
             monitor_metric_mode: use 'min' if the accuracy metrics
                 should be  as low as possible, 'max' if a higher values is
                 better.
+            model_config_name: name used to distinguish model configurations.
+                Defaults to "".
             save_format: The format to save in:
                 'h5' (legacy keras format), 'keras' (new keras format), or 'tf'
                 (tensorflow savedmodel). Defaults to 'keras'.
@@ -847,8 +866,7 @@ class ModelCheckpointExt(callbacks.Callback):
         self.model_save_dir = model_save_dir
         self.segment_subject = segment_subject
         self.traindata_id = traindata_id
-        self.architecture_id = architecture_id
-        self.trainparams_id = trainparams_id
+        self.model_config_name = model_config_name
         self.monitor_metric = monitor_metric
         self.monitor_metric_mode = monitor_metric_mode
         self.save_format = save_format
@@ -885,8 +903,7 @@ class ModelCheckpointExt(callbacks.Callback):
             model_save_dir=self.model_save_dir,
             segment_subject=self.segment_subject,
             traindata_id=self.traindata_id,
-            architecture_id=self.architecture_id,
-            trainparams_id=self.trainparams_id,
+            model_config_name=self.model_config_name,
             monitor_metric_mode=self.monitor_metric_mode,
             new_model=self.model,
             new_model_monitor_value=new_model_monitor_value,
@@ -947,9 +964,8 @@ def save_and_clean_models(
     segment_subject: str,
     *,
     traindata_id: int,
-    architecture_id: int,
-    trainparams_id: int,
     monitor_metric_mode: str,
+    model_config_name: str = "",
     new_model=None,
     new_model_monitor_value: float | None = None,
     new_model_epoch: int | None = None,
@@ -972,11 +988,11 @@ def save_and_clean_models(
         model_save_dir: dir containing the models
         segment_subject: segment subject
         traindata_id: train data id
-        architecture_id: model architecture id
-        trainparams_id: id of the train params
         monitor_metric_mode: use 'min' if the monitored
             metrics should be as low as possible, 'max' if a higher values
             is better.
+        model_config_name: name used to distinguish model configurations.
+            Defaults to "".
         new_model (optional): the keras model object that will be saved
         new_model_monitor_value: the monitored metric value
         new_model_epoch: the epoch in the training
@@ -1016,8 +1032,7 @@ def save_and_clean_models(
         model_dir=model_save_dir,
         segment_subject=segment_subject,
         traindata_id=traindata_id,
-        architecture_id=architecture_id,
-        trainparams_id=trainparams_id,
+        model_config_name=model_config_name,
     )
 
     # If there is a new model passed as param, add it to the list
@@ -1042,11 +1057,10 @@ def save_and_clean_models(
         new_model_filename = format_model_filename(
             segment_subject=segment_subject,
             traindata_id=traindata_id,
-            architecture_id=architecture_id,
-            trainparams_id=trainparams_id,
             monitor_metric_accuracy=new_model_monitor_accuracy,
             epoch=new_model_epoch,
             save_format=save_format,
+            model_config_name=model_config_name,
         )
         new_model_path = Path(model_save_dir) / new_model_filename
 
@@ -1054,8 +1068,7 @@ def save_and_clean_models(
         basefilename = format_model_basefilename(
             segment_subject=segment_subject,
             traindata_id=traindata_id,
-            architecture_id=architecture_id,
-            trainparams_id=trainparams_id,
+            model_config_name=model_config_name,
         )
         model_info_list.append(
             ModelInfo(
@@ -1064,8 +1077,7 @@ def save_and_clean_models(
                 basefilename=basefilename,
                 segment_subject=segment_subject,
                 traindata_id=traindata_id,
-                architecture_id=architecture_id,
-                trainparams_id=trainparams_id,
+                model_config_name=model_config_name,
                 monitor_metric_accuracy=new_model_monitor_accuracy,
                 epoch=new_model_epoch,
                 save_format=cast("Literal['keras', 'h5', 'tf']", save_format),
@@ -1082,8 +1094,7 @@ def save_and_clean_models(
                 "filename": model_info.filename,
                 "segment_subject": model_info.segment_subject,
                 "traindata_id": model_info.traindata_id,
-                "architecture_id": model_info.architecture_id,
-                "trainparams_id": model_info.trainparams_id,
+                "model_config_name": model_info.model_config_name,
                 "monitor_metric_accuracy": model_info.monitor_metric_accuracy,
                 "epoch": model_info.epoch,
                 "save_format": model_info.save_format,
@@ -1170,8 +1181,7 @@ def save_and_clean_models(
             model_dir=model_save_dir,
             segment_subject=segment_subject,
             traindata_id=traindata_id,
-            architecture_id=architecture_id,
-            trainparams_id=trainparams_id,
+            model_config_name=model_config_name,
         )
         if best_model is not None:
             logger.info(

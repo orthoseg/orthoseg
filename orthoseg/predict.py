@@ -251,28 +251,27 @@ def predict(
             traindata_id = force_model_traindata_id
 
         # Get the best model that already exists for this train dataset,...
-        architecture_id = conf.model.getint("architecture_id")
-        trainparams_id = conf.train.getint("trainparams_id")
+        model_config_name = conf.model["model_config_name"]
         best_model = mh.get_best_model(
             model_dir=conf.dirs.getpath("model_dir"),
             segment_subject=conf.general["segment_subject"],
             traindata_id=traindata_id,
-            architecture_id=architecture_id,
-            trainparams_id=trainparams_id,
+            model_config_name=model_config_name,
         )
 
         # Check if a model was found
         if best_model is None:
             message = (
                 f"No model found in model_dir: {conf.dirs.getpath('model_dir')} for "
-                f"traindata_id: {traindata_id}, architecture_id: {architecture_id}, "
-                f"trainparams_id: {trainparams_id}"
+                f"traindata_id: {traindata_id}, "
+                f"model_config_name: {model_config_name}"
             )
             logger.critical(message)
             raise RuntimeError(message)
         else:
             model_weights_filepath = best_model.filepath
             logger.info(f"Best model found: {model_weights_filepath}")
+            conf.model["model_version"] = best_model.model_version
 
         model_name = best_model.basefilename
 

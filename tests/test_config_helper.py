@@ -45,6 +45,50 @@ def test_read_orthoseg_config_image_layers(image_layer):
     assert layer.get("switch_axes") is False
 
 
+@pytest.mark.parametrize(
+    "overrules, expected_model_config_name",
+    [
+        ([], ""),
+        (
+            ["model.architecture_id=2", "train.trainparams_id=5"],
+            "2.5",
+        ),
+        (
+            ["model.architecture_id=2", "train.trainparams_id=0"],
+            "2.0",
+        ),
+        (
+            [
+                "model.architecture_id=2",
+                "train.trainparams_id=5",
+                "model.model_config_name=custom.v1",
+            ],
+            "custom.v1",
+        ),
+    ],
+)
+def test_read_orthoseg_config_model_config_name(overrules, expected_model_config_name):
+    conf.read_orthoseg_config(SportsFields.config_path, overrules=overrules)
+
+    assert conf.model["model_config_name"] == expected_model_config_name
+    assert conf.model["model_version"] == ""
+    assert "architecture_id" not in conf.model
+    assert "trainparams_id" not in conf.train
+
+
+@pytest.mark.parametrize(
+    "overrule, error_message",
+    [
+        ("model.model_config_name=invalid_name", "must not contain underscores"),
+        ("model.model_config_name=invalid/name", "filename-invalid characters"),
+        ("model.model_version=manual", "must be left empty"),
+    ],
+)
+def test_read_orthoseg_config_model_name_invalid(overrule, error_message):
+    with pytest.raises(ValueError, match=error_message):
+        conf.read_orthoseg_config(SportsFields.config_path, overrules=[overrule])
+
+
 def test_read_orthoseg_config_extra_config_files_to_load():
     # Load the sample project config file that uses extra config files..
     conf.read_orthoseg_config(SportsFields.config_extra_path)
