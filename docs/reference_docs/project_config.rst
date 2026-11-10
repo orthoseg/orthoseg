@@ -674,6 +674,27 @@ Settings concerning the prediction process.
    If this setting is empty/unset, mixed_float16 is used when a GPU with compute
    capability 7.0 or higher is available, otherwise float32 is used.
 
+   Float8 quantization is configured separately with
+   :confval:`predict.model_quantize`.
+
+.. confval:: predict.model_quantize
+   :type: ``str``
+   :default: empty (automatic)
+
+   Whether to quantize the model for prediction.
+
+   Options are:
+
+   - ``auto`` (same as empty/unset): use Float8 when all available NVIDIA GPUs have
+     compute capability 8.9 or higher and the loaded Keras model supports quantization.
+   - ``float8``: explicitly attempt Float8 quantization, regardless of detected
+     GPU capability.
+   - ``none``: do not apply additional quantization.
+
+   Keras quantizes only layers that implement Float8 quantization. Speedups depend
+   on the backend and hardware kernels. A model already containing Float8-quantized
+   layers is left unchanged.
+
 .. confval:: predict.image_layer
    :type: ``str``
    :default: ``MUST_OVERRIDE``

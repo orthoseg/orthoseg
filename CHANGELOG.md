@@ -30,6 +30,7 @@
 - Add support to finetune models using weights pretrained on aerial images. This becomes
   the default for supported architectures (#327)
 - Add support for mixed dtype in train and predict (#361)
+- Add support for using float8 quantization for predict (#376)
 - Add support to reproject a local image layer (#290)
 - Add support to configure an image layer based on a simple dir with images (#337)
 - Add postprocessing option to add a qml style to the output layer (#347)
@@ -42,6 +43,7 @@
   prepare_trainingsdata,... (#369)
 - If a layer cache directory with different image size but same resolution exists,
   use that when predicting (#362)
+- Check and log GPU memory usage when starting `train` or `predict` (#377)
 - Avoid that scripts started with scriptrunner need execute flag on linux (#370)
 - Use SSL bundle from REQUESTS_CA_BUNDLE for WMS fetching if specified (#367)
 - Improve performance of training data preparation (#344)

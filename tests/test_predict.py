@@ -305,6 +305,72 @@ def test_predict_postprocess(tmp_path, postprocess):
 
 
 @pytest.mark.parametrize(
+    "model_quantize_raw, nb_gpu, compute_capability, expected_calls",
+    [
+        (None, 0, None, []),
+        (None, 1, (8, 9), ["float8"]),
+        ("", 1, (8, 8), []),
+        ("auto", 1, (8, 9), ["float8"]),
+        ("FLOAT8", 0, None, ["float8"]),
+        ("none", 1, (9, 0), []),
+    ],
+)
+def test_quantize_model_for_predict(
+    monkeypatch, model_quantize_raw, nb_gpu, compute_capability, expected_calls
+):
+    class FakeModel:
+        def __init__(self):
+            self.layers = []
+            self.quantize_calls = []
+
+        def quantize(self, mode):
+            self.quantize_calls.append(mode)
+
+    monkeypatch.setattr(predict_module.mh, "get_number_gpus", lambda: nb_gpu)
+    monkeypatch.setattr(
+        predict_module.mh,
+        "get_min_gpu_compute_capability",
+        lambda: compute_capability,
+    )
+
+    model = FakeModel()
+    predict_module._quantize_model_for_predict(model, model_quantize_raw)
+
+    assert model.quantize_calls == expected_calls
+
+
+def test_quantize_model_for_predict_invalid_option():
+    with pytest.raises(ValueError, match="Supported values"):
+        predict_module._quantize_model_for_predict(object(), "mixed_bfloat8")
+
+
+def test_quantize_model_for_predict_auto_skips_when_api_unavailable(
+    monkeypatch, caplog
+):
+    class FakeModel:
+        layers: tuple = ()
+
+    monkeypatch.setattr(predict_module.mh, "get_number_gpus", lambda: 1)
+    monkeypatch.setattr(
+        predict_module.mh,
+        "get_min_gpu_compute_capability",
+        lambda: (8, 9),
+    )
+
+    predict_module._quantize_model_for_predict(FakeModel(), "auto")
+
+    assert "does not provide the quantize() API" in caplog.text
+
+
+def test_quantize_model_for_predict_explicit_option_requires_api():
+    class FakeModel:
+        layers: tuple = ()
+
+    with pytest.raises(RuntimeError, match="does not provide the quantize"):
+        predict_module._quantize_model_for_predict(FakeModel(), "float8")
+
+
+@pytest.mark.parametrize(
     "dtype_policy_raw, nb_gpu, compute_capability, expected_calls",
     [
         ("float32", 0, None, ["float32"]),

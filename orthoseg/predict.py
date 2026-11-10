@@ -17,7 +17,7 @@ import orthoseg.model.model_helper as mh
 from orthoseg.helpers import config_helper as conf, email_helper
 from orthoseg.lib import cleanup, predicter
 from orthoseg.postprocess import _apply_postprocess
-from orthoseg.util import log_util
+from orthoseg.util import _processing_util, log_util
 
 # Get a logger...
 logger = logging.getLogger(__name__)
@@ -160,6 +160,50 @@ def _set_dtype_policy_for_predict(dtype_policy_raw: str | None):
         logger.info(f"Set keras dtype policy for prediction: {dtype_policy}")
 
 
+def _quantize_model_for_predict(model: Any, model_quantize_raw: str | None) -> None:
+    """Apply configured Float8 quantization to a prediction model."""
+    model_quantize = (
+        "" if model_quantize_raw is None else model_quantize_raw.strip().lower()
+    )
+
+    auto_selected = model_quantize in ("", "auto")
+    if auto_selected:
+        nb_gpu = mh.get_number_gpus()
+        compute_capability = mh.get_min_gpu_compute_capability() if nb_gpu > 0 else None
+        if compute_capability is None or compute_capability < (8, 9):
+            logger.info(
+                f"predict.model_quantize is {model_quantize or 'unset/auto'}, "
+                f"{nb_gpu=}, {compute_capability=}; Float8 quantization requires "
+                "an NVIDIA GPU with compute capability >= 8.9, leaving the model "
+                "unchanged"
+            )
+            return
+        quantize_mode = "float8"
+    elif model_quantize == "float8":
+        quantize_mode = "float8"
+    elif model_quantize == "none":
+        logger.info("predict.model_quantize is none; leave the model unchanged")
+        return
+    else:
+        raise ValueError(
+            f"Unsupported predict.model_quantize value: {model_quantize_raw!r}. "
+            "Supported values are 'auto', 'float8', and 'none'."
+        )
+
+    quantize = getattr(model, "quantize", None)
+    if not callable(quantize):
+        message = (
+            "Float8 model quantization was selected, but this Keras model does not "
+            "provide the quantize() API."
+        )
+        if auto_selected:
+            logger.warning(f"{message} Skip automatic quantization.")
+            return
+        raise RuntimeError(message)
+
+    mf.quantize_model(model, quantize_mode)
+
+
 def _predict_args(args) -> argparse.Namespace:
     # Interprete arguments
     parser = argparse.ArgumentParser(add_help=False)
@@ -225,6 +269,7 @@ def predict(
     logger = log_util.main_log_init(conf.dirs.getpath("log_dir"), __name__)
     logger.info(f"Start predict for config {config_path.stem}")
     logger.debug(f"Config used: \n{conf.pformat_config()}")
+    _processing_util.log_gpu_memory_info(logger)
     model_name = None
 
     try:
@@ -394,6 +439,8 @@ def predict(
             model, preprocess_input = mf.load_model(
                 best_model.filepath, compile_model=False
             )
+
+        _quantize_model_for_predict(model, conf.predict.get("model_quantize", None))
 
         # Prepare the model for predicting
         nb_gpu = mh.get_number_gpus()
