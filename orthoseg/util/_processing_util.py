@@ -1,11 +1,15 @@
 """Module containing utilities regarding processes."""
 
+import logging
 import multiprocessing
 import multiprocessing.context
 import os
+import shutil
+import subprocess
 from collections.abc import Callable
 from concurrent import futures
 from types import TracebackType
+from typing import Any
 
 import psutil
 
@@ -127,6 +131,69 @@ def initialize_worker(worker_type: str, nice_value: int = 15) -> None:
     #     `worker_type=threads` the main thread/process will also be impacted.
     if getprocessnice() < nice_value:
         setprocessnice(nice_value)
+
+
+def get_gpu_memory_info() -> list[dict[str, Any]]:
+    """Get system-wide memory information for all available NVIDIA GPUs.
+
+    Does not initialize the TensorFlow or CUDA runtime in the current process.
+
+    Returns:
+        List of dicts with keys: index, name, used_mb, total_mb, free_mb.
+    """
+    nvidia_smi = shutil.which("nvidia-smi")
+    if not nvidia_smi:
+        return []
+
+    try:
+        res = subprocess.run(
+            [
+                nvidia_smi,
+                "--query-gpu=index,name,memory.used,memory.total,memory.free",
+                "--format=csv,noheader,nounits",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=True,
+        )
+        gpus = []
+        for line in res.stdout.strip().splitlines():
+            parts = [p.strip() for p in line.split(",")]
+            if len(parts) == 5:
+                gpus.append(
+                    {
+                        "index": int(parts[0]),
+                        "name": parts[1],
+                        "used_mb": float(parts[2]),
+                        "total_mb": float(parts[3]),
+                        "free_mb": float(parts[4]),
+                    }
+                )
+        return gpus
+    except Exception:
+        return []
+
+
+def log_gpu_memory_info(logger: logging.Logger | None = None) -> None:
+    """Log system-wide memory information for available NVIDIA GPUs.
+
+    Args:
+        logger: Optional logger to use. If None, the module logger is used.
+    """
+    if logger is None:
+        logger = logging.getLogger(__name__)
+
+    for gpu in get_gpu_memory_info():
+        msg = (
+            f"GPU {gpu['index']} ({gpu['name']}): "
+            f"{gpu['used_mb']:.0f} MiB used / {gpu['total_mb']:.0f} MiB total "
+            f"({gpu['free_mb']:.0f} MiB free)"
+        )
+        if gpu["free_mb"] < 2048:
+            logger.warning(f"Low GPU memory available: {msg}")
+        else:
+            logger.info(f"GPU memory: {msg}")
 
 
 def getprocessnice() -> int:

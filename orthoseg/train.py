@@ -12,7 +12,7 @@ import keras
 from orthoseg.helpers import config_helper as conf, email_helper
 from orthoseg.lib import predicter, prepare_traindatasets as prep, trainer
 from orthoseg.model import model_factory as mf, model_helper as mh
-from orthoseg.util import log_util
+from orthoseg.util import _processing_util, log_util
 
 # Get a logger...
 logger = logging.getLogger(__name__)
@@ -94,6 +94,7 @@ def train(config_path: Path, config_overrules: list[str] | None = None):
     # Log start
     logger.info(f"Start train for config {config_path.stem}")
     logger.debug(f"Config used: \n{conf.pformat_config()}")
+    _processing_util.log_gpu_memory_info(logger)
 
     try:
         # Create the output dir's if they don't exist yet...

@@ -17,7 +17,7 @@ import orthoseg.model.model_helper as mh
 from orthoseg.helpers import config_helper as conf, email_helper
 from orthoseg.lib import cleanup, predicter
 from orthoseg.postprocess import _apply_postprocess
-from orthoseg.util import log_util
+from orthoseg.util import _processing_util, log_util
 
 # Get a logger...
 logger = logging.getLogger(__name__)
@@ -269,6 +269,7 @@ def predict(
     logger = log_util.main_log_init(conf.dirs.getpath("log_dir"), __name__)
     logger.info(f"Start predict for config {config_path.stem}")
     logger.debug(f"Config used: \n{conf.pformat_config()}")
+    _processing_util.log_gpu_memory_info(logger)
     model_name = None
 
     try:
