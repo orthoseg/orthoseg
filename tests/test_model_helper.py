@@ -115,8 +115,9 @@ def test_get_best_model(tmp_path, input_names, expected_name):
 
 
 def test_get_best_model_by_config_name(tmp_path):
-    (tmp_path / "subj_03.alpha_0.8_10.keras").touch()
-    (tmp_path / "subj_03.beta_0.95_15.keras").touch()
+    ext = ".keras" if KERAS_GTE_3 else ".hdf5"
+    (tmp_path / f"subj_03.alpha_0.8_10{ext}").touch()
+    (tmp_path / f"subj_03.beta_0.95_15{ext}").touch()
 
     best_model = model_helper.get_best_model(
         tmp_path, segment_subject="subj", model_config_name="alpha"
