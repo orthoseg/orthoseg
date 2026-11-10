@@ -635,6 +635,7 @@ def quantize_model(model: keras.models.Model, mode: str) -> None:
     if not callable(quantize):
         raise RuntimeError("This Keras model does not provide the quantize() API.")
 
+    logger.info(f"Quantizing model with {mode}")
     quantize(mode)
     logger.info(f"Quantized model with {mode}")
 
