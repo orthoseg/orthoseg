@@ -1124,6 +1124,32 @@ Settings concerning some specific file paths.
 
    File path of file that if it exists cancels the current processing.
 
+.. confval:: files.output_vector_predict_name
+   :type: ``str``
+   :default: ``{segment_subject}_{image_layer}_{model_version}_predict.gpkg``
+
+   Template for the vector prediction filename (written to
+   :confval:`dirs.output_vector_dir`).
+
+   Supported placeholders:
+   - ``{segment_subject}``: segment subject
+   - ``{image_layer}``: image layer name
+   - ``{model_version}``: model version
+   - ``{epoch}``: epoch of the model
+
+.. confval:: files.output_vector_postp_name
+   :type: ``str``
+   :default: ``{segment_subject}_{image_layer}_{model_version}.gpkg``
+
+   Template for the postprocessed vector filename (written to
+   :confval:`dirs.output_vector_dir`).
+
+   Supported placeholders:
+   - ``{segment_subject}``: segment subject
+   - ``{image_layer}``: image layer name
+   - ``{model_version}``: model version
+   - ``{epoch}``: epoch of the model
+
 
 [email]
 -------

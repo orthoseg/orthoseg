@@ -69,6 +69,47 @@ def test_format_model_version(traindata_id, model_config_name, expected):
 
 
 @pytest.mark.parametrize(
+    "pattern, expected",
+    [
+        (
+            "{segment_subject}_{image_layer}_{model_version}.gpkg",
+            "subj_layer1_01.gpkg",
+        ),
+        (
+            "{segment_subject}_{image_layer}_{model_version}_predict.gpkg",
+            "subj_layer1_01_predict.gpkg",
+        ),
+        (
+            "{segment_subject}_{image_layer}_{basefilename}_{epoch}.gpkg",
+            "subj_layer1_subj_01_10.gpkg",
+        ),
+        (
+            "custom_fixed_name.gpkg",
+            "custom_fixed_name.gpkg",
+        ),
+    ],
+)
+def test_format_output_vector_filename(pattern, expected):
+    best_model = model_helper.ModelInfo(
+        filepath=Path("subj_1_0.8_10.hdf5"),
+        filename="subj_1_0.8_10",
+        basefilename="subj_01",
+        segment_subject="subj",
+        traindata_id=1,
+        model_config_name="",
+        monitor_metric_accuracy=0.8,
+        epoch=10,
+        save_format="h5",
+    )
+    result = model_helper.format_output_vector_filename(
+        pattern,
+        best_model=best_model,
+        image_layer="layer1",
+    )
+    assert result == expected
+
+
+@pytest.mark.parametrize(
     "input_names, expected_name",
     [
         (

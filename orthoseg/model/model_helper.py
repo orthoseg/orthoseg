@@ -488,6 +488,50 @@ def format_model_filename(
     return filename
 
 
+def format_output_vector_filename(
+    pattern: str,
+    *,
+    best_model: ModelInfo,
+    image_layer: str,
+    segment_subject: str | None = None,
+) -> str:
+    """Format an output vector filename from a template pattern.
+
+    Supported placeholders:
+        * segment_subject: segment subject
+        * image_layer: image layer name
+        * model_version: model version (e.g. '01' or '01.custom')
+        * basefilename: model basefilename (e.g. 'subject_01')
+        * epoch: epoch number (or '' if None)
+        * traindata_id: traindata id
+        * model_config_name: model config name
+
+    Args:
+        pattern: template string with {placeholder} tokens
+        best_model: ModelInfo of the model used
+        image_layer: image layer name
+        segment_subject: segment subject name. If None,
+            best_model.segment_subject is used.
+
+    Returns:
+        Formatted filename string.
+    """
+    subject_val = (
+        segment_subject if segment_subject is not None else best_model.segment_subject
+    )
+    epoch_val = "" if best_model.epoch is None else str(best_model.epoch)
+    kwargs = {
+        "segment_subject": subject_val,
+        "image_layer": image_layer,
+        "model_version": best_model.model_version,
+        "basefilename": best_model.basefilename,
+        "epoch": epoch_val,
+        "traindata_id": best_model.traindata_id,
+        "model_config_name": best_model.model_config_name,
+    }
+    return pattern.format(**kwargs)
+
+
 def parse_model_filename(filepath: Path) -> ModelInfo:
     """Parse a model filename to a ModelInfo object.
 

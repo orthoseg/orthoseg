@@ -159,16 +159,38 @@ def postprocess(config_path: Path, config_overrules: list[str] | None = None) ->
         # Input file  the "most recent" prediction result dir for this subject
         output_vector_dir = conf.dirs.getpath("output_vector_dir")
         image_layer = conf.predict["image_layer"]
-        output_stem = f"{best_model.base_output_name}_{image_layer}"
-        output_predict_path = output_vector_dir / f"{output_stem}_predict.gpkg"
-        output_postp_path = output_vector_dir / f"{output_stem}.gpkg"
+        predict_filename = mh.format_output_vector_filename(
+            conf.files["output_vector_predict_name"],
+            best_model=best_model,
+            image_layer=image_layer,
+            segment_subject=conf.general["segment_subject"],
+        )
+        postp_filename = mh.format_output_vector_filename(
+            conf.files["output_vector_postp_name"],
+            best_model=best_model,
+            image_layer=image_layer,
+            segment_subject=conf.general["segment_subject"],
+        )
+        output_predict_path = output_vector_dir / predict_filename
+        output_postp_path = output_vector_dir / postp_filename
 
-        # Backward compat: fall back to old-style name that had epoch before image_layer
-        if not output_predict_path.exists():
-            name = f"{best_model.base_output_legacy_name}_{image_layer}.gpkg"
-            output_legacy_path = output_vector_dir / name
-            if output_legacy_path.exists():
-                output_predict_path = output_legacy_path
+        # Backward compat: if default predict name is used, fall back to previous
+        # standard name or old-style name
+        is_default_predict_name = conf.files["output_vector_predict_name"] == (
+            "{segment_subject}_{image_layer}_{model_version}_predict.gpkg"
+        )
+        if is_default_predict_name and not output_predict_path.exists():
+            prev_predict_path = (
+                output_vector_dir
+                / f"{best_model.base_output_name}_{image_layer}_predict.gpkg"
+            )
+            if prev_predict_path.exists():
+                output_predict_path = prev_predict_path
+            else:
+                name = f"{best_model.base_output_legacy_name}_{image_layer}.gpkg"
+                output_legacy_path = output_vector_dir / name
+                if output_legacy_path.exists():
+                    output_predict_path = output_legacy_path
 
         # Apply postprocessing
         _apply_postprocess(output_predict_path, output_postp_path)
