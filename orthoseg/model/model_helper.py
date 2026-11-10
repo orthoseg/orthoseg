@@ -324,7 +324,7 @@ class HyperParams:
             model_config_name: name used to distinguish model configurations.
                 Defaults to "".
         """
-        self.fileversion = 1.1
+        self.fileversion = 1.2
         self.model_config_name = model_config_name
         if architecture is not None:
             self.architecture = architecture
