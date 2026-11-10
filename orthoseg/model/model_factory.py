@@ -598,6 +598,47 @@ def load_model(
     return model, preprocess_input_func
 
 
+def quantize_model(model: keras.models.Model, mode: str) -> None:
+    """Apply Keras quantization to a built model.
+
+    An already Float8-quantized model is left unchanged so prediction-time
+    quantization can be requested repeatedly.
+
+    Args:
+        model: The built model to quantize.
+        mode: Keras quantization mode, for example ``"float8"``.
+
+    Raises:
+        RuntimeError: If the model does not provide the Keras quantize API.
+    """
+    if mode == "float8":
+        layers = [model]
+        seen_layer_ids: set[int] = set()
+
+        while layers:
+            layer = layers.pop()
+            if id(layer) in seen_layer_ids:
+                continue
+            seen_layer_ids.add(id(layer))
+
+            dtype_policy = getattr(layer, "dtype_policy", None)
+            policy_name = getattr(dtype_policy, "name", "")
+            if policy_name.startswith("float8_from_"):
+                logger.info(
+                    "Model already has Float8-quantized layers; skip quantization"
+                )
+                return
+
+            layers.extend(getattr(layer, "layers", []))
+
+    quantize = getattr(model, "quantize", None)
+    if not callable(quantize):
+        raise RuntimeError("This Keras model does not provide the quantize() API.")
+
+    quantize(mode)
+    logger.info(f"Quantized model with {mode}")
+
+
 def set_dtype_policy(policy: str):
     """Set the keras dtype policy.
 

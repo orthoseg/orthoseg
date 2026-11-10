@@ -1,6 +1,7 @@
 """Tests for functionalities in orthoseg.model.model_factory."""
 
 import os
+from types import SimpleNamespace
 
 import pytest
 import segmodels_keras as smk
@@ -192,3 +193,40 @@ def test_load_model_hyperparams_invalid_path(tmp_path):
     invalid_path = tmp_path / "subject_1_0.86_5.keras"
     with pytest.raises(FileNotFoundError, match="No hyperparams file found for model"):
         _ = mf.load_model_hyperparams(invalid_path)
+
+
+def test_quantize_model():
+    class FakeModel:
+        def __init__(self):
+            self.layers = []
+            self.quantize_calls = []
+
+        def quantize(self, mode):
+            self.quantize_calls.append(mode)
+
+    model = FakeModel()
+    mf.quantize_model(model, "float8")
+
+    assert model.quantize_calls == ["float8"]
+
+
+def test_quantize_model_api_unavailable():
+    class FakeModel:
+        layers: tuple = ()
+
+    with pytest.raises(RuntimeError, match="does not provide the quantize"):
+        mf.quantize_model(FakeModel(), "float8")
+
+
+def test_quantize_model_skips_already_quantized_model():
+    class FakeLayer:
+        dtype_policy = SimpleNamespace(name="float8_from_mixed_bfloat16")
+        layers: tuple = ()
+
+    class FakeModel:
+        layers = (FakeLayer(),)
+
+        def quantize(self, _mode):
+            raise AssertionError("an already quantized model must not be quantized")
+
+    mf.quantize_model(FakeModel(), "float8")
