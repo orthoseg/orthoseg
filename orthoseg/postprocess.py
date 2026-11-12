@@ -159,16 +159,20 @@ def postprocess(config_path: Path, config_overrules: list[str] | None = None) ->
         # Input file  the "most recent" prediction result dir for this subject
         output_vector_dir = conf.dirs.getpath("output_vector_dir")
         image_layer = conf.predict["image_layer"]
-        output_stem = f"{best_model.base_output_name}_{image_layer}"
-        output_predict_path = output_vector_dir / f"{output_stem}_predict.gpkg"
-        output_postp_path = output_vector_dir / f"{output_stem}.gpkg"
-
-        # Backward compat: fall back to old-style name that had epoch before image_layer
-        if not output_predict_path.exists():
-            name = f"{best_model.base_output_legacy_name}_{image_layer}.gpkg"
-            output_legacy_path = output_vector_dir / name
-            if output_legacy_path.exists():
-                output_predict_path = output_legacy_path
+        predict_filename = mh.format_output_vector_filename(
+            conf.files["output_vector_predict_name"],
+            best_model=best_model,
+            image_layer=image_layer,
+            segment_subject=conf.general["segment_subject"],
+        )
+        postp_filename = mh.format_output_vector_filename(
+            conf.files["output_vector_postp_name"],
+            best_model=best_model,
+            image_layer=image_layer,
+            segment_subject=conf.general["segment_subject"],
+        )
+        output_predict_path = output_vector_dir / predict_filename
+        output_postp_path = output_vector_dir / postp_filename
 
         # Apply postprocessing
         _apply_postprocess(output_predict_path, output_postp_path)

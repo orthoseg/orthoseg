@@ -322,9 +322,20 @@ def predict(
 
         # Check if output already exists, and if so, skip prediction.
         output_vector_dir = conf.dirs.getpath("output_vector_dir")
-        output_vector_stem = f"{best_model.base_output_name}_{image_layer}"
-        output_vector_path = output_vector_dir / f"{output_vector_stem}_predict.gpkg"
-        output_vector_postp_path = output_vector_dir / f"{output_vector_stem}.gpkg"
+        predict_filename = mh.format_output_vector_filename(
+            conf.files["output_vector_predict_name"],
+            best_model=best_model,
+            image_layer=image_layer,
+            segment_subject=conf.general["segment_subject"],
+        )
+        postp_filename = mh.format_output_vector_filename(
+            conf.files["output_vector_postp_name"],
+            best_model=best_model,
+            image_layer=image_layer,
+            segment_subject=conf.general["segment_subject"],
+        )
+        output_vector_path = output_vector_dir / predict_filename
+        output_vector_postp_path = output_vector_dir / postp_filename
 
         if output_vector_postp_path.exists():
             message = (
@@ -334,18 +345,6 @@ def predict(
             logger.info(message)
             email_helper.sendmail(message)
             return output_vector_postp_path
-
-        # Backward compat: old-style name had epoch before image_layer, so if such
-        # files exist, return as well.
-        output_legacy_path = (
-            output_vector_dir
-            / f"{best_model.base_output_legacy_name}_{image_layer}.gpkg"
-        )
-        if output_legacy_path.exists():
-            message = f"Predict output exists already for {model_name} on {image_layer}"
-            logger.info(message)
-            email_helper.sendmail(message)
-            return output_legacy_path
 
         # Load the hyperparams of the model
         # TODO: move the hyperparams filename formatting to get_models...

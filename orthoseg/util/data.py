@@ -35,6 +35,9 @@ class AiDetectionInfo:
         traindata_version: int,
         image_layer: str,
         postprocessing: str,
+        *,
+        model_version: str | None = None,
+        epoch: int | None = None,
     ):
         """Init.
 
@@ -44,12 +47,18 @@ class AiDetectionInfo:
             traindata_version: the version of the data used to train the model
             image_layer: the image layer that the detection is based on
             postprocessing: the postprocessing done
+            model_version: the full model version string. Defaults to None.
+            epoch: the epoch of the model if present in filename. Defaults to None.
         """
         self.path = path
         self.subject = subject
         self.traindata_version = traindata_version
         self.image_layer = image_layer
         self.postprocessing = postprocessing
+        self.model_version = (
+            model_version if model_version is not None else f"{traindata_version:02d}"
+        )
+        self.epoch = epoch
 
 
 def aidetection_info(path: Path) -> AiDetectionInfo:
@@ -71,35 +80,51 @@ def aidetection_info(path: Path) -> AiDetectionInfo:
             )
 
         subject = param_values[0]
-        model_info = param_values[1]
-        model_info_values = model_info.split(".")
-        traindata_version = int(model_info_values[0])
-        """
-        architecture_version = 0
-        trainparams_version = 0
-        if len(model_info_values) > 1:
-            architecture_version = int(model_info_values[1])
-            if len(model_info_values) > 2:
-                trainparams_version = int(model_info_values[2])
-        aimodel_epoch = int(param_values[2])
-        """
-        # If the third field is an integer, it is a legacy name with the epoch number.
-        if param_values[2].isdigit():
-            index_image_layer = 3
-        else:
-            index_image_layer = 2
 
-        image_layer = param_values[index_image_layer]
+        # Check if new format: {subject}_{image_layer}_{model_version}[_postp]
+        # or old format: {subject}_{model_version}[_{epoch}]_{image_layer}[_postp]
+        is_new_format = (
+            not param_values[1].split(".")[0].isdigit()
+            and param_values[2].split(".")[0].split("-")[0].isdigit()
+        )
 
-        index_postprocessing = index_image_layer + 1
-        if len(param_values) > index_postprocessing:
-            postprocessing = "_".join(param_values[index_postprocessing:])
+        epoch = None
+        if is_new_format:
+            image_layer = param_values[1]
+            model_info = param_values[2]
+            model_info_values = model_info.split(".")
+            traindata_version = int(model_info_values[0].split("-")[0])
+            postprocessing = "_".join(param_values[3:]) if len(param_values) > 3 else ""
         else:
-            postprocessing = ""
+            model_info = param_values[1]
+            model_info_values = model_info.split(".")
+            traindata_version = int(model_info_values[0].split("-")[0])
+
+            # If the third field is an integer, it is a legacy name with the epoch
+            # number.
+            if param_values[2].isdigit():
+                index_image_layer = 3
+                epoch = int(param_values[2])
+            else:
+                index_image_layer = 2
+
+            image_layer = param_values[index_image_layer]
+
+            index_postprocessing = index_image_layer + 1
+            if len(param_values) > index_postprocessing:
+                postprocessing = "_".join(param_values[index_postprocessing:])
+            else:
+                postprocessing = ""
 
     except Exception as ex:
         raise ValueError(f"Error in get_aidetection_info on {path}") from ex
 
     return AiDetectionInfo(
-        path, subject, traindata_version, image_layer, postprocessing
+        path,
+        subject,
+        traindata_version,
+        image_layer,
+        postprocessing,
+        model_version=model_info,
+        epoch=epoch,
     )

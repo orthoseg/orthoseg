@@ -89,6 +89,30 @@ def test_read_orthoseg_config_model_name_invalid(overrule, error_message):
         conf.read_orthoseg_config(SportsFields.config_path, overrules=[overrule])
 
 
+@pytest.mark.parametrize("specify_names", [False, True])
+def test_read_orthoseg_config_output_vector_names_warning(caplog, specify_names):
+    caplog.clear()
+    overrules = []
+    if specify_names:
+        overrules = [
+            "files.output_vector_predict_name={segment_subject}_{image_layer}_predict.gpkg",
+            "files.output_vector_postp_name={segment_subject}_{image_layer}.gpkg",
+        ]
+
+    conf.read_orthoseg_config(SportsFields.config_path, overrules=overrules)
+
+    predict_warn = "files.output_vector_predict_name is not explicitly specified"
+    postp_warn = "files.output_vector_postp_name is not explicitly specified"
+
+    if specify_names:
+        assert predict_warn not in caplog.text
+        assert postp_warn not in caplog.text
+    else:
+        assert predict_warn in caplog.text
+        assert postp_warn in caplog.text
+        assert "fallback value will change to" in caplog.text
+
+
 def test_read_orthoseg_config_extra_config_files_to_load():
     # Load the sample project config file that uses extra config files..
     conf.read_orthoseg_config(SportsFields.config_extra_path)
