@@ -35,6 +35,8 @@ class AiDetectionInfo:
         traindata_version: int,
         image_layer: str,
         postprocessing: str,
+        *,
+        model_version: str | None = None,
     ):
         """Init.
 
@@ -44,12 +46,16 @@ class AiDetectionInfo:
             traindata_version: the version of the data used to train the model
             image_layer: the image layer that the detection is based on
             postprocessing: the postprocessing done
+            model_version: the full model version string. Defaults to None.
         """
         self.path = path
         self.subject = subject
         self.traindata_version = traindata_version
         self.image_layer = image_layer
         self.postprocessing = postprocessing
+        self.model_version = (
+            model_version if model_version is not None else f"{traindata_version:02d}"
+        )
 
 
 def aidetection_info(path: Path) -> AiDetectionInfo:
@@ -117,5 +123,10 @@ def aidetection_info(path: Path) -> AiDetectionInfo:
         raise ValueError(f"Error in get_aidetection_info on {path}") from ex
 
     return AiDetectionInfo(
-        path, subject, traindata_version, image_layer, postprocessing
+        path,
+        subject,
+        traindata_version,
+        image_layer,
+        postprocessing,
+        model_version=model_info,
     )
