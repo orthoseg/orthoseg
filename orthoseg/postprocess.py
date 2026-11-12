@@ -174,24 +174,6 @@ def postprocess(config_path: Path, config_overrules: list[str] | None = None) ->
         output_predict_path = output_vector_dir / predict_filename
         output_postp_path = output_vector_dir / postp_filename
 
-        # Backward compat: if default predict name is used, fall back to previous
-        # standard name or old-style name
-        is_default_predict_name = conf.files["output_vector_predict_name"] == (
-            "{segment_subject}_{image_layer}_{model_version}_predict.gpkg"
-        )
-        if is_default_predict_name and not output_predict_path.exists():
-            prev_predict_path = (
-                output_vector_dir
-                / f"{best_model.base_output_name}_{image_layer}_predict.gpkg"
-            )
-            if prev_predict_path.exists():
-                output_predict_path = prev_predict_path
-            else:
-                name = f"{best_model.base_output_legacy_name}_{image_layer}.gpkg"
-                output_legacy_path = output_vector_dir / name
-                if output_legacy_path.exists():
-                    output_predict_path = output_legacy_path
-
         # Apply postprocessing
         _apply_postprocess(output_predict_path, output_postp_path)
 

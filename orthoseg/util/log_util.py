@@ -145,8 +145,14 @@ def main_log_init(log_dir: Path, log_basefilename: str):
     # Set the general maximum log level...
     logger.setLevel(logging.INFO)
     for handler in logger.handlers:
-        handler.flush()
-        handler.close()
+        try:
+            handler.flush()
+        except Exception:
+            pass
+        try:
+            handler.close()
+        except Exception:
+            pass
 
     # Remove all handlers and add the ones I want again, so a new log file is created
     # for each run

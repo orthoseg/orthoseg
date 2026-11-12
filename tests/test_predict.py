@@ -190,7 +190,7 @@ def test_predict_args(args):
     assert len(valid_args.config_overrules) == nb_overrules
 
 
-def test_predict_backward_compat_existing_output(tmp_path):
+def test_predict_existing_output(tmp_path):
     testprojects_dir = tmp_path / "sample_projects"
     shutil.rmtree(testprojects_dir, ignore_errors=True)
     shutil.copytree(test_helper.sampleprojects_dir, testprojects_dir)
@@ -200,13 +200,13 @@ def test_predict_backward_compat_existing_output(tmp_path):
     conf.read_orthoseg_config(config_path=config_path)
     result_vector_dir = conf.dirs.getpath("output_vector_dir")
 
-    # Create previous standard postprocess file
-    prev_postp_file = result_vector_dir / "sportsfields_01_BEFL-2025-sportsfields.gpkg"
-    prev_postp_file.touch()
+    # Create postprocess file matching the fallback name
+    postp_file = result_vector_dir / "sportsfields_01_276_BEFL-2025-sportsfields.gpkg"
+    postp_file.touch()
 
-    # Predict should detect existing previous standard file and return it
+    # Predict should detect existing file and return it
     result_path = predict(config_path=config_path, postprocess=True)
-    assert result_path == prev_postp_file
+    assert result_path == postp_file
 
 
 @pytest.mark.parametrize("postprocess", [False, True])
@@ -220,7 +220,7 @@ def test_predict_custom_output_vector_names(tmp_path, postprocess):
     conf.read_orthoseg_config(config_path=config_path)
     output_vector_dir = conf.dirs.getpath("output_vector_dir")
     existing_predict = (
-        output_vector_dir / "sportsfields_01_BEFL-2025-sportsfields_predict.gpkg"
+        output_vector_dir / "sportsfields_01_276_BEFL-2025-sportsfields_predict.gpkg"
     )
     custom_predict = output_vector_dir / "custom_sportsfields_predict.gpkg"
     shutil.copy(existing_predict, custom_predict)
@@ -320,7 +320,7 @@ def test_predict_use_cache_skip(tmp_path, use_cache, skip_images):
     # Check output results
     result_vector_dir = conf.dirs.getpath("output_vector_dir")
     result_vector_path = (
-        result_vector_dir / "sportsfields_BEFL-2025-sportsfields_01.gpkg"
+        result_vector_dir / "sportsfields_01_276_BEFL-2025-sportsfields.gpkg"
     )
 
     # The area of the output should be within a 10% margin of the expected area.

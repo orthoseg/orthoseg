@@ -346,58 +346,6 @@ def predict(
             email_helper.sendmail(message)
             return output_vector_postp_path
 
-        # Backward compat: if default postp name is used, check previous standard and
-        # legacy names.
-        is_default_postp_name = conf.files["output_vector_postp_name"] == (
-            "{segment_subject}_{image_layer}_{model_version}.gpkg"
-        )
-        if is_default_postp_name:
-            output_prev_postp_path = (
-                output_vector_dir / f"{best_model.base_output_name}_{image_layer}.gpkg"
-            )
-            if output_prev_postp_path.exists():
-                message = (
-                    f"Predict + postprocess output exists already for {model_name} on "
-                    f"{image_layer}"
-                )
-                logger.info(message)
-                email_helper.sendmail(message)
-                return output_prev_postp_path
-
-            # Old-style name had epoch before image_layer, so if such files exist,
-            # return as well.
-            output_legacy_path = (
-                output_vector_dir
-                / f"{best_model.base_output_legacy_name}_{image_layer}.gpkg"
-            )
-            if output_legacy_path.exists():
-                message = (
-                    f"Predict output exists already for {model_name} on {image_layer}"
-                )
-                logger.info(message)
-                email_helper.sendmail(message)
-                return output_legacy_path
-
-        # Backward compat: if default predict name is used and old-style prediction
-        # exists, reuse it.
-        is_default_predict_name = conf.files["output_vector_predict_name"] == (
-            "{segment_subject}_{image_layer}_{model_version}_predict.gpkg"
-        )
-        if is_default_predict_name and not output_vector_path.exists():
-            prev_predict_path = (
-                output_vector_dir
-                / f"{best_model.base_output_name}_{image_layer}_predict.gpkg"
-            )
-            if prev_predict_path.exists():
-                output_vector_path = prev_predict_path
-            else:
-                legacy_predict_path = (
-                    output_vector_dir
-                    / f"{best_model.base_output_legacy_name}_{image_layer}.gpkg"
-                )
-                if legacy_predict_path.exists():
-                    output_vector_path = legacy_predict_path
-
         # Load the hyperparams of the model
         # TODO: move the hyperparams filename formatting to get_models...
         hyperparams_path = (

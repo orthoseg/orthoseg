@@ -674,26 +674,22 @@ Settings concerning the prediction process.
    If this setting is empty/unset, mixed_float16 is used when a GPU with compute
    capability 7.0 or higher is available, otherwise float32 is used.
 
-   Float8 quantization is configured separately with
-   :confval:`predict.model_quantize`.
+   Float8 quantization is configured separately with :confval:`predict.model_quantize`.
 
 .. confval:: predict.model_quantize
    :type: ``str``
-   :default: empty (automatic)
+   :default: ``none``
 
    Whether to quantize the model for prediction.
 
+   If empty or set to auto, use float8 when all available NVIDIA GPUs have compute
+   capability 8.9 or higher. Only layers supporting Keras float8 quantization are
+   quantized; speedups depend on the backend and hardware.
+
    Options are:
-
-   - ``auto`` (same as empty/unset): use Float8 when all available NVIDIA GPUs have
-     compute capability 8.9 or higher and the loaded Keras model supports quantization.
-   - ``float8``: explicitly attempt Float8 quantization, regardless of detected
-     GPU capability.
-   - ``none``: do not apply additional quantization.
-
-   Keras quantizes only layers that implement Float8 quantization. Speedups depend
-   on the backend and hardware kernels. A model already containing Float8-quantized
-   layers is left unchanged.
+   - auto: automatically use float8 when supported (same as empty/unset)
+   - float8: explicitly attempt float8 quantization
+   - none: disable quantization
 
 .. confval:: predict.image_layer
    :type: ``str``
@@ -1126,10 +1122,17 @@ Settings concerning some specific file paths.
 
 .. confval:: files.output_vector_predict_name
    :type: ``str``
-   :default: ``{segment_subject}_{image_layer}_{model_version}_predict.gpkg``
+   :default: ``""``
 
-   Template for the vector prediction filename (written to
-   :confval:`dirs.output_vector_dir`).
+   Template for the vector prediction filename
+
+   The output files are written to :confval:`dirs.output_vector_dir`.
+
+   If not specified, falls back to the "legacy" pattern for backwards compatibility:
+   ``{segment_subject}_{model_version}_{epoch}_{image_layer}_predict.gpkg``
+   In a future version, the fallback value will change to
+   ``{segment_subject}_{image_layer}_{model_version}_predict.gpkg``, so it is recommended
+   to set the value explicitly to avoid surprises in the future.
 
    Supported placeholders:
    - ``{segment_subject}``: segment subject
@@ -1139,10 +1142,17 @@ Settings concerning some specific file paths.
 
 .. confval:: files.output_vector_postp_name
    :type: ``str``
-   :default: ``{segment_subject}_{image_layer}_{model_version}.gpkg``
+   :default: ``""``
 
-   Template for the postprocessed vector filename (written to
-   :confval:`dirs.output_vector_dir`).
+   Template for the postprocessed vector filename.
+
+   The output files are written to :confval:`dirs.output_vector_dir`.
+
+   If not specified, falls back to the "legacy" pattern for backwards compatibility.
+   ``{segment_subject}_{model_version}_{epoch}_{image_layer}.gpkg``
+   In a future version, the fallback value will change to
+   ``{segment_subject}_{image_layer}_{model_version}.gpkg``, so it is recommended
+   to set the value explicitly to avoid surprises in the future.
 
    Supported placeholders:
    - ``{segment_subject}``: segment subject

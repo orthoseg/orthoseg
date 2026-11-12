@@ -39,7 +39,7 @@ def test_postprocess_backward_compat_existing_predict(tmp_path):
 
     result_path = postprocess(config_path=config_path)
     assert result_path.exists()
-    assert result_path.name == "sportsfields_BEFL-2025-sportsfields_01.gpkg"
+    assert result_path.name == "sportsfields_01_276_BEFL-2025-sportsfields.gpkg"
 
 
 def test_postprocess_custom_output_vector_names(tmp_path):
@@ -54,7 +54,7 @@ def test_postprocess_custom_output_vector_names(tmp_path):
 
     # Copy the existing prediction to the custom predict filename
     existing_predict = (
-        output_vector_dir / "sportsfields_01_BEFL-2025-sportsfields_predict.gpkg"
+        output_vector_dir / "sportsfields_01_276_BEFL-2025-sportsfields_predict.gpkg"
     )
     custom_predict = output_vector_dir / "custom_sportsfields_predict.gpkg"
     shutil.copy(existing_predict, custom_predict)

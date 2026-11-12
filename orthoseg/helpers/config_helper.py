@@ -224,6 +224,32 @@ def read_orthoseg_config(config_path: Path, overrules: list[str] | None = None):
         )
         dirs["projects_dir"] = projects_dir_absolute.as_posix()
 
+    output_vector_predict_name = files.get("output_vector_predict_name", "").strip()
+    if not output_vector_predict_name:
+        logger.warning(
+            "files.output_vector_predict_name is not explicitly specified. "
+            "In future versions, the fallback value will change to "
+            "'{segment_subject}_{image_layer}_{model_version}_predict.gpkg'. "
+            "Currently falling back to the pattern used in the past (including the "
+            "epoch)."
+        )
+        files["output_vector_predict_name"] = (
+            "{segment_subject}_{model_version}_{epoch}_{image_layer}_predict.gpkg"
+        )
+
+    output_vector_postp_name = files.get("output_vector_postp_name", "").strip()
+    if not output_vector_postp_name:
+        logger.warning(
+            "files.output_vector_postp_name is not explicitly specified. "
+            "In future versions, the fallback value will change to "
+            "'{segment_subject}_{image_layer}_{model_version}.gpkg'. "
+            "Currently falling back to the pattern used in the past (including the "
+            "epoch)."
+        )
+        files["output_vector_postp_name"] = (
+            "{segment_subject}_{model_version}_{epoch}_{image_layer}.gpkg"
+        )
+
     # If postprocess.output_style_path is a relative path, resolve it towards the
     # location of the project config file.
     output_style_path_is_default_value = (

@@ -37,6 +37,7 @@ class AiDetectionInfo:
         postprocessing: str,
         *,
         model_version: str | None = None,
+        epoch: int | None = None,
     ):
         """Init.
 
@@ -47,6 +48,7 @@ class AiDetectionInfo:
             image_layer: the image layer that the detection is based on
             postprocessing: the postprocessing done
             model_version: the full model version string. Defaults to None.
+            epoch: the epoch of the model if present in filename. Defaults to None.
         """
         self.path = path
         self.subject = subject
@@ -56,6 +58,7 @@ class AiDetectionInfo:
         self.model_version = (
             model_version if model_version is not None else f"{traindata_version:02d}"
         )
+        self.epoch = epoch
 
 
 def aidetection_info(path: Path) -> AiDetectionInfo:
@@ -85,6 +88,7 @@ def aidetection_info(path: Path) -> AiDetectionInfo:
             and param_values[2].split(".")[0].split("-")[0].isdigit()
         )
 
+        epoch = None
         if is_new_format:
             image_layer = param_values[1]
             model_info = param_values[2]
@@ -95,19 +99,12 @@ def aidetection_info(path: Path) -> AiDetectionInfo:
             model_info = param_values[1]
             model_info_values = model_info.split(".")
             traindata_version = int(model_info_values[0].split("-")[0])
-            """
-            architecture_version = 0
-            trainparams_version = 0
-            if len(model_info_values) > 1:
-                architecture_version = int(model_info_values[1])
-                if len(model_info_values) > 2:
-                    trainparams_version = int(model_info_values[2])
-            aimodel_epoch = int(param_values[2])
-            """
+
             # If the third field is an integer, it is a legacy name with the epoch
             # number.
             if param_values[2].isdigit():
                 index_image_layer = 3
+                epoch = int(param_values[2])
             else:
                 index_image_layer = 2
 
@@ -129,4 +126,5 @@ def aidetection_info(path: Path) -> AiDetectionInfo:
         image_layer,
         postprocessing,
         model_version=model_info,
+        epoch=epoch,
     )

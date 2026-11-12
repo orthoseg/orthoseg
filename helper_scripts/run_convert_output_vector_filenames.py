@@ -1,6 +1,7 @@
 """Helper script to convert output_vector filenames in orthoseg project directories."""
 
 import logging
+import string
 from pathlib import Path
 
 import geofileops as gfo
@@ -32,7 +33,6 @@ def run_convert_output_vector_filenames(
     Returns:
         Dictionary mapping project directory to list of (src, dst) renamed paths.
     """
-    _install_log_filter()
     results: dict[Path, list[tuple[Path, Path]]] = {}
     projects = [
         subdir
@@ -69,19 +69,19 @@ def convert_output_vector_filenames_project(
         logger.info(f"Config_path ({config_path}) doesn't exist.")
         return []
 
-    _install_log_filter()
-    try:
-        conf.read_orthoseg_config(config_path=config_path)
-    except Exception as ex:
-        logger.warning(f"Error reading config ({config_path}): {ex}")
-        return []
-    log_dir = conf.dirs.getpath("log_dir")
-    if log_dir.exists():
-        logger = log_util.main_log_init(
-            log_dir=log_dir,
-            log_basefilename=run_convert_output_vector_filenames.__name__,
-        )
-        _install_log_filter()
+    with _LogFilterContext() as filter_ctx:
+        try:
+            conf.read_orthoseg_config(config_path=config_path)
+        except Exception as ex:
+            logger.warning(f"Error reading config ({config_path}): {ex}")
+            return []
+        log_dir = conf.dirs.getpath("log_dir")
+        if log_dir.exists():
+            logger = log_util.main_log_init(
+                log_dir=log_dir,
+                log_basefilename=run_convert_output_vector_filenames.__name__,
+            )
+            filter_ctx.add_filter()
 
     output_vector_dir = conf.dirs.getpath("output_vector_dir")
     output_vector_parent_dir = output_vector_dir.parent
@@ -113,19 +113,41 @@ def convert_output_vector_filenames_project(
             "image_layer": ai_info.image_layer,
             "model_version": model_version,
             "basefilename": f"{ai_info.subject}_{model_version}",
-            "epoch": "",
+            "epoch": "" if ai_info.epoch is None else str(ai_info.epoch),
             "traindata_id": ai_info.traindata_version,
             "model_config_name": model_config_name,
         }
 
         if ai_info.postprocessing == "predict":
             template = conf.files["output_vector_predict_name"]
-            new_filename = template.format(**format_kwargs)
-        elif ai_info.postprocessing == "":
-            template = conf.files["output_vector_postp_name"]
-            new_filename = template.format(**format_kwargs)
         else:
             template = conf.files["output_vector_postp_name"]
+
+        # Check if any placeholder in the template evaluates to empty
+        used_placeholders = [
+            field_name
+            for _, field_name, _, _ in string.Formatter().parse(template)
+            if field_name
+        ]
+        empty_placeholders = [
+            field
+            for field in used_placeholders
+            if format_kwargs.get(field) is None
+            or str(format_kwargs.get(field)).strip() == ""
+        ]
+        if empty_placeholders:
+            logger.warning(
+                f"Cannot convert {file.name}: placeholder(s) "
+                f"{', '.join(empty_placeholders)} empty for template '{template}', "
+                "skipping rename."
+            )
+            continue
+
+        if ai_info.postprocessing == "predict":
+            new_filename = template.format(**format_kwargs)
+        elif ai_info.postprocessing == "":
+            new_filename = template.format(**format_kwargs)
+        else:
             base_postp = Path(template.format(**format_kwargs))
             new_filename = f"{base_postp.stem}_{ai_info.postprocessing}{file.suffix}"
 
@@ -167,27 +189,46 @@ class _ConvertScriptLogFilter(logging.Filter):
             return True
 
 
-def _install_log_filter() -> None:
-    """Install filter on loggers and root logger/handlers."""
-    filter_obj = _ConvertScriptLogFilter()
+class _LogFilterContext:
+    """Context manager to install and uninstall conversion log filter."""
 
-    for logger_name in (
-        "orthoseg.util.image_util",
-        "orthoseg.helpers.config_helper",
-    ):
-        target_logger = logging.getLogger(logger_name)
-        if not any(
-            isinstance(f, _ConvertScriptLogFilter) for f in target_logger.filters
+    def __init__(self) -> None:
+        self.filter = _ConvertScriptLogFilter()
+        self.targets: list[logging.Logger | logging.Handler] = []
+
+    def add_filter(self) -> None:
+        for name in (
+            "orthoseg.util.image_util",
+            "orthoseg.helpers.config_helper",
         ):
-            target_logger.addFilter(filter_obj)
+            logger_obj = logging.getLogger(name)
+            if not any(
+                isinstance(f, _ConvertScriptLogFilter) for f in logger_obj.filters
+            ):
+                logger_obj.addFilter(self.filter)
+                self.targets.append(logger_obj)
 
-    root_logger = logging.getLogger()
-    if not any(isinstance(f, _ConvertScriptLogFilter) for f in root_logger.filters):
-        root_logger.addFilter(filter_obj)
+        root = logging.getLogger()
+        if not any(isinstance(f, _ConvertScriptLogFilter) for f in root.filters):
+            root.addFilter(self.filter)
+            self.targets.append(root)
 
-    for handler in root_logger.handlers:
-        if not any(isinstance(f, _ConvertScriptLogFilter) for f in handler.filters):
-            handler.addFilter(filter_obj)
+        for handler in root.handlers:
+            if not any(isinstance(f, _ConvertScriptLogFilter) for f in handler.filters):
+                handler.addFilter(self.filter)
+                self.targets.append(handler)
+
+    def __enter__(self) -> "_LogFilterContext":
+        self.add_filter()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        for target in self.targets:
+            try:
+                target.removeFilter(self.filter)
+            except Exception:
+                pass
+        self.targets.clear()
 
 
 def _rename_gpkg_layer(gpkg_path: Path, old_stem: str, new_stem: str) -> None:

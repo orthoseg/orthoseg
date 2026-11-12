@@ -13,12 +13,14 @@
 - Replace `model.architecture_id` and `train.trainparams_id` by a new parameter
   `model.model_config_name`. The replaced parameters are deprecated but are still used
   if `model.model_config_name` is not specified for backwards compatibility (#375).
-- When running `predict` or `postprocess`, the output file name can now be configured
-  via the `files.output_vector_predict_name` and `files.output_vector_postp_name`
-  options. In addition, the default output file name changed to
-  `{segment_subject}_{image_layer}_{model_version}.gpkg` (#356, #378).
 - Running `predict` now (by default) includes postprocessing the output. If you want to
   keep doing this in a seperate step you can specify `--no_postprocess` (#360).
+- When running `predict` or `postprocess`, the output file name can now be configured
+  via the `files.output_vector_predict_name` and `files.output_vector_postp_name`
+  options. In a future version, the default output file name will change to
+  `{segment_subject}_{image_layer}_{model_version}[_predict].gpkg`, so it is recommended
+  to explicitly configure these parameters to avoid surprises in the future
+  (#356, #378).
 
 ### Improvements
 
