@@ -95,9 +95,7 @@ def test_run_convert_output_vector_filenames(
     )
 
 
-def test_convert_output_vector_filenames_empty_placeholder_warning(
-    tmp_path: Path, capsys: pytest.CaptureFixture
-):
+def test_convert_output_vector_filenames_empty_placeholder_warning(tmp_path: Path):
     projects_dir = tmp_path / "sample_projects"
     shutil.copytree(test_helper.sampleprojects_dir, projects_dir)
     project_dir = projects_dir / test_helper.SportsFields.subject
@@ -115,14 +113,12 @@ def test_convert_output_vector_filenames_empty_placeholder_warning(
             "{segment_subject}_{image_layer}_{model_config_name}_predict.gpkg\n"
         )
 
-    renamed = convert_output_vector_filenames_project(
-        project_dir=project_dir, simulate=False
-    )
+    with pytest.warns(UserWarning, match=r"placeholder\(s\) model_config_name empty"):
+        renamed = convert_output_vector_filenames_project(
+            project_dir=project_dir, simulate=False
+        )
     assert renamed == []
     assert pred_file.exists()
-
-    captured = capsys.readouterr()
-    assert "placeholder(s) model_config_name empty" in captured.err
 
 
 def test_convert_output_vector_filenames_project_no_config(tmp_path: Path):

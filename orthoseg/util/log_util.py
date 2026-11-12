@@ -144,7 +144,12 @@ def main_log_init(log_dir: Path, log_basefilename: str):
 
     # Set the general maximum log level...
     logger.setLevel(logging.INFO)
+    pytest_handlers = [
+        h for h in logger.handlers if h.__class__.__name__ == "LogCaptureHandler"
+    ]
     for handler in logger.handlers:
+        if handler in pytest_handlers:
+            continue
         try:
             handler.flush()
         except Exception:
@@ -155,9 +160,8 @@ def main_log_init(log_dir: Path, log_basefilename: str):
             pass
 
     # Remove all handlers and add the ones I want again, so a new log file is created
-    # for each run
-    # Remark: the function removehandler doesn't seem to work?
-    logger.handlers = []
+    # for each run. Preserve test capture handlers (e.g. pytest caplog).
+    logger.handlers = list(pytest_handlers)
 
     ch = logging.StreamHandler()
     ch.setLevel(logging.INFO)

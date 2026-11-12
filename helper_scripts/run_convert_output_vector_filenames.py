@@ -2,6 +2,7 @@
 
 import logging
 import string
+import warnings
 from pathlib import Path
 
 import geofileops as gfo
@@ -136,10 +137,11 @@ def convert_output_vector_filenames_project(
             or str(format_kwargs.get(field)).strip() == ""
         ]
         if empty_placeholders:
-            logger.warning(
+            warnings.warn(
                 f"Cannot convert {file.name}: placeholder(s) "
                 f"{', '.join(empty_placeholders)} empty for template '{template}', "
-                "skipping rename."
+                "skipping rename.",
+                stacklevel=2,
             )
             continue
 
