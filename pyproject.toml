@@ -66,3 +66,15 @@ extra-standard-library = ["packaging"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    # Keras 3.15 spurious false positive warning when loading saved models
+    "ignore:Skipping nested container at:UserWarning",
+    # TensorFlow EagerTensor.__array__ copy keyword deprecation warning with NumPy 2.x
+    "ignore:__array__ implementation doesn't accept a copy keyword:DeprecationWarning",
+    # segmodels_keras / keras applications imagenet weights default shape warning when input_shape is undefined
+    "ignore:`input_shape` is undefined or non-square:UserWarning",
+    # Rasterio warning when reading/writing mock test images without geo coordinates
+    "ignore:Dataset has no geotransform, gcps, or rpcs:rasterio.errors.NotGeoreferencedWarning",
+]
