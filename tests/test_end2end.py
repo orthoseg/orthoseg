@@ -118,6 +118,13 @@ def test_3_train():
 
     # Check if the training (image) data was created
     assert training_id_dir.exists()
+    train_image_dir = training_id_dir / "train/image"
+    assert train_image_dir.exists()
+    assert len(list(train_image_dir.glob("*.jpg"))) == 1
+    assert len(list(train_image_dir.glob("*.jgw"))) == 1
+    train_mask_dir = training_id_dir / "train/masks"
+    assert train_mask_dir.exists()
+    assert len(list(train_mask_dir.glob("*.png"))) == 1
 
     # Check if the new model was created
     best_model = mh.get_best_model(
