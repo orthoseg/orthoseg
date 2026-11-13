@@ -511,10 +511,15 @@ def _predict_layer(
         _processing_util.setprocessnice(15)
 
     with (
-        futures.ProcessPoolExecutor(
-            nb_parallel_postprocess, initializer=init_postprocess_worker()
+        _processing_util.PooledExecutorFactory(
+            worker_type="processes",
+            max_workers=nb_parallel_postprocess,
+            initializer=init_postprocess_worker,
         ) as postprocess_pool,
-        futures.ProcessPoolExecutor(max_workers=1) as write_pool,
+        _processing_util.PooledExecutorFactory(
+            worker_type="processes",
+            max_workers=1,
+        ) as write_pool,
     ):
         # Start looping.
         # If ready to stop, the code below will break
