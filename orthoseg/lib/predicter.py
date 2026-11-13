@@ -508,19 +508,14 @@ def _predict_layer(
     last_image_reached = False
 
     # We don't want the postprocess workers to block the entire system,
-    # so make them a bit nicer
-    def init_postprocess_worker():
-        _processing_util.setprocessnice(15)
+    # so make them a bit nicer by using _processing_util.initialize_worker
 
     with (
         _processing_util.PooledExecutorFactory(
-            worker_type="processes",
-            max_workers=nb_parallel_postprocess,
-            initializer=init_postprocess_worker,
+            worker_type="processes", max_workers=nb_parallel_postprocess
         ) as postprocess_pool,
         _processing_util.PooledExecutorFactory(
-            worker_type="processes",
-            max_workers=1,
+            worker_type="processes", max_workers=1, nice_value=None
         ) as write_pool,
     ):
         # Start looping.

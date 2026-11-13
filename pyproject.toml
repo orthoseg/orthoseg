@@ -57,7 +57,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 # ignore pydocstyle errors in tests
-"tests/*" = ["ANN", "D"]
+"tests/*" = ["ANN", "D", "PLR0917"]
 "perftests/*" = ["ANN", "D"]
 
 [tool.ruff.lint.isort]
