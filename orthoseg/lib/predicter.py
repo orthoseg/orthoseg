@@ -10,10 +10,9 @@ import threading
 import time
 import traceback
 from collections.abc import Callable
-from concurrent import futures
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import geofileops as gfo
 import keras.models
@@ -27,6 +26,9 @@ import orthoseg.lib.postprocess_predictions as postp
 from orthoseg.helpers import _predicter_dataset
 from orthoseg.util import _processing_util, image_util
 from orthoseg.util.progress_util import ProgressLogger
+
+if TYPE_CHECKING:
+    from concurrent import futures
 
 # Get a logger...
 logger = logging.getLogger(__name__)
