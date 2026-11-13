@@ -12,7 +12,7 @@ import keras
 from orthoseg.helpers import config_helper as conf, email_helper
 from orthoseg.lib import predicter, prepare_traindatasets as prep, trainer
 from orthoseg.model import model_factory as mf, model_helper as mh
-from orthoseg.util import _processing_util, log_util
+from orthoseg.util import _processing_util, image_util, log_util
 
 # Get a logger...
 logger = logging.getLogger(__name__)
@@ -132,6 +132,7 @@ def train(config_path: Path, config_overrules: list[str] | None = None):
                 image_pixel_y_size=conf.train.getfloat("image_pixel_y_size"),
                 image_pixel_width=conf.train.getint("image_pixel_width"),
                 image_pixel_height=conf.train.getint("image_pixel_height"),
+                image_format=conf.train.get("image_format", image_util.FORMAT_JPEG),
                 ssl_verify=conf.general.get("ssl_verify", True),
             )
 
