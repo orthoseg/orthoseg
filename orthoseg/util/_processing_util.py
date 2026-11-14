@@ -6,6 +6,7 @@ import multiprocessing.context
 import os
 import shutil
 import subprocess
+import sys
 from collections.abc import Callable
 from concurrent import futures
 from types import TracebackType
@@ -73,8 +74,10 @@ class PooledExecutorFactory:
         )
 
         self.mp_context = mp_context
-        if mp_context is None and os.name not in {"nt", "darwin"}:
-            # On linux, overrule default to "forkserver" to avoid risks to deadlocks
+        # On linux, overrule the default to "forkserver" to avoid risks to
+        # deadlocks. On windows and macOS, the platform default is used, as
+        # forkserver isn't the best choice there.
+        if mp_context is None and os.name != "nt" and sys.platform != "darwin":
             self.mp_context = multiprocessing.get_context("forkserver")
         self.pool: futures.Executor | None = None
 
