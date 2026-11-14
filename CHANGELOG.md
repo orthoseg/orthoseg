@@ -34,6 +34,10 @@
   the default for supported architectures (#327)
 - Add support for mixed dtype in train and predict (#361)
 - Add support for using float8 quantization for predict (#376)
+- Add option `train.image_format` to specify the image format the training images
+  are saved in. The default image format changed from png to jpeg, as this
+  reduces the disk space needed considerably. The label masks are always saved
+  in png, as saving them in a lossy format is not supported.
 - Add support to reproject a local image layer (#290)
 - Add support to configure an image layer based on a simple dir with images (#337)
 - Add postprocessing option to add a qml style to the output layer (#347)

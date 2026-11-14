@@ -145,6 +145,7 @@ def prepare_traindatasets(
     image_pixel_y_size: float = 0.25,
     image_pixel_width: int = 512,
     image_pixel_height: int = 512,
+    image_format: str = image_util.FORMAT_JPEG,
     ssl_verify: bool | str = True,
     only_validate: bool = False,
     force: bool = False,
@@ -177,6 +178,10 @@ def prepare_traindatasets(
         image_pixel_y_size: pixel size in y direction. Defaults to 0.25.
         image_pixel_width: width of the image in pixels. Defaults to 512.
         image_pixel_height: height of the image in pixels. Defaults to 512.
+        image_format: the image format to save the training images in, e.g.
+            "image/jpeg" or "image/png". Defaults to "image/jpeg".
+            Remark: the corresponding masks are always saved as .png, as a mask
+            should never be saved in a lossy format.
         ssl_verify: True to use the default
             certificate bundle as installed on your system. False disables
             certificate validation (NOT recommended!). If a path to a
@@ -360,6 +365,7 @@ def prepare_traindatasets(
                         previous_imagedata_image_dir=previous_imagedata_image_dir,
                         image_pixel_width=image_pixel_width,
                         image_pixel_height=image_pixel_height,
+                        image_format=image_format,
                         ssl_verify=ssl_verify,
                         force=force,
                     )
@@ -789,6 +795,7 @@ def _prepare_image_and_mask(
     previous_imagedata_image_dir: Path | None,
     image_pixel_width: int,
     image_pixel_height: int,
+    image_format: str,
     ssl_verify: bool | str,
     force: bool,
 ) -> None:
@@ -798,7 +805,7 @@ def _prepare_image_and_mask(
         crs=image_crs,
         bbox=img_bbox.bounds,
         size=(image_pixel_width, image_pixel_height),
-        image_format=image_util.FORMAT_PNG,
+        image_format=image_format,
         layername="_".join(image_layers[image_layer]["layersources"][0].layernames),
     )
 
@@ -813,11 +820,15 @@ def _prepare_image_and_mask(
                 dst=output_imagedata_image_dir / output_filename,
             )
         )
-        pgw_filename = output_filename.replace(".png", ".pgw")
-        if (previous_imagedata_image_dir / pgw_filename).exists():
+        # The world file has the same name as the image, but with the extension
+        # corresponding with the image format.
+        world_filename = Path(
+            output_filename
+        ).stem + image_util._get_world_ext_for_image_format(image_format)
+        if (previous_imagedata_image_dir / world_filename).exists():
             shutil.copyfile(
-                src=previous_imagedata_image_dir / pgw_filename,
-                dst=output_imagedata_image_dir / pgw_filename,
+                src=previous_imagedata_image_dir / world_filename,
+                dst=output_imagedata_image_dir / world_filename,
             )
     else:
         # Get the image from the WMS service.
@@ -828,7 +839,7 @@ def _prepare_image_and_mask(
             bbox=img_bbox.bounds,
             size=(image_pixel_width, image_pixel_height),
             ssl_verify=ssl_verify,
-            image_format=image_util.FORMAT_PNG,
+            image_format=image_format,
             # image_format_save=image_util.FORMAT_TIFF,
             image_pixels_ignore_border=image_layers[image_layer][
                 "image_pixels_ignore_border"
@@ -842,15 +853,10 @@ def _prepare_image_and_mask(
         logger.warning(f"Could not get image at {img_bbox.wkt}")
         return
 
-    # Create a mask corresponding with the image file
+    # Create the file path for the mask corresponding with the image file.
     # Mask should never be in a lossy format -> png!
-    mask_filepath = Path(
-        str(image_filepath)
-        .replace(
-            str(output_imagedata_image_dir),
-            str(output_imagedata_mask_dir),
-        )
-        .replace(".jpg", ".png")
+    mask_filepath = (output_imagedata_mask_dir / image_filepath.name).with_suffix(
+        image_util.FORMAT_PNG_EXT
     )
 
     # Only keep the labels that are meant for this image layer
