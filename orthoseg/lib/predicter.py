@@ -895,8 +895,7 @@ def _handle_error(
 
 
 def _predict_image_batch(
-    model: keras.models.Model,
-    image_tensors: list[tf.Tensor],
+    model: keras.models.Model, image_tensors: list[tf.Tensor]
 ) -> list[np.ndarray]:
     image_indices_by_shape: dict[tuple[int, ...], list[int]] = {}
     for image_index, image_tensor in enumerate(image_tensors):
