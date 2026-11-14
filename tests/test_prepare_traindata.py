@@ -424,6 +424,7 @@ def test_prepare_traindatasets_reuse_prev_images(
         classes=classes,
         image_layers=image_layers,
         training_dir=training_dir,
+        image_format=prep_traindata.image_util.FORMAT_PNG,
     )
 
     # Check if files exist in new output folder and if they have the correct size
@@ -448,7 +449,17 @@ def test_prepare_traindatasets_reuse_prev_images(
                 assert prev_path.exists()
 
 
-def test_prepare_traindatasets_parallel_local_fetch(tmp_path, monkeypatch):
+@pytest.mark.parametrize(
+    "image_format, expected_image_ext",
+    [
+        (None, ".jpg"),
+        (prep_traindata.image_util.FORMAT_JPEG, ".jpg"),
+        (prep_traindata.image_util.FORMAT_PNG, ".png"),
+    ],
+)
+def test_prepare_traindatasets_parallel_local_fetch(
+    tmp_path, monkeypatch, image_format, expected_image_ext
+):
     """Run prepare_traindatasets with concurrent workers without WMS dependency."""
 
     def _fake_load_image_to_file(*args, **kwargs):  # noqa: ARG001
@@ -460,7 +471,7 @@ def test_prepare_traindatasets_parallel_local_fetch(tmp_path, monkeypatch):
             mode="RGB",
             size=(TestData.image_pixel_width, TestData.image_pixel_height),
         )
-        img.save(image_path, "png")
+        img.save(image_path)
         return image_path
 
     monkeypatch.setattr(
@@ -489,19 +500,30 @@ def test_prepare_traindatasets_parallel_local_fetch(tmp_path, monkeypatch):
     locations_gdf = gpd.GeoDataFrame(location_rows, crs=31370)
     label_infos = _prepare_labelinfos(tmp_path=tmp_path, locations=locations_gdf)
 
+    image_format_kwargs = {} if image_format is None else {"image_format": image_format}
     output_dir, _ = prep_traindata.prepare_traindatasets(
         label_infos=label_infos,
         classes=classes,
         image_layers=image_layers,
         training_dir=training_dir,
         nb_concurrent_calls=2,
+        **image_format_kwargs,
     )
 
     for traindata_type in ["train", "validation", "test"]:
-        image_paths = list((output_dir / traindata_type / "image").glob("*.png"))
-        mask_paths = list((output_dir / traindata_type / "mask").glob("*.png"))
+        image_dir = output_dir / traindata_type / "image"
+        mask_dir = output_dir / traindata_type / "mask"
+        image_paths = list(image_dir.glob(f"*{expected_image_ext}"))
+        unexpected_image_ext = ".png" if expected_image_ext == ".jpg" else ".jpg"
         assert len(image_paths) == 2
+        # The images should only be saved in the format requested
+        assert len(list(image_dir.glob(f"*{unexpected_image_ext}"))) == 0
+        # Masks should always be saved in .png
+        mask_paths = list(mask_dir.glob("*.png"))
         assert len(mask_paths) == 2
+        assert {image_path.stem for image_path in image_paths} == {
+            mask_path.stem for mask_path in mask_paths
+        }
 
 
 def test_prepare_traindatasets_invalid_nb_concurrent_calls(tmp_path):
