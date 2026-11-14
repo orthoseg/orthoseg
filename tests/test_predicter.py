@@ -46,7 +46,9 @@ def _identity_model():
 
 
 def _patch_prediction_runtime(monkeypatch, tmp_path):
-    monkeypatch.setattr(predicter.futures, "ProcessPoolExecutor", _ImmediateExecutor)
+    monkeypatch.setattr(
+        predicter._processing_util, "PooledExecutorFactory", _ImmediateExecutor
+    )
     monkeypatch.setattr(predicter, "ProgressLogger", _NoopProgressLogger)
     monkeypatch.setattr(
         predicter._processing_util, "setprocessnice", lambda _priority: None

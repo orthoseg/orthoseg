@@ -10,10 +10,9 @@ import threading
 import time
 import traceback
 from collections.abc import Callable
-from concurrent import futures
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import geofileops as gfo
 import keras.models
@@ -27,6 +26,9 @@ import orthoseg.lib.postprocess_predictions as postp
 from orthoseg.helpers import _predicter_dataset
 from orthoseg.util import _processing_util, image_util
 from orthoseg.util.progress_util import ProgressLogger
+
+if TYPE_CHECKING:
+    from concurrent import futures
 
 # Get a logger...
 logger = logging.getLogger(__name__)
@@ -506,15 +508,15 @@ def _predict_layer(
     last_image_reached = False
 
     # We don't want the postprocess workers to block the entire system,
-    # so make them a bit nicer
-    def init_postprocess_worker():
-        _processing_util.setprocessnice(15)
+    # so make them a bit nicer by using _processing_util.initialize_worker
 
     with (
-        futures.ProcessPoolExecutor(
-            nb_parallel_postprocess, initializer=init_postprocess_worker()
+        _processing_util.PooledExecutorFactory(
+            worker_type="processes", max_workers=nb_parallel_postprocess
         ) as postprocess_pool,
-        futures.ProcessPoolExecutor(max_workers=1) as write_pool,
+        _processing_util.PooledExecutorFactory(
+            worker_type="processes", max_workers=1, nice_value=None
+        ) as write_pool,
     ):
         # Start looping.
         # If ready to stop, the code below will break
@@ -893,8 +895,7 @@ def _handle_error(
 
 
 def _predict_image_batch(
-    model: keras.models.Model,
-    image_tensors: list[tf.Tensor],
+    model: keras.models.Model, image_tensors: list[tf.Tensor]
 ) -> list[np.ndarray]:
     image_indices_by_shape: dict[tuple[int, ...], list[int]] = {}
     for image_index, image_tensor in enumerate(image_tensors):
