@@ -122,7 +122,7 @@ def test_3_train():
     assert train_image_dir.exists()
     assert len(list(train_image_dir.glob("*.jpg"))) == 1
     assert len(list(train_image_dir.glob("*.jgw"))) == 1
-    train_mask_dir = training_id_dir / "train/masks"
+    train_mask_dir = training_id_dir / "train/mask"
     assert train_mask_dir.exists()
     assert len(list(train_mask_dir.glob("*.png"))) == 1
 
