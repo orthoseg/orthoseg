@@ -49,6 +49,8 @@
   `pytest.mark.parametrize` when several cases share setup and assertions, keep
   one-off test names concise, and order test functions alphabetically within each
   test module.
+- Prefer platform-specific skips over monkeypatching platform metadata; use monkeypatch
+  to isolate external dependencies.
 - Keep project-specific behavior in configuration rather than adding per-project
   Python code. Load and validate project settings through
   `orthoseg.helpers.config_helper`; use its typed accessors for values such as paths,

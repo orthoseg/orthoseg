@@ -8,7 +8,6 @@ from contextlib import nullcontext
 from pathlib import Path
 
 import geofileops as gfo
-import geopandas as gpd
 import pytest
 from PIL import Image
 
@@ -325,7 +324,7 @@ def test_predict_use_cache_skip(tmp_path, use_cache, skip_images):
 
     # The area of the output should be within a 10% margin of the expected area.
     assert result_vector_path.exists()
-    result_gdf = gpd.read_file(result_vector_path)
+    result_gdf = gfo.read_file(result_vector_path)
     assert result_gdf is not None
     assert result_gdf.crs.to_epsg() == 31370
     exp_area = 33177 if not skip_images else 5723

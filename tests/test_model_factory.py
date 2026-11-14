@@ -48,6 +48,11 @@ def test_check_image_size(
         )
 
 
+# The model is only compiled, not trained, so the saved optimizer isn't fully
+# built. On load keras skips loading the optimizer state and warns about it.
+@pytest.mark.filterwarnings(
+    "ignore:Skipping variable loading for optimizer:UserWarning"
+)
 @pytest.mark.skipif(
     "GITHUB_ACTIONS" in os.environ and os.name == "nt",
     reason="crashes on github CI on windows",

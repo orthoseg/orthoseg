@@ -1,3 +1,5 @@
+"""Tests for orthoseg.helpers.config_helper."""
+
 import re
 import shutil
 import tempfile
@@ -50,6 +52,10 @@ def test_read_orthoseg_config_image_layers(image_layer):
     [
         ([], ""),
         (
+            ["model.model_config_name=custom.v1"],
+            "custom.v1",
+        ),
+        (
             ["model.architecture_id=2", "train.trainparams_id=5"],
             "2.5",
         ),
@@ -68,7 +74,22 @@ def test_read_orthoseg_config_image_layers(image_layer):
     ],
 )
 def test_read_orthoseg_config_model_config_name(overrules, expected_model_config_name):
-    conf.read_orthoseg_config(SportsFields.config_path, overrules=overrules)
+    """Test if the model_config_name is correctly determined for backward compatibility.
+
+    It also checks if the appropriate warning is raised for deprecated overrules.
+    """
+    # For deprecated overrules, we expect a warning.
+    expected_warning = False
+    for overrule in overrules:
+        if overrule.startswith(("model.architecture_id", "train.trainparams_id")):
+            expected_warning = True
+            break
+
+    if expected_warning:
+        with pytest.warns(UserWarning, match="is deprecated and will be removed"):
+            conf.read_orthoseg_config(SportsFields.config_path, overrules=overrules)
+    else:
+        conf.read_orthoseg_config(SportsFields.config_path, overrules=overrules)
 
     assert conf.model["model_config_name"] == expected_model_config_name
     assert conf.model["model_version"] == ""
@@ -278,10 +299,13 @@ def test_read_orthoseg_config_train_weights_type():
 
     # With a non-existing architecture, no aerial weights should be available, so
     # weights_type should fall back to imagenet.
-    conf.read_orthoseg_config(
-        SportsFields.config_path,
-        overrules=["model.architecture=no-weigths+no-weights"],
-    )
+    with pytest.warns(
+        UserWarning, match="No aerial pretrained weights available for architecture="
+    ):
+        conf.read_orthoseg_config(
+            SportsFields.config_path,
+            overrules=["model.architecture=no-weigths+no-weights"],
+        )
     assert conf.train.get("weights_type") == "imagenet"
 
 

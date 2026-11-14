@@ -1,6 +1,4 @@
-"""
-Tests for functionalities in orthoseg.lib.postprocess_predictions.
-"""
+"""Tests for functionalities in orthoseg.lib.postprocess_predictions."""
 
 import os
 
@@ -69,7 +67,7 @@ def test_reclassify_neighbours(tmp_path):
         ],
     ]
     df = pd.DataFrame(testdata, columns=columns)
-    testdata_gdf = gpd.GeoDataFrame(df, geometry="geometry")
+    testdata_gdf = gpd.GeoDataFrame(df, geometry="geometry", crs="EPSG:31370")
     # Remove a row to test if the index is properly maintained
     testdata_gdf = testdata_gdf.drop([2], axis=0)
     testdata_path = tmp_path / "testdata.gpkg"

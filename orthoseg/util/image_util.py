@@ -212,6 +212,9 @@ def get_images_for_grid(
         geometry=pygeoops.create_grid3(grid_bbox, width=crs_width, height=crs_height),
         crs=crs,
     )
+    tiles_to_download_gdf["path"] = None
+    tiles_to_download_gdf["pixel_width"] = 0
+    tiles_to_download_gdf["pixel_height"] = 0
 
     # Loop through all tiles to apply pixels_overlap and add the output path
     for tile in tiles_to_download_gdf.geometry.bounds.itertuples():

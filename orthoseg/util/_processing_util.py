@@ -6,6 +6,7 @@ import multiprocessing.context
 import os
 import shutil
 import subprocess
+import sys
 from collections.abc import Callable
 from concurrent import futures
 from types import TracebackType
@@ -25,10 +26,20 @@ class PooledExecutorFactory:
         max_workers (int, optional): Maximum number of workers.
             Defaults to None to get automatic determination.
         initializer (function, optional): Function that does initialisations.
+            Defaults to None.
+        initargs (tuple, optional): Arguments to pass to the initializer function.
+            Defaults to an empty tuple.
         mp_context (BaseContext, optional): multiprocessing context if processes are
             used. If None, "forkserver" will be used on linux to avoid risks on getting
             deadlocks. Defaults to None.
-
+        nice_value: The niceness value to set for the worker. 19 is the maximum niceness
+            (lowest priority), and -20 is the minimum (highest priority). If None, the
+            niceness will not be changed. Defaults to 15.
+        openmp_threads: The size of the OpenMP threadpool to set for the worker.
+            If None, the number of OpenMP threads is not changed.
+            If 0, the pool size is determined as follows: for "threads" workers it is
+            not changed, for "processes" it will be determined by the environment
+            variable `GFO_WORKER_OMP_NUM_THREADS` or default to 1. Defaults to 0.
     """
 
     def __init__(
@@ -38,6 +49,9 @@ class PooledExecutorFactory:
         initializer: Callable | None = None,
         initargs: tuple = (),
         mp_context: multiprocessing.context.BaseContext | None = None,
+        *,
+        nice_value: int | None = 15,
+        openmp_threads: int | None = 0,
     ) -> None:
         self.worker_type = worker_type.lower()
         if self.worker_type not in WORKER_TYPES:
@@ -51,11 +65,19 @@ class PooledExecutorFactory:
             # On windows, max workers should be limited to 61 to avoid errors
             self.max_workers = min(max_workers, 61)
 
-        self.initializer = initializer
-        self.initargs = initargs
+        self.initializer, self.initargs = self._resolve_initializer_config(
+            worker_type=self.worker_type,
+            initializer=initializer,
+            initargs=initargs,
+            nice_value=nice_value,
+            openmp_threads=openmp_threads,
+        )
+
         self.mp_context = mp_context
-        if mp_context is None and os.name not in {"nt", "darwin"}:
-            # On linux, overrule default to "forkserver" to avoid risks to deadlocks
+        # On linux, overrule the default to "forkserver" to avoid risks to
+        # deadlocks. On windows and macOS, the platform default is used, as
+        # forkserver isn't the best choice there.
+        if mp_context is None and os.name != "nt" and sys.platform != "darwin":
             self.mp_context = multiprocessing.get_context("forkserver")
         self.pool: futures.Executor | None = None
 
@@ -90,36 +112,62 @@ class PooledExecutorFactory:
         if self.pool is not None:
             self.pool.shutdown(wait=True)
 
+    @staticmethod
+    def _resolve_initializer_config(
+        worker_type: str,
+        initializer: Callable | None,
+        initargs: tuple,
+        nice_value: int | None,
+        openmp_threads: int | None,
+    ) -> tuple[Callable | None, tuple]:
+        if initializer is None:
+            if nice_value is not None and (nice_value < -20 or nice_value > 19):
+                raise ValueError("nice_value must be between -20 and 19")
+            if openmp_threads is not None and openmp_threads < 0:
+                raise ValueError("openmp_threads must be non-negative")
+            if initargs:
+                raise ValueError("Cannot set initargs when using default initializer")
+            if openmp_threads == 0 and worker_type.lower() == "threads":
+                openmp_threads = None
+            if nice_value is None and openmp_threads is None:
+                return None, ()
+            return initialize_worker, (nice_value, openmp_threads)
 
-def initialize_worker(worker_type: str, nice_value: int = 15) -> None:
+        if nice_value is not None or openmp_threads is not None:
+            raise ValueError(
+                "nice_value and openmp_threads must be None with a custom initializer"
+            )
+        return initializer, initargs
+
+
+def initialize_worker(
+    nice_value: int | None = 15, openmp_threads: int | None = None
+) -> None:
     """Some default inits.
 
     Following things are done:
     - Set the worker process priority low (to `nice_value`) so the workers don't block
       the system.
-    - Reduce OpenMP threads to avoid committed memory getting very high. You can specify
-      the number of threads using the environment variable `GFO_WORKER_OMP_NUM_THREADS`.
+    - Set the size of the OpenMP threadpool. This helps avoid committed memory getting
+      very high when using multiprocessing.
 
     Args:
-        worker_type: The type of worker to initialize.
-            "threads" for thread pool, "processes" for process pool.
-        nice_value: The niceness value to set for the worker. 19 is the
-            maximum niceness (lowest priority), and -20 is the minimum
-            (highest priority). Defaults to 15.
+        nice_value: The niceness value to set for the worker. 19 is the maximum niceness
+            (lowest priority), and -20 is the minimum (highest priority). If None, the
+            niceness will not be changed. Defaults to 15.
+        openmp_threads: The size of the OpenMP threadpool to set for the worker.
+            If None, the number of OpenMP threads is not changed.
+            If 0, the number of OpenMP threads will be determined by the environment
+            variable `GFO_WORKER_OMP_NUM_THREADS` or default to 1.
     """
-    worker_type = worker_type.lower()
-    if worker_type not in WORKER_TYPES:
-        raise ValueError(
-            f"Invalid worker_type: {worker_type}. Must be one of {WORKER_TYPES}."
-        )
-
-    if worker_type == "processes":
-        # Reduce OpenMP threads to avoid unnecessary inflated committed memory when
-        # using multiprocessing.
-        # Should work for any numeric library used (openblas, mkl,...).
-        # Ref: https://stackoverflow.com/questions/77764228/pandas-scipy-high-commit-memory-usage-windows
-        worker_omp_threads = os.environ.get("GFO_WORKER_OMP_NUM_THREADS", "1")
-        os.environ["OMP_NUM_THREADS"] = worker_omp_threads
+    # Set the number of OpenMP threads to avoid unnecessary inflated committed
+    # memory when using multiprocessing.
+    # Should work for any numeric library used (openblas, mkl,...).
+    # Ref: https://stackoverflow.com/questions/77764228/pandas-scipy-high-commit-memory-usage-windows
+    if openmp_threads is not None:
+        if openmp_threads == 0:
+            openmp_threads = int(os.environ.get("GFO_WORKER_OMP_NUM_THREADS", "1"))
+        os.environ["OMP_NUM_THREADS"] = str(openmp_threads)
 
     # We don't want the workers to block the entire system, so make the workers nice
     # if they aren't quite nice already.
@@ -129,7 +177,7 @@ def initialize_worker(worker_type: str, nice_value: int = 15) -> None:
     #     niceness, even if it was you who niced before.
     #   - we are setting the niceness of the process here, so in case of
     #     `worker_type=threads` the main thread/process will also be impacted.
-    if getprocessnice() < nice_value:
+    if nice_value is not None and getprocessnice() < nice_value:
         setprocessnice(nice_value)
 
 
