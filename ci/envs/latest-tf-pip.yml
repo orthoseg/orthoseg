@@ -36,4 +36,4 @@ dependencies:
   - pytest-order
   - pip:
     - segmodels-keras
-    - tensorflow >=2.10,<2.20
+    - tensorflow >=2.10
