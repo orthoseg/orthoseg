@@ -35,7 +35,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         dev: [false]
-        python: ["3.10", "3.11", "3.12"]
+        python: ["3.10", "3.11", "3.12", "3.13"]
         env: ["latest"]
         extra: [""]
         include:
@@ -57,11 +57,11 @@ jobs:
           - env: latest-tf-pip
             os: macos-latest
             dev: false
-            python: "3.12"
+            python: "3.13"
           - env: latest-tf-pip
             os: windows-latest
             dev: false
-            python: "3.12"
+            python: "3.13"
           - env: latest-tf-pip
             os: ubuntu-latest
             dev: false

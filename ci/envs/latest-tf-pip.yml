@@ -8,7 +8,7 @@ name: orthoseg-latest-tf-pip
 channels:
   - conda-forge
 dependencies:
-  - python <3.13
+  - python
   - pip
   # required
   - astunparse  # Avoid it being installed via pip, otherwise segfault on windows
