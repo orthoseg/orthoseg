@@ -1,11 +1,13 @@
 """Internal helpers for reading prediction images concurrently."""
 
 import logging
+import queue
+import threading
 import traceback
 from collections.abc import Callable, Iterable, Iterator
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pyproj
@@ -254,25 +256,63 @@ def _iter_parallel_reads(
         raise ValueError("max_parallel_reads must be at least 1")
 
     def generate() -> Iterator[tuple[Path, dict[str, Any]]]:
-        item_iterator = iter(items)
-        with ThreadPoolExecutor(max_workers=max_parallel_reads) as executor:
-            pending: set[Future[tuple[Path, dict[str, Any]]]] = set()
-            for _ in range(max_parallel_reads):
-                try:
-                    item = next(item_iterator)
-                except StopIteration:
-                    break
-                pending.add(executor.submit(read_item, item))
+        results_queue: queue.Queue[object] = queue.Queue(maxsize=max_parallel_reads)
+        stop_producer = threading.Event()
+        finished = object()
 
-            while pending:
-                completed, pending = wait(pending, return_when=FIRST_COMPLETED)
-                for future in completed:
-                    yield future.result()
-                    try:
-                        item = next(item_iterator)
-                    except StopIteration:
-                        continue
-                    pending.add(executor.submit(read_item, item))
+        def enqueue(result: object) -> bool:
+            while not stop_producer.is_set():
+                try:
+                    results_queue.put(result, timeout=0.1)
+                    return True
+                except queue.Full:
+                    continue
+            return False
+
+        def produce() -> None:
+            try:
+                item_iterator = iter(items)
+                with ThreadPoolExecutor(max_workers=max_parallel_reads) as executor:
+                    pending: set[Future[tuple[Path, dict[str, Any]]]] = set()
+                    for _ in range(max_parallel_reads):
+                        try:
+                            item = next(item_iterator)
+                        except StopIteration:
+                            break
+                        pending.add(executor.submit(read_item, item))
+
+                    while pending and not stop_producer.is_set():
+                        completed, pending = wait(pending, return_when=FIRST_COMPLETED)
+                        for future in completed:
+                            try:
+                                result: object = future.result()
+                            except BaseException as ex:
+                                result = ex
+                            if not enqueue(result):
+                                return
+                            try:
+                                item = next(item_iterator)
+                            except StopIteration:
+                                continue
+                            pending.add(executor.submit(read_item, item))
+            except BaseException as ex:
+                enqueue(ex)
+            finally:
+                enqueue(finished)
+
+        producer = threading.Thread(target=produce, daemon=True)
+        producer.start()
+        try:
+            while True:
+                result = results_queue.get()
+                if result is finished:
+                    break
+                if isinstance(result, BaseException):
+                    raise result
+                yield cast("tuple[Path, dict[str, Any]]", result)
+        finally:
+            stop_producer.set()
+            producer.join()
 
     return generate()
 

@@ -523,6 +523,38 @@ def test_create_image_read_dataset_limits_parallel_reads(monkeypatch, tmp_path):
     assert max_active_reads == 2
 
 
+def test_create_image_read_dataset_reads_ahead_while_consumer_waits(
+    monkeypatch, tmp_path
+):
+    image_paths = [tmp_path / f"tile-{index}.tif" for index in range(5)]
+    later_read_started = threading.Event()
+
+    def fake_read_image(*, image_path, **_kwargs):
+        if image_path == image_paths[2]:
+            later_read_started.set()
+        return {
+            "image_data": np.zeros((1, 1, 1), dtype=np.float32),
+            "image_crs": None,
+            "image_transform": None,
+            "image_path": image_path,
+        }
+
+    monkeypatch.setattr(_predicter_dataset, "read_image", fake_read_image)
+    read_results = _predicter_dataset.create_image_read_dataset(
+        image_paths=image_paths,
+        projection_if_missing=None,
+        preprocess_input=None,
+        image_dtype=np.float32,
+        max_parallel_reads=2,
+    )
+
+    try:
+        next(read_results)
+        assert later_read_started.wait(timeout=2)
+    finally:
+        read_results.close()
+
+
 def test_create_live_image_read_dataset_empty_files():
     dataset = _predicter_dataset.create_live_image_read_dataset(
         image_files=[],
