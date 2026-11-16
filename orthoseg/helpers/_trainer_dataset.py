@@ -1,11 +1,11 @@
-"""Streaming TensorFlow input pipeline for paired training images and masks."""
+"""Streaming Keras input sequence for paired training images and masks."""
 
 import logging
 from collections.abc import Callable
-from functools import partial
 from pathlib import Path
 from typing import Any
 
+import keras
 import numpy as np
 import tensorflow as tf
 from PIL import Image
@@ -46,6 +46,8 @@ _GEOMETRIC_AUGMENTATION_KEYS = (
     "horizontal_flip",
     "vertical_flip",
 )
+_TRAINING_DATA_WORKERS = 4
+_TRAINING_DATA_MAX_QUEUE_SIZE = 2
 
 
 def create_train_dataset(
@@ -64,8 +66,8 @@ def create_train_dataset(
     target_size: tuple[int, int] = (256, 256),
     shuffle: bool = True,
     seed: int = 1,
-) -> tuple[tf.data.Dataset, int]:
-    """Create a streaming TensorFlow dataset of paired images and masks."""
+) -> tuple[keras.utils.Sequence, int]:
+    """Create a streaming Keras sequence of paired images and masks."""
     image_augment_dict = dict(image_augment_dict or {})
     mask_augment_dict = dict(mask_augment_dict or {})
     _validate_dataset_augmentations(image_augment_dict, mask_augment_dict)
@@ -80,7 +82,7 @@ def create_train_dataset(
             raise ValueError(f"Unsupported augmentation fill_mode: {fill_mode}")
         if int(augmentations.get("interpolation_order", 1)) not in {0, 1}:
             raise ValueError(
-                "interpolation_order must be 0 or 1 for the tf.data pipeline"
+                "interpolation_order must be 0 or 1 for the training pipeline"
             )
     if (
         nb_classes > 2
@@ -90,56 +92,111 @@ def create_train_dataset(
         raise ValueError(f"With nb_classes > 2 ({nb_classes}), mask rescale must be 1")
 
     pairs = _list_image_mask_pairs(input_data_dir, image_subdir, mask_subdir)
-    dataset = tf.data.Dataset.from_tensor_slices(
-        (
-            [str(image_path) for image_path, _ in pairs],
-            [str(mask_path) for _, mask_path in pairs],
-        )
-    )
-    if shuffle:
-        dataset = dataset.shuffle(
-            buffer_size=len(pairs),
-            seed=seed,
-            reshuffle_each_iteration=True,
-        )
-    dataset = dataset.enumerate()
-
-    dataset = dataset.map(
-        partial(
-            _load_pair,
-            image_color_mode=image_color_mode,
-            mask_color_mode=mask_color_mode,
-            target_size=target_size,
-            image_augmentations=image_augment_dict,
-            mask_augmentations=mask_augment_dict,
-            seed=seed,
-        ),
-        num_parallel_calls=tf.data.AUTOTUNE,
-    )
-    dataset = dataset.batch(batch_size)
-    dataset = dataset.enumerate()
-
     save_to_dir = None
     if save_to_subdir is not None:
         save_to_dir = input_data_dir / save_to_subdir
         save_to_dir.mkdir(parents=True, exist_ok=True)
 
-    image_brightness = image_augment_dict.get("brightness_range")
-    image_rescale = image_augment_dict.get("rescale")
-
-    dataset = dataset.map(
-        partial(
-            _prepare_batch,
-            image_brightness=image_brightness,
-            seed=seed,
-            nb_classes=nb_classes,
-            save_to_dir=save_to_dir,
-            image_rescale=image_rescale,
-            model_preprocess_input=model_preprocess_input,
-        ),
-        num_parallel_calls=tf.data.AUTOTUNE,
+    dataset = _TrainDatasetSequence(
+        pairs=pairs,
+        image_augmentations=image_augment_dict,
+        mask_augmentations=mask_augment_dict,
+        model_preprocess_input=model_preprocess_input,
+        batch_size=batch_size,
+        image_color_mode=image_color_mode,
+        mask_color_mode=mask_color_mode,
+        save_to_dir=save_to_dir,
+        nb_classes=nb_classes,
+        target_size=target_size,
+        shuffle=shuffle,
+        seed=seed,
     )
-    return dataset.prefetch(tf.data.AUTOTUNE), len(pairs)
+    return dataset, len(pairs)
+
+
+class _TrainDatasetSequence(keras.utils.Sequence):
+    def __init__(
+        self,
+        *,
+        pairs: list[tuple[Path, Path]],
+        image_augmentations: dict[str, Any],
+        mask_augmentations: dict[str, Any],
+        model_preprocess_input: Callable | None,
+        batch_size: int,
+        image_color_mode: str,
+        mask_color_mode: str,
+        save_to_dir: Path | None,
+        nb_classes: int,
+        target_size: tuple[int, int],
+        shuffle: bool,
+        seed: int,
+        workers: int = _TRAINING_DATA_WORKERS,
+        max_queue_size: int = _TRAINING_DATA_MAX_QUEUE_SIZE,
+    ) -> None:
+        if int(keras.__version__.split(".", maxsplit=1)[0]) >= 3:
+            super().__init__(
+                workers=workers,
+                use_multiprocessing=False,
+                max_queue_size=max_queue_size,
+            )
+        else:
+            super().__init__()
+        self.pairs = pairs
+        self.image_augmentations = image_augmentations
+        self.mask_augmentations = mask_augmentations
+        self.model_preprocess_input = model_preprocess_input
+        self.batch_size = batch_size
+        self.image_color_mode = image_color_mode
+        self.mask_color_mode = mask_color_mode
+        self.save_to_dir = save_to_dir
+        self.nb_classes = nb_classes
+        self.target_size = target_size
+        self.shuffle = shuffle
+        self.seed = seed
+        self.indices = np.arange(len(pairs))
+        self.random = np.random.default_rng(seed)
+        self.on_epoch_end()
+
+    def __len__(self) -> int:
+        return (len(self.pairs) + self.batch_size - 1) // self.batch_size
+
+    def __getitem__(self, batch_index: int) -> tuple[tf.Tensor, tf.Tensor]:
+        if batch_index < 0 or batch_index >= len(self):
+            raise IndexError(f"Batch index out of range: {batch_index}")
+
+        start = batch_index * self.batch_size
+        batch_indices = self.indices[start : start + self.batch_size]
+        image_batch = []
+        mask_batch = []
+        for sample_offset, pair_index in enumerate(batch_indices, start=start):
+            image_path, mask_path = self.pairs[int(pair_index)]
+            image, mask = _load_pair(
+                tf.constant(sample_offset),
+                (tf.constant(str(image_path)), tf.constant(str(mask_path))),
+                image_color_mode=self.image_color_mode,
+                mask_color_mode=self.mask_color_mode,
+                target_size=self.target_size,
+                image_augmentations=self.image_augmentations,
+                mask_augmentations=self.mask_augmentations,
+                seed=self.seed,
+            )
+            image_batch.append(image)
+            mask_batch.append(mask)
+
+        return _prepare_batch(
+            tf.constant(batch_index),
+            (tf.stack(image_batch), tf.stack(mask_batch)),
+            image_brightness=self.image_augmentations.get("brightness_range"),
+            seed=self.seed,
+            nb_classes=self.nb_classes,
+            save_to_dir=self.save_to_dir,
+            image_rescale=self.image_augmentations.get("rescale"),
+            model_preprocess_input=self.model_preprocess_input,
+        )
+
+    def on_epoch_end(self) -> None:
+        if self.shuffle:
+            self.random.shuffle(self.indices)
 
 
 def _load_pair(
@@ -512,7 +569,7 @@ def _apply_projective_transform(
 ) -> tf.Tensor:
     interpolation_order = int(augmentations.get("interpolation_order", 1))
     if interpolation_order not in {0, 1}:
-        raise ValueError("interpolation_order must be 0 or 1 for the tf.data pipeline")
+        raise ValueError("interpolation_order must be 0 or 1 for the training pipeline")
     interpolation = "NEAREST" if is_mask or interpolation_order == 0 else "BILINEAR"
     fill_mode = str(augmentations.get("fill_mode", "nearest")).upper()
     if fill_mode not in {"CONSTANT", "REFLECT", "WRAP", "NEAREST"}:
@@ -544,7 +601,7 @@ def _validate_dataset_augmentations(
         unsupported = set(augmentations) - _AUGMENTATION_KEYS
         if unsupported:
             raise ValueError(
-                f"Unsupported {name} settings for the tf.data pipeline: "
+                f"Unsupported {name} settings for the training pipeline: "
                 f"{sorted(unsupported)}"
             )
 

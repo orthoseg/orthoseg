@@ -6,7 +6,6 @@ import logging
 import multiprocessing
 import shutil
 import tempfile
-import threading
 import time
 import traceback
 from collections.abc import Callable
@@ -102,11 +101,8 @@ def predict_dir(
             memory on you GPU.
         evaluate_mode: True to run in evaluate mode
         cancel_filepath: If the file in this path exists, processing stops asap
-        nb_parallel_read: The maximum number of parallel live-image reads. For cached
-            images, this sets the `tf.data` read batch size to
-            `min(batch_size, nb_parallel_read)`; parallel mapping and prefetching use
-            TensorFlow autotuning. If -1, the default is 3 * `batch_size`. Defaults
-            to -1.
+        nb_parallel_read: Maximum number of concurrent cached-image or live-image
+            reads. If -1, the default is 3 * `batch_size`. Defaults to -1.
         nb_parallel_postprocess: The number of parallel
             processes used to vectorize,... the predictions. If -1, all
             available CPU's are used. Defaults to 1.
@@ -258,10 +254,8 @@ def predict_layer(
             memory on you GPU.
         evaluate_mode: True to run in evaluate mode
         cancel_filepath: If the file in this path exists, processing stops asap
-        nb_parallel_read: The maximum number of parallel live-image fetches used by
-            `tf.data`. For cached images, this sets the `tf.data` read batch size to
-            `min(batch_size, nb_parallel_read)`. If -1, the default is
-            3 * `batch_size`. Defaults to -1.
+        nb_parallel_read: Maximum number of concurrent cached-image or live-image
+            reads. If -1, the default is 3 * `batch_size`. Defaults to -1.
         nb_parallel_postprocess: The number of parallel
             processes used to postprocess, e.g. vectorize,... the predictions. If -1,
             all available CPU's are used. Defaults to 1.
@@ -452,8 +446,6 @@ def _predict_layer(
     if nb_parallel_postprocess == -1:
         nb_parallel_postprocess = multiprocessing.cpu_count()
 
-    read_image_metadata: dict[Path, tuple[Any, Any]] = {}
-    read_image_metadata_lock = threading.Lock()
     if image_layer is None:
         projection_for_read = projection_if_missing
         if projection_if_missing is not None:
@@ -469,10 +461,8 @@ def _predict_layer(
             image_paths=image_paths_to_read,
             projection_if_missing=projection_for_read,
             preprocess_input=preprocess_input,
-            image_dtype=tf.as_dtype(model.inputs[0].dtype),
-            read_batch_size=min(batch_size, nb_parallel_read),
-            image_metadata=read_image_metadata,
-            image_metadata_lock=read_image_metadata_lock,
+            image_dtype=np.dtype(model.inputs[0].dtype),
+            max_parallel_reads=nb_parallel_read,
         )
     else:
         image_files_to_read = [
@@ -485,18 +475,11 @@ def _predict_layer(
             image_files=image_files_to_read,
             image_layer=image_layer,
             ssl_verify=ssl_verify,
-            image_dtype=tf.as_dtype(model.inputs[0].dtype),
-            nb_parallel_read=nb_parallel_read,
-            read_batch_size=min(batch_size, nb_parallel_read),
-            image_metadata=read_image_metadata,
-            image_metadata_lock=read_image_metadata_lock,
+            image_dtype=np.dtype(model.inputs[0].dtype),
+            max_parallel_reads=nb_parallel_read,
         )
     read_results_iterator = iter(
-        _predicter_dataset.iter_image_read_results(
-            read_dataset,
-            image_metadata=read_image_metadata,
-            image_metadata_lock=read_image_metadata_lock,
-        )
+        _predicter_dataset.iter_image_read_results(read_dataset)
     )
 
     predict_queue: list[dict] = []
@@ -540,7 +523,7 @@ def _predict_layer(
             # Init for new loop
             perfinfo: list[str] = []
 
-            # Fill the prediction queue from the tf.data iterator
+            # Fill the prediction queue from the parallel image reader
             # ----------------------------------------------------
             while not last_image_reached and len(predict_queue) < batch_size:
                 if cancel_filepath is not None and cancel_filepath.exists():

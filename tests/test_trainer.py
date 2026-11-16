@@ -83,7 +83,7 @@ def test_create_train_dataset_pairs_files_and_one_hot_encodes_masks(tmp_path):
 
     images, masks = next(iter(dataset))
     assert dataset_size == 2
-    assert int(dataset.cardinality().numpy()) == 1
+    assert len(dataset) == 1
     assert images.shape == (2, 2, 2, 3)
     assert masks.shape == (2, 2, 2, 2)
     np.testing.assert_array_equal(images.numpy()[0], image_a.astype(np.float32) / 10.0)
@@ -205,7 +205,7 @@ def test_create_train_dataset_pairs_jpeg_with_png_mask_and_saves_output(tmp_path
 
 
 def test_create_train_dataset_decodes_tiff_inputs(tmp_path):
-    """Decode TIFF inputs through the TensorFlow dataset pipeline."""
+    """Decode TIFF inputs through the Keras sequence."""
     data_dir = tmp_path / "training"
     image_dir = data_dir / "image"
     mask_dir = data_dir / "mask"

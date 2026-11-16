@@ -63,8 +63,8 @@ _pyproj_crs_to_epsg_lock = threading.Lock()
 
 
 def _get_epsg_code(crs: pyproj.CRS) -> int | None:
-    # Live tf.data readers precompute this before entering parallel map callbacks to
-    # avoid segmentation faults.
+    # Live image readers precompute this before parallel image loading to avoid
+    # segmentation faults.
     with _pyproj_crs_to_epsg_lock:
         return crs.to_epsg()
 
