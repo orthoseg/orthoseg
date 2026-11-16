@@ -128,10 +128,15 @@ def test_predict_layer_requires_exactly_one_input_source(
         )
 
 
+@pytest.mark.parametrize(
+    ("batch_size", "cpu_count", "expected_parallel_reads"),
+    [(1, 16, 8), (3, 16, 9), (1, 4, 4)],
+)
 def test_predict_layer_uses_file_dataset_and_processes_final_partial_batch(
-    monkeypatch, tmp_path
+    monkeypatch, tmp_path, batch_size, cpu_count, expected_parallel_reads
 ):
     _patch_prediction_runtime(monkeypatch, tmp_path)
+    monkeypatch.setattr(predicter.multiprocessing, "cpu_count", lambda: cpu_count)
     input_image_dir = tmp_path / "input"
     output_image_dir = tmp_path / "output"
     output_image_dir.mkdir()
@@ -187,7 +192,7 @@ def test_predict_layer_uses_file_dataset_and_processes_final_partial_batch(
         output_vector_path=None,
         classes=["background", "road"],
         image_files=image_files,
-        batch_size=3,
+        batch_size=batch_size,
         projection_if_missing="EPSG:31370",
         nb_parallel_read=-1,
         nb_parallel_postprocess=1,
@@ -197,7 +202,7 @@ def test_predict_layer_uses_file_dataset_and_processes_final_partial_batch(
     assert dataset_arguments["projection_if_missing"] == (
         predicter.rio_crs.CRS.from_user_input("EPSG:31370")
     )
-    assert dataset_arguments["max_parallel_reads"] == 9
+    assert dataset_arguments["max_parallel_reads"] == expected_parallel_reads
     assert done_log_path.read_text().splitlines() == [
         "already-done.tif",
         "first.tif",
@@ -364,6 +369,31 @@ def test_predict_image_batch_preserves_order_for_different_shapes():
     np.testing.assert_array_equal(predictions[0], np.ones((2, 3, 1)))
     np.testing.assert_array_equal(predictions[1], np.full((1, 2, 1), 5.0))
     np.testing.assert_array_equal(predictions[2], np.full((2, 3, 1), 3.0))
+
+
+@pytest.mark.parametrize("image_count", [1, 2])
+def test_predict_image_batch_keeps_numpy_inputs_on_host(monkeypatch, image_count):
+    model = _identity_model()
+    monkeypatch.setattr(predicter.keras.backend, "backend", lambda: "tensorflow")
+    observed_batches = []
+
+    def predict_on_batch(image_batch):
+        assert isinstance(image_batch, np.ndarray)
+        observed_batches.append(image_batch)
+        return image_batch
+
+    monkeypatch.setattr(model, "predict_on_batch", predict_on_batch)
+    image_arrays = [
+        np.full((2, 2, 1), value, dtype=np.float32)
+        for value in range(1, image_count + 1)
+    ]
+
+    predictions = predicter._predict_image_batch(model, image_arrays)
+
+    assert len(observed_batches) == 1
+    assert observed_batches[0].shape == (image_count, 2, 2, 1)
+    for prediction, value in zip(predictions, range(1, image_count + 1), strict=True):
+        np.testing.assert_array_equal(prediction, np.full((2, 2, 1), value))
 
 
 def test_predict_image_batch_retries_smaller_batches_on_oom(monkeypatch):

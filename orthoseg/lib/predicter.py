@@ -102,7 +102,8 @@ def predict_dir(
         evaluate_mode: True to run in evaluate mode
         cancel_filepath: If the file in this path exists, processing stops asap
         nb_parallel_read: Maximum number of concurrent cached-image or live-image
-            reads. If -1, the default is 3 * `batch_size`. Defaults to -1.
+            reads. If -1, cached-image reads use at least 8 workers where the CPU
+            count allows; otherwise the default is 3 * `batch_size`. Defaults to -1.
         nb_parallel_postprocess: The number of parallel
             processes used to vectorize,... the predictions. If -1, all
             available CPU's are used. Defaults to 1.
@@ -255,7 +256,8 @@ def predict_layer(
         evaluate_mode: True to run in evaluate mode
         cancel_filepath: If the file in this path exists, processing stops asap
         nb_parallel_read: Maximum number of concurrent cached-image or live-image
-            reads. If -1, the default is 3 * `batch_size`. Defaults to -1.
+            reads. If -1, cached-image reads use at least 8 workers where the CPU
+            count allows; otherwise the default is 3 * `batch_size`. Defaults to -1.
         nb_parallel_postprocess: The number of parallel
             processes used to postprocess, e.g. vectorize,... the predictions. If -1,
             all available CPU's are used. Defaults to 1.
@@ -443,6 +445,11 @@ def _predict_layer(
     # Loop through all files to process them
     if nb_parallel_read == -1:
         nb_parallel_read = batch_size * 3
+        if image_layer is None:
+            nb_parallel_read = min(
+                multiprocessing.cpu_count(),
+                max(nb_parallel_read, 8),
+            )
     if nb_parallel_postprocess == -1:
         nb_parallel_postprocess = multiprocessing.cpu_count()
 
@@ -878,7 +885,7 @@ def _handle_error(
 
 
 def _predict_image_batch(
-    model: keras.models.Model, image_tensors: list[tf.Tensor]
+    model: keras.models.Model, image_tensors: list[tf.Tensor | np.ndarray]
 ) -> list[np.ndarray]:
     image_indices_by_shape: dict[tuple[int, ...], list[int]] = {}
     for image_index, image_tensor in enumerate(image_tensors):
@@ -887,9 +894,15 @@ def _predict_image_batch(
 
     predictions_by_image: dict[int, np.ndarray] = {}
     for image_indices in image_indices_by_shape.values():
-        batch_image_tensor = tf.stack(
-            [image_tensors[image_index] for image_index in image_indices]
-        )
+        image_batch = [image_tensors[image_index] for image_index in image_indices]
+        if all(isinstance(image, np.ndarray) for image in image_batch):
+            batch_image_tensor = (
+                np.expand_dims(image_batch[0], axis=0)
+                if len(image_batch) == 1
+                else np.stack(image_batch)
+            )
+        else:
+            batch_image_tensor = tf.stack(image_batch)
         batch_predictions = _predict_tensor_batch(model, batch_image_tensor)
         for batch_index, image_index in enumerate(image_indices):
             predictions_by_image[image_index] = batch_predictions[batch_index]
@@ -901,11 +914,13 @@ def _predict_image_batch(
 
 def _predict_tensor_batch(
     model: keras.models.Model,
-    batch_image_tensor: tf.Tensor,
+    batch_image_tensor: tf.Tensor | np.ndarray,
 ) -> np.ndarray:
     try:
         model_input = batch_image_tensor
-        if keras.backend.backend() != "tensorflow":
+        if keras.backend.backend() != "tensorflow" and isinstance(
+            batch_image_tensor, tf.Tensor
+        ):
             model_input = batch_image_tensor.numpy()
         batch_predictions = model.predict_on_batch(model_input)
     except tf.errors.ResourceExhaustedError:
