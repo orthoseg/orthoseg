@@ -1,3 +1,4 @@
+import sys
 from contextlib import AbstractContextManager, nullcontext
 
 import numpy as np
@@ -128,10 +129,15 @@ def test_predict_layer_requires_exactly_one_input_source(
         )
 
 
+@pytest.mark.parametrize(
+    ("batch_size", "cpu_count", "expected_parallel_reads"),
+    [(1, 16, 8), (3, 16, 9), (1, 4, 4)],
+)
 def test_predict_layer_uses_file_dataset_and_processes_final_partial_batch(
-    monkeypatch, tmp_path
+    monkeypatch, tmp_path, batch_size, cpu_count, expected_parallel_reads
 ):
     _patch_prediction_runtime(monkeypatch, tmp_path)
+    monkeypatch.setattr(predicter.multiprocessing, "cpu_count", lambda: cpu_count)
     input_image_dir = tmp_path / "input"
     output_image_dir = tmp_path / "output"
     output_image_dir.mkdir()
@@ -153,7 +159,7 @@ def test_predict_layer_uses_file_dataset_and_processes_final_partial_batch(
         _successful_read_result(first_image_path, 1),
         _successful_read_result(second_image_path, 2),
     ]
-    read_dataset = object()
+    read_dataset = iter(read_results)
     dataset_arguments = {}
     postprocess_arguments = []
 
@@ -161,18 +167,11 @@ def test_predict_layer_uses_file_dataset_and_processes_final_partial_batch(
         dataset_arguments.update(kwargs)
         return read_dataset
 
-    def iter_read_results(dataset, **_kwargs):
-        assert dataset is read_dataset
-        return iter(read_results)
-
     def postprocess_prediction(**kwargs):
         postprocess_arguments.append(kwargs)
 
     monkeypatch.setattr(
         predicter._predicter_dataset, "create_image_read_dataset", create_image_dataset
-    )
-    monkeypatch.setattr(
-        predicter._predicter_dataset, "iter_image_read_results", iter_read_results
     )
     monkeypatch.setattr(
         predicter.postp, "postprocess_prediction_to_file", postprocess_prediction
@@ -187,7 +186,7 @@ def test_predict_layer_uses_file_dataset_and_processes_final_partial_batch(
         output_vector_path=None,
         classes=["background", "road"],
         image_files=image_files,
-        batch_size=3,
+        batch_size=batch_size,
         projection_if_missing="EPSG:31370",
         nb_parallel_read=-1,
         nb_parallel_postprocess=1,
@@ -197,7 +196,7 @@ def test_predict_layer_uses_file_dataset_and_processes_final_partial_batch(
     assert dataset_arguments["projection_if_missing"] == (
         predicter.rio_crs.CRS.from_user_input("EPSG:31370")
     )
-    assert dataset_arguments["read_batch_size"] == 3
+    assert dataset_arguments["max_parallel_reads"] == expected_parallel_reads
     assert done_log_path.read_text().splitlines() == [
         "already-done.tif",
         "first.tif",
@@ -233,17 +232,13 @@ def test_predict_layer_uses_live_dataset_and_force_reprocesses_in_evaluate_mode(
             "size": (2, 2),
         }
     ]
-    read_dataset = object()
+    read_dataset = iter([_successful_read_result(image_path, 3)])
     dataset_arguments = {}
     postprocess_arguments = []
 
     def create_live_image_dataset(**kwargs):
         dataset_arguments.update(kwargs)
         return read_dataset
-
-    def iter_read_results(dataset, **_kwargs):
-        assert dataset is read_dataset
-        return iter([_successful_read_result(image_path, 3)])
 
     def postprocess_prediction(**kwargs):
         postprocess_arguments.append(kwargs)
@@ -252,9 +247,6 @@ def test_predict_layer_uses_live_dataset_and_force_reprocesses_in_evaluate_mode(
         predicter._predicter_dataset,
         "create_live_image_read_dataset",
         create_live_image_dataset,
-    )
-    monkeypatch.setattr(
-        predicter._predicter_dataset, "iter_image_read_results", iter_read_results
     )
     monkeypatch.setattr(
         predicter.postp,
@@ -281,7 +273,7 @@ def test_predict_layer_uses_live_dataset_and_force_reprocesses_in_evaluate_mode(
 
     assert dataset_arguments["image_files"] == image_files
     assert dataset_arguments["image_layer"] is image_layer
-    assert dataset_arguments["read_batch_size"] == 1
+    assert dataset_arguments["max_parallel_reads"] == 2
     assert dataset_arguments["ssl_verify"] is False
     assert done_log_path.read_text().splitlines() == ["tile.tif", "tile.tif"]
     assert len(postprocess_arguments) == 1
@@ -298,17 +290,11 @@ def test_predict_layer_logs_read_errors_and_stops_at_error_limit(monkeypatch, tm
     input_image_dir = tmp_path / "input"
     output_image_dir = tmp_path / "output"
     image_path = input_image_dir / "broken.tif"
-    read_dataset = object()
 
     monkeypatch.setattr(
         predicter._predicter_dataset,
         "create_image_read_dataset",
-        lambda **_kwargs: read_dataset,
-    )
-    monkeypatch.setattr(
-        predicter._predicter_dataset,
-        "iter_image_read_results",
-        lambda _dataset, **_kwargs: iter(
+        lambda **_kwargs: iter(
             [
                 (
                     image_path,
@@ -364,6 +350,31 @@ def test_predict_image_batch_preserves_order_for_different_shapes():
     np.testing.assert_array_equal(predictions[0], np.ones((2, 3, 1)))
     np.testing.assert_array_equal(predictions[1], np.full((1, 2, 1), 5.0))
     np.testing.assert_array_equal(predictions[2], np.full((2, 3, 1), 3.0))
+
+
+@pytest.mark.parametrize("image_count", [1, 2])
+def test_predict_image_batch_keeps_numpy_inputs_on_host(monkeypatch, image_count):
+    model = _identity_model()
+    monkeypatch.setattr(predicter.keras.backend, "backend", lambda: "tensorflow")
+    observed_batches = []
+
+    def predict_on_batch(image_batch):
+        assert isinstance(image_batch, np.ndarray)
+        observed_batches.append(image_batch)
+        return image_batch
+
+    monkeypatch.setattr(model, "predict_on_batch", predict_on_batch)
+    image_arrays = [
+        np.full((2, 2, 1), value, dtype=np.float32)
+        for value in range(1, image_count + 1)
+    ]
+
+    predictions = predicter._predict_image_batch(model, image_arrays)
+
+    assert len(observed_batches) == 1
+    assert observed_batches[0].shape == (image_count, 2, 2, 1)
+    for prediction, value in zip(predictions, range(1, image_count + 1), strict=True):
+        np.testing.assert_array_equal(prediction, np.full((2, 2, 1), value))
 
 
 def test_predict_image_batch_retries_smaller_batches_on_oom(monkeypatch):
@@ -442,3 +453,93 @@ def test_predict_image_batch_with_no_images_returns_empty_list():
     model = predicter.keras.models.Model(inputs=inputs, outputs=outputs)
 
     assert predicter._predict_image_batch(model, []) == []
+
+
+def test_prefetch_image_read_results_converts_image_data_to_tensor(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setattr(predicter.keras.backend, "backend", lambda: "tensorflow")
+    image_path = tmp_path / "tile.tif"
+    image_data = np.ones((2, 3, 1), dtype=np.float32)
+    read_result = {
+        "image_data": image_data,
+        "image_crs": "EPSG:31370",
+        "image_transform": None,
+        "read_error": b"",
+        "read_error_traceback": b"",
+    }
+
+    results = list(
+        predicter._predicter_dataset.prefetch_image_read_results(
+            iter([(image_path, read_result)]),
+            predicter.tf.float32,
+            prefetch_buffer_size=1,
+        )
+    )
+
+    assert results[0][0] == image_path
+    assert isinstance(results[0][1]["image_data"], predicter.tf.Tensor)
+    np.testing.assert_array_equal(results[0][1]["image_data"].numpy(), image_data)
+    assert results[0][1]["image_crs"] == "EPSG:31370"
+
+
+def test_prefetch_image_read_results_preserves_failed_reads(monkeypatch, tmp_path):
+    monkeypatch.setattr(predicter.keras.backend, "backend", lambda: "tensorflow")
+    image_path = tmp_path / "broken.tif"
+    read_result = {
+        "image_data": None,
+        "read_error": b"read failed",
+        "read_error_traceback": b"traceback",
+    }
+
+    results = list(
+        predicter._predicter_dataset.prefetch_image_read_results(
+            iter([(image_path, read_result)]),
+            predicter.tf.float32,
+        )
+    )
+
+    assert results[0][0] == image_path
+    assert results[0][1]["image_data"] is None
+    assert results[0][1]["read_error"] == b"read failed"
+    assert results[0][1]["read_error_traceback"] == b"traceback"
+
+
+def test_prefetch_image_read_results_skips_non_tensorflow_backend(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setattr(predicter.keras.backend, "backend", lambda: "jax")
+    image_path = tmp_path / "tile.tif"
+    image_data = np.ones((2, 3, 1), dtype=np.float32)
+    read_result = {"image_data": image_data}
+
+    results = list(
+        predicter._predicter_dataset.prefetch_image_read_results(
+            iter([(image_path, read_result)]),
+            predicter.tf.float32,
+        )
+    )
+
+    assert results[0][0] == image_path
+    assert results[0][1]["image_data"] is image_data
+
+
+def test_prefetch_image_read_results_falls_back_when_tensorflow_is_missing(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setattr(predicter.keras.backend, "backend", lambda: "tensorflow")
+    monkeypatch.setitem(sys.modules, "tensorflow", None)
+    image_path = tmp_path / "tile.tif"
+    image_data = np.ones((2, 3, 1), dtype=np.float32)
+    read_result = {"image_data": image_data}
+
+    results = list(
+        predicter._predicter_dataset.prefetch_image_read_results(
+            iter([(image_path, read_result)]),
+            np.float32,
+        )
+    )
+
+    assert results[0][0] == image_path
+    assert results[0][1] is read_result
+    assert results[0][1]["image_data"] is image_data

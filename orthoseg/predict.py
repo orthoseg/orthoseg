@@ -313,7 +313,12 @@ def predict(
         nb_logfiles_tokeep=conf.logging_conf.getint("nb_logfiles_tokeep"),
     )
     global logger  # noqa: PLW0603
-    logger = log_util.main_log_init(conf.dirs.getpath("log_dir"), __name__)
+    log_level = conf.logging_conf.get("log_level", "INFO")
+    logger = log_util.main_log_init(
+        conf.dirs.getpath("log_dir"),
+        __name__,
+        log_level=log_level,
+    )
     logger.info(f"Start predict for config {config_path.stem}")
     logger.debug(f"Config used: \n{conf.pformat_config()}")
     _processing_util.log_gpu_memory_info(logger)

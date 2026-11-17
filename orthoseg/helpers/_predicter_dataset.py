@@ -1,18 +1,23 @@
-"""Internal helpers for reading prediction images with tf.data."""
+"""Internal helpers for reading prediction images concurrently.
+
+keras and tensorflow are optional dependencies only used for prefetching image tensors
+to improve throughput. If they are not available, the prefetching will be a no-op.
+"""
 
 import logging
+import queue
+import threading
 import traceback
-from collections.abc import Callable, Iterator
-from functools import partial
+from collections.abc import Callable, Iterable, Iterator
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pyproj
 import rasterio as rio
 import rasterio.crs as rio_crs
 import rasterio.plot as rio_plot
-import tensorflow as tf
 
 from orthoseg.util import image_util
 
@@ -24,32 +29,18 @@ def create_image_read_dataset(
     *,
     projection_if_missing: str | rio_crs.CRS | None,
     preprocess_input: Callable | None,
-    image_dtype: tf.dtypes.DType,
-    read_batch_size: int,
-    image_metadata: dict[Path, tuple[Any, Any]],
-    image_metadata_lock: Any,
-) -> tf.data.Dataset:
-    dataset = tf.data.Dataset.from_tensor_slices(
-        tf.constant([str(path) for path in image_paths], dtype=tf.string)
-    )
-
-    dataset = dataset.map(
-        partial(
-            _read_image_dataset_item,
+    image_dtype: Any,
+    max_parallel_reads: int,
+) -> Iterator[tuple[Path, dict[str, Any]]]:
+    def read_item(image_path: Path) -> tuple[Path, dict[str, Any]]:
+        return _read_image_for_dataset(
+            image_path,
             projection_if_missing=projection_if_missing,
             preprocess_input=preprocess_input,
             image_dtype=image_dtype,
-            image_metadata=image_metadata,
-            image_metadata_lock=image_metadata_lock,
-        ),
-        num_parallel_calls=tf.data.AUTOTUNE,
-        deterministic=False,
-    )
-    return _batch_image_read_dataset(
-        dataset,
-        image_dtype=image_dtype,
-        read_batch_size=read_batch_size,
-    )
+        )
+
+    return _iter_parallel_reads(image_paths, read_item, max_parallel_reads)
 
 
 def create_live_image_read_dataset(
@@ -57,71 +48,29 @@ def create_live_image_read_dataset(
     *,
     image_layer: dict[str, Any],
     ssl_verify: bool | str,
-    image_dtype: tf.dtypes.DType,
-    nb_parallel_read: int,
-    read_batch_size: int,
-    image_metadata: dict[Path, tuple[Any, Any]],
-    image_metadata_lock: Any,
-) -> tf.data.Dataset:
-    image_paths = [str(image_file["path"]) for image_file in image_files]
-    image_bboxes = np.asarray(
-        [image_file["bbox"] for image_file in image_files],
-        dtype=np.float64,
-    ).reshape((-1, 4))
-    image_sizes = np.asarray(
-        [image_file["size"] for image_file in image_files],
-        dtype=np.int32,
-    ).reshape((-1, 2))
+    image_dtype: Any,
+    max_parallel_reads: int,
+) -> Iterator[tuple[Path, dict[str, Any]]]:
     if not image_files:
-        dataset = tf.data.Dataset.from_tensor_slices(
-            (
-                tf.constant([], dtype=tf.string),
-                tf.zeros((0, 1, 1, 1), dtype=image_dtype),
-                tf.zeros((0, 3), dtype=tf.int32),
-                tf.constant([], dtype=tf.string),
-                tf.constant([], dtype=tf.string),
-            )
-        )
-        return _batch_image_read_dataset(
-            dataset,
-            image_dtype=image_dtype,
-            read_batch_size=read_batch_size,
-        )
-
-    dataset = tf.data.Dataset.from_tensor_slices(
-        (
-            tf.constant(image_paths, dtype=tf.string),
-            tf.constant(image_bboxes, dtype=tf.float64),
-            tf.constant(image_sizes, dtype=tf.int32),
-        )
-    )
-
+        return iter(())
     projection_crs = pyproj.CRS.from_user_input(image_layer["projection"])
     projection_switch_axes = image_layer.get("switch_axes")
     if projection_switch_axes is None:
         projection_switch_axes = image_util.has_switched_axes(projection_crs)
     projection_wms_srs = f"epsg:{image_util._get_epsg_code(projection_crs)}"
 
-    dataset = dataset.map(
-        partial(
-            _read_live_image_dataset_item,
+    def read_item(image_file: dict[str, Any]) -> tuple[Path, dict[str, Any]]:
+        return _read_live_image_for_dataset(
+            image_file,
             image_layer=image_layer,
             ssl_verify=ssl_verify,
             image_dtype=image_dtype,
             projection_crs=projection_crs,
             projection_switch_axes=projection_switch_axes,
             projection_wms_srs=projection_wms_srs,
-            image_metadata=image_metadata,
-            image_metadata_lock=image_metadata_lock,
-        ),
-        num_parallel_calls=nb_parallel_read,
-        deterministic=False,
-    )
-    return _batch_image_read_dataset(
-        dataset,
-        image_dtype=image_dtype,
-        read_batch_size=read_batch_size,
-    )
+        )
+
+    return _iter_parallel_reads(image_files, read_item, max_parallel_reads)
 
 
 def read_image(
@@ -261,151 +210,22 @@ def load_image(
 
 
 def _read_image_dataset_item(
-    image_path: tf.Tensor,
+    image_path: Path,
     *,
     projection_if_missing: str | rio_crs.CRS | None,
     preprocess_input: Callable | None,
-    image_dtype: tf.dtypes.DType,
-    image_metadata: dict[Path, tuple[Any, Any]],
-    image_metadata_lock: Any,
-) -> tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor]:
-    read_outputs = tf.numpy_function(
-        func=lambda path_value: _read_image_for_dataset(
-            path_value,
-            projection_if_missing=projection_if_missing,
-            preprocess_input=preprocess_input,
-            image_dtype=image_dtype.as_numpy_dtype,
-            image_metadata=image_metadata,
-            image_metadata_lock=image_metadata_lock,
-        ),
-        inp=[image_path],
-        Tout=(image_dtype, tf.string, tf.string),
-    )
-    image_data, read_error, read_error_traceback = read_outputs
-    image_data.set_shape([None, None, None])
-    return (
+    image_dtype: Any,
+) -> tuple[Path, dict[str, Any]]:
+    return _read_image_for_dataset(
         image_path,
-        image_data,
-        tf.shape(image_data, out_type=tf.int32),
-        read_error,
-        read_error_traceback,
+        projection_if_missing=projection_if_missing,
+        preprocess_input=preprocess_input,
+        image_dtype=image_dtype,
     )
 
 
 def _read_live_image_dataset_item(
-    image_path: tf.Tensor,
-    bbox: tf.Tensor,
-    size: tf.Tensor,
-    *,
-    image_layer: dict[str, Any],
-    ssl_verify: bool | str,
-    image_dtype: tf.dtypes.DType,
-    projection_crs: pyproj.CRS,
-    projection_switch_axes: bool,
-    projection_wms_srs: str,
-    image_metadata: dict[Path, tuple[Any, Any]],
-    image_metadata_lock: Any,
-) -> tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor]:
-    read_outputs = tf.numpy_function(
-        func=lambda path_value, bbox_value, size_value: _read_live_image_for_dataset(
-            path_value,
-            bbox_value,
-            size_value,
-            image_layer=image_layer,
-            ssl_verify=ssl_verify,
-            image_dtype=image_dtype.as_numpy_dtype,
-            projection_crs=projection_crs,
-            projection_switch_axes=projection_switch_axes,
-            projection_wms_srs=projection_wms_srs,
-            image_metadata=image_metadata,
-            image_metadata_lock=image_metadata_lock,
-        ),
-        inp=[image_path, bbox, size],
-        Tout=(image_dtype, tf.string, tf.string),
-    )
-    image_data, read_error, read_error_traceback = read_outputs
-    image_data.set_shape([None, None, None])
-    return (
-        image_path,
-        image_data,
-        tf.shape(image_data, out_type=tf.int32),
-        read_error,
-        read_error_traceback,
-    )
-
-
-def _batch_image_read_dataset(
-    dataset: tf.data.Dataset,
-    *,
-    image_dtype: tf.dtypes.DType,
-    read_batch_size: int,
-) -> tf.data.Dataset:
-    return dataset.padded_batch(
-        read_batch_size,
-        padded_shapes=([], [None, None, None], [3], [], []),
-        padding_values=(
-            tf.constant(b"", dtype=tf.string),
-            tf.constant(0, dtype=image_dtype),
-            tf.constant(0, dtype=tf.int32),
-            tf.constant(b"", dtype=tf.string),
-            tf.constant(b"", dtype=tf.string),
-        ),
-    ).prefetch(tf.data.AUTOTUNE)
-
-
-def iter_image_read_results(
-    dataset: tf.data.Dataset,
-    *,
-    image_metadata: dict[Path, tuple[Any, Any]],
-    image_metadata_lock: Any,
-) -> Iterator[tuple[Path, dict[str, Any]]]:
-    for (
-        image_paths_batch,
-        image_data_batch,
-        image_shapes_batch,
-        read_errors_batch,
-        read_error_tracebacks_batch,
-    ) in dataset:
-        image_path_values = image_paths_batch.numpy()
-        image_shapes = image_shapes_batch.numpy()
-        read_errors = read_errors_batch.numpy()
-        read_error_tracebacks = read_error_tracebacks_batch.numpy()
-        for batch_index, image_path_value in enumerate(image_path_values):
-            image_path = Path(image_path_value.decode("utf-8"))
-            read_error = read_errors[batch_index]
-            read_result: dict[str, Any] = {
-                "image_data": None,
-                "read_error": read_error,
-                "read_error_traceback": read_error_tracebacks[batch_index],
-            }
-            if not read_error:
-                image_height, image_width, image_channels = (
-                    int(value) for value in image_shapes[batch_index]
-                )
-                read_result["image_data"] = image_data_batch[
-                    batch_index,
-                    :image_height,
-                    :image_width,
-                    :image_channels,
-                ]
-                with image_metadata_lock:
-                    (
-                        read_result["image_crs"],
-                        read_result["image_transform"],
-                    ) = image_metadata.pop(image_path)
-
-            yield image_path, read_result
-
-
-def _image_read_error_placeholder(image_dtype: Any) -> np.ndarray:
-    # TensorFlow 2.21 segfaults when tf.numpy_function returns a zero-sized array.
-    return np.zeros((1, 1, 1), dtype=image_dtype)
-
-
-def _read_live_image_for_dataset(
-    image_path_value: np.ndarray,
-    bbox_value: np.ndarray,
-    size_value: np.ndarray,
+    image_file: dict[str, Any],
     *,
     image_layer: dict[str, Any],
     ssl_verify: bool | str,
@@ -413,28 +233,185 @@ def _read_live_image_for_dataset(
     projection_crs: pyproj.CRS,
     projection_switch_axes: bool,
     projection_wms_srs: str,
-    image_metadata: dict[Path, tuple[Any, Any]],
-    image_metadata_lock: Any,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    image_path = np.asarray(image_path_value).item()
-    if isinstance(image_path, bytes):
-        image_path = image_path.decode("utf-8")
-    image_path = Path(image_path)
-
-    bbox_values = np.asarray(bbox_value).tolist()
-    bbox = (
-        float(bbox_values[0]),
-        float(bbox_values[1]),
-        float(bbox_values[2]),
-        float(bbox_values[3]),
+) -> tuple[Path, dict[str, Any]]:
+    return _read_live_image_for_dataset(
+        image_file,
+        image_layer=image_layer,
+        ssl_verify=ssl_verify,
+        image_dtype=image_dtype,
+        projection_crs=projection_crs,
+        projection_switch_axes=projection_switch_axes,
+        projection_wms_srs=projection_wms_srs,
     )
-    size_values = np.asarray(size_value).tolist()
-    size = (int(size_values[0]), int(size_values[1]))
+
+
+def iter_image_read_results(
+    read_results: Iterable[tuple[Path, dict[str, Any]]],
+) -> Iterator[tuple[Path, dict[str, Any]]]:
+    yield from read_results
+
+
+def prefetch_image_read_results(
+    read_results: Iterator[tuple[Path, dict[str, Any]]],
+    image_dtype: Any,
+    *,
+    prefetch_buffer_size: int = -1,
+) -> Iterator[tuple[Path, dict[str, Any]]]:
+    """Prefetch image tensors with a configurable buffer.
+
+    Note: this will only work if keras and tensorflow are available. If not, this is a
+    no-op and will yield the read results as-is.
+
+    Args:
+        read_results: An iterator of tuples containing the image path and the read
+            result dictionary.
+        image_dtype: The data type of the image tensors.
+        prefetch_buffer_size: The size of the prefetch buffer. Defaults to -1, which
+            uses tf.data.AUTOTUNE.
+
+    Yields:
+        Tuples of the image path and the read result dictionary, with the image data
+        prefetched as a tensor.
+    """
+    try:
+        import keras  # noqa: PLC0415
+    except ModuleNotFoundError as ex:
+        if ex.name not in {"keras", "tensorflow"}:
+            raise
+        yield from read_results
+        return
+
+    if keras.backend.backend() != "tensorflow":
+        yield from read_results
+        return
+
+    try:
+        import tensorflow as tf  # noqa: PLC0415
+    except ModuleNotFoundError as ex:
+        if ex.name != "tensorflow":
+            raise
+        yield from read_results
+        return
+
+    tensor_dtype = tf.as_dtype(image_dtype)
+    metadata_queue: queue.Queue[tuple[Path, dict[str, Any], bool]] = queue.Queue()
+
+    def generate_image_data() -> Iterator[np.ndarray]:
+        for image_path, read_result in read_results:
+            read_result = dict(read_result)
+            image_data = read_result.pop("image_data", None)
+            has_image_data = image_data is not None
+            metadata_queue.put((image_path, read_result, has_image_data))
+            if not has_image_data:
+                image_data = np.empty((0, 0, 0), dtype=tensor_dtype.as_numpy_dtype)
+            yield image_data
+
+    if prefetch_buffer_size < 1:
+        prefetch_buffer_size = tf.data.AUTOTUNE
+    dataset = tf.data.Dataset.from_generator(
+        generate_image_data,
+        output_signature=tf.TensorSpec(
+            shape=(None, None, None),
+            dtype=tensor_dtype,
+        ),
+    ).prefetch(prefetch_buffer_size)
+
+    for image_data in dataset:
+        image_path, read_result, has_image_data = metadata_queue.get()
+        read_result["image_data"] = image_data if has_image_data else None
+        yield image_path, read_result
+
+
+def _iter_parallel_reads(
+    items: Iterable[Any],
+    read_item: Callable[[Any], tuple[Path, dict[str, Any]]],
+    max_parallel_reads: int,
+) -> Iterator[tuple[Path, dict[str, Any]]]:
+    if max_parallel_reads < 1:
+        raise ValueError("max_parallel_reads must be at least 1")
+
+    def generate() -> Iterator[tuple[Path, dict[str, Any]]]:
+        results_queue: queue.Queue[object] = queue.Queue(maxsize=max_parallel_reads)
+        stop_producer = threading.Event()
+        finished = object()
+
+        def enqueue(result: object) -> bool:
+            while not stop_producer.is_set():
+                try:
+                    results_queue.put(result, timeout=0.1)
+                    return True
+                except queue.Full:
+                    continue
+            return False
+
+        def produce() -> None:
+            try:
+                item_iterator = iter(items)
+                with ThreadPoolExecutor(max_workers=max_parallel_reads) as executor:
+                    pending: set[Future[tuple[Path, dict[str, Any]]]] = set()
+                    for _ in range(max_parallel_reads):
+                        try:
+                            item = next(item_iterator)
+                        except StopIteration:
+                            break
+                        pending.add(executor.submit(read_item, item))
+
+                    while pending and not stop_producer.is_set():
+                        completed, pending = wait(pending, return_when=FIRST_COMPLETED)
+                        for future in completed:
+                            try:
+                                result: object = future.result()
+                            except BaseException as ex:
+                                result = ex
+                            if not enqueue(result):
+                                return
+                            try:
+                                item = next(item_iterator)
+                            except StopIteration:
+                                continue
+                            pending.add(executor.submit(read_item, item))
+            except BaseException as ex:
+                enqueue(ex)
+            finally:
+                enqueue(finished)
+
+        producer = threading.Thread(target=produce, daemon=True)
+        producer.start()
+        try:
+            while True:
+                result = results_queue.get()
+                if result is finished:
+                    break
+                if isinstance(result, BaseException):
+                    raise result
+                yield cast("tuple[Path, dict[str, Any]]", result)
+        finally:
+            stop_producer.set()
+            producer.join()
+
+    return generate()
+
+
+def _numpy_dtype(image_dtype: Any) -> np.dtype:
+    return np.dtype(getattr(image_dtype, "as_numpy_dtype", image_dtype))
+
+
+def _read_live_image_for_dataset(
+    image_file: dict[str, Any],
+    *,
+    image_layer: dict[str, Any],
+    ssl_verify: bool | str,
+    image_dtype: Any,
+    projection_crs: pyproj.CRS,
+    projection_switch_axes: bool,
+    projection_wms_srs: str,
+) -> tuple[Path, dict[str, Any]]:
+    image_path = Path(image_file["path"])
 
     try:
         image_info = load_image(
-            bbox=bbox,
-            size=size,
+            bbox=image_file["bbox"],
+            size=image_file["size"],
             image_layer=image_layer,
             ssl_verify=ssl_verify,
             projection_crs=projection_crs,
@@ -442,67 +419,55 @@ def _read_live_image_for_dataset(
             projection_wms_srs=projection_wms_srs,
         )
     except Exception as ex:
-        return (
-            _image_read_error_placeholder(image_dtype),
-            np.asarray(str(ex).encode("utf-8", errors="replace"), dtype=np.bytes_),
-            np.asarray(
-                traceback.format_exc().encode("utf-8", errors="replace"),
-                dtype=np.bytes_,
+        return image_path, {
+            "image_data": None,
+            "read_error": str(ex).encode("utf-8", errors="replace"),
+            "read_error_traceback": traceback.format_exc().encode(
+                "utf-8", errors="replace"
             ),
-        )
+        }
 
-    image_data = np.asarray(image_info["image_data"], dtype=image_dtype)
-    with image_metadata_lock:
-        image_metadata[image_path] = (
-            image_info["image_crs"],
-            image_info["image_transform"],
-        )
-
-    return (
-        image_data,
-        np.asarray(b"", dtype=np.bytes_),
-        np.asarray(b"", dtype=np.bytes_),
-    )
+    return image_path, {
+        "image_data": np.asarray(
+            image_info["image_data"], dtype=_numpy_dtype(image_dtype)
+        ),
+        "image_crs": image_info["image_crs"],
+        "image_transform": image_info["image_transform"],
+        "read_error": b"",
+        "read_error_traceback": b"",
+    }
 
 
 def _read_image_for_dataset(
-    image_path_value: np.ndarray,
+    image_path_value: Path,
     *,
     projection_if_missing: str | rio_crs.CRS | None,
     preprocess_input: Callable | None,
     image_dtype: Any,
-    image_metadata: dict[Path, tuple[Any, Any]],
-    image_metadata_lock: Any,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    image_path = np.asarray(image_path_value).item()
-    if isinstance(image_path, bytes):
-        image_path = image_path.decode("utf-8")
+) -> tuple[Path, dict[str, Any]]:
+    image_path = Path(image_path_value)
 
     try:
         image_info = read_image(
-            image_path=Path(image_path),
+            image_path=image_path,
             projection_if_missing=projection_if_missing,
             preprocess_input=preprocess_input,
         )
     except Exception as ex:
-        return (
-            _image_read_error_placeholder(image_dtype),
-            np.asarray(str(ex).encode("utf-8", errors="replace"), dtype=np.bytes_),
-            np.asarray(
-                traceback.format_exc().encode("utf-8", errors="replace"),
-                dtype=np.bytes_,
+        return image_path, {
+            "image_data": None,
+            "read_error": str(ex).encode("utf-8", errors="replace"),
+            "read_error_traceback": traceback.format_exc().encode(
+                "utf-8", errors="replace"
             ),
-        )
+        }
 
-    image_data = np.asarray(image_info["image_data"], dtype=image_dtype)
-    with image_metadata_lock:
-        image_metadata[Path(image_path)] = (
-            image_info["image_crs"],
-            image_info["image_transform"],
-        )
-
-    return (
-        image_data,
-        np.asarray(b"", dtype=np.bytes_),
-        np.asarray(b"", dtype=np.bytes_),
-    )
+    return image_path, {
+        "image_data": np.asarray(
+            image_info["image_data"], dtype=_numpy_dtype(image_dtype)
+        ),
+        "image_crs": image_info["image_crs"],
+        "image_transform": image_info["image_transform"],
+        "read_error": b"",
+        "read_error_traceback": b"",
+    }
