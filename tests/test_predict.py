@@ -6,6 +6,7 @@ import re
 import shutil
 from contextlib import nullcontext
 from pathlib import Path
+from types import SimpleNamespace
 
 import geofileops as gfo
 import pytest
@@ -420,19 +421,25 @@ def test_quantize_model_for_predict_explicit_option_requires_api():
 
 
 @pytest.mark.parametrize(
-    "dtype_policy_raw, nb_gpu, compute_capability, expected_calls",
+    ("dtype_policy_raw, nb_gpu, compute_capability, expected_calls, expected_policy"),
     [
-        ("float32", 0, None, ["float32"]),
-        ("", 0, None, []),
-        ("", 2, (7, 0), ["mixed_float16"]),
-        ("", 2, (6, 1), []),
-        ("", 1, None, []),
-        (None, 0, None, []),
-        (None, 1, (7, 5), ["mixed_float16"]),
+        ("float32", 0, None, ["float32"], "float32"),
+        ("", 0, None, [], None),
+        ("", 2, (7, 0), ["mixed_float16"], "mixed_float16"),
+        ("", 2, (6, 1), [], None),
+        ("", 1, None, [], None),
+        (None, 0, None, [], None),
+        (None, 1, (7, 5), ["mixed_float16"], "mixed_float16"),
+        ("None", 0, None, [], None),
     ],
 )
 def test_set_dtype_policy_for_predict(
-    monkeypatch, dtype_policy_raw, nb_gpu, compute_capability, expected_calls
+    monkeypatch,
+    dtype_policy_raw,
+    nb_gpu,
+    compute_capability,
+    expected_calls,
+    expected_policy,
 ):
     calls = []
 
@@ -452,6 +459,40 @@ def test_set_dtype_policy_for_predict(
         lambda policy: calls.append(policy),
     )
 
-    predict_module._set_dtype_policy_for_predict(dtype_policy_raw)
+    result = predict_module._set_dtype_policy_for_predict(dtype_policy_raw)
 
     assert calls == expected_calls
+    assert result == expected_policy
+
+
+@pytest.mark.parametrize(
+    "dtype_policy, expected_policy_names",
+    [
+        ("mixed_float16", ["mixed_float16", "mixed_float16", "float32"]),
+        ("mixed_bfloat16", ["mixed_bfloat16", "mixed_bfloat16", "float32"]),
+        ("float32", ["float32", "float32", "float32"]),
+        (None, ["saved", "saved", "saved"]),
+    ],
+)
+def test_set_loaded_model_dtype_policy(dtype_policy, expected_policy_names):
+    class FakeLayer:
+        def __init__(self, activation=None):
+            self.activation = activation
+            self._dtype_policy = SimpleNamespace(name="saved")
+
+        @property
+        def dtype_policy(self):
+            return self._dtype_policy
+
+        @dtype_policy.setter
+        def dtype_policy(self, policy):
+            self._dtype_policy = policy
+
+    inner_softmax = FakeLayer(activation=SimpleNamespace(__name__="softmax"))
+    compute_layer = FakeLayer()
+    output_softmax = FakeLayer(activation=SimpleNamespace(__name__="softmax"))
+    model = SimpleNamespace(layers=[inner_softmax, compute_layer, output_softmax])
+
+    predict_module._set_loaded_model_dtype_policy(model, dtype_policy)
+
+    assert [layer.dtype_policy.name for layer in model.layers] == expected_policy_names

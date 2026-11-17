@@ -6,11 +6,14 @@ from typing import Any
 
 import keras
 import pandas as pd
-import tensorflow as tf
 
 import orthoseg.model.model_factory as mf
 import orthoseg.model.model_helper as mh
-from orthoseg.helpers._trainer_dataset import create_train_dataset
+from orthoseg.helpers._trainer_dataset import (
+    _TRAINING_DATA_MAX_QUEUE_SIZE,
+    _TRAINING_DATA_WORKERS,
+    create_train_dataset,
+)
 
 # Get a logger...
 logger = logging.getLogger(__name__)
@@ -295,10 +298,8 @@ def train(
 
     # Prepare the parameters to pass to fit...
     # Calculate the number of steps within an epoch
-    train_steps_per_epoch = int(tf.data.experimental.cardinality(train_dataset).numpy())
-    validation_steps_per_epoch = int(
-        tf.data.experimental.cardinality(validation_dataset).numpy()
-    )
+    train_steps_per_epoch = len(train_dataset)
+    validation_steps_per_epoch = len(validation_dataset)
 
     # Start training
     logger.info(
@@ -310,6 +311,14 @@ def train(
 
     logger.info(f"{hyperparams.toJSON()}")
     hyperparams_path.write_text(hyperparams.toJSON())
+
+    fit_worker_kwargs = {}
+    if int(keras.__version__.split(".", maxsplit=1)[0]) < 3:
+        fit_worker_kwargs = {
+            "workers": _TRAINING_DATA_WORKERS,
+            "use_multiprocessing": False,
+            "max_queue_size": _TRAINING_DATA_MAX_QUEUE_SIZE,
+        }
 
     try:
         if hyperparams.train.nb_epoch_with_freeze > 0:
@@ -328,6 +337,7 @@ def train(
                 initial_epoch=start_epoch,
                 verbose=2,
                 shuffle=False,  # Shuffle is done by the dataset itself
+                **fit_worker_kwargs,
             )
             mf.set_trainable(model=model_for_train, recompile=False)
             model_for_train = mf.compile_model(
@@ -349,6 +359,7 @@ def train(
             initial_epoch=start_epoch,
             verbose=2,
             shuffle=False,  # Shuffle is done by the dataset itself
+            **fit_worker_kwargs,
         )
 
         # Write some reporting
