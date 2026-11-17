@@ -71,13 +71,14 @@ def test_apply_projective_transform_nearest_fill_modes(fill_mode, expected):
     assert result[0, 0, 0] == expected
 
 
-def test_create_train_dataset(tmp_path):
+def test_create_train_dataset(tmp_path, monkeypatch):
     image_dir = tmp_path / "image"
     mask_dir = tmp_path / "mask"
     image_dir.mkdir()
     mask_dir.mkdir()
     Image.fromarray(np.full((2, 2, 3), 80, dtype=np.uint8)).save(image_dir / "tile.png")
     Image.fromarray(np.full((2, 2), 2, dtype=np.uint8)).save(mask_dir / "tile.png")
+    monkeypatch.setattr(_trainer_dataset, "get_keras_backend", lambda _keras: "torch")
 
     dataset, _ = _trainer_dataset.create_train_dataset(
         input_data_dir=tmp_path,
@@ -146,6 +147,33 @@ def test_create_train_dataset_errors(
             model_preprocess_input=None,
             nb_classes=nb_classes,
         )
+
+
+def test_create_train_dataset_uses_tf_data_for_tensorflow_backend(tmp_path):
+    if _trainer_dataset.get_keras_backend(_trainer_dataset.keras) != "tensorflow":
+        pytest.skip("TensorFlow is not the active Keras backend")
+    import tensorflow as tf  # noqa: PLC0415
+
+    image_dir = tmp_path / "image"
+    mask_dir = tmp_path / "mask"
+    image_dir.mkdir()
+    mask_dir.mkdir()
+    Image.fromarray(np.full((2, 2, 3), 80, dtype=np.uint8)).save(image_dir / "tile.png")
+    Image.fromarray(np.full((2, 2), 2, dtype=np.uint8)).save(mask_dir / "tile.png")
+
+    dataset, _ = _trainer_dataset.create_train_dataset(
+        input_data_dir=tmp_path,
+        image_subdir="image",
+        mask_subdir="mask",
+        image_augment_dict={},
+        mask_augment_dict={},
+        model_preprocess_input=None,
+        batch_size=1,
+        target_size=(2, 2),
+        shuffle=False,
+    )
+
+    assert isinstance(dataset, tf.data.Dataset)
 
 
 def test_create_train_dataset_warns(tmp_path, caplog):
