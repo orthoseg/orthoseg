@@ -472,3 +472,71 @@ def test_predict_image_batch_with_no_images_returns_empty_list():
     model = predicter.keras.models.Model(inputs=inputs, outputs=outputs)
 
     assert predicter._predict_image_batch(model, []) == []
+
+
+def test_prefetch_image_read_results_converts_image_data_to_tensor(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setattr(predicter.keras.backend, "backend", lambda: "tensorflow")
+    image_path = tmp_path / "tile.tif"
+    image_data = np.ones((2, 3, 1), dtype=np.float32)
+    read_result = {
+        "image_data": image_data,
+        "image_crs": "EPSG:31370",
+        "image_transform": None,
+        "read_error": b"",
+        "read_error_traceback": b"",
+    }
+
+    results = list(
+        predicter._prefetch_image_read_results(
+            iter([(image_path, read_result)]),
+            predicter.tf.float32,
+        )
+    )
+
+    assert results[0][0] == image_path
+    assert isinstance(results[0][1]["image_data"], predicter.tf.Tensor)
+    np.testing.assert_array_equal(results[0][1]["image_data"].numpy(), image_data)
+    assert results[0][1]["image_crs"] == "EPSG:31370"
+
+
+def test_prefetch_image_read_results_preserves_failed_reads(monkeypatch, tmp_path):
+    monkeypatch.setattr(predicter.keras.backend, "backend", lambda: "tensorflow")
+    image_path = tmp_path / "broken.tif"
+    read_result = {
+        "image_data": None,
+        "read_error": b"read failed",
+        "read_error_traceback": b"traceback",
+    }
+
+    results = list(
+        predicter._prefetch_image_read_results(
+            iter([(image_path, read_result)]),
+            predicter.tf.float32,
+        )
+    )
+
+    assert results[0][0] == image_path
+    assert results[0][1]["image_data"] is None
+    assert results[0][1]["read_error"] == b"read failed"
+    assert results[0][1]["read_error_traceback"] == b"traceback"
+
+
+def test_prefetch_image_read_results_skips_non_tensorflow_backend(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setattr(predicter.keras.backend, "backend", lambda: "jax")
+    image_path = tmp_path / "tile.tif"
+    image_data = np.ones((2, 3, 1), dtype=np.float32)
+    read_result = {"image_data": image_data}
+
+    results = list(
+        predicter._prefetch_image_read_results(
+            iter([(image_path, read_result)]),
+            predicter.tf.float32,
+        )
+    )
+
+    assert results[0][0] == image_path
+    assert results[0][1]["image_data"] is image_data

@@ -4,11 +4,12 @@ import csv
 import json
 import logging
 import multiprocessing
+import queue
 import shutil
 import tempfile
 import time
 import traceback
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -359,6 +360,45 @@ def predict_layer(
     )
 
 
+def _prefetch_image_read_results(
+    read_results: Iterator[tuple[Path, dict[str, Any]]],
+    image_dtype: Any,
+) -> Iterator[tuple[Path, dict[str, Any]]]:
+    """Prefetch image tensors while preserving each reader result's metadata."""
+    if keras.backend.backend() != "tensorflow":
+        yield from read_results
+        return
+
+    tensor_dtype = tf.as_dtype(image_dtype)
+    # Keep paths and read status outside tf.data, then pair them back in order.
+    metadata_queue: queue.Queue[tuple[Path, dict[str, Any], bool]] = queue.Queue()
+
+    def generate_image_data() -> Iterator[np.ndarray]:
+        for image_path, read_result in read_results:
+            read_result = dict(read_result)
+            image_data = read_result.pop("image_data", None)
+            has_image_data = image_data is not None
+            metadata_queue.put((image_path, read_result, has_image_data))
+            if not has_image_data:
+                # tf.data requires a tensor here; restore the missing image below.
+                image_data = np.empty((0, 0, 0), dtype=tensor_dtype.as_numpy_dtype)
+            yield image_data
+
+    # Two buffered images nearly matched AUTOTUNE throughput in the benchmark.
+    dataset = tf.data.Dataset.from_generator(
+        generate_image_data,
+        output_signature=tf.TensorSpec(
+            shape=(None, None, None),
+            dtype=tensor_dtype,
+        ),
+    ).prefetch(2)
+
+    for image_data in dataset:
+        image_path, read_result, has_image_data = metadata_queue.get()
+        read_result["image_data"] = image_data if has_image_data else None
+        yield image_path, read_result
+
+
 def _predict_layer(
     model: keras.models.Model,
     preprocess_input: Callable | None,
@@ -453,6 +493,7 @@ def _predict_layer(
     if nb_parallel_postprocess == -1:
         nb_parallel_postprocess = multiprocessing.cpu_count()
 
+    image_dtype = tf.as_dtype(model.inputs[0].dtype)
     if image_layer is None:
         projection_for_read = projection_if_missing
         if projection_if_missing is not None:
@@ -468,7 +509,7 @@ def _predict_layer(
             image_paths=image_paths_to_read,
             projection_if_missing=projection_for_read,
             preprocess_input=preprocess_input,
-            image_dtype=np.dtype(model.inputs[0].dtype),
+            image_dtype=image_dtype,
             max_parallel_reads=nb_parallel_read,
         )
     else:
@@ -482,11 +523,15 @@ def _predict_layer(
             image_files=image_files_to_read,
             image_layer=image_layer,
             ssl_verify=ssl_verify,
-            image_dtype=np.dtype(model.inputs[0].dtype),
+            image_dtype=image_dtype,
             max_parallel_reads=nb_parallel_read,
         )
     read_results_iterator = iter(
         _predicter_dataset.iter_image_read_results(read_dataset)
+    )
+    # Keep TensorFlow conversion/prefetching after the TensorFlow-free reader.
+    read_results_iterator = iter(
+        _prefetch_image_read_results(read_results_iterator, image_dtype)
     )
 
     predict_queue: list[dict] = []
