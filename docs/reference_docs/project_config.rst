@@ -674,6 +674,9 @@ Settings concerning the prediction process.
    If this setting is empty/unset, mixed_float16 is used when a GPU with compute
    capability 7.0 or higher is available, otherwise float32 is used.
 
+   The selected policy is applied to loaded model layers. With a mixed policy, the
+   final softmax layer remains float32.
+
    Float8 quantization is configured separately with :confval:`predict.model_quantize`.
 
 .. confval:: predict.model_quantize

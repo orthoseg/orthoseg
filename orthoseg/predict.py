@@ -10,6 +10,7 @@ import traceback
 from pathlib import Path
 from typing import Any
 
+import keras
 import rasterio as rio
 
 import orthoseg.model.model_factory as mf
@@ -131,7 +132,7 @@ def _check_input_image_pixel_size(
     return None
 
 
-def _set_dtype_policy_for_predict(dtype_policy_raw: str | None):
+def _set_dtype_policy_for_predict(dtype_policy_raw: str | None) -> str | None:
     """Resolve and apply dtype policy for prediction.
 
     Args:
@@ -141,6 +142,10 @@ def _set_dtype_policy_for_predict(dtype_policy_raw: str | None):
             - "None" as string: don't set any policy, let Keras use the default
               (float32).
             - otherwise: apply the policy value explicitly.
+
+    Returns:
+        The resolved policy to apply to the loaded model, or None when no policy
+        should override the policies saved in the model.
     """
     dtype_policy = "" if dtype_policy_raw is None else dtype_policy_raw.strip()
 
@@ -155,9 +160,51 @@ def _set_dtype_policy_for_predict(dtype_policy_raw: str | None):
                 f"predict.dtype_policy is unset, {nb_gpu=}, {compute_capability=}, "
                 f"set to mixed_float16"
             )
+            return "mixed_float16"
     elif dtype_policy.lower() != "none":
         mf.set_dtype_policy(dtype_policy)
         logger.info(f"Set keras dtype policy for prediction: {dtype_policy}")
+        return dtype_policy
+
+    return None
+
+
+def _set_loaded_model_dtype_policy(model: Any, dtype_policy: str | None) -> None:
+    if dtype_policy is None:
+        return
+
+    dtype_policies = getattr(keras, "dtype_policies", None)
+    get_dtype_policy = getattr(dtype_policies, "get", None)
+    if get_dtype_policy is None:
+        get_dtype_policy = keras.mixed_precision.Policy
+
+    policy = get_dtype_policy(dtype_policy)
+    float32_policy = get_dtype_policy("float32")
+    output_layer = model.layers[-1] if model.layers else None
+    preserve_output_softmax = (
+        dtype_policy.startswith("mixed_")
+        and getattr(getattr(output_layer, "activation", None), "__name__", None)
+        == "softmax"
+    )
+
+    for layer in model.layers:
+        layer_policy = (
+            float32_policy
+            if preserve_output_softmax and layer is output_layer
+            else policy
+        )
+        dtype_policy_property = getattr(type(layer), "dtype_policy", None)
+        if isinstance(dtype_policy_property, property) and dtype_policy_property.fset:
+            layer.dtype_policy = layer_policy
+        else:
+            layer._dtype_policy = layer_policy
+
+    logger.info(
+        "Applied dtype policy %s to %s loaded model layers%s",
+        dtype_policy,
+        len(model.layers),
+        "; keeping output softmax in float32" if preserve_output_softmax else "",
+    )
 
 
 def _quantize_model_for_predict(model: Any, model_quantize_raw: str | None) -> None:
@@ -363,7 +410,9 @@ def predict(
             input_height=input_height_pred,
         )
 
-        _set_dtype_policy_for_predict(conf.predict.get("dtype_policy", None))
+        dtype_policy = _set_dtype_policy_for_predict(
+            conf.predict.get("dtype_policy", None)
+        )
 
         # Prepare output subdir to be used for predictions
         predict_out_subdir = best_model.base_output_name
@@ -439,6 +488,11 @@ def predict(
                 best_model.filepath, compile_model=False
             )
 
+        # When loading models saved as .keras files, the explicitly saved per layer
+        # dtype policy determines the the dtype used for that layer rather than the
+        # general dtype policy set.
+        # Force the specified dtype policy on the loaded model layers.
+        _set_loaded_model_dtype_policy(model, dtype_policy)
         _quantize_model_for_predict(model, conf.predict.get("model_quantize", None))
 
         # Prepare the model for predicting
