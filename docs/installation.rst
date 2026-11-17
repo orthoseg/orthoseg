@@ -24,16 +24,9 @@ look at the tensorflow installation instructions on https://www.tensorflow.org/i
 Deep-learning backends
 ----------------------
 
-TensorFlow is optional. Image loading, project validation, and vector postprocessing do
-not require a deep-learning backend. Training and model prediction require Keras and a
-supported backend. Keras 2 works with TensorFlow; Torch and JAX require Keras 3. Install
-the backend you want to use:
-
-.. code-block:: console
-
-    python -m pip install "orthoseg[tensorflow]"
-    python -m pip install "orthoseg[torch]"
-    python -m pip install "orthoseg[jax]"
+orthoseg makes use of keras for its deep-learning functionality. As a consequence,
+orthoseg also supports multiple backends. When using Keras 2, only TensorFlow is
+supported. When using Keras 3, TensorFlow, Torch and JAX are all supported.
 
 If more than one backend is installed, Orthoseg prefers TensorFlow by default. To
 select another backend, set ``KERAS_BACKEND`` before starting Python, for example
