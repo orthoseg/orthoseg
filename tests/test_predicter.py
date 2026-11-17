@@ -1,3 +1,4 @@
+import sys
 from contextlib import AbstractContextManager, nullcontext
 
 import numpy as np
@@ -158,7 +159,7 @@ def test_predict_layer_uses_file_dataset_and_processes_final_partial_batch(
         _successful_read_result(first_image_path, 1),
         _successful_read_result(second_image_path, 2),
     ]
-    read_dataset = object()
+    read_dataset = iter(read_results)
     dataset_arguments = {}
     postprocess_arguments = []
 
@@ -166,18 +167,11 @@ def test_predict_layer_uses_file_dataset_and_processes_final_partial_batch(
         dataset_arguments.update(kwargs)
         return read_dataset
 
-    def iter_read_results(dataset, **_kwargs):
-        assert dataset is read_dataset
-        return iter(read_results)
-
     def postprocess_prediction(**kwargs):
         postprocess_arguments.append(kwargs)
 
     monkeypatch.setattr(
         predicter._predicter_dataset, "create_image_read_dataset", create_image_dataset
-    )
-    monkeypatch.setattr(
-        predicter._predicter_dataset, "iter_image_read_results", iter_read_results
     )
     monkeypatch.setattr(
         predicter.postp, "postprocess_prediction_to_file", postprocess_prediction
@@ -238,17 +232,13 @@ def test_predict_layer_uses_live_dataset_and_force_reprocesses_in_evaluate_mode(
             "size": (2, 2),
         }
     ]
-    read_dataset = object()
+    read_dataset = iter([_successful_read_result(image_path, 3)])
     dataset_arguments = {}
     postprocess_arguments = []
 
     def create_live_image_dataset(**kwargs):
         dataset_arguments.update(kwargs)
         return read_dataset
-
-    def iter_read_results(dataset, **_kwargs):
-        assert dataset is read_dataset
-        return iter([_successful_read_result(image_path, 3)])
 
     def postprocess_prediction(**kwargs):
         postprocess_arguments.append(kwargs)
@@ -257,9 +247,6 @@ def test_predict_layer_uses_live_dataset_and_force_reprocesses_in_evaluate_mode(
         predicter._predicter_dataset,
         "create_live_image_read_dataset",
         create_live_image_dataset,
-    )
-    monkeypatch.setattr(
-        predicter._predicter_dataset, "iter_image_read_results", iter_read_results
     )
     monkeypatch.setattr(
         predicter.postp,
@@ -303,17 +290,11 @@ def test_predict_layer_logs_read_errors_and_stops_at_error_limit(monkeypatch, tm
     input_image_dir = tmp_path / "input"
     output_image_dir = tmp_path / "output"
     image_path = input_image_dir / "broken.tif"
-    read_dataset = object()
 
     monkeypatch.setattr(
         predicter._predicter_dataset,
         "create_image_read_dataset",
-        lambda **_kwargs: read_dataset,
-    )
-    monkeypatch.setattr(
-        predicter._predicter_dataset,
-        "iter_image_read_results",
-        lambda _dataset, **_kwargs: iter(
+        lambda **_kwargs: iter(
             [
                 (
                     image_path,
@@ -489,9 +470,10 @@ def test_prefetch_image_read_results_converts_image_data_to_tensor(
     }
 
     results = list(
-        predicter._prefetch_image_read_results(
+        predicter._predicter_dataset.prefetch_image_read_results(
             iter([(image_path, read_result)]),
             predicter.tf.float32,
+            prefetch_buffer_size=1,
         )
     )
 
@@ -511,7 +493,7 @@ def test_prefetch_image_read_results_preserves_failed_reads(monkeypatch, tmp_pat
     }
 
     results = list(
-        predicter._prefetch_image_read_results(
+        predicter._predicter_dataset.prefetch_image_read_results(
             iter([(image_path, read_result)]),
             predicter.tf.float32,
         )
@@ -532,11 +514,32 @@ def test_prefetch_image_read_results_skips_non_tensorflow_backend(
     read_result = {"image_data": image_data}
 
     results = list(
-        predicter._prefetch_image_read_results(
+        predicter._predicter_dataset.prefetch_image_read_results(
             iter([(image_path, read_result)]),
             predicter.tf.float32,
         )
     )
 
     assert results[0][0] == image_path
+    assert results[0][1]["image_data"] is image_data
+
+
+def test_prefetch_image_read_results_falls_back_when_tensorflow_is_missing(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setattr(predicter.keras.backend, "backend", lambda: "tensorflow")
+    monkeypatch.setitem(sys.modules, "tensorflow", None)
+    image_path = tmp_path / "tile.tif"
+    image_data = np.ones((2, 3, 1), dtype=np.float32)
+    read_result = {"image_data": image_data}
+
+    results = list(
+        predicter._predicter_dataset.prefetch_image_read_results(
+            iter([(image_path, read_result)]),
+            np.float32,
+        )
+    )
+
+    assert results[0][0] == image_path
+    assert results[0][1] is read_result
     assert results[0][1]["image_data"] is image_data

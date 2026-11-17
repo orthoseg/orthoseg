@@ -1,4 +1,8 @@
-"""Internal helpers for reading prediction images concurrently."""
+"""Internal helpers for reading prediction images concurrently.
+
+Tensorflow is an optional dependency used for prefetching image tensors to improve
+throughput.
+"""
 
 import logging
 import queue
@@ -245,6 +249,60 @@ def iter_image_read_results(
     read_results: Iterable[tuple[Path, dict[str, Any]]],
 ) -> Iterator[tuple[Path, dict[str, Any]]]:
     yield from read_results
+
+
+def prefetch_image_read_results(
+    read_results: Iterator[tuple[Path, dict[str, Any]]],
+    image_dtype: Any,
+    *,
+    prefetch_buffer_size: int = 2,
+) -> Iterator[tuple[Path, dict[str, Any]]]:
+    """Optionally prefetch image tensors with a configurable buffer."""
+    try:
+        import keras  # noqa: PLC0415
+    except ModuleNotFoundError as ex:
+        if ex.name not in {"keras", "tensorflow"}:
+            raise
+        yield from read_results
+        return
+
+    if keras.backend.backend() != "tensorflow":
+        yield from read_results
+        return
+
+    try:
+        import tensorflow as tf  # noqa: PLC0415
+    except ModuleNotFoundError as ex:
+        if ex.name != "tensorflow":
+            raise
+        yield from read_results
+        return
+
+    tensor_dtype = tf.as_dtype(image_dtype)
+    metadata_queue: queue.Queue[tuple[Path, dict[str, Any], bool]] = queue.Queue()
+
+    def generate_image_data() -> Iterator[np.ndarray]:
+        for image_path, read_result in read_results:
+            read_result = dict(read_result)
+            image_data = read_result.pop("image_data", None)
+            has_image_data = image_data is not None
+            metadata_queue.put((image_path, read_result, has_image_data))
+            if not has_image_data:
+                image_data = np.empty((0, 0, 0), dtype=tensor_dtype.as_numpy_dtype)
+            yield image_data
+
+    dataset = tf.data.Dataset.from_generator(
+        generate_image_data,
+        output_signature=tf.TensorSpec(
+            shape=(None, None, None),
+            dtype=tensor_dtype,
+        ),
+    ).prefetch(prefetch_buffer_size)
+
+    for image_data in dataset:
+        image_path, read_result, has_image_data = metadata_queue.get()
+        read_result["image_data"] = image_data if has_image_data else None
+        yield image_path, read_result
 
 
 def _iter_parallel_reads(
