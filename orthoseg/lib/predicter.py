@@ -468,7 +468,7 @@ def _predict_layer(
             image_paths=image_paths_to_read,
             projection_if_missing=projection_for_read,
             preprocess_input=preprocess_input,
-            image_dtype=np.dtype(model.inputs[0].dtype),
+            image_dtype=model.inputs[0].dtype,
             max_parallel_reads=nb_parallel_read,
         )
     else:
@@ -482,7 +482,7 @@ def _predict_layer(
             image_files=image_files_to_read,
             image_layer=image_layer,
             ssl_verify=ssl_verify,
-            image_dtype=np.dtype(model.inputs[0].dtype),
+            image_dtype=model.inputs[0].dtype,
             max_parallel_reads=nb_parallel_read,
         )
     read_results_iterator = iter(
