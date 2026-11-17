@@ -1,7 +1,7 @@
 """Internal helpers for reading prediction images concurrently.
 
-Tensorflow is an optional dependency used for prefetching image tensors to improve
-throughput.
+keras and tensorflow are optional dependencies only used for prefetching image tensors
+to improve throughput. If they are not available, the prefetching will be a no-op.
 """
 
 import logging
@@ -255,9 +255,24 @@ def prefetch_image_read_results(
     read_results: Iterator[tuple[Path, dict[str, Any]]],
     image_dtype: Any,
     *,
-    prefetch_buffer_size: int = 2,
+    prefetch_buffer_size: int = -1,
 ) -> Iterator[tuple[Path, dict[str, Any]]]:
-    """Optionally prefetch image tensors with a configurable buffer."""
+    """Prefetch image tensors with a configurable buffer.
+
+    Note: this will only work if keras and tensorflow are available. If not, this is a
+    no-op and will yield the read results as-is.
+
+    Args:
+        read_results: An iterator of tuples containing the image path and the read
+            result dictionary.
+        image_dtype: The data type of the image tensors.
+        prefetch_buffer_size: The size of the prefetch buffer. Defaults to -1, which
+            uses tf.data.AUTOTUNE.
+
+    Yields:
+        Tuples of the image path and the read result dictionary, with the image data
+        prefetched as a tensor.
+    """
     try:
         import keras  # noqa: PLC0415
     except ModuleNotFoundError as ex:
@@ -291,6 +306,8 @@ def prefetch_image_read_results(
                 image_data = np.empty((0, 0, 0), dtype=tensor_dtype.as_numpy_dtype)
             yield image_data
 
+    if prefetch_buffer_size < 1:
+        prefetch_buffer_size = tf.data.AUTOTUNE
     dataset = tf.data.Dataset.from_generator(
         generate_image_data,
         output_signature=tf.TensorSpec(
