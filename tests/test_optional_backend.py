@@ -19,9 +19,7 @@ def test_configure_backend_requires_installed_backend(monkeypatch):
 def test_configure_backend_selects_available_non_tensorflow_backend(monkeypatch):
     monkeypatch.delenv("KERAS_BACKEND", raising=False)
     monkeypatch.setattr(_compat, "KERAS_GTE_3", True)
-    monkeypatch.setattr(
-        _compat, "_module_is_available", lambda name: name == "torch"
-    )
+    monkeypatch.setattr(_compat, "_module_is_available", lambda name: name == "torch")
 
     assert _compat.configure_keras_backend() == "torch"
     assert os.environ["KERAS_BACKEND"] == "torch"

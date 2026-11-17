@@ -10,14 +10,15 @@ if TYPE_CHECKING:
     from orthoseg.postprocess import postprocess
     from orthoseg.predict import predict
     from orthoseg.train import train
-    from orthoseg.validate import validate
+
+# Keep the public function bound when the validate submodule is imported elsewhere.
+from orthoseg.validate import validate
 
 _PUBLIC_API_MODULES = {
     "load_images": "orthoseg.load_images",
     "postprocess": "orthoseg.postprocess",
     "predict": "orthoseg.predict",
     "train": "orthoseg.train",
-    "validate": "orthoseg.validate",
 }
 
 __all__ = (
