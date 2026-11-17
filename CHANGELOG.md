@@ -32,7 +32,7 @@
 - Use keras.applications `preprocess_input` functions to prepare inputs (#314)
 - Add support to finetune models using weights pretrained on aerial images. This becomes
   the default for supported architectures (#327)
-- Add support for mixed dtype in train and predict (#361)
+- Add support for mixed dtype in train and predict (#361, #384)
 - Add support for using float8 quantization for predict (#376)
 - Add option `train.image_format` to specify the image format the training images
   are saved in. The default image format changed from png to jpeg, as this
