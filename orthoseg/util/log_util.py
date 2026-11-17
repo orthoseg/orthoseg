@@ -121,12 +121,13 @@ def init_logging_dictConfig(
     return logging.getLogger(loggername)
 
 
-def main_log_init(log_dir: Path, log_basefilename: str):
+def main_log_init(log_dir: Path, log_basefilename: str, *, log_level: str = "INFO"):
     """Initialize logging.
 
     Args:
         log_dir: directory to log to.
         log_basefilename: base file name to use for the logging files.
+        log_level: the log level to use. Defaults to "INFO".
 
     Returns:
         logging.Logger: the logger.
@@ -142,8 +143,9 @@ def main_log_init(log_dir: Path, log_basefilename: str):
     # Get root logger
     logger = logging.getLogger("")
 
-    # Set the general maximum log level...
-    logger.setLevel(logging.INFO)
+    log_level = getattr(logging, log_level.upper(), logging.INFO)
+    logger.setLevel(log_level)
+    logging.getLogger("rasterio").setLevel(log_level)
     pytest_handlers = [
         h for h in logger.handlers if h.__class__.__name__ == "LogCaptureHandler"
     ]
@@ -164,7 +166,7 @@ def main_log_init(log_dir: Path, log_basefilename: str):
     logger.handlers = list(pytest_handlers)
 
     ch = logging.StreamHandler()
-    ch.setLevel(logging.INFO)
+    ch.setLevel(log_level)
     # ch.setFormatter(logging.Formatter('%(levelname)s|%(name)s|%(message)s'))
     # ch.setFormatter(logging.Formatter(
     #     '%(asctime)s|%(levelname)s|%(name)s|%(message)s', datefmt='%H:%M:%S,uuu')
@@ -181,7 +183,7 @@ def main_log_init(log_dir: Path, log_basefilename: str):
         log_dir / f"{datetime.datetime.now():%Y-%m-%d_%H-%M-%S}_{log_basefilename}.log"
     )
     fh = logging.FileHandler(filename=str(log_filepath))
-    fh.setLevel(logging.INFO)
+    fh.setLevel(log_level)
     fh.setFormatter(logging.Formatter("%(asctime)s|%(levelname)s|%(name)s|%(message)s"))
     logger.addHandler(fh)
 

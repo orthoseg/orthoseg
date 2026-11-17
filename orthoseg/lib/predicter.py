@@ -529,17 +529,21 @@ def _predict_layer(
 
             # Init for new loop
             perfinfo: list[str] = []
+            read_wait_seconds = 0.0
 
             # Fill the prediction queue from the parallel image reader
             # ----------------------------------------------------
             while not last_image_reached and len(predict_queue) < batch_size:
                 if cancel_filepath is not None and cancel_filepath.exists():
                     break
+                read_wait_started = time.perf_counter()
                 try:
                     image_filepath_read, read_result = next(read_results_iterator)
                 except StopIteration:
                     last_image_reached = True
                     break
+                finally:
+                    read_wait_seconds += time.perf_counter() - read_wait_started
 
                 try:
                     if read_result["read_error"]:
@@ -605,7 +609,7 @@ def _predict_layer(
                 last_image_reached and len(predict_queue) > 0
             ):
                 perf_time_now = datetime.now()
-                perfinfo += f"waiting for read took {perf_time_now - perf_time_start}"
+                perfinfo.append(f"waiting for read took {read_wait_seconds:.3f}s")
                 perf_time_start = perf_time_now
 
                 # Predict!
@@ -618,7 +622,7 @@ def _predict_layer(
                 )
 
                 perf_time_now = datetime.now()
-                perfinfo += f", predict took {perf_time_now - perf_time_start}"
+                perfinfo.append(f", predict took {perf_time_now - perf_time_start}")
                 perf_time_start = perf_time_now
 
                 # Add predictions to postprocess queue
@@ -672,7 +676,7 @@ def _predict_layer(
 
                 # Collect performance debugging info
                 time_taken = datetime.now() - perf_time_start
-                perfinfo += f", scheduling postprocessings took {time_taken}"
+                perfinfo.append(f", scheduling postprocessings took {time_taken}")
                 perf_time_start = perf_time_now
 
             # Check postp_queue for completed postprocessings
@@ -734,7 +738,7 @@ def _predict_layer(
                         logger.info("Waited enough for postprocessing to catch up...")
 
                     perf_time_now = datetime.now()
-                    perfinfo += (
+                    perfinfo.append(
                         f", after postproces: took {perf_time_now - perf_time_start}"
                     )
                     perf_time_start = perf_time_now
@@ -780,7 +784,7 @@ def _predict_layer(
             # ---------------------
             # Log the progress and prediction speed
             if len(perfinfo) > 0:
-                logger.debug(perfinfo)
+                logger.debug("".join(perfinfo))
             if progress is not None:
                 progress.update(nb_steps_done=nb_done, nb_steps_total=nb_to_predict)
             # Init progress only when some imags were already processed, as the
@@ -894,6 +898,7 @@ def _predict_image_batch(
 
     predictions_by_image: dict[int, np.ndarray] = {}
     for image_indices in image_indices_by_shape.values():
+        assembly_started = time.perf_counter()
         image_batch = [image_tensors[image_index] for image_index in image_indices]
         if all(isinstance(image, np.ndarray) for image in image_batch):
             batch_image_tensor = (
@@ -903,7 +908,18 @@ def _predict_image_batch(
             )
         else:
             batch_image_tensor = tf.stack(image_batch)
+        assembly_seconds = time.perf_counter() - assembly_started
+
+        prediction_started = time.perf_counter()
         batch_predictions = _predict_tensor_batch(model, batch_image_tensor)
+        prediction_seconds = time.perf_counter() - prediction_started
+        logger.debug(
+            "Prediction batch of %s images: assembly took %.3fs, "
+            "predict_on_batch took %.3fs",
+            len(image_indices),
+            assembly_seconds,
+            prediction_seconds,
+        )
         for batch_index, image_index in enumerate(image_indices):
             predictions_by_image[image_index] = batch_predictions[batch_index]
 
