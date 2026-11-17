@@ -202,6 +202,9 @@ def test_predict_layer_uses_file_dataset_and_processes_final_partial_batch(
     assert dataset_arguments["projection_if_missing"] == (
         predicter.rio_crs.CRS.from_user_input("EPSG:31370")
     )
+    assert predicter._predicter_dataset._numpy_dtype(
+        dataset_arguments["image_dtype"]
+    ) == np.dtype(np.float32)
     assert dataset_arguments["max_parallel_reads"] == expected_parallel_reads
     assert done_log_path.read_text().splitlines() == [
         "already-done.tif",
@@ -286,6 +289,9 @@ def test_predict_layer_uses_live_dataset_and_force_reprocesses_in_evaluate_mode(
 
     assert dataset_arguments["image_files"] == image_files
     assert dataset_arguments["image_layer"] is image_layer
+    assert predicter._predicter_dataset._numpy_dtype(
+        dataset_arguments["image_dtype"]
+    ) == np.dtype(np.float32)
     assert dataset_arguments["max_parallel_reads"] == 2
     assert dataset_arguments["ssl_verify"] is False
     assert done_log_path.read_text().splitlines() == ["tile.tif", "tile.tif"]
