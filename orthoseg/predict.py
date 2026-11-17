@@ -10,11 +10,11 @@ import traceback
 from pathlib import Path
 from typing import Any
 
-import keras
 import rasterio as rio
 
 import orthoseg.model.model_factory as mf
 import orthoseg.model.model_helper as mh
+from orthoseg._keras import keras
 from orthoseg.helpers import config_helper as conf, email_helper
 from orthoseg.lib import cleanup, predicter
 from orthoseg.postprocess import _apply_postprocess

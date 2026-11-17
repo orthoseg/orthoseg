@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pyproj
 
-import orthoseg.model.model_factory as mf
 from orthoseg.helpers import config_helper as conf, email_helper
+from orthoseg.model.model_helper import check_image_size
 from orthoseg.util import image_util, log_util
 
 # Get a logger...
@@ -114,7 +114,7 @@ def load_images(
         # Validate the image size for the model architecture
         input_width_pred = image_pixel_width + 2 * image_pixels_overlap
         input_height_pred = image_pixel_height + 2 * image_pixels_overlap
-        mf.check_image_size(
+        check_image_size(
             architecture=conf.model.get("architecture"),
             input_width=input_width_pred,
             input_height=input_height_pred,

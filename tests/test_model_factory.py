@@ -3,6 +3,7 @@
 import os
 from types import SimpleNamespace
 
+import numpy as np
 import pytest
 import segmodels_keras as smk
 
@@ -16,6 +17,29 @@ def test_backend(backend):
     import keras  # noqa: PLC0415
 
     assert keras.backend.backend() == backend
+
+
+def test_custom_losses_and_metrics_use_active_backend():
+    y_true = np.array(
+        [[[[1.0, 0.0], [0.0, 1.0]], [[0.0, 1.0], [1.0, 0.0]]]],
+        dtype=np.float32,
+    )
+    y_pred = np.array(
+        [[[[0.8, 0.2], [0.3, 0.7]], [[0.1, 0.9], [0.6, 0.4]]]],
+        dtype=np.float32,
+    )
+    values = [
+        mf.weighted_categorical_crossentropy([1.0, 2.0])(y_true, y_pred),
+        mf.bootstrapped_crossentropy(y_true, y_pred),
+        mf.jaccard_coef(y_true, y_pred),
+        mf.dice_coef(y_true, y_pred),
+    ]
+    for value in values:
+        if KERAS_GTE_3:
+            value = mf.keras.ops.convert_to_numpy(value)
+        else:
+            value = value.numpy()
+        assert np.isfinite(value).all()
 
 
 @pytest.mark.parametrize(

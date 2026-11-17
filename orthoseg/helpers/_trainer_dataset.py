@@ -5,9 +5,10 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-import keras
 import numpy as np
 from PIL import Image
+
+from orthoseg._keras import keras
 
 logger = logging.getLogger(__name__)
 

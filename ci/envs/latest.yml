@@ -21,7 +21,6 @@ dependencies:
   - shapely >=2
   - scikit-image
   - simplification
-  - tensorflow-cpu >=2.8
   # testing
   - pytest
   - pytest-cov

@@ -1,9 +1,9 @@
-import sys
 from contextlib import AbstractContextManager, nullcontext
 
 import numpy as np
 import pytest
 
+from orthoseg._compat import get_keras_backend
 from orthoseg.lib import predicter
 
 
@@ -40,6 +40,14 @@ class _NoopProgressLogger:
         pass
 
 
+class _TensorLike:
+    def __init__(self, value):
+        self.value = value
+
+    def numpy(self):
+        return self.value
+
+
 def _identity_model():
     inputs = predicter.keras.layers.Input(shape=(2, 2, 1))
     outputs = predicter.keras.layers.Activation("linear")(inputs)
@@ -63,7 +71,7 @@ def _patch_prediction_runtime(monkeypatch, tmp_path):
 
 def _successful_read_result(image_path, value):
     return image_path, {
-        "image_data": predicter.tf.fill((2, 2, 1), float(value)),
+        "image_data": np.full((2, 2, 1), value, dtype=np.float32),
         "image_crs": "EPSG:31370",
         "image_transform": "transform",
         "read_error": b"",
@@ -335,9 +343,9 @@ def test_predict_image_batch_preserves_order_for_different_shapes():
     outputs = predicter.keras.layers.Activation("linear")(inputs)
     model = predicter.keras.models.Model(inputs=inputs, outputs=outputs)
     image_tensors = [
-        predicter.tf.ones((2, 3, 1), dtype=predicter.tf.float32),
-        predicter.tf.fill((1, 2, 1), 5.0),
-        predicter.tf.fill((2, 3, 1), 3.0),
+        np.ones((2, 3, 1), dtype=np.float32),
+        np.full((1, 2, 1), 5.0, dtype=np.float32),
+        np.full((2, 3, 1), 3.0, dtype=np.float32),
     ]
 
     predictions = predicter._predict_image_batch(model, image_tensors)
@@ -355,7 +363,6 @@ def test_predict_image_batch_preserves_order_for_different_shapes():
 @pytest.mark.parametrize("image_count", [1, 2])
 def test_predict_image_batch_keeps_numpy_inputs_on_host(monkeypatch, image_count):
     model = _identity_model()
-    monkeypatch.setattr(predicter.keras.backend, "backend", lambda: "tensorflow")
     observed_batches = []
 
     def predict_on_batch(image_batch):
@@ -388,13 +395,16 @@ def test_predict_image_batch_retries_smaller_batches_on_oom(monkeypatch):
         batch_size = batch.shape[0]
         observed_batch_sizes.append(batch_size)
         if batch_size > 1:
-            raise predicter.tf.errors.ResourceExhaustedError(
-                None, None, "simulated out-of-memory error"
-            )
+            raise RuntimeError("simulated out-of-memory error")
         return original_predict_on_batch(batch)
 
+    monkeypatch.setattr(
+        predicter,
+        "_is_out_of_memory_error",
+        lambda error: "out-of-memory" in str(error),
+    )
     monkeypatch.setattr(model, "predict_on_batch", predict_with_batch_limit)
-    image_tensors = [predicter.tf.fill((2, 2, 1), float(value)) for value in (1, 2, 3)]
+    image_tensors = [np.full((2, 2, 1), value) for value in (1, 2, 3)]
 
     predictions = predicter._predict_image_batch(model, image_tensors)
 
@@ -415,13 +425,18 @@ def test_predict_tensor_batch_converts_non_tensorflow_backend_input(
         assert isinstance(image_batch, np.ndarray)
         predictions = image_batch + 1
         if return_tensor:
-            return predicter.tf.convert_to_tensor(predictions)
+            return _TensorLike(predictions)
         return predictions
 
-    monkeypatch.setattr(predicter.keras.backend, "backend", lambda: "jax")
     monkeypatch.setattr(model, "predict_on_batch", predict_on_batch)
 
-    image_batch = predicter.tf.ones((2, 2, 2, 1), dtype=predicter.tf.float32)
+    image_batch = np.ones((2, 2, 2, 1), dtype=np.float32)
+    if return_tensor and hasattr(predicter.keras, "ops"):
+        monkeypatch.setattr(
+            predicter.keras.ops,
+            "convert_to_numpy",
+            lambda value: value.numpy(),
+        )
     predictions = predicter._predict_tensor_batch(model, image_batch)
 
     assert isinstance(predictions, np.ndarray)
@@ -434,16 +449,15 @@ def test_predict_tensor_batch_reraises_oom_for_single_image(monkeypatch):
     model = predicter.keras.models.Model(inputs=inputs, outputs=outputs)
 
     def raise_oom(_image_batch):
-        raise predicter.tf.errors.ResourceExhaustedError(
-            None, None, "single-image batch is too large"
-        )
+        raise RuntimeError("single-image batch is too large")
 
+    monkeypatch.setattr(predicter, "_is_out_of_memory_error", lambda _error: True)
     monkeypatch.setattr(model, "predict_on_batch", raise_oom)
 
-    with pytest.raises(predicter.tf.errors.ResourceExhaustedError):
+    with pytest.raises(RuntimeError, match="single-image batch"):
         predicter._predict_tensor_batch(
             model,
-            predicter.tf.ones((1, 2, 2, 1), dtype=predicter.tf.float32),
+            np.ones((1, 2, 2, 1), dtype=np.float32),
         )
 
 
@@ -455,10 +469,10 @@ def test_predict_image_batch_with_no_images_returns_empty_list():
     assert predicter._predict_image_batch(model, []) == []
 
 
-def test_prefetch_image_read_results_converts_image_data_to_tensor(
-    monkeypatch, tmp_path
-):
-    monkeypatch.setattr(predicter.keras.backend, "backend", lambda: "tensorflow")
+def test_prefetch_image_read_results_converts_image_data_to_tensor(tmp_path):
+    if get_keras_backend(predicter.keras) != "tensorflow":
+        pytest.skip("TensorFlow data prefetch is specific to the TensorFlow backend")
+    tf = pytest.importorskip("tensorflow")
     image_path = tmp_path / "tile.tif"
     image_data = np.ones((2, 3, 1), dtype=np.float32)
     read_result = {
@@ -472,19 +486,21 @@ def test_prefetch_image_read_results_converts_image_data_to_tensor(
     results = list(
         predicter._predicter_dataset.prefetch_image_read_results(
             iter([(image_path, read_result)]),
-            predicter.tf.float32,
+            tf.float32,
             prefetch_buffer_size=1,
         )
     )
 
     assert results[0][0] == image_path
-    assert isinstance(results[0][1]["image_data"], predicter.tf.Tensor)
+    assert isinstance(results[0][1]["image_data"], tf.Tensor)
     np.testing.assert_array_equal(results[0][1]["image_data"].numpy(), image_data)
     assert results[0][1]["image_crs"] == "EPSG:31370"
 
 
-def test_prefetch_image_read_results_preserves_failed_reads(monkeypatch, tmp_path):
-    monkeypatch.setattr(predicter.keras.backend, "backend", lambda: "tensorflow")
+def test_prefetch_image_read_results_preserves_failed_reads(tmp_path):
+    if get_keras_backend(predicter.keras) != "tensorflow":
+        pytest.skip("TensorFlow data prefetch is specific to the TensorFlow backend")
+    tf = pytest.importorskip("tensorflow")
     image_path = tmp_path / "broken.tif"
     read_result = {
         "image_data": None,
@@ -495,7 +511,7 @@ def test_prefetch_image_read_results_preserves_failed_reads(monkeypatch, tmp_pat
     results = list(
         predicter._predicter_dataset.prefetch_image_read_results(
             iter([(image_path, read_result)]),
-            predicter.tf.float32,
+            tf.float32,
         )
     )
 
@@ -508,7 +524,7 @@ def test_prefetch_image_read_results_preserves_failed_reads(monkeypatch, tmp_pat
 def test_prefetch_image_read_results_skips_non_tensorflow_backend(
     monkeypatch, tmp_path
 ):
-    monkeypatch.setattr(predicter.keras.backend, "backend", lambda: "jax")
+    monkeypatch.setattr("orthoseg._compat.get_keras_backend", lambda _keras: "jax")
     image_path = tmp_path / "tile.tif"
     image_data = np.ones((2, 3, 1), dtype=np.float32)
     read_result = {"image_data": image_data}
@@ -516,7 +532,7 @@ def test_prefetch_image_read_results_skips_non_tensorflow_backend(
     results = list(
         predicter._predicter_dataset.prefetch_image_read_results(
             iter([(image_path, read_result)]),
-            predicter.tf.float32,
+            np.float32,
         )
     )
 
@@ -527,8 +543,9 @@ def test_prefetch_image_read_results_skips_non_tensorflow_backend(
 def test_prefetch_image_read_results_falls_back_when_tensorflow_is_missing(
     monkeypatch, tmp_path
 ):
-    monkeypatch.setattr(predicter.keras.backend, "backend", lambda: "tensorflow")
-    monkeypatch.setitem(sys.modules, "tensorflow", None)
+    monkeypatch.setattr(
+        "orthoseg._compat._module_is_available", lambda _module_name: False
+    )
     image_path = tmp_path / "tile.tif"
     image_data = np.ones((2, 3, 1), dtype=np.float32)
     read_result = {"image_data": image_data}

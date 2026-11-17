@@ -14,11 +14,10 @@ import warnings
 from pathlib import Path
 from typing import Any
 
-import keras
 import pyproj
 from osgeo import gdal
 
-from orthoseg._compat import KERAS_GTE_3
+from orthoseg._compat import KERAS_GTE_3, KERAS_VERSION
 from orthoseg.lib.prepare_traindatasets import LabelInfo
 from orthoseg.model.model_helper import format_model_config_name
 from orthoseg.model.model_weights_helper import get_weights_types_for_architecture
@@ -295,7 +294,7 @@ def read_orthoseg_config(config_path: Path, overrules: list[str] | None = None):
     elif train.get("save_format") == "keras" and not KERAS_GTE_3:
         raise ValueError(
             "Keras format for saving models is only supported for Keras >= 3. "
-            f"Current Keras version is {keras.__version__}."
+            f"Current Keras version is {KERAS_VERSION or 'not installed'}."
         )
     elif train.get("save_format") not in ["keras", "h5", "tf"]:
         raise ValueError(

@@ -21,6 +21,24 @@ necessary drivers, and that the CUDA support is working.
 If you run into problems anywhere in this procedure, it can be useful to also have a
 look at the tensorflow installation instructions on https://www.tensorflow.org/install
 
+Deep-learning backends
+----------------------
+
+TensorFlow is optional. Image loading, project validation, and vector postprocessing do
+not require a deep-learning backend. Training and model prediction require Keras and a
+supported backend. Keras 2 works with TensorFlow; Torch and JAX require Keras 3. Install
+the backend you want to use:
+
+.. code-block:: console
+
+    python -m pip install "orthoseg[tensorflow]"
+    python -m pip install "orthoseg[torch]"
+    python -m pip install "orthoseg[jax]"
+
+If more than one backend is installed, Orthoseg prefers TensorFlow by default. To
+select another backend, set ``KERAS_BACKEND`` before starting Python, for example
+``KERAS_BACKEND=torch`` or ``KERAS_BACKEND=jax``.
+
 
 On Linux or WSL2
 ================
@@ -45,11 +63,11 @@ To use a CUDA GPU, also install the necessary CUDA packages in the environment: 
 On native Windows
 =================
 
-For native Windows, no tensorflow packages are published on conda-forge. Hence, we need
-to install tensorflow using pip.
+For native Windows, TensorFlow is not published on conda-forge. If you choose the
+TensorFlow backend, install it using pip.
 
-If you want to run orthoseg on CPU, you can create a new environment with orthoseg and
-its dependencies installed with the following command:
+If you want to run Orthoseg on CPU with TensorFlow, you can create a new environment
+with Orthoseg and its dependencies installed with the following command:
 
 .. parsed-literal::
 
@@ -57,8 +75,9 @@ its dependencies installed with the following command:
     conda activate orthoseg
 
 
-If you want to run orthoseg on native Windows with a CUDA GPU being used, things are a
-bit more complicated because builds of recent versions of tensorflow don't support this.
+If you want to run Orthoseg on native Windows with a CUDA GPU using TensorFlow, things
+are a bit more complicated because builds of recent TensorFlow versions don't support
+this.
 
 Nonetheless, it is possible to get it working, e.g. by using an older version of
 tensorflow (2.10) and some older versions of other dependencies. The combinations of
@@ -75,8 +94,9 @@ a working environment at the time of writing:
 On MacOS
 ========
 
-On MacOS, conda-forge packages exist for tensorflow, but they can lead to crashes in
-orthoseg, so installing tensorflow with pip is recommended.
+On macOS, conda-forge packages exist for TensorFlow, but they can lead to crashes in
+Orthoseg. If you choose the TensorFlow backend, installing TensorFlow with pip is
+recommended.
 
 You can create a new environment with orthoseg and its dependencies installed with the
 following command:
