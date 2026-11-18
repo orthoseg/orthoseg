@@ -64,7 +64,8 @@ On native Windows, with cuda GPU support
 
 If you want to run Orthoseg on native Windows with a CUDA GPU using TensorFlow, things
 are a bit more complicated because builds of recent TensorFlow versions don't support
-this.
+this. Because of this, if you have the option/choice available to run on linux, it is
+recommended to do so.
 
 Nonetheless, it is possible to get it working, e.g. by using an older version of
 tensorflow (2.10) and some older versions of other dependencies. The combinations of
