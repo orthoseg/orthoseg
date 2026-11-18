@@ -119,5 +119,5 @@ url_conda_envs = f"{base_url}_static/conda_envs"
 rst_epilog = f"""
 .. |environment| replace:: {url_conda_envs}/environment.yml
 .. |environment-tf-pip| replace:: {url_conda_envs}/environment-tf-pip.yml
-.. |environment-win-gpu| replace:: {url_conda_envs}/environment-win-gpu.yml
+.. |environment-tf-gpu-win| replace:: {url_conda_envs}/environment-tf-gpu-win.yml
 """

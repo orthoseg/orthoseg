@@ -33,4 +33,4 @@ dependencies:
   - pip:
     - segmodels-keras
     - tensorflow >=2.10,<2.20
-    - orthoseg >=0.6
+    - orthoseg

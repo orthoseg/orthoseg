@@ -11,13 +11,22 @@ from pathlib import Path
 from typing import Any
 
 import h5py
-import segmodels_keras as smk
-from segmodels_keras import Linknet, PSPNet, Unet
 
-from orthoseg._compat import KERAS_GTE_3, get_keras_backend
-from orthoseg._keras import keras
-from orthoseg.model import model_helper as mh
-from orthoseg.model.model_weights_helper import get_model_weights_path
+from orthoseg._compat import (
+    KERAS_GTE_3,
+    configure_keras_backend,
+    get_keras_backend,
+)
+
+# segmodels_keras imports Keras, so select its backend first.
+configure_keras_backend()
+
+import segmodels_keras as smk  # noqa: E402
+from segmodels_keras import Linknet, PSPNet, Unet  # noqa: E402
+
+from orthoseg._keras import keras  # noqa: E402
+from orthoseg.model import model_helper as mh  # noqa: E402
+from orthoseg.model.model_weights_helper import get_model_weights_path  # noqa: E402
 
 if KERAS_GTE_3:
     from keras import ops
