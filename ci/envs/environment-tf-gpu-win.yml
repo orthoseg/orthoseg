@@ -5,7 +5,7 @@
 #     windows.
 #   - the minimal version of tensorflow is 2.10, as this is the last version with GPU
 #     support on windows.
-name: orthoseg-win-gpu
+name: orthoseg
 channels:
   - conda-forge
 dependencies:
