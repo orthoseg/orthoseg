@@ -583,11 +583,11 @@ def test_set_torch_optimizations_on_cpu(monkeypatch, smoke_test_passes):
     assert model.jit_compile is smoke_test_passes
 
 
-def test_torch_cpu_compile_smoke_test(monkeypatch, caplog):
+def test_torch_cpu_compile_smoke_test(caplog):
     caplog.set_level(logging.INFO)
     torch_module = SimpleNamespace(
-        compile=lambda function, *, fullgraph: function,
-        ones=lambda _size, *, device: 1,
+        compile=lambda function, **_kwargs: function,
+        ones=lambda _size, **_kwargs: 1,
         full_like=lambda _value, fill_value: fill_value,
         equal=lambda actual, expected: actual == expected,
     )
@@ -597,12 +597,12 @@ def test_torch_cpu_compile_smoke_test(monkeypatch, caplog):
 
 
 def test_torch_cpu_compile_smoke_test_without_compiler(caplog):
-    def fail_compile(_function, *, fullgraph):
+    def fail_compile(_function, **_kwargs):
         raise RuntimeError("compiler not found")
 
     torch_module = SimpleNamespace(
         compile=fail_compile,
-        ones=lambda _size, *, device: 1,
+        ones=lambda _size, **_kwargs: 1,
         full_like=lambda _value, fill_value: fill_value,
         equal=lambda actual, expected: actual == expected,
     )
