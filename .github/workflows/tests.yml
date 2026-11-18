@@ -61,11 +61,11 @@ jobs:
             os: ubuntu-latest
             dev: false
             python: "3.12"
-          - env: minimal
+          - env: minimal-tf
             os: windows-latest
             dev: false
             python: "3.10"
-          - env: minimal
+          - env: minimal-tf
             os: ubuntu-latest
             dev: false
             python: "3.10"
