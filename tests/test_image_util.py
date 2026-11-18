@@ -451,7 +451,7 @@ def _test_load_images_to_cache(path):
 
 
 def test_prepare_auth_logs_ssl_warning_once(monkeypatch, caplog):
-    ssl_warning = "SSL VERIFICATION IS TURNED OFF FOR OWSLIB!!!"
+    ssl_warning = "SSL VERIFICATION IS TURNED OFF FOR OWSLIB (logged once per process)"
     monkeypatch.setattr(
         image_util, "_ssl_verification_warning_logged", threading.Event()
     )
