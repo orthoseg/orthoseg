@@ -60,6 +60,8 @@ FORMAT_PNG_EXT_WORLD = ".pgw"
 # Get a logger...
 logger = logging.getLogger(__name__)
 _pyproj_crs_to_epsg_lock = threading.Lock()
+_ssl_verification_warning_lock = threading.Lock()
+_ssl_verification_warning_logged = threading.Event()
 
 
 def _get_epsg_code(crs: pyproj.CRS) -> int | None:
@@ -604,7 +606,13 @@ def _prepare_auth(
 
     if ssl_verify is False:
         urllib3.disable_warnings()
-        logger.warning("SSL VERIFICATION IS TURNED OFF FOR OWSLIB!!!")
+        with _ssl_verification_warning_lock:
+            if not _ssl_verification_warning_logged.is_set():
+                logger.warning(
+                    "SSL VERIFICATION IS TURNED OFF FOR OWSLIB "
+                    "(logged once per process)"
+                )
+                _ssl_verification_warning_logged.set()
     elif ssl_verify is True and "REQUESTS_CA_BUNDLE" in os.environ:
         ssl_verify = os.environ["REQUESTS_CA_BUNDLE"]
 

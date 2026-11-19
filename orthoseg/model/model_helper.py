@@ -8,9 +8,8 @@ from pathlib import Path
 from typing import Any, Literal, cast
 
 import pandas as pd
-from keras import callbacks
 
-from orthoseg._compat import KERAS_GTE_3, __version__
+from orthoseg._compat import KERAS_GTE_3, __version__, get_keras_backend
 
 # Get a logger...
 logger = logging.getLogger(__name__)
@@ -36,6 +35,25 @@ def format_model_config_name(
         model_config_name = f"{architecture_id}.{trainparams_id}"
     validate_model_config_name(model_config_name)
     return model_config_name
+
+
+def check_image_size(architecture: str, input_width: int, input_height: int) -> None:
+    """Check that the configured image size is compatible with the architecture."""
+    segment_architecture_parts = architecture.split("+")
+    if len(segment_architecture_parts) < 2:
+        raise ValueError(f"Unsupported architecture: {architecture}")
+
+    decoder = segment_architecture_parts[1]
+    if decoder.lower() == "linknet" and (
+        (input_width and input_width % 32 != 0)
+        or (input_height and input_height % 32 != 0)
+    ):
+        message = (
+            f"for decoder linknet, input image width ({input_width}) and "
+            f"input image height ({input_height}) should be divisible by 32!"
+        )
+        logger.error(message)
+        raise ValueError(message)
 
 
 resolve_model_config_name = format_model_config_name
@@ -810,9 +828,22 @@ def get_number_gpus() -> int:
     Returns:
         the number of GPUs available.
     """
-    import tensorflow as tf  # noqa: PLC0415
+    from orthoseg._keras import keras  # noqa: PLC0415
 
-    return len(tf.config.experimental.list_physical_devices("GPU"))
+    backend = get_keras_backend(keras)
+    if backend == "tensorflow":
+        import tensorflow as tf  # noqa: PLC0415
+
+        return len(tf.config.experimental.list_physical_devices("GPU"))
+    if backend == "torch":
+        import torch  # noqa: PLC0415
+
+        return torch.cuda.device_count()
+    if backend == "jax":
+        import jax  # noqa: PLC0415
+
+        return sum(device.platform == "gpu" for device in jax.devices())
+    return 0
 
 
 def get_min_gpu_compute_capability() -> tuple[int, int] | None:
@@ -823,184 +854,35 @@ def get_min_gpu_compute_capability() -> tuple[int, int] | None:
             available GPUs, or None if no GPU is available or the compute
             capability could not be determined.
     """
-    import tensorflow as tf  # noqa: PLC0415
+    from orthoseg._keras import keras  # noqa: PLC0415
 
-    gpus = tf.config.experimental.list_physical_devices("GPU")
-    compute_capabilities = [
-        details["compute_capability"]
-        for gpu in gpus
-        if (details := tf.config.experimental.get_device_details(gpu)).get(
-            "compute_capability"
-        )
-        is not None
-    ]
+    backend = get_keras_backend(keras)
+    if backend == "tensorflow":
+        import tensorflow as tf  # noqa: PLC0415
+
+        gpus = tf.config.experimental.list_physical_devices("GPU")
+        compute_capabilities = [
+            details["compute_capability"]
+            for gpu in gpus
+            if (details := tf.config.experimental.get_device_details(gpu)).get(
+                "compute_capability"
+            )
+            is not None
+        ]
+    elif backend == "torch":
+        import torch  # noqa: PLC0415
+
+        compute_capabilities = [
+            torch.cuda.get_device_capability(index)
+            for index in range(torch.cuda.device_count())
+        ]
+    else:
+        return None
 
     if len(compute_capabilities) == 0:
         return None
 
     return min(compute_capabilities)
-
-
-class ModelCheckpointExt(callbacks.Callback):
-    """Class to checkpoint a model while training it with extended options.
-
-    Args:
-        callbacks (_type_): _description_
-    """
-
-    def __init__(
-        self,
-        model_save_dir: Path,
-        segment_subject: str,
-        *,
-        traindata_id: int,
-        monitor_metric: str,
-        monitor_metric_mode: str,
-        model_config_name: str = "",
-        save_format: str = "keras",
-        save_best_only: bool = False,
-        save_min_accuracy: float = 0.90,
-        save_min_accuracy_ignored_epoch: int = 100,
-        save_weights_only: bool = False,
-        model_template_for_save=None,
-        verbose: bool = True,
-        only_report: bool = False,
-    ):
-        """Constructor.
-
-        Args:
-            model_save_dir: [description]
-            segment_subject: segment subject
-            traindata_id: train data id
-            monitor_metric: The metric to monitor for accuracy
-            monitor_metric_mode: use 'min' if the accuracy metrics
-                should be  as low as possible, 'max' if a higher values is
-                better.
-            model_config_name: name used to distinguish model configurations.
-                Defaults to "".
-            save_format: The format to save in:
-                'h5' (legacy keras format), 'keras' (new keras format), or 'tf'
-                (tensorflow savedmodel). Defaults to 'keras'.
-            save_best_only: only keep the best model.
-                Defaults to True.
-            save_min_accuracy: minimum accuracy to be
-                reached to save model. Defaults to 0.9.
-            save_min_accuracy_ignored_epoch: at this epoch the
-                save_min_accuracy is ignored, to make sure there is a model
-                saved, even if the minimum accuracy is never reached.
-            save_weights_only: optional: only save weights
-            model_template_for_save: optional, if using multi-GPU training,
-                pass the original model here to use this as template for saving
-            verbose: [description]. Defaults to True.
-            only_report: [description]. Defaults to False.
-        """
-        monitor_metric_mode_values = ["min", "max"]
-        if monitor_metric_mode not in monitor_metric_mode_values:
-            raise Exception(
-                f"Invalid value for mode: {monitor_metric_mode}, should be one of "
-                f"{monitor_metric_mode_values}"
-            )
-        save_format_values = ("keras", "h5", "tf")
-        if save_format not in save_format_values:
-            raise Exception(
-                f"Invalid value for save_format: {save_format}, should be one of "
-                f"{save_format_values}"
-            )
-
-        self.model_save_dir = model_save_dir
-        self.segment_subject = segment_subject
-        self.traindata_id = traindata_id
-        self.model_config_name = model_config_name
-        self.monitor_metric = monitor_metric
-        self.monitor_metric_mode = monitor_metric_mode
-        self.save_format = save_format
-        self.save_best_only = save_best_only
-        self.save_min_accuracy = save_min_accuracy
-        self.save_min_accuracy_ignored_epoch = save_min_accuracy_ignored_epoch
-        self.save_weights_only = save_weights_only
-        self.model_template_for_save = model_template_for_save
-        self.verbose = verbose
-        self.only_report = only_report
-
-    def on_epoch_end(self, epoch, logs=None):
-        """on_epoch_end method.
-
-        Args:
-            epoch (_type_): _description_
-            logs (dict, optional): _description_. Defaults to None.
-        """
-        if logs is None:
-            logs = {}
-        logger.debug(f"Start in callback on_epoch_begin, logs contains: {logs}")
-
-        # First determine the values of the monitor metric for train and validation
-        # If the monitor_metric doesn't contain placeholder, it is easy
-        if "{" not in self.monitor_metric:
-            new_model_monitor_value = logs.get(self.monitor_metric)
-        else:
-            # There are placeholders, so we need some more logic
-            monitor_metric_formatted = self.monitor_metric.format(**logs)
-            new_model_monitor_value = eval(monitor_metric_formatted, {}, {})
-
-        # Now we can save and clean models
-        save_and_clean_models(
-            model_save_dir=self.model_save_dir,
-            segment_subject=self.segment_subject,
-            traindata_id=self.traindata_id,
-            model_config_name=self.model_config_name,
-            monitor_metric_mode=self.monitor_metric_mode,
-            new_model=self.model,
-            new_model_monitor_value=new_model_monitor_value,
-            new_model_epoch=epoch,
-            save_format=self.save_format,
-            save_best_only=self.save_best_only,
-            save_min_accuracy=self.save_min_accuracy,
-            save_min_accuracy_ignored_epoch=self.save_min_accuracy_ignored_epoch,
-            save_weights_only=self.save_weights_only,
-            model_template_for_save=self.model_template_for_save,
-            verbose=self.verbose,
-            only_report=self.only_report,
-        )
-
-
-class CSVLoggerExt(callbacks.CSVLogger):
-    """CSVLogger that adds metrics calculated from formulas.
-
-    Args:
-        custom_metrics: Mapping of CSV column names to formulas. Metric values from
-            Keras logs can be referenced with ``{metric_name}`` placeholders.
-        filepath: Path to the CSV file.
-        separator: Field separator used in the CSV file.
-        append: If true, append to an existing CSV file.
-    """
-
-    def __init__(
-        self,
-        filepath: str | Path,
-        separator: str = ",",
-        append: bool = False,
-        *,
-        custom_metrics: dict[str, str] | None = None,
-    ):
-        """Initialize the logger with optional derived metric formulas."""
-        super().__init__(filepath, separator=separator, append=append)
-        self.custom_metrics = custom_metrics or {}
-
-    def on_epoch_end(self, epoch, logs=None):
-        """Calculate custom metrics and write this epoch through CSVLogger."""
-        logs_with_custom_metrics = dict(logs or {})
-        for metric_name, formula in self.custom_metrics.items():
-            if "{" not in formula:
-                logs_with_custom_metrics[metric_name] = logs_with_custom_metrics.get(
-                    formula
-                )
-            else:
-                formatted_formula = formula.format(**logs_with_custom_metrics)
-                logs_with_custom_metrics[metric_name] = eval(
-                    formatted_formula, {"__builtins__": {}}, {}
-                )
-
-        super().on_epoch_end(epoch, logs_with_custom_metrics)
 
 
 def save_and_clean_models(
@@ -1233,3 +1115,12 @@ def save_and_clean_models(
                 f"monitor_metric_accuracy: {best_model.monitor_metric_accuracy}, "
                 f"epoch: {best_model.epoch}"
             )
+
+
+def __getattr__(name: str):
+    """Load Keras callbacks only when requested by a training caller."""
+    if name in {"CSVLoggerExt", "ModelCheckpointExt"}:
+        from orthoseg.model import model_callbacks  # noqa: PLC0415
+
+        return getattr(model_callbacks, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

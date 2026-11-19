@@ -1,4 +1,8 @@
-"""Internal helpers for reading prediction images concurrently."""
+"""Internal helpers for reading prediction images concurrently.
+
+keras and tensorflow are optional dependencies only used for prefetching image tensors
+to improve throughput. If they are not available, the prefetching will be a no-op.
+"""
 
 import logging
 import queue
@@ -245,6 +249,86 @@ def iter_image_read_results(
     read_results: Iterable[tuple[Path, dict[str, Any]]],
 ) -> Iterator[tuple[Path, dict[str, Any]]]:
     yield from read_results
+
+
+def prefetch_image_read_results(
+    read_results: Iterator[tuple[Path, dict[str, Any]]],
+    image_dtype: Any,
+    *,
+    prefetch_buffer_size: int = -1,
+) -> Iterator[tuple[Path, dict[str, Any]]]:
+    """Prefetch image tensors with a configurable buffer.
+
+    Note: this will only work if keras and tensorflow are available. If not, this is a
+    no-op and will yield the read results as-is.
+
+    Args:
+        read_results: An iterator of tuples containing the image path and the read
+            result dictionary.
+        image_dtype: The data type of the image tensors.
+        prefetch_buffer_size: The size of the prefetch buffer. Defaults to -1, which
+            uses tf.data.AUTOTUNE.
+
+    Yields:
+        Tuples of the image path and the read result dictionary, with the image data
+        prefetched as a tensor.
+    """
+    from orthoseg._compat import (  # noqa: PLC0415
+        _module_is_available,
+        get_keras_backend,
+    )
+
+    if not _module_is_available("tensorflow"):
+        yield from read_results
+        return
+
+    try:
+        from orthoseg._keras import keras  # noqa: PLC0415
+    except ModuleNotFoundError as ex:
+        if ex.name not in {"keras", "tensorflow"}:
+            raise
+        yield from read_results
+        return
+
+    if get_keras_backend(keras) != "tensorflow":
+        yield from read_results
+        return
+
+    try:
+        import tensorflow as tf  # noqa: PLC0415
+    except ModuleNotFoundError as ex:
+        if ex.name != "tensorflow":
+            raise
+        yield from read_results
+        return
+
+    tensor_dtype = tf.as_dtype(image_dtype)
+    metadata_queue: queue.Queue[tuple[Path, dict[str, Any], bool]] = queue.Queue()
+
+    def generate_image_data() -> Iterator[np.ndarray]:
+        for image_path, read_result in read_results:
+            read_result = dict(read_result)
+            image_data = read_result.pop("image_data", None)
+            has_image_data = image_data is not None
+            metadata_queue.put((image_path, read_result, has_image_data))
+            if not has_image_data:
+                image_data = np.empty((0, 0, 0), dtype=tensor_dtype.as_numpy_dtype)
+            yield image_data
+
+    if prefetch_buffer_size < 1:
+        prefetch_buffer_size = tf.data.AUTOTUNE
+    dataset = tf.data.Dataset.from_generator(
+        generate_image_data,
+        output_signature=tf.TensorSpec(
+            shape=(None, None, None),
+            dtype=tensor_dtype,
+        ),
+    ).prefetch(prefetch_buffer_size)
+
+    for image_data in dataset:
+        image_path, read_result, has_image_data = metadata_queue.get()
+        read_result["image_data"] = image_data if has_image_data else None
+        yield image_path, read_result
 
 
 def _iter_parallel_reads(

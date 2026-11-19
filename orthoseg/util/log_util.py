@@ -144,10 +144,12 @@ def main_log_init(log_dir: Path, log_basefilename: str, *, log_level: str = "INF
     logger = logging.getLogger("")
 
     resolved_log_level = logging.getLevelName(log_level.upper())
-    if not isinstance(resolved_log_level, int):
-        resolved_log_level = logging.INFO
-    logger.setLevel(resolved_log_level)
-    logging.getLogger("rasterio").setLevel(resolved_log_level)
+    if isinstance(resolved_log_level, int):
+        numeric_log_level = resolved_log_level
+    else:
+        numeric_log_level = logging.INFO
+    logger.setLevel(numeric_log_level)
+    logging.getLogger("rasterio").setLevel(numeric_log_level)
     pytest_handlers = [
         h for h in logger.handlers if h.__class__.__name__ == "LogCaptureHandler"
     ]
@@ -168,7 +170,7 @@ def main_log_init(log_dir: Path, log_basefilename: str, *, log_level: str = "INF
     logger.handlers = list(pytest_handlers)
 
     ch = logging.StreamHandler()
-    ch.setLevel(resolved_log_level)
+    ch.setLevel(numeric_log_level)
     # ch.setFormatter(logging.Formatter('%(levelname)s|%(name)s|%(message)s'))
     # ch.setFormatter(logging.Formatter(
     #     '%(asctime)s|%(levelname)s|%(name)s|%(message)s', datefmt='%H:%M:%S,uuu')
@@ -185,7 +187,7 @@ def main_log_init(log_dir: Path, log_basefilename: str, *, log_level: str = "INF
         log_dir / f"{datetime.datetime.now():%Y-%m-%d_%H-%M-%S}_{log_basefilename}.log"
     )
     fh = logging.FileHandler(filename=str(log_filepath))
-    fh.setLevel(resolved_log_level)
+    fh.setLevel(numeric_log_level)
     fh.setFormatter(logging.Formatter("%(asctime)s|%(levelname)s|%(name)s|%(message)s"))
     logger.addHandler(fh)
 

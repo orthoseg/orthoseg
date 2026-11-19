@@ -33,4 +33,4 @@ dependencies:
   - pytest-order
   - pip:
     - segmodels-keras
-    - orthoseg >=0.6
+    - orthoseg

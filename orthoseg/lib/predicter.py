@@ -14,14 +14,14 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import geofileops as gfo
-import keras.models
 import numpy as np
 import pandas as pd
 import pyproj
 import rasterio.crs as rio_crs
-import tensorflow as tf
 
 import orthoseg.lib.postprocess_predictions as postp
+from orthoseg._compat import get_keras_backend
+from orthoseg._keras import keras
 from orthoseg.helpers import _predicter_dataset
 from orthoseg.util import _processing_util, image_util
 from orthoseg.util.progress_util import ProgressLogger
@@ -453,6 +453,7 @@ def _predict_layer(
     if nb_parallel_postprocess == -1:
         nb_parallel_postprocess = multiprocessing.cpu_count()
 
+    image_dtype = model.inputs[0].dtype
     if image_layer is None:
         projection_for_read = projection_if_missing
         if projection_if_missing is not None:
@@ -468,7 +469,7 @@ def _predict_layer(
             image_paths=image_paths_to_read,
             projection_if_missing=projection_for_read,
             preprocess_input=preprocess_input,
-            image_dtype=model.inputs[0].dtype,
+            image_dtype=image_dtype,
             max_parallel_reads=nb_parallel_read,
         )
     else:
@@ -482,11 +483,13 @@ def _predict_layer(
             image_files=image_files_to_read,
             image_layer=image_layer,
             ssl_verify=ssl_verify,
-            image_dtype=model.inputs[0].dtype,
+            image_dtype=image_dtype,
             max_parallel_reads=nb_parallel_read,
         )
-    read_results_iterator = iter(
-        _predicter_dataset.iter_image_read_results(read_dataset)
+
+    # Apply prefetching to improve throughput.
+    read_results_iterator = _predicter_dataset.prefetch_image_read_results(
+        read_dataset, image_dtype
     )
 
     predict_queue: list[dict] = []
@@ -889,7 +892,7 @@ def _handle_error(
 
 
 def _predict_image_batch(
-    model: keras.models.Model, image_tensors: list[tf.Tensor | np.ndarray]
+    model: keras.models.Model, image_tensors: list[Any]
 ) -> list[np.ndarray]:
     image_indices_by_shape: dict[tuple[int, ...], list[int]] = {}
     for image_index, image_tensor in enumerate(image_tensors):
@@ -899,15 +902,14 @@ def _predict_image_batch(
     predictions_by_image: dict[int, np.ndarray] = {}
     for image_indices in image_indices_by_shape.values():
         assembly_started = time.perf_counter()
-        image_batch = [image_tensors[image_index] for image_index in image_indices]
-        if all(isinstance(image, np.ndarray) for image in image_batch):
-            batch_image_tensor = (
-                np.expand_dims(image_batch[0], axis=0)
-                if len(image_batch) == 1
-                else np.stack(image_batch)
-            )
-        else:
-            batch_image_tensor = tf.stack(image_batch)
+        image_batch = [
+            _to_numpy(image_tensors[image_index]) for image_index in image_indices
+        ]
+        batch_image_tensor = (
+            np.expand_dims(image_batch[0], axis=0)
+            if len(image_batch) == 1
+            else np.stack(image_batch)
+        )
         assembly_seconds = time.perf_counter() - assembly_started
 
         prediction_started = time.perf_counter()
@@ -930,16 +932,13 @@ def _predict_image_batch(
 
 def _predict_tensor_batch(
     model: keras.models.Model,
-    batch_image_tensor: tf.Tensor | np.ndarray,
+    batch_image_tensor: np.ndarray,
 ) -> np.ndarray:
     try:
-        model_input = batch_image_tensor
-        if keras.backend.backend() != "tensorflow" and isinstance(
-            batch_image_tensor, tf.Tensor
-        ):
-            model_input = batch_image_tensor.numpy()
-        batch_predictions = model.predict_on_batch(model_input)
-    except tf.errors.ResourceExhaustedError:
+        batch_predictions = model.predict_on_batch(batch_image_tensor)
+    except Exception as ex:
+        if not _is_out_of_memory_error(ex):
+            raise
         batch_size = batch_image_tensor.shape[0]
         if batch_size is None or batch_size <= 1:
             raise
@@ -960,6 +959,28 @@ def _predict_tensor_batch(
         )
         return np.concatenate((first_predictions, second_predictions), axis=0)
 
-    if isinstance(batch_predictions, tf.Tensor):
-        batch_predictions = batch_predictions.numpy()
-    return np.array(batch_predictions)
+    return _to_numpy(batch_predictions)
+
+
+def _to_numpy(value: Any) -> np.ndarray:
+    if isinstance(value, np.ndarray):
+        return value
+    if hasattr(keras, "ops"):
+        return np.asarray(keras.ops.convert_to_numpy(value))
+    if hasattr(value, "numpy"):
+        return np.asarray(value.numpy())
+    return np.asarray(value)
+
+
+def _is_out_of_memory_error(error: Exception) -> bool:
+    backend = get_keras_backend(keras)
+    if backend == "tensorflow":
+        import tensorflow as tf  # noqa: PLC0415
+
+        return isinstance(error, tf.errors.ResourceExhaustedError)
+    if backend == "torch":
+        import torch  # noqa: PLC0415
+
+        return isinstance(error, torch.cuda.OutOfMemoryError)
+    error_message = str(error).lower()
+    return "resource_exhausted" in error_message or "out of memory" in error_message
