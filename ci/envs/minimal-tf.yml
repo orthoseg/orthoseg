@@ -9,7 +9,7 @@ name: orthoseg-minimal
 channels:
   - conda-forge
 dependencies:
-  - python
+  - python =3.10
   - pip
   # required
   - astunparse  # Avoid it being installed via pip, otherwise segfault on windows

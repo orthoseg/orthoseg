@@ -8,7 +8,7 @@ name: orthoseg-latest-tf-pip
 channels:
   - conda-forge
 dependencies:
-  - python
+  - python <3.14
   - pip
   # required
   - astunparse  # Avoid it being installed via pip, otherwise segfault on windows
@@ -16,7 +16,7 @@ dependencies:
   - geofileops >=0.12
   - geopandas-base >=1.0
   - matplotlib-base
-  - numpy <2.2  # Tensorflow 2.19 needs a limit on the numpy version
+  - numpy # <2.2  # Tensorflow 2.19 needs a limit on the numpy version
   - owslib
   - pandas
   - pillow
@@ -29,7 +29,7 @@ dependencies:
   - simplification
   # dependencies of tensorflow that need to be conda versions to avoid binary compatibility issues
   # TensorFlow 2.19 can segfault on Windows with h5py versions above 3.13.
-  - sel(win): "h5py <3.14"
+  # - sel(win): "h5py <3.14"
   # testing
   - pytest
   - pytest-cov

@@ -3,7 +3,7 @@ name: orthoseg-latest
 channels:
   - conda-forge
 dependencies:
-  - python
+  - python <3.14
   - pip
   # required
   - gdal
