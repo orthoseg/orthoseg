@@ -6,6 +6,7 @@ and contains extra metrics, callbacks,...
 
 import json
 import logging
+import warnings
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -14,9 +15,16 @@ import h5py
 
 from orthoseg._compat import (
     KERAS_GTE_3,
+    KERAS_VERSION,
     configure_keras_backend,
     get_keras_backend,
 )
+
+# False-positive warning when loading .keras files in keras 3.15
+if KERAS_VERSION == (3, 15):
+    warnings.filterwarnings(
+        "ignore", message="Skipping nested container at.*", category=UserWarning
+    )
 
 # segmodels_keras imports Keras, so select its backend first.
 configure_keras_backend()
@@ -467,6 +475,7 @@ def load_model(
         custom_objects.update(
             get_custom_objects(hyperparams["architecture"]["architecture"])
         )
+
         try:
             model = keras.models.load_model(
                 str(model_to_use_filepath),
