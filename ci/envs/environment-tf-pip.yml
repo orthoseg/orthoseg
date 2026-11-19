@@ -3,19 +3,18 @@
 #
 # Notes:
 #   - necessary for windows, as conda-forge does not provide a tf package for windows
-#   - the conda-forge tf package give an error for some tests on MacOS
 name: orthoseg
 channels:
   - conda-forge
 dependencies:
-  - python <3.13
+  - python <3.14
   - pip
   # required
   - gdal
   - geofileops >=0.12
   - geopandas-base >=1.0
   - matplotlib-base
-  - numpy <2.2  # Tensorflow 2.19 needs a limit on the numpy version
+  - numpy
   - owslib
   - pandas
   - pillow
@@ -32,5 +31,5 @@ dependencies:
   - pytest-order
   - pip:
     - segmodels-keras
-    - tensorflow >=2.10,<2.20
-    - orthoseg
+    - tensorflow >=2.10
+    - orthoseg >=0.6

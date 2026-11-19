@@ -1,9 +1,12 @@
 # This is the standard environment with recent versions of core dependencies.
+#
+# Note: if you want to use another backend, replace tensorflow with the desired backend
+# package.
 name: orthoseg
 channels:
   - conda-forge
 dependencies:
-  - python <3.13
+  - python <3.14
   - pip
   # required
   - gdal
@@ -21,6 +24,7 @@ dependencies:
   - shapely >=2
   - scikit-image
   - simplification
+  - tensorflow
   # testing
   - pytest
   - pytest-cov

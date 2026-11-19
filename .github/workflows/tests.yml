@@ -35,32 +35,33 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         dev: [false]
-        python: ["3.10", "3.11", "3.12"]
+        python: ["3.10", "3.11", "3.12", "3.13"]
         env: ["latest"]
         extra: [tensorflow]
         include:
           - env: latest
             os: ubuntu-latest
             dev: false
-            python: "3.12"
+            python: "3.13"
             extra: jax
           - env: latest
             os: ubuntu-latest
             dev: false
-            python: "3.12"
+            python: "3.13"
             extra: pytorch
-          - env: latest-tf-pip
+          - env: latest
             os: macos-latest
             dev: false
-            python: "3.12"
+            python: "3.13"
+            extra: tensorflow
           - env: latest-tf-pip
             os: windows-latest
             dev: false
-            python: "3.12"
+            python: "3.13"
           - env: latest-tf-pip
             os: ubuntu-latest
             dev: false
-            python: "3.12"
+            python: "3.13"
           - env: minimal-tf
             os: windows-latest
             dev: false

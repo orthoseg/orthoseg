@@ -1,6 +1,7 @@
 """Streaming Keras input sequence for paired training images and masks."""
 
 import logging
+import sys
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -47,9 +48,12 @@ def create_train_dataset(
     """Create a streaming dataset for paired training images and masks.
 
     TensorFlow's parallel ``tf.data`` pipeline is used when TensorFlow is the active
-    Keras backend. Other backends use the NumPy/Pillow Keras sequence.
+    Keras backend, except on macOS where TensorFlow's MLIR optimizer can fail while
+    creating the iterator. Other cases use the NumPy/Pillow Keras sequence.
     """
-    if get_keras_backend(keras) == "tensorflow":
+    # On macOS, TensorFlow's MLIR optimizer fails while creating the iterator, so we
+    # fall back to the NumPy/Pillow Keras sequence.
+    if get_keras_backend(keras) == "tensorflow" and sys.platform != "darwin":
         from . import _trainer_dataset_tf  # noqa: PLC0415
 
         return _trainer_dataset_tf.create_train_dataset(

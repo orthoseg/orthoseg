@@ -39,50 +39,35 @@ select another backend, set ``KERAS_BACKEND`` before importing/starting orthoseg
 example: ``KERAS_BACKEND=torch`` or ``KERAS_BACKEND=jax``.
 
 
-On Linux or WSL2
-================
+On Linux, WSL2 or MacOS
+=======================
 
-On Linux or WSL2, all dependencies can be installed from conda-forge, which should lead
-to the most reliable setup.
+On Linux, WSL2 or MacOS, all dependencies can be installed from conda-forge, which
+should lead to the most reliable setup.
 
-You can create a new environment with orthoseg and its dependencies installed with the
-following command:
-
-.. parsed-literal::
-
-    conda env create -n orthoseg -f |environment|
-    conda activate orthoseg
-
-
-To use a CUDA GPU, also install the necessary CUDA packages in the environment: ::
-
-    conda install -y cuda-toolkit=12.3 cudnn
-
-
-On native Windows, with cuda GPU support
-========================================
-
-If you want to run Orthoseg on native Windows with a CUDA GPU using TensorFlow, things
-are a bit more complicated because builds of recent TensorFlow versions don't support
-this. Because of this, if you have the option/choice available to run on linux, it is
-recommended to do so.
-
-Nonetheless, it is possible to get it working, e.g. by using an older version of
-tensorflow (2.10) and some older versions of other dependencies. The combinations of
-(older) versions are a bit sensitive, and using old versions of software is never
-recommended, so another setup (linux or WSL2) is recommended, but these commands created
-a working environment at the time of writing:
+If you don't want GPU/CUDA support, you can create a new environment with orthoseg and
+its dependencies installed with the following commands:
 
 .. parsed-literal::
 
-    conda env create -n orthoseg -f |environment-tf-gpu-win|
+    conda env create -n orthoseg -f |environment-tf|
     conda activate orthoseg
+
+
+On Linux or WSL2, you can also use a CUDA GPU. In that case, use the following
+commands: ::
+
+.. parsed-literal::
+
+    conda env create -n orthoseg -f |environment-tf-gpu|
+    conda activate orthoseg
+
 
 On native Windows, without cuda GPU support
 ===========================================
 
-For native Windows, TensorFlow is not published on conda-forge. If you choose the
-TensorFlow backend, install it using pip.
+For native Windows, recent versions of TensorFlow are not available on conda-forge.
+If you choose the TensorFlow backend, install it using pip.
 
 If you want to run Orthoseg on CPU with TensorFlow, you can create a new environment
 with Orthoseg and its dependencies installed with the following command:
@@ -93,25 +78,23 @@ with Orthoseg and its dependencies installed with the following command:
     conda activate orthoseg
 
 
-On MacOS
-========
+On native Windows, with cuda GPU support
+========================================
 
-On macOS, conda-forge packages exist for TensorFlow, but they can lead to crashes in
-Orthoseg. If you choose the TensorFlow backend, installing TensorFlow with pip is
-recommended.
+If you want to run Orthoseg on native Windows with a CUDA GPU using TensorFlow, things
+are a bit more complicated because builds of recent TensorFlow versions don't support
+this. Because of this, if you have the option/choice available to run on linux, it is
+recommended to do so.
 
-You can create a new environment with orthoseg and its dependencies installed with the
-following command:
+Nonetheless, it is possible to get it working, e.g. by using a (very) old version of
+tensorflow (2.10) and some older versions of other dependencies. The combinations of
+(older) versions are a bit sensitive, and using old versions of software is never
+recommended, but these commands created a working environment at the time of writing:
 
 .. parsed-literal::
 
-    conda env create -n orthoseg -f |environment-tf-pip|
+    conda env create -n orthoseg -f |environment-tf-gpu-win|
     conda activate orthoseg
-
-
-To use a CUDA GPU, also install the necessary CUDA packages in the environment: ::
-
-    conda install -y cuda-toolkit=12.3 cudnn
 
 
 .. _miniforge installer : https://github.com/conda-forge/miniforge#miniforge3
