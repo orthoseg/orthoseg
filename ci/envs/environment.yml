@@ -1,7 +1,4 @@
-# This is the standard environment with recent version of all dependencies.
-#
-# Note: only supports linux-64, as tensorflow on conda-forge is only available for this
-#       platform.
+# This is the standard environment with recent versions of core dependencies.
 name: orthoseg
 channels:
   - conda-forge
@@ -24,9 +21,6 @@ dependencies:
   - shapely >=2
   - scikit-image
   - simplification
-  # Tensorflow is only availabla for linux-64 on conda-forge.
-  # Will resolve to tensorflow-gpu if a compatible GPU is available
-  - tensorflow >=2.8
   # testing
   - pytest
   - pytest-cov

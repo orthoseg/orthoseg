@@ -1,6 +1,7 @@
 """High-level API to run a segmentation."""
 
 import argparse
+import importlib
 import logging
 import math
 import pprint
@@ -10,11 +11,11 @@ import traceback
 from pathlib import Path
 from typing import Any
 
-import keras
 import rasterio as rio
 
 import orthoseg.model.model_factory as mf
 import orthoseg.model.model_helper as mh
+from orthoseg._keras import keras
 from orthoseg.helpers import config_helper as conf, email_helper
 from orthoseg.lib import cleanup, predicter
 from orthoseg.postprocess import _apply_postprocess
@@ -167,6 +168,66 @@ def _set_dtype_policy_for_predict(dtype_policy_raw: str | None) -> str | None:
         return dtype_policy
 
     return None
+
+
+def _set_torch_optimizations(model: keras.Model) -> None:
+    """Set torch-specific optimizations for the model.
+
+    Args:
+        model: The Keras model to apply torch-specific optimizations to.
+    """
+    if keras.backend.backend() != "torch":
+        return
+
+    torch = importlib.import_module("torch")
+    cuda_available = torch.cuda.is_available()
+    gpu_capability = mh.get_min_gpu_compute_capability()
+
+    if not cuda_available:
+        compile_supported = _torch_cpu_compile_smoke_test(torch)
+    else:
+        compile_supported = gpu_capability is not None and gpu_capability >= (7, 0)
+
+    if compile_supported:
+        logger.info("Activating torch compile for model")
+        model.jit_compile = True
+    else:
+        logger.info(f"Torch compile not activated; GPU capability: {gpu_capability}")
+
+    if cuda_available and torch.backends.cudnn.is_available():
+        torch.backends.cudnn.benchmark = True
+        logger.info("Enabled cuDNN benchmark for PyTorch prediction")
+
+
+def _torch_cpu_compile_smoke_test(torch_module: Any) -> bool:
+    compile_function = getattr(torch_module, "compile", None)
+    if not callable(compile_function):
+        logger.warning("torch.compile is unavailable")
+        return False
+
+    try:
+        test_input = torch_module.ones(1, device="cpu")
+        compiled_function = compile_function(
+            lambda value: value + 1,
+            fullgraph=True,
+        )
+        test_output = compiled_function(test_input)
+        expected_output = torch_module.full_like(test_input, 2)
+    except RuntimeError as ex:
+        logger.warning(
+            f"CPU torch.compile smoke test failed; using eager prediction: {ex}"
+        )
+        return False
+
+    if not torch_module.equal(test_output, expected_output):
+        logger.warning(
+            "CPU torch.compile smoke test returned an unexpected result; "
+            "using eager prediction"
+        )
+        return False
+
+    logger.info("CPU torch.compile smoke test passed")
+    return True
 
 
 def _set_loaded_model_dtype_policy(model: Any, dtype_policy: str | None) -> None:
@@ -523,6 +584,9 @@ def predict(
                 logger.info("Predict using single GPU or CPU")
                 model_for_predict = model
 
+        # Set torch-specific optimizations
+        _set_torch_optimizations(model=model_for_predict)
+
         # Prepare params for the inline postprocessing of the prediction
         min_probability = conf.predict.getfloat("min_probability")
         postprocess_tiles_config: dict[str, Any] = {}
@@ -545,7 +609,7 @@ def predict(
             query = query.replace("\n", " ")
         postprocess_tiles_config["reclassify_to_neighbour_query"] = query
         logger.info(
-            f"Inline postprocessing:\n{pprint.pformat(postprocess_tiles_config)}"
+            f"Inline postprocessing config:\n{pprint.pformat(postprocess_tiles_config)}"
         )
 
         # Prepare the output dirs/paths

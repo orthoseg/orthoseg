@@ -17,7 +17,7 @@ The typical steps:
 3. run the segmentation on a larger area + vectorize the result
 4. apply some basic postprocessing like dissolve, simplify,...
 
-Only open source software is needed, eg. QGIS and tensorflow.
+Only open source software is needed, e.g. QGIS and keras.
 
 Installation and usage instructions can be found in the [orthoseg docs](https://orthoseg.readthedocs.io)
 

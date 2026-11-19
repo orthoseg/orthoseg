@@ -273,15 +273,24 @@ def prefetch_image_read_results(
         Tuples of the image path and the read result dictionary, with the image data
         prefetched as a tensor.
     """
+    from orthoseg._compat import (  # noqa: PLC0415
+        _module_is_available,
+        get_keras_backend,
+    )
+
+    if not _module_is_available("tensorflow"):
+        yield from read_results
+        return
+
     try:
-        import keras  # noqa: PLC0415
+        from orthoseg._keras import keras  # noqa: PLC0415
     except ModuleNotFoundError as ex:
         if ex.name not in {"keras", "tensorflow"}:
             raise
         yield from read_results
         return
 
-    if keras.backend.backend() != "tensorflow":
+    if get_keras_backend(keras) != "tensorflow":
         yield from read_results
         return
 

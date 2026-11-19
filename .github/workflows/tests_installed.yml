@@ -35,22 +35,26 @@ jobs:
         python: ["3.11"]
         env: ["environment"]
         checkout_ref: ["v0.7.0"]
+        install_extra_args: [tensorflow]
         include:
           - env: environment-tf-pip
             os: macos-latest
             dev: false
             python: "3.11"
             checkout_ref: "v0.7.0"
+            install_extra_args: ""
           - env: environment-tf-pip
             os: windows-latest
             dev: false
             python: "3.11"
             checkout_ref: "v0.7.0"
-          - env: environment-win-gpu
+            install_extra_args: ""
+          - env: environment-tf-gpu-win
             os: windows-latest
             dev: false
             python: "3.10"
             checkout_ref: "v0.7.0"
+            install_extra_args: ""
 
     steps:
       - uses: actions/checkout@v7

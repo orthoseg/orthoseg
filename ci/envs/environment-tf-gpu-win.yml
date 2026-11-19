@@ -5,7 +5,7 @@
 #     windows.
 #   - the minimal version of tensorflow is 2.10, as this is the last version with GPU
 #     support on windows.
-name: orthoseg-win-gpu
+name: orthoseg
 channels:
   - conda-forge
 dependencies:
@@ -38,5 +38,5 @@ dependencies:
   - pip:
     - segmodels-keras
     - tensorflow <2.11  # On native windows, tf 2.10 is the last version with GPU support
-    - orthoseg >=0.6
+    - orthoseg
     - numpy <2  # numpy <2 is needed for tf < 2.18
