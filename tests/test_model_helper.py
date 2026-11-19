@@ -329,12 +329,43 @@ def test_trainparams_defaults(class_weights):
     )
 
     assert params.weights_type == "aerial"
+    assert params.dtype_policy is None
     assert params.save_format == "keras" if KERAS_GTE_3 else "h5"
     if class_weights is not None:
         expected_loss_function = "weighted_categorical_crossentropy"
     else:
         expected_loss_function = "categorical_crossentropy"
     assert params.loss_function == expected_loss_function
+
+
+@pytest.mark.parametrize(
+    ("dtype_policy_raw, nb_gpu, compute_capability, expected_policy"),
+    [
+        ("float32", 0, None, "float32"),
+        ("", 0, None, None),
+        ("", 2, (7, 0), "mixed_float16"),
+        ("", 2, (6, 1), None),
+        ("", 1, None, None),
+        (None, 0, None, None),
+        (None, 1, (7, 5), "mixed_float16"),
+        ("None", 0, None, None),
+    ],
+)
+def test_resolve_dtype_policy(
+    monkeypatch,
+    dtype_policy_raw,
+    nb_gpu,
+    compute_capability,
+    expected_policy,
+):
+    monkeypatch.setattr(model_helper, "get_number_gpus", lambda: nb_gpu)
+    monkeypatch.setattr(
+        model_helper,
+        "get_min_gpu_compute_capability",
+        lambda: compute_capability,
+    )
+
+    assert model_helper.resolve_dtype_policy(dtype_policy_raw) == expected_policy
 
 
 def test_hyperparams_legacy_json_compatibility(tmp_path):

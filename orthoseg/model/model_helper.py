@@ -176,6 +176,7 @@ class TrainParams:
         earlystop_monitor_metric_mode: Literal["auto", "min", "max"] = "auto",
         log_tensorboard: bool = False,
         log_csv: bool = True,
+        dtype_policy: str | None = None,
         **kwargs: Any,
     ):
         """Class containing the hyper parameters needed to perform a training.
@@ -237,6 +238,8 @@ class TrainParams:
                 logging. Defaults to False.
             log_csv: True to activate logging to a csv.
                 Defaults to True
+            dtype_policy: Keras dtype policy to use during training. Defaults to None
+                to preserve the model's saved layer policies.
             kwargs: dict, optional: to allow for deprecated parameters.
 
         Raises:
@@ -309,6 +312,7 @@ class TrainParams:
         # Properties regarding logging
         self.log_tensorboard = log_tensorboard
         self.log_csv = log_csv
+        self.dtype_policy = dtype_policy
 
     def toJSON(self) -> str:
         """Serializes object to a JSON string.
@@ -383,6 +387,26 @@ class HyperParams:
             the object serialized as JSON string.
         """
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
+
+
+def resolve_dtype_policy(dtype_policy_raw: str | None) -> str | None:
+    """Resolve a configured dtype policy without changing Keras state.
+
+    An unset policy resolves to mixed_float16 when all available GPUs support compute
+    capability 7 or higher. Otherwise, or when explicitly set to "None", it resolves
+    to None so the default or model-saved policy is used.
+    """
+    dtype_policy = "" if dtype_policy_raw is None else dtype_policy_raw.strip()
+    if dtype_policy.lower() == "none":
+        return None
+    if dtype_policy != "":
+        return dtype_policy
+
+    nb_gpu = get_number_gpus()
+    compute_capability = get_min_gpu_compute_capability() if nb_gpu > 0 else None
+    if compute_capability is not None and compute_capability[0] >= 7:
+        return "mixed_float16"
+    return None
 
 
 def _validate_augmentations(
