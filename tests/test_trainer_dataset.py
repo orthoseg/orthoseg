@@ -1,5 +1,7 @@
 """Tests for the streaming training dataset helpers."""
 
+import sys
+
 import numpy as np
 import pytest
 from PIL import Image
@@ -99,6 +101,39 @@ def test_create_train_dataset(tmp_path, monkeypatch):
     np.testing.assert_array_equal(masks, np.ones((1, 2, 2, 1)))
 
 
+@pytest.mark.skipif(
+    sys.platform != "darwin", reason="macOS-specific TensorFlow fallback"
+)
+def test_create_train_dataset_uses_sequence_for_tensorflow_on_macos(
+    tmp_path,
+):
+    if _trainer_dataset.get_keras_backend(_trainer_dataset.keras) != "tensorflow":
+        pytest.skip("TensorFlow is not the active Keras backend")
+    image_dir = tmp_path / "image"
+    mask_dir = tmp_path / "mask"
+    image_dir.mkdir()
+    mask_dir.mkdir()
+    Image.fromarray(np.full((2, 2, 3), 80, dtype=np.uint8)).save(image_dir / "tile.png")
+    Image.fromarray(np.ones((2, 2), dtype=np.uint8)).save(mask_dir / "tile.png")
+
+    dataset, _ = _trainer_dataset.create_train_dataset(
+        input_data_dir=tmp_path,
+        image_subdir="image",
+        mask_subdir="mask",
+        image_augment_dict={},
+        mask_augment_dict={},
+        model_preprocess_input=None,
+        batch_size=1,
+        target_size=(2, 2),
+        shuffle=False,
+    )
+
+    assert isinstance(dataset, _trainer_dataset._TrainDatasetSequence)
+    images, masks = next(iter(dataset))
+    np.testing.assert_array_equal(images, np.full((1, 2, 2, 3), 80.0))
+    np.testing.assert_array_equal(masks, np.ones((1, 2, 2, 1)))
+
+
 @pytest.mark.parametrize(
     ("image_augmentations", "mask_augmentations", "nb_classes", "message"),
     [
@@ -150,6 +185,8 @@ def test_create_train_dataset_errors(
 
 
 def test_create_train_dataset_uses_tf_data_for_tensorflow_backend(tmp_path):
+    if sys.platform == "darwin":
+        pytest.skip("TensorFlow tf.data is disabled on macOS")
     if _trainer_dataset.get_keras_backend(_trainer_dataset.keras) != "tensorflow":
         pytest.skip("TensorFlow is not the active Keras backend")
     import tensorflow as tf  # noqa: PLC0415
