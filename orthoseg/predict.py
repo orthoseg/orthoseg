@@ -11,7 +11,6 @@ import traceback
 from pathlib import Path
 from typing import Any
 
-import keras
 import rasterio as rio
 
 import orthoseg.model.model_factory as mf

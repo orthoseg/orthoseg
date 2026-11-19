@@ -5,7 +5,6 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-import keras
 import numpy as np
 
 from orthoseg._compat import get_keras_backend
