@@ -301,6 +301,39 @@ def test_quantize_model_skips_already_quantized_model():
     mf.quantize_model(FakeModel(), "float8")
 
 
+@pytest.mark.parametrize(
+    "dtype_policy, expected_policy_names",
+    [
+        ("mixed_float16", ["mixed_float16", "mixed_float16", "float32"]),
+        ("mixed_bfloat16", ["mixed_bfloat16", "mixed_bfloat16", "float32"]),
+        ("float32", ["float32", "float32", "float32"]),
+        (None, ["saved", "saved", "saved"]),
+    ],
+)
+def test_set_model_dtype_policy(dtype_policy, expected_policy_names):
+    class FakeLayer:
+        def __init__(self, activation=None):
+            self.activation = activation
+            self._dtype_policy = SimpleNamespace(name="saved")
+
+        @property
+        def dtype_policy(self):
+            return self._dtype_policy
+
+        @dtype_policy.setter
+        def dtype_policy(self, policy):
+            self._dtype_policy = policy
+
+    inner_softmax = FakeLayer(activation=SimpleNamespace(__name__="softmax"))
+    compute_layer = FakeLayer()
+    output_softmax = FakeLayer(activation=SimpleNamespace(__name__="softmax"))
+    model = SimpleNamespace(layers=[inner_softmax, compute_layer, output_softmax])
+
+    mf.set_model_dtype_policy(model, dtype_policy)
+
+    assert [layer.dtype_policy.name for layer in model.layers] == expected_policy_names
+
+
 def test_weighted_categorical_crossentropy_rejects_logits():
     loss = mf.weighted_categorical_crossentropy([1.0, 2.0])
 

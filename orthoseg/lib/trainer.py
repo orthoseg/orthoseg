@@ -155,6 +155,8 @@ def train(
             model_preload_filepath, compile_model=False
         )
 
+    mf.set_model_dtype_policy(model, hyperparams.train.dtype_policy)
+
     # Now prepare the model for training
     nb_gpu = mh.get_number_gpus()
 

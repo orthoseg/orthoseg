@@ -669,6 +669,45 @@ def set_dtype_policy(policy: str):
         keras.mixed_precision.set_global_policy(policy)
 
 
+def set_model_dtype_policy(model: Any, policy: str | None) -> None:
+    """Apply a dtype policy to all layers of a loaded model."""
+    if policy is None:
+        return
+
+    dtype_policies = getattr(keras, "dtype_policies", None)
+    get_dtype_policy = getattr(dtype_policies, "get", None)
+    if get_dtype_policy is None:
+        get_dtype_policy = keras.mixed_precision.Policy
+
+    model_policy = get_dtype_policy(policy)
+    float32_policy = get_dtype_policy("float32")
+    output_layer = model.layers[-1] if model.layers else None
+    preserve_output_softmax = (
+        policy.startswith("mixed_")
+        and getattr(getattr(output_layer, "activation", None), "__name__", None)
+        == "softmax"
+    )
+
+    for layer in model.layers:
+        layer_policy = (
+            float32_policy
+            if preserve_output_softmax and layer is output_layer
+            else model_policy
+        )
+        dtype_policy_property = getattr(type(layer), "dtype_policy", None)
+        if isinstance(dtype_policy_property, property) and dtype_policy_property.fset:
+            layer.dtype_policy = layer_policy
+        else:
+            layer._dtype_policy = layer_policy
+
+    logger.info(
+        "Applied dtype policy %s to %s model layers%s",
+        policy,
+        len(model.layers),
+        "; keeping output softmax in float32" if preserve_output_softmax else "",
+    )
+
+
 def set_trainable(model, recompile: bool = True):
     """Set the model trainable.
 
