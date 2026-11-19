@@ -51,6 +51,8 @@ def create_train_dataset(
     Keras backend, except on macOS where TensorFlow's MLIR optimizer can fail while
     creating the iterator. Other cases use the NumPy/Pillow Keras sequence.
     """
+    # On macOS, TensorFlow's MLIR optimizer fails while creating the iterator, so we
+    # fall back to the NumPy/Pillow Keras sequence.
     if get_keras_backend(keras) == "tensorflow" and sys.platform != "darwin":
         from . import _trainer_dataset_tf  # noqa: PLC0415
 

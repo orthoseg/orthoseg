@@ -42,22 +42,18 @@ jobs:
           - env: latest
             os: ubuntu-latest
             dev: false
-            python: "3.12"
+            python: "3.13"
             extra: jax
           - env: latest
             os: ubuntu-latest
             dev: false
-            python: "3.12"
+            python: "3.13"
             extra: pytorch
           - env: latest
             os: macos-latest
             dev: false
-            python: "3.12"
-            extra: tensorflow
-          - env: latest-tf-pip
-            os: macos-latest
-            dev: false
             python: "3.13"
+            extra: tensorflow
           - env: latest-tf-pip
             os: windows-latest
             dev: false
@@ -65,7 +61,7 @@ jobs:
           - env: latest-tf-pip
             os: ubuntu-latest
             dev: false
-            python: "3.12"
+            python: "3.13"
           - env: minimal-tf
             os: windows-latest
             dev: false
