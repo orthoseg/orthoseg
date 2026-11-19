@@ -5,10 +5,14 @@ from pathlib import Path
 
 import geofileops as gfo
 import pytest
+from PIL import Image
 
-from helper_scripts.run_convert_output_vector_filenames import (
+from helper_scripts.convert_output_vector_filenames import (
     convert_output_vector_filenames_project,
     run_convert_output_vector_filenames,
+)
+from helper_scripts.convert_train_images_png_to_jpg import (
+    run_convert_train_images_png_to_jpg,
 )
 from tests import test_helper
 
@@ -126,3 +130,57 @@ def test_convert_output_vector_filenames_project_no_config(tmp_path: Path):
     empty_dir.mkdir()
     result = convert_output_vector_filenames_project(empty_dir)
     assert result == []
+
+
+def test_run_convert_train_images_png_to_jpg(tmp_path: Path):
+    projects_dir = tmp_path / "sample_projects"
+    shutil.copytree(test_helper.sampleprojects_dir, projects_dir)
+    project_dir = projects_dir / test_helper.SportsFields.subject
+    images: list[Path] = []
+    masks: list[Path] = []
+    for version, split in (("01", "train"), ("01", "validation"), ("02", "test")):
+        split_dir = project_dir / "training" / version / split
+        image_dir = split_dir / "image"
+        mask_dir = split_dir / "mask"
+        image_dir.mkdir(parents=True)
+        mask_dir.mkdir()
+        image_path = image_dir / f"{split}.png"
+        Image.new("RGB", (4, 4), color=(100, 120, 140)).save(image_path)
+        images.append(image_path)
+        mask_path = mask_dir / f"{split}.png"
+        Image.new("L", (4, 4), color=1).save(mask_path)
+        masks.append(mask_path)
+
+    worldfile = images[0].with_suffix(".pgw")
+    worldfile.write_text("1\n0\n0\n-1\n0\n0\n")
+    collision_png = project_dir / "training" / "01" / "train" / "image" / "exists.png"
+    collision_jpg = collision_png.with_suffix(".jpg")
+    Image.new("RGB", (4, 4), color=(1, 2, 3)).save(collision_png)
+    Image.new("RGB", (4, 4), color=(4, 5, 6)).save(collision_jpg)
+    existing_jpg = collision_jpg.read_bytes()
+
+    simulated = run_convert_train_images_png_to_jpg(
+        projects_dir=projects_dir, simulate=True
+    )
+    assert project_dir in simulated
+    assert len(simulated[project_dir]) == 3
+    assert all(image_path.exists() for image_path in images)
+    assert worldfile.exists()
+
+    converted = run_convert_train_images_png_to_jpg(
+        projects_dir=projects_dir, simulate=False
+    )
+    assert project_dir in converted
+    assert len(converted[project_dir]) == 3
+    for image_path in images:
+        jpg_path = image_path.with_suffix(".jpg")
+        assert jpg_path.is_file()
+        assert not image_path.exists()
+        with Image.open(jpg_path) as image:
+            assert image.mode == "RGB"
+            assert image.size == (4, 4)
+    assert not worldfile.exists()
+    assert images[0].with_suffix(".jgw").is_file()
+    assert all(mask_path.is_file() for mask_path in masks)
+    assert collision_png.is_file()
+    assert collision_jpg.read_bytes() == existing_jpg

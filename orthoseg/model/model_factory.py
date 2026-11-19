@@ -6,6 +6,7 @@ and contains extra metrics, callbacks,...
 
 import json
 import logging
+import warnings
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -17,9 +18,28 @@ import segmodels_keras as smk
 import tensorflow as tf
 from segmodels_keras import Linknet, PSPNet, Unet
 
-from orthoseg._compat import KERAS_GTE_3
-from orthoseg.model import model_helper as mh
-from orthoseg.model.model_weights_helper import get_model_weights_path
+from orthoseg._compat import (
+    KERAS_GTE_3,
+    KERAS_VERSION,
+    configure_keras_backend,
+    get_keras_backend,
+)
+
+# False-positive warning when loading .keras files in keras 3.15
+if KERAS_VERSION == (3, 15):
+    warnings.filterwarnings(
+        "ignore", message="Skipping nested container at.*", category=UserWarning
+    )
+
+# segmodels_keras imports Keras, so select its backend first.
+configure_keras_backend()
+
+import segmodels_keras as smk  # noqa: E402
+from segmodels_keras import Linknet, PSPNet, Unet  # noqa: E402
+
+from orthoseg._keras import keras  # noqa: E402
+from orthoseg.model import model_helper as mh  # noqa: E402
+from orthoseg.model.model_weights_helper import get_model_weights_path  # noqa: E402
 
 if KERAS_GTE_3:
     import keras
@@ -456,6 +476,7 @@ def load_model(
         custom_objects.update(
             get_custom_objects(hyperparams["architecture"]["architecture"])
         )
+
         try:
             model = keras.models.load_model(
                 str(model_to_use_filepath),
