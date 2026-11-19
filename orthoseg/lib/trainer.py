@@ -4,16 +4,17 @@ import logging
 from pathlib import Path
 from typing import Any
 
-import keras
 import pandas as pd
 
 import orthoseg.model.model_factory as mf
 import orthoseg.model.model_helper as mh
+from orthoseg._keras import keras
 from orthoseg.helpers._trainer_dataset import (
     _TRAINING_DATA_MAX_QUEUE_SIZE,
     _TRAINING_DATA_WORKERS,
     create_train_dataset,
 )
+from orthoseg.model.model_callbacks import CSVLoggerExt, ModelCheckpointExt
 
 # Get a logger...
 logger = logging.getLogger(__name__)
@@ -255,7 +256,7 @@ def train(
         model_template_for_save = model
     else:
         model_template_for_save = None
-    model_checkpoint_saver = mh.ModelCheckpointExt(
+    model_checkpoint_saver = ModelCheckpointExt(
         model_save_dir=model_save_dir,
         segment_subject=segment_subject,
         traindata_id=traindata_id,
@@ -279,7 +280,7 @@ def train(
         )
         train_callbacks.append(tensorboard_logger)
     if hyperparams.train.log_csv is True:
-        csv_logger = mh.CSVLoggerExt(
+        csv_logger = CSVLoggerExt(
             str(csv_log_path),
             append=True,
             separator=";",

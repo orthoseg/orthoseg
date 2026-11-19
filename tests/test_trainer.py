@@ -147,7 +147,7 @@ def test_create_train_dataset_applies_same_geometry_to_images_and_masks(tmp_path
         images[0, :, :, 0] > 0,
         masks[0, :, :, 1] > 0,
     )
-    assert images.max() == 100
+    assert np.asarray(images).max() == 100
 
 
 def test_create_train_dataset_reports_missing_mask(tmp_path):

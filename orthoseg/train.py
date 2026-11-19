@@ -7,8 +7,7 @@ import sys
 import traceback
 from pathlib import Path
 
-import keras
-
+from orthoseg._keras import keras
 from orthoseg.helpers import config_helper as conf, email_helper
 from orthoseg.lib import predicter, prepare_traindatasets as prep, trainer
 from orthoseg.model import model_factory as mf, model_helper as mh

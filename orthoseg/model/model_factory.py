@@ -11,18 +11,24 @@ from pathlib import Path
 from typing import Any
 
 import h5py
-import keras
-import keras.models
-import segmodels_keras as smk
-import tensorflow as tf
-from segmodels_keras import Linknet, PSPNet, Unet
 
-from orthoseg._compat import KERAS_GTE_3
-from orthoseg.model import model_helper as mh
-from orthoseg.model.model_weights_helper import get_model_weights_path
+from orthoseg._compat import (
+    KERAS_GTE_3,
+    configure_keras_backend,
+    get_keras_backend,
+)
+
+# segmodels_keras imports Keras, so select its backend first.
+configure_keras_backend()
+
+import segmodels_keras as smk  # noqa: E402
+from segmodels_keras import Linknet, PSPNet, Unet  # noqa: E402
+
+from orthoseg._keras import keras  # noqa: E402
+from orthoseg.model import model_helper as mh  # noqa: E402
+from orthoseg.model.model_weights_helper import get_model_weights_path  # noqa: E402
 
 if KERAS_GTE_3:
-    import keras
     from keras import ops
 else:
     from keras import backend as ops
@@ -413,6 +419,11 @@ def load_model(
     """
     errors = []
     model = None
+    model_info = mh.parse_model_filename(model_to_use_filepath)
+    if model_info.save_format == "tf" and get_keras_backend(keras) != "tensorflow":
+        raise ValueError(
+            "TensorFlow SavedModel files require the TensorFlow Keras backend."
+        )
 
     # Load the hyperparams file
     hyperparams = load_model_hyperparams(model_to_use_filepath)
@@ -680,28 +691,18 @@ def check_image_size(architecture: str, input_width: int, input_height: int):
         input_width: image width.
         input_height: image height.
     """
-    # Check architecture
-    segment_architecture_parts = architecture.split("+")
-    if len(segment_architecture_parts) < 2:
-        raise ValueError(f"Unsupported architecture: {architecture}")
-    # encoder = segment_architecture_parts[0]
-    decoder = segment_architecture_parts[1]
-
-    if decoder.lower() == "linknet":
-        if (input_width and (input_width % 32) != 0) or (
-            input_height and (input_height % 32) != 0
-        ):
-            message = (
-                f"for decoder linknet, input image width ({input_width}) and "
-                f"input image height ({input_height}) should be divisible by 32!"
-            )
-            logger.error(message)
-            raise ValueError(message)
+    mh.check_image_size(architecture, input_width, input_height)
 
 
 # ------------------------------------------
 # Loss functions
 # ------------------------------------------
+
+
+def _to_backend_tensor(value):
+    if KERAS_GTE_3:
+        return ops.convert_to_tensor(value)
+    return ops.cast_to_floatx(value)
 
 
 def weighted_categorical_crossentropy(weights):
@@ -715,11 +716,14 @@ def weighted_categorical_crossentropy(weights):
 
     def loss(target, output, from_logits=False):
         if not from_logits:
-            output /= ops.sum(output, len(output.shape) - 1, True)
+            target = _to_backend_tensor(target)
+            output = _to_backend_tensor(output)
+            output = output / ops.sum(output, len(output.shape) - 1, True)
             output = ops.clip(
                 output, keras.backend.epsilon(), 1.0 - keras.backend.epsilon()
             )
-            weighted_losses = target * ops.log(output) * weights
+            weights_tensor = ops.cast(weights, keras.backend.floatx())
+            weighted_losses = target * ops.log(output) * weights_tensor
             retval = -ops.sum(weighted_losses, len(output.shape) - 1)
             return retval
         else:
@@ -753,29 +757,27 @@ def bootstrapped_crossentropy(y_true, y_pred, bootstrap_type="hard", alpha=0.95)
     Returns:
         _type_: _description_
     """
-    target_tensor = y_true
-    prediction_tensor = y_pred
-    _epsilon = tf.convert_to_tensor(
-        tf.keras.backend.epsilon(), prediction_tensor.dtype.base_dtype
-    )
-    prediction_tensor = tf.clip_by_value(prediction_tensor, _epsilon, 1 - _epsilon)
-    prediction_tensor = tf.keras.backend.log(
-        prediction_tensor / (1 - prediction_tensor)
-    )
+    target_tensor = _to_backend_tensor(y_true)
+    prediction_tensor = _to_backend_tensor(y_pred)
+    epsilon = keras.backend.epsilon()
+    prediction_tensor = ops.clip(prediction_tensor, epsilon, 1 - epsilon)
+    prediction_tensor = ops.log(prediction_tensor / (1 - prediction_tensor))
+    prediction_probabilities = ops.sigmoid(prediction_tensor)
 
     if bootstrap_type == "soft":
-        bootstrap_target_tensor = alpha * target_tensor + (1.0 - alpha) * tf.sigmoid(
-            prediction_tensor
+        bootstrap_target_tensor = (
+            alpha * target_tensor + (1.0 - alpha) * prediction_probabilities
         )
     else:
-        bootstrap_target_tensor = alpha * target_tensor + (1.0 - alpha) * tf.cast(
-            tf.sigmoid(prediction_tensor) > 0.5, tf.float32
+        bootstrap_target_tensor = alpha * target_tensor + (1.0 - alpha) * ops.cast(
+            prediction_probabilities > 0.5, prediction_tensor.dtype
         )
-    return tf.keras.backend.mean(
-        tf.nn.sigmoid_cross_entropy_with_logits(
-            labels=bootstrap_target_tensor, logits=prediction_tensor
-        )
+    cross_entropy = (
+        ops.maximum(prediction_tensor, 0)
+        - bootstrap_target_tensor * prediction_tensor
+        + ops.log(1 + ops.exp(-ops.abs(prediction_tensor)))
     )
+    return ops.mean(cross_entropy)
 
 
 def dice_coef_loss_bce(y_true, y_pred):
@@ -815,12 +817,14 @@ def jaccard_coef(y_true, y_pred):
     Returns:
         _type_: _description_
     """
-    intersection = tf.keras.backend.sum(y_true * y_pred, axis=[0, -1, -2])
-    sum_ = tf.keras.backend.sum(y_true + y_pred, axis=[0, -1, -2])
+    y_true = _to_backend_tensor(y_true)
+    y_pred = _to_backend_tensor(y_pred)
+    intersection = ops.sum(y_true * y_pred, axis=[0, -1, -2])
+    sum_ = ops.sum(y_true + y_pred, axis=[0, -1, -2])
 
     jac = (intersection + SMOOTH_LOSS) / (sum_ - intersection + SMOOTH_LOSS)
 
-    return tf.keras.backend.mean(jac)
+    return ops.mean(jac)
 
 
 def jaccard_coef_round(y_true, y_pred):
@@ -833,12 +837,14 @@ def jaccard_coef_round(y_true, y_pred):
     Returns:
         _type_: _description_
     """
-    y_pred_pos = tf.keras.backend.round(tf.keras.backend.clip(y_pred, 0, 1))
+    y_true = _to_backend_tensor(y_true)
+    y_pred = _to_backend_tensor(y_pred)
+    y_pred_pos = ops.round(ops.clip(y_pred, 0, 1))
 
-    intersection = tf.keras.backend.sum(y_true * y_pred_pos, axis=[0, -1, -2])
-    sum_ = tf.keras.backend.sum(y_true + y_pred_pos, axis=[0, -1, -2])
+    intersection = ops.sum(y_true * y_pred_pos, axis=[0, -1, -2])
+    sum_ = ops.sum(y_true + y_pred_pos, axis=[0, -1, -2])
     jac = (intersection + SMOOTH_LOSS) / (sum_ - intersection + SMOOTH_LOSS)
-    return tf.keras.backend.mean(jac)
+    return ops.mean(jac)
 
 
 def jaccard_coef_flat(y_true, y_pred):
@@ -851,14 +857,11 @@ def jaccard_coef_flat(y_true, y_pred):
     Returns:
         _type_: _description_
     """
-    y_true_f = tf.keras.backend.flatten(y_true)
-    y_pred_f = tf.keras.backend.flatten(y_pred)
-    intersection = tf.keras.backend.sum(y_true_f * y_pred_f)
+    y_true_f = ops.reshape(_to_backend_tensor(y_true), (-1,))
+    y_pred_f = ops.reshape(_to_backend_tensor(y_pred), (-1,))
+    intersection = ops.sum(y_true_f * y_pred_f)
     return (intersection + SMOOTH_LOSS) / (
-        tf.keras.backend.sum(y_true_f)
-        + tf.keras.backend.sum(y_pred_f)
-        - intersection
-        + SMOOTH_LOSS
+        ops.sum(y_true_f) + ops.sum(y_pred_f) - intersection + SMOOTH_LOSS
     )
 
 
@@ -873,11 +876,11 @@ def dice_coef(y_true, y_pred, smooth=1.0):
     Returns:
         _type_: _description_
     """
-    y_true_f = tf.keras.backend.flatten(y_true)
-    y_pred_f = tf.keras.backend.flatten(y_pred)
-    intersection = tf.keras.backend.sum(y_true_f * y_pred_f)
+    y_true_f = ops.reshape(_to_backend_tensor(y_true), (-1,))
+    y_pred_f = ops.reshape(_to_backend_tensor(y_pred), (-1,))
+    intersection = ops.sum(y_true_f * y_pred_f)
     return (2.0 * intersection + smooth) / (
-        tf.keras.backend.sum(y_true_f) + tf.keras.backend.sum(y_pred_f) + smooth
+        ops.sum(y_true_f) + ops.sum(y_pred_f) + smooth
     )
 
 
@@ -891,9 +894,11 @@ def pct_wrong(y_true, y_pred):
     Returns:
         _type_: _description_
     """
-    y_pred_pos = tf.keras.backend.round(tf.keras.backend.clip(y_pred, 0, 1))
+    y_true = _to_backend_tensor(y_true)
+    y_pred = _to_backend_tensor(y_pred)
+    y_pred_pos = ops.round(ops.clip(y_pred, 0, 1))
 
-    intersection = tf.keras.backend.sum(y_true * y_pred_pos, axis=[0, -1, -2])
-    sum_ = tf.keras.backend.sum(y_true + y_pred_pos, axis=[0, -1, -2])
+    intersection = ops.sum(y_true * y_pred_pos, axis=[0, -1, -2])
+    sum_ = ops.sum(y_true + y_pred_pos, axis=[0, -1, -2])
     jac = (intersection + SMOOTH_LOSS) / (sum_ - intersection + SMOOTH_LOSS)
-    return tf.keras.backend.mean(jac)
+    return ops.mean(jac)

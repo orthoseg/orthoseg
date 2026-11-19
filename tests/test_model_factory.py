@@ -3,6 +3,7 @@
 import os
 from types import SimpleNamespace
 
+import numpy as np
 import pytest
 import segmodels_keras as smk
 
@@ -16,6 +17,52 @@ def test_backend(backend):
     import keras  # noqa: PLC0415
 
     assert keras.backend.backend() == backend
+
+
+def test_custom_losses_and_metrics_use_active_backend():
+    y_true = np.array(
+        [[[[1.0, 0.0], [0.0, 1.0]], [[0.0, 1.0], [1.0, 0.0]]]],
+        dtype=np.float32,
+    )
+    y_pred = np.array(
+        [[[[0.8, 0.2], [0.3, 0.7]], [[0.1, 0.9], [0.6, 0.4]]]],
+        dtype=np.float32,
+    )
+    values = [
+        mf.weighted_categorical_crossentropy([1.0, 2.0])(y_true, y_pred),
+        mf.bootstrapped_crossentropy(y_true, y_pred),
+        mf.bootstrapped_crossentropy(y_true, y_pred, bootstrap_type="soft"),
+        mf.dice_coef_loss(y_true, y_pred),
+        mf.dice_coef_loss_bce(y_true, y_pred),
+        mf.jaccard_coef(y_true, y_pred),
+        mf.jaccard_coef_round(y_true, y_pred),
+        mf.jaccard_coef_flat(y_true, y_pred),
+        mf.dice_coef(y_true, y_pred),
+        mf.pct_wrong(y_true, y_pred),
+    ]
+    for value in values:
+        if KERAS_GTE_3:
+            value = mf.keras.ops.convert_to_numpy(value)
+        else:
+            value = value.numpy()
+        assert np.isfinite(value).all()
+
+
+def test_to_backend_tensor_uses_keras_three_conversion(monkeypatch):
+    converted_value = object()
+    values = []
+    monkeypatch.setattr(mf, "KERAS_GTE_3", True)
+    monkeypatch.setattr(
+        mf,
+        "ops",
+        SimpleNamespace(
+            convert_to_tensor=lambda value: values.append(value) or converted_value
+        ),
+    )
+    value = object()
+
+    assert mf._to_backend_tensor(value) is converted_value
+    assert values == [value]
 
 
 @pytest.mark.parametrize(
@@ -200,6 +247,23 @@ def test_load_model_hyperparams_invalid_path(tmp_path):
         _ = mf.load_model_hyperparams(invalid_path)
 
 
+def test_load_model_rejects_tf_savedmodel_on_non_tensorflow_backend(
+    monkeypatch, tmp_path
+):
+    model_path = tmp_path / "subject_01.tf"
+    monkeypatch.setattr(
+        mf.mh,
+        "parse_model_filename",
+        lambda _path: SimpleNamespace(save_format="tf"),
+    )
+    monkeypatch.setattr(mf, "get_keras_backend", lambda _keras: "torch")
+
+    with pytest.raises(
+        ValueError, match="TensorFlow SavedModel files require the TensorFlow Keras"
+    ):
+        mf.load_model(model_path)
+
+
 def test_quantize_model():
     class FakeModel:
         def __init__(self):
@@ -235,3 +299,10 @@ def test_quantize_model_skips_already_quantized_model():
             raise AssertionError("an already quantized model must not be quantized")
 
     mf.quantize_model(FakeModel(), "float8")
+
+
+def test_weighted_categorical_crossentropy_rejects_logits():
+    loss = mf.weighted_categorical_crossentropy([1.0, 2.0])
+
+    with pytest.raises(ValueError, match="not valid with logits"):
+        loss(np.zeros((1, 2)), np.ones((1, 2)), from_logits=True)

@@ -71,13 +71,14 @@ def test_apply_projective_transform_nearest_fill_modes(fill_mode, expected):
     assert result[0, 0, 0] == expected
 
 
-def test_create_train_dataset(tmp_path):
+def test_create_train_dataset(tmp_path, monkeypatch):
     image_dir = tmp_path / "image"
     mask_dir = tmp_path / "mask"
     image_dir.mkdir()
     mask_dir.mkdir()
     Image.fromarray(np.full((2, 2, 3), 80, dtype=np.uint8)).save(image_dir / "tile.png")
     Image.fromarray(np.full((2, 2), 2, dtype=np.uint8)).save(mask_dir / "tile.png")
+    monkeypatch.setattr(_trainer_dataset, "get_keras_backend", lambda _keras: "torch")
 
     dataset, _ = _trainer_dataset.create_train_dataset(
         input_data_dir=tmp_path,
@@ -146,6 +147,44 @@ def test_create_train_dataset_errors(
             model_preprocess_input=None,
             nb_classes=nb_classes,
         )
+
+
+def test_create_train_dataset_uses_tf_data_for_tensorflow_backend(tmp_path):
+    if _trainer_dataset.get_keras_backend(_trainer_dataset.keras) != "tensorflow":
+        pytest.skip("TensorFlow is not the active Keras backend")
+    import tensorflow as tf  # noqa: PLC0415
+
+    image_dir = tmp_path / "image"
+    mask_dir = tmp_path / "mask"
+    image_dir.mkdir()
+    mask_dir.mkdir()
+    mask_values = np.array([[0, 1], [1, 0]], dtype=np.uint8)
+    image_values = np.repeat((mask_values * 80)[:, :, np.newaxis], 3, axis=2)
+    Image.fromarray(image_values).save(image_dir / "tile.png")
+    Image.fromarray(mask_values).save(mask_dir / "tile.png")
+
+    dataset, dataset_size = _trainer_dataset.create_train_dataset(
+        input_data_dir=tmp_path,
+        image_subdir="image",
+        mask_subdir="mask",
+        image_augment_dict={"horizontal_flip": True, "rescale": 0.5},
+        mask_augment_dict={"horizontal_flip": True, "rescale": 0.5},
+        model_preprocess_input=None,
+        batch_size=1,
+        target_size=(2, 2),
+        shuffle=False,
+        save_to_subdir="augmented",
+    )
+
+    assert isinstance(dataset, tf.data.Dataset)
+    images, masks = next(iter(dataset))
+    assert dataset_size == 1
+    assert images.shape == (1, 2, 2, 3)
+    assert masks.shape == (1, 2, 2, 1)
+    np.testing.assert_array_equal(images[0, :, :, 0], masks[0, :, :, 0] * 80)
+    assert set(np.unique(masks)) == {0.0, 0.5}
+    assert (tmp_path / "augmented" / "0000" / "0_image.jpg").exists()
+    assert (tmp_path / "augmented" / "0000" / "0_mask_0.png").exists()
 
 
 def test_create_train_dataset_warns(tmp_path, caplog):
@@ -345,6 +384,39 @@ def test_load_pair(tmp_path, horizontal_flip):
     assert set(np.unique(mask)) == {0.0, 0.5}
 
 
+@pytest.mark.parametrize("horizontal_flip", [False, True])
+def test_load_pair_tf(tmp_path, horizontal_flip):
+    if _trainer_dataset.get_keras_backend(_trainer_dataset.keras) != "tensorflow":
+        pytest.skip("TensorFlow is not the active Keras backend")
+    import tensorflow as tf  # noqa: PLC0415
+
+    from orthoseg.helpers import _trainer_dataset_tf  # noqa: PLC0415
+
+    image_path = tmp_path / "image.tif"
+    mask_path = tmp_path / "mask.png"
+    mask_values = np.array([[0, 1], [1, 0]], dtype=np.uint8)
+    image_values = np.repeat((mask_values * 80)[:, :, np.newaxis], 3, axis=2)
+    Image.fromarray(image_values).save(image_path)
+    Image.fromarray(mask_values).save(mask_path)
+    augmentations = {"horizontal_flip": horizontal_flip, "rescale": 0.5}
+
+    image, mask = _trainer_dataset_tf._load_pair(
+        tf.constant(0),
+        (tf.constant(str(image_path)), tf.constant(str(mask_path))),
+        image_color_mode="rgb",
+        mask_color_mode="grayscale",
+        target_size=(2, 2),
+        image_augmentations=augmentations,
+        mask_augmentations=augmentations,
+        seed=7,
+    )
+
+    assert image.shape == (2, 2, 3)
+    assert mask.shape == (2, 2, 1)
+    np.testing.assert_array_equal(image[:, :, 0], mask[:, :, 0] * 80)
+    assert set(np.unique(mask)) == {0.0, 0.5}
+
+
 @pytest.mark.parametrize(
     ("augmentations", "expected"),
     [
@@ -401,6 +473,59 @@ def test_prepare_batch_saves_examples(tmp_path):
 
     prepared_images, prepared_masks = _trainer_dataset._prepare_batch(
         5,
+        (images, masks),
+        image_brightness=None,
+        seed=4,
+        nb_classes=1,
+        save_to_dir=tmp_path,
+        image_rescale=0.5,
+        model_preprocess_input=None,
+    )
+
+    assert prepared_images.shape == images.shape
+    assert prepared_masks.shape == masks.shape
+    assert (tmp_path / "0005" / "0_image.jpg").exists()
+    assert (tmp_path / "0005" / "0_mask_0.png").exists()
+
+
+def test_prepare_batch_tf_applies_brightness_one_hot_and_preprocess():
+    if _trainer_dataset.get_keras_backend(_trainer_dataset.keras) != "tensorflow":
+        pytest.skip("TensorFlow is not the active Keras backend")
+    import tensorflow as tf  # noqa: PLC0415
+
+    from orthoseg.helpers import _trainer_dataset_tf  # noqa: PLC0415
+
+    images = tf.constant(np.full((1, 2, 2, 1), 10.0, dtype=np.float32))
+    masks = tf.constant([[[[0.0], [1.0]], [[1.0], [0.0]]]], dtype=tf.float32)
+
+    processed_images, one_hot_masks = _trainer_dataset_tf._prepare_batch(
+        tf.constant(0),
+        (images, masks),
+        image_brightness=[2.0, 2.0],
+        seed=4,
+        nb_classes=2,
+        save_to_dir=None,
+        image_rescale=None,
+        model_preprocess_input=lambda image: image / 20.0,
+    )
+
+    np.testing.assert_array_equal(processed_images, np.ones((1, 2, 2, 1)))
+    assert one_hot_masks.shape == (1, 2, 2, 2)
+    np.testing.assert_array_equal(one_hot_masks[0, :, :, 1], masks[0, :, :, 0])
+
+
+def test_prepare_batch_tf_saves_examples(tmp_path):
+    if _trainer_dataset.get_keras_backend(_trainer_dataset.keras) != "tensorflow":
+        pytest.skip("TensorFlow is not the active Keras backend")
+    import tensorflow as tf  # noqa: PLC0415
+
+    from orthoseg.helpers import _trainer_dataset_tf  # noqa: PLC0415
+
+    images = tf.constant(np.full((1, 2, 2, 3), 80.0, dtype=np.float32))
+    masks = tf.ones((1, 2, 2, 1), dtype=tf.float32)
+
+    prepared_images, prepared_masks = _trainer_dataset_tf._prepare_batch(
+        tf.constant(5),
         (images, masks),
         image_brightness=None,
         seed=4,
@@ -506,6 +631,80 @@ def test_save_augmented_batch(tmp_path):
         assert np.asarray(saved_mask).max() == 0
     with Image.open(output_dir / "0_mask_1.png") as saved_mask:
         assert np.asarray(saved_mask).min() == 255
+
+
+@pytest.mark.parametrize(
+    ("augmentations", "message"),
+    [
+        ({"interpolation_order": 2}, "interpolation_order must be 0 or 1"),
+        ({"fill_mode": "invalid"}, "Unsupported augmentation fill_mode"),
+    ],
+)
+def test_tf_apply_projective_transform_errors(augmentations, message):
+    if _trainer_dataset.get_keras_backend(_trainer_dataset.keras) != "tensorflow":
+        pytest.skip("TensorFlow is not the active Keras backend")
+    import tensorflow as tf  # noqa: PLC0415
+
+    from orthoseg.helpers import _trainer_dataset_tf  # noqa: PLC0415
+
+    image = tf.zeros((2, 2, 1), dtype=tf.float32)
+    identity_transform = tf.constant([1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0])
+
+    with pytest.raises(ValueError, match=message):
+        _trainer_dataset_tf._apply_projective_transform(
+            image, identity_transform, augmentations, is_mask=False
+        )
+
+
+def test_tf_decode_and_resize_rejects_unsupported_color_mode():
+    if _trainer_dataset.get_keras_backend(_trainer_dataset.keras) != "tensorflow":
+        pytest.skip("TensorFlow is not the active Keras backend")
+    import tensorflow as tf  # noqa: PLC0415
+
+    from orthoseg.helpers import _trainer_dataset_tf  # noqa: PLC0415
+
+    with pytest.raises(ValueError, match="Unsupported color mode"):
+        _trainer_dataset_tf._decode_and_resize(
+            tf.constant("image.png"), color_mode="invalid", target_size=(2, 2)
+        )
+
+
+@pytest.mark.parametrize(
+    ("value", "dimension", "minimum", "maximum"),
+    [
+        (None, None, 0.0, 0.0),
+        ([0.25, 0.25], 8.0, 2.0, 2.0),
+        (0.25, 8.0, -2.0, 2.0),
+        (1, 8.0, -1.0, 1.0),
+    ],
+)
+def test_tf_sample_range(value, dimension, minimum, maximum):
+    if _trainer_dataset.get_keras_backend(_trainer_dataset.keras) != "tensorflow":
+        pytest.skip("TensorFlow is not the active Keras backend")
+    import tensorflow as tf  # noqa: PLC0415
+
+    from orthoseg.helpers import _trainer_dataset_tf  # noqa: PLC0415
+
+    sample = _trainer_dataset_tf._sample_range(
+        value,
+        seed=3,
+        index=tf.constant(0),
+        stream=1,
+        dimension=None if dimension is None else tf.constant(dimension),
+    )
+
+    assert minimum <= float(sample.numpy()) <= maximum
+
+
+def test_tf_sample_range_rejects_invalid_range():
+    if _trainer_dataset.get_keras_backend(_trainer_dataset.keras) != "tensorflow":
+        pytest.skip("TensorFlow is not the active Keras backend")
+    import tensorflow as tf  # noqa: PLC0415
+
+    from orthoseg.helpers import _trainer_dataset_tf  # noqa: PLC0415
+
+    with pytest.raises(ValueError, match="two-value augmentation range"):
+        _trainer_dataset_tf._sample_range([0.1], seed=3, index=tf.constant(0), stream=1)
 
 
 @pytest.mark.parametrize(
