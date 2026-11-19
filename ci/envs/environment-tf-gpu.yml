@@ -24,8 +24,6 @@ dependencies:
   - shapely >=2
   - scikit-image
   - simplification
-  # Tensorflow is only availabla for linux-64 on conda-forge.
-  # Will resolve to tensorflow-gpu if a compatible GPU is available
   - tensorflow-gpu >=2.8
   # testing
   - pytest

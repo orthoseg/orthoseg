@@ -15,7 +15,7 @@ dependencies:
   - geofileops >=0.12
   - geopandas-base >=1.0
   - matplotlib-base
-  - numpy <2.2  # Tensorflow 2.19 needs a limit on the numpy version
+  - numpy
   - owslib
   - pandas
   - pillow

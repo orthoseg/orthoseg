@@ -16,7 +16,7 @@ dependencies:
   - geofileops >=0.12
   - geopandas-base >=1.0
   - matplotlib-base
-  - numpy # <2.2  # Tensorflow 2.19 needs a limit on the numpy version
+  - numpy
   - owslib
   - pandas
   - pillow
@@ -27,8 +27,8 @@ dependencies:
   - shapely >=2
   - scikit-image
   - simplification
-  # dependencies of tensorflow that need to be conda versions to avoid binary compatibility issues
-  # TensorFlow 2.19 can segfault on Windows with h5py versions above 3.13.
+  # TensorFlow 2.19 can segfault on Windows with h5py versions above 3.13, seems solved
+  # for newer versions of TensorFlow.
   # - sel(win): "h5py <3.14"
   # testing
   - pytest
