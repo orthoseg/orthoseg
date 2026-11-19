@@ -215,7 +215,7 @@ def _quantize_model_for_predict(model: Any, model_quantize_raw: str | None) -> N
     elif model_quantize == "float8":
         quantize_mode = "float8"
     elif model_quantize == "none":
-        logger.info("predict.model_quantize is none; leave the model unchanged")
+        logger.info("predict.model_quantize is none; don't apply quantization")
         return
     else:
         raise ValueError(

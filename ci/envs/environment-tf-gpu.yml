@@ -6,7 +6,7 @@ name: orthoseg
 channels:
   - conda-forge
 dependencies:
-  - python
+  - python <3.14
   - pip
   # required
   - gdal >3.10
@@ -24,9 +24,7 @@ dependencies:
   - shapely >=2
   - scikit-image
   - simplification
-  # Tensorflow is only availabla for linux-64 on conda-forge.
-  # Will resolve to tensorflow-gpu if a compatible GPU is available
-  - tensorflow-gpu >=2.8
+  - tensorflow-gpu
   # testing
   - pytest
   - pytest-cov

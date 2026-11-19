@@ -3,12 +3,11 @@
 #
 # Notes:
 #   - necessary for windows, as conda-forge does not provide a tf package for windows
-#   - the conda-forge tf package give an error for some tests on MacOS
 name: orthoseg-latest-tf-pip
 channels:
   - conda-forge
 dependencies:
-  - python <3.13
+  - python <3.14
   - pip
   # required
   - astunparse  # Avoid it being installed via pip, otherwise segfault on windows
@@ -16,7 +15,7 @@ dependencies:
   - geofileops >=0.12
   - geopandas-base >=1.0
   - matplotlib-base
-  - numpy <2.2  # Tensorflow 2.19 needs a limit on the numpy version
+  - numpy
   - owslib
   - pandas
   - pillow
@@ -27,13 +26,13 @@ dependencies:
   - shapely >=2
   - scikit-image
   - simplification
-  # dependencies of tensorflow that need to be conda versions to avoid binary compatibility issues
-  # TensorFlow 2.19 can segfault on Windows with h5py versions above 3.13.
-  - sel(win): "h5py <3.14"
+  # TensorFlow 2.19 can segfault on Windows with h5py versions above 3.13, seems solved
+  # for newer versions of TensorFlow.
+  # - sel(win): "h5py <3.14"
   # testing
   - pytest
   - pytest-cov
   - pytest-order
   - pip:
     - segmodels-keras
-    - tensorflow >=2.10,<2.20
+    - tensorflow >=2.10

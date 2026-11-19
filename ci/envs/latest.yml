@@ -1,9 +1,13 @@
 # This is the standard environment with recent version of all dependencies.
+#
+# Note: this environment doesn't include a backend like TensorFlow, PyTorch or JAX. This
+# should be added when creating the environment rather than installing it seperately
+# afterwards to avoid potential conflicts.
 name: orthoseg-latest
 channels:
   - conda-forge
 dependencies:
-  - python <3.13
+  - python <3.14
   - pip
   # required
   - gdal
