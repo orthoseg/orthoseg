@@ -83,12 +83,12 @@ def test_create_train_dataset_pairs_files_and_one_hot_encodes_masks(tmp_path):
 
     images, masks = next(iter(dataset))
     assert dataset_size == 2
-    assert int(dataset.cardinality().numpy()) == 1
+    assert len(dataset) == 1
     assert images.shape == (2, 2, 2, 3)
     assert masks.shape == (2, 2, 2, 2)
-    np.testing.assert_array_equal(images.numpy()[0], image_a.astype(np.float32) / 10.0)
-    np.testing.assert_array_equal(masks.numpy()[0, :, :, 1], mask_a)
-    np.testing.assert_array_equal(masks.numpy()[1, :, :, 1], mask_b)
+    np.testing.assert_array_equal(images[0], image_a.astype(np.float32) / 10.0)
+    np.testing.assert_array_equal(masks[0, :, :, 1], mask_a)
+    np.testing.assert_array_equal(masks[1, :, :, 1], mask_b)
 
     model = keras.Sequential(
         [
@@ -144,10 +144,10 @@ def test_create_train_dataset_applies_same_geometry_to_images_and_masks(tmp_path
 
     images, masks = next(iter(dataset))
     np.testing.assert_array_equal(
-        images.numpy()[0, :, :, 0] > 0,
-        masks.numpy()[0, :, :, 1] > 0,
+        images[0, :, :, 0] > 0,
+        masks[0, :, :, 1] > 0,
     )
-    assert images.numpy().max() == 100
+    assert np.asarray(images).max() == 100
 
 
 def test_create_train_dataset_reports_missing_mask(tmp_path):
@@ -205,7 +205,7 @@ def test_create_train_dataset_pairs_jpeg_with_png_mask_and_saves_output(tmp_path
 
 
 def test_create_train_dataset_decodes_tiff_inputs(tmp_path):
-    """Decode TIFF inputs through the TensorFlow dataset pipeline."""
+    """Decode TIFF inputs through the Keras sequence."""
     data_dir = tmp_path / "training"
     image_dir = data_dir / "image"
     mask_dir = data_dir / "mask"
@@ -231,5 +231,5 @@ def test_create_train_dataset_decodes_tiff_inputs(tmp_path):
     )
 
     images, masks = next(iter(dataset))
-    np.testing.assert_array_equal(images.numpy()[0], image_values.astype(np.float32))
-    assert set(np.unique(masks.numpy())) == {0.0, 1.0}
+    np.testing.assert_array_equal(images[0], image_values.astype(np.float32))
+    assert set(np.unique(masks)) == {0.0, 1.0}

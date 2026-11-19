@@ -36,8 +36,12 @@ setuptools.setup(
         "segmodels-keras",
         "shapely>=2",
         "simplification",
-        "tensorflow>=2.10",
     ],
+    extras_require={
+        "tensorflow": ["tensorflow>=2.10"],
+        "torch": ["keras>=3", "torch"],
+        "jax": ["keras>=3", "jax"],
+    },
     entry_points="""
             [console_scripts]
             orthoseg_load_images=orthoseg.load_images:main

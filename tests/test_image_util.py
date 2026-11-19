@@ -448,3 +448,22 @@ def _test_load_images_to_cache(path):
         with rio.open(image_path) as image_file:
             assert image_file.width == width_pix + 2 * pixels_overlap
             assert image_file.height == height_pix + 2 * pixels_overlap
+
+
+def test_prepare_auth_logs_ssl_warning_once(monkeypatch, caplog):
+    ssl_warning = "SSL VERIFICATION IS TURNED OFF FOR OWSLIB (logged once per process)"
+    monkeypatch.setattr(
+        image_util, "_ssl_verification_warning_logged", threading.Event()
+    )
+    monkeypatch.setattr(image_util.urllib3, "disable_warnings", lambda: None)
+
+    with caplog.at_level("WARNING", logger=image_util.__name__):
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            list(
+                executor.map(
+                    lambda _: image_util._prepare_auth(None, None, False),
+                    range(8),
+                )
+            )
+
+    assert caplog.messages.count(ssl_warning) == 1

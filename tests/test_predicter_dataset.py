@@ -33,38 +33,23 @@ def test_create_image_read_dataset_matches_read_image(tmp_path):
         image_path=image_path,
         preprocess_input=preprocess_input,
     )
-    image_metadata = {}
     dataset = _predicter_dataset.create_image_read_dataset(
         image_paths=[image_path],
         projection_if_missing=None,
         preprocess_input=preprocess_input,
-        image_dtype=_predicter_dataset.tf.float32,
-        read_batch_size=1,
-        image_metadata=image_metadata,
-        image_metadata_lock=threading.Lock(),
+        image_dtype=np.float32,
+        max_parallel_reads=1,
     )
 
-    (
-        dataset_paths,
-        actual_image_data_batch,
-        image_shapes,
-        read_errors,
-        read_error_tracebacks,
-    ) = next(iter(dataset))
-
-    assert dataset_paths[0].numpy().decode("utf-8") == str(image_path)
-    image_height, image_width, image_channels = image_shapes[0].numpy()
-    actual_image_data = actual_image_data_batch[
-        0, :image_height, :image_width, :image_channels
-    ].numpy()
+    actual_path, read_result = next(iter(dataset))
+    assert actual_path == image_path
+    actual_image_data = read_result["image_data"]
     assert actual_image_data.dtype == np.float32
     np.testing.assert_allclose(actual_image_data, expected["image_data"])
-    actual_crs, actual_transform = image_metadata.pop(image_path)
-    assert actual_crs == expected["image_crs"]
-    assert actual_transform == expected["image_transform"]
-    assert image_metadata == {}
-    assert read_errors[0].numpy() == b""
-    assert read_error_tracebacks[0].numpy() == b""
+    assert read_result["image_crs"] == expected["image_crs"]
+    assert read_result["image_transform"] == expected["image_transform"]
+    assert read_result["read_error"] == b""
+    assert read_result["read_error_traceback"] == b""
 
 
 def test_iter_image_read_results_preserves_success_and_errors(tmp_path):
@@ -96,31 +81,20 @@ def test_iter_image_read_results_preserves_success_and_errors(tmp_path):
     ) as image_ds:
         image_ds.write(np.zeros((1, 2, 2), dtype=np.uint8))
 
-    image_metadata = {}
-    image_metadata_lock = threading.Lock()
     dataset = _predicter_dataset.create_image_read_dataset(
         image_paths=[image_path, error_image_path],
         projection_if_missing=None,
         preprocess_input=None,
-        image_dtype=_predicter_dataset.tf.float32,
-        read_batch_size=2,
-        image_metadata=image_metadata,
-        image_metadata_lock=image_metadata_lock,
+        image_dtype=np.float32,
+        max_parallel_reads=2,
     )
 
-    results = dict(
-        _predicter_dataset.iter_image_read_results(
-            dataset,
-            image_metadata=image_metadata,
-            image_metadata_lock=image_metadata_lock,
-        )
-    )
+    results = dict(_predicter_dataset.iter_image_read_results(dataset))
 
     successful_result = results[image_path]
     assert successful_result["image_data"].shape == (2, 3, 1)
     np.testing.assert_array_equal(
-        successful_result["image_data"].numpy(),
-        image_data.transpose((1, 2, 0)),
+        successful_result["image_data"], image_data.transpose((1, 2, 0))
     )
     assert successful_result["image_crs"] == rio.crs.CRS.from_epsg(31370)
     assert successful_result["image_transform"] == image_transform
@@ -131,7 +105,6 @@ def test_iter_image_read_results_preserves_success_and_errors(tmp_path):
     assert failed_result["image_data"] is None
     assert b"Image has no proj" in failed_result["read_error"]
     assert b"read_image" in failed_result["read_error_traceback"]
-    assert image_metadata == {}
 
 
 def test_create_image_read_dataset_reports_read_errors(tmp_path):
@@ -147,28 +120,17 @@ def test_create_image_read_dataset_reports_read_errors(tmp_path):
     ) as image_ds:
         image_ds.write(np.zeros((1, 2, 2), dtype=np.uint8))
 
-    image_metadata = {}
     dataset = _predicter_dataset.create_image_read_dataset(
-        image_paths=[image_path],
+        image_paths=[tmp_path / "missing-crs.tif"],
         projection_if_missing=None,
         preprocess_input=None,
-        image_dtype=_predicter_dataset.tf.float32,
-        read_batch_size=1,
-        image_metadata=image_metadata,
-        image_metadata_lock=threading.Lock(),
+        image_dtype=np.float32,
+        max_parallel_reads=1,
     )
 
-    (
-        _,
-        _,
-        _,
-        read_errors,
-        read_error_tracebacks,
-    ) = next(iter(dataset))
-
-    assert b"Image has no proj" in read_errors[0].numpy()
-    assert b"read_image" in read_error_tracebacks[0].numpy()
-    assert image_metadata == {}
+    _, read_result = next(iter(dataset))
+    assert b"Image has no proj" in read_result["read_error"]
+    assert b"read_image" in read_result["read_error_traceback"]
 
 
 def test_create_image_read_dataset_batches_read_errors(tmp_path):
@@ -198,41 +160,23 @@ def test_create_image_read_dataset_batches_read_errors(tmp_path):
     ) as image_ds:
         image_ds.write(np.zeros((1, 2, 2), dtype=np.uint8))
 
-    image_metadata = {}
     dataset = _predicter_dataset.create_image_read_dataset(
         image_paths=[image_path, error_image_path],
         projection_if_missing=None,
         preprocess_input=None,
-        image_dtype=_predicter_dataset.tf.float32,
-        read_batch_size=2,
-        image_metadata=image_metadata,
-        image_metadata_lock=threading.Lock(),
+        image_dtype=np.float32,
+        max_parallel_reads=2,
     )
 
-    paths, images, image_shapes, errors, traces = next(iter(dataset))
-    records = {
-        paths[index].numpy().decode("utf-8"): (
-            images[index],
-            image_shapes[index].numpy(),
-            errors[index].numpy(),
-            traces[index].numpy(),
-        )
-        for index in range(len(paths))
-    }
+    records = dict(dataset)
+    success = records[image_path]
+    np.testing.assert_allclose(success["image_data"], image_data.transpose((1, 2, 0)))
+    assert success["read_error"] == b""
 
-    image_tensor, image_shape, image_error, _ = records[str(image_path)]
-    image_height, image_width, image_channels = image_shape
-    np.testing.assert_allclose(
-        image_tensor[:image_height, :image_width, :image_channels].numpy(),
-        image_data.transpose((1, 2, 0)),
-    )
-    assert image_error == b""
-
-    _, error_shape, read_error, read_error_traceback = records[str(error_image_path)]
-    assert error_shape.tolist() == [1, 1, 1]
-    assert b"Image has no proj" in read_error
-    assert b"read_image" in read_error_traceback
-    assert image_metadata.keys() == {image_path}
+    failure = records[error_image_path]
+    assert failure["image_data"] is None
+    assert b"Image has no proj" in failure["read_error"]
+    assert b"read_image" in failure["read_error_traceback"]
 
 
 def test_create_image_read_dataset_empty_paths():
@@ -240,13 +184,11 @@ def test_create_image_read_dataset_empty_paths():
         image_paths=[],
         projection_if_missing=None,
         preprocess_input=None,
-        image_dtype=_predicter_dataset.tf.float32,
-        read_batch_size=1,
-        image_metadata={},
-        image_metadata_lock=threading.Lock(),
+        image_dtype=np.float32,
+        max_parallel_reads=1,
     )
 
-    assert list(dataset.as_numpy_iterator()) == []
+    assert list(dataset) == []
 
 
 def test_read_image_dataset_item_returns_metadata_and_shape(tmp_path):
@@ -266,27 +208,23 @@ def test_read_image_dataset_item_returns_metadata_and_shape(tmp_path):
     ) as image_ds:
         image_ds.write(image_pixels)
 
-    image_metadata = {}
-    item = _predicter_dataset._read_image_dataset_item(
-        _predicter_dataset.tf.constant(str(image_path)),
+    path, result = _predicter_dataset._read_image_dataset_item(
+        image_path,
         projection_if_missing=None,
         preprocess_input=None,
-        image_dtype=_predicter_dataset.tf.float32,
-        image_metadata=image_metadata,
-        image_metadata_lock=threading.Lock(),
+        image_dtype=np.float32,
     )
 
-    path, image, image_shape, read_error, read_error_traceback = item
-    assert path.numpy().decode("utf-8") == str(image_path)
-    assert image_shape.numpy().tolist() == [2, 3, 1]
+    assert path == image_path
+    image = result["image_data"]
+    assert image.shape == (2, 3, 1)
     np.testing.assert_array_equal(
-        image.numpy(), image_pixels.transpose((1, 2, 0)).astype(np.float32)
+        image, image_pixels.transpose((1, 2, 0)).astype(np.float32)
     )
-    assert image_metadata == {
-        image_path: (rio.crs.CRS.from_epsg(31370), image_transform)
-    }
-    assert read_error.numpy() == b""
-    assert read_error_traceback.numpy() == b""
+    assert result["image_crs"] == rio.crs.CRS.from_epsg(31370)
+    assert result["image_transform"] == image_transform
+    assert result["read_error"] == b""
+    assert result["read_error_traceback"] == b""
 
 
 @pytest.mark.parametrize(
@@ -311,26 +249,20 @@ def test_read_image_for_dataset_uses_projection_if_missing(
     ) as image_ds:
         image_ds.write(image_pixels)
 
-    image_metadata = {}
-    image, read_error, read_error_traceback = (
-        _predicter_dataset._read_image_for_dataset(
-            np.asarray(str(image_path).encode("utf-8")),
-            projection_if_missing=projection_if_missing,
-            preprocess_input=None,
-            image_dtype=np.float32,
-            image_metadata=image_metadata,
-            image_metadata_lock=threading.Lock(),
-        )
+    _, result = _predicter_dataset._read_image_for_dataset(
+        image_path,
+        projection_if_missing=projection_if_missing,
+        preprocess_input=None,
+        image_dtype=np.float32,
     )
 
     np.testing.assert_array_equal(
-        image, image_pixels.transpose((1, 2, 0)).astype(np.float32)
+        result["image_data"], image_pixels.transpose((1, 2, 0)).astype(np.float32)
     )
-    assert image_metadata == {
-        image_path: (rio.crs.CRS.from_epsg(31370), image_transform)
-    }
-    assert read_error == b""
-    assert read_error_traceback == b""
+    assert result["image_crs"] == rio.crs.CRS.from_epsg(31370)
+    assert result["image_transform"] == image_transform
+    assert result["read_error"] == b""
+    assert result["read_error_traceback"] == b""
 
 
 def test_read_image_for_dataset_returns_read_error_details(monkeypatch):
@@ -338,24 +270,16 @@ def test_read_image_for_dataset_returns_read_error_details(monkeypatch):
         raise RuntimeError("image decoder failed")
 
     monkeypatch.setattr(_predicter_dataset, "read_image", fail_read_image)
-    image_metadata = {}
-
-    image, read_error, read_error_traceback = (
-        _predicter_dataset._read_image_for_dataset(
-            np.asarray(b"missing.tif"),
-            projection_if_missing=None,
-            preprocess_input=None,
-            image_dtype=np.float32,
-            image_metadata=image_metadata,
-            image_metadata_lock=threading.Lock(),
-        )
+    _, result = _predicter_dataset._read_image_for_dataset(
+        "missing.tif",
+        projection_if_missing=None,
+        preprocess_input=None,
+        image_dtype=np.float32,
     )
 
-    assert image.shape == (1, 1, 1)
-    assert image.dtype == np.float32
-    assert b"image decoder failed" in read_error
-    assert b"RuntimeError" in read_error_traceback.item()
-    assert image_metadata == {}
+    assert result["image_data"] is None
+    assert b"image decoder failed" in result["read_error"]
+    assert b"RuntimeError" in result["read_error_traceback"]
 
 
 def test_read_live_image_dataset_item_returns_metadata_and_shape(monkeypatch, tmp_path):
@@ -374,35 +298,31 @@ def test_read_live_image_dataset_item_returns_metadata_and_shape(monkeypatch, tm
         }
 
     monkeypatch.setattr(_predicter_dataset, "load_image", fake_load_image)
-    image_metadata = {}
-    item = _predicter_dataset._read_live_image_dataset_item(
-        _predicter_dataset.tf.constant(str(image_path)),
-        _predicter_dataset.tf.constant(
-            [1.0, 2.0, 3.0, 4.0], dtype=_predicter_dataset.tf.float64
-        ),
-        _predicter_dataset.tf.constant([3, 2], dtype=_predicter_dataset.tf.int32),
+    path, result = _predicter_dataset._read_live_image_dataset_item(
+        {
+            "path": image_path,
+            "bbox": (1.0, 2.0, 3.0, 4.0),
+            "size": (3, 2),
+        },
         image_layer=image_layer,
         ssl_verify=False,
-        image_dtype=_predicter_dataset.tf.float32,
+        image_dtype=np.float32,
         projection_crs=projection_crs,
         projection_switch_axes=True,
         projection_wms_srs="epsg:31370",
-        image_metadata=image_metadata,
-        image_metadata_lock=threading.Lock(),
     )
 
-    path, image, image_shape, read_error, read_error_traceback = item
-    assert path.numpy().decode("utf-8") == str(image_path)
-    assert image_shape.numpy().tolist() == [2, 3, 1]
-    np.testing.assert_array_equal(image.numpy(), np.full((2, 3, 1), 0.5))
+    assert path == image_path
+    np.testing.assert_array_equal(result["image_data"], np.full((2, 3, 1), 0.5))
     assert observed_arguments["bbox"] == (1.0, 2.0, 3.0, 4.0)
     assert observed_arguments["size"] == (3, 2)
     assert observed_arguments["projection_crs"] is projection_crs
     assert observed_arguments["projection_switch_axes"] is True
     assert observed_arguments["projection_wms_srs"] == "epsg:31370"
-    assert image_metadata == {image_path: (projection_crs, image_transform)}
-    assert read_error.numpy() == b""
-    assert read_error_traceback.numpy() == b""
+    assert result["image_crs"] is projection_crs
+    assert result["image_transform"] == image_transform
+    assert result["read_error"] == b""
+    assert result["read_error_traceback"] == b""
 
 
 def test_read_live_image_for_dataset_returns_read_error_details(monkeypatch):
@@ -410,29 +330,23 @@ def test_read_live_image_for_dataset_returns_read_error_details(monkeypatch):
         raise RuntimeError("live image read failed")
 
     monkeypatch.setattr(_predicter_dataset, "load_image", fail_load_image)
-    image_metadata = {}
-
-    image, read_error, read_error_traceback = (
-        _predicter_dataset._read_live_image_for_dataset(
-            np.asarray(b"live.tif"),
-            np.asarray([1.0, 2.0, 3.0, 4.0]),
-            np.asarray([3, 2]),
-            image_layer={"name": "live-source"},
-            ssl_verify=True,
-            image_dtype=np.float32,
-            projection_crs=pyproj.CRS.from_epsg(31370),
-            projection_switch_axes=False,
-            projection_wms_srs="epsg:31370",
-            image_metadata=image_metadata,
-            image_metadata_lock=threading.Lock(),
-        )
+    _, result = _predicter_dataset._read_live_image_for_dataset(
+        {
+            "path": "live.tif",
+            "bbox": (1.0, 2.0, 3.0, 4.0),
+            "size": (3, 2),
+        },
+        image_layer={"name": "live-source"},
+        ssl_verify=True,
+        image_dtype=np.float32,
+        projection_crs=pyproj.CRS.from_epsg(31370),
+        projection_switch_axes=False,
+        projection_wms_srs="epsg:31370",
     )
 
-    assert image.shape == (1, 1, 1)
-    assert image.dtype == np.float32
-    assert b"live image read failed" in read_error
-    assert b"RuntimeError" in read_error_traceback.item()
-    assert image_metadata == {}
+    assert result["image_data"] is None
+    assert b"live image read failed" in result["read_error"]
+    assert b"RuntimeError" in result["read_error_traceback"]
 
 
 @pytest.mark.parametrize(
@@ -512,31 +426,16 @@ def test_create_live_image_read_dataset_reads_batches_and_preserves_metadata(
         _predicter_dataset.image_util, "_get_epsg_code", track_epsg_lookup
     )
     monkeypatch.setattr(_predicter_dataset, "load_image", fake_load_image)
-    image_metadata = {}
     dataset = _predicter_dataset.create_live_image_read_dataset(
         image_files=image_files,
         image_layer=image_layer,
         ssl_verify=False,
-        image_dtype=_predicter_dataset.tf.float32,
-        nb_parallel_read=2,
-        read_batch_size=2,
-        image_metadata=image_metadata,
-        image_metadata_lock=threading.Lock(),
+        image_dtype=np.float32,
+        max_parallel_reads=2,
     )
 
-    records = {}
-    batch_sizes = []
-    for paths, images, shapes, errors, traces in dataset.as_numpy_iterator():
-        batch_sizes.append(len(paths))
-        for index, path in enumerate(paths):
-            records[path.decode("utf-8")] = (
-                images[index],
-                shapes[index],
-                errors[index],
-                traces[index],
-            )
+    records = dict(dataset)
 
-    assert sorted(batch_sizes) == [1, 2]
     assert {
         (bbox, size, ssl_verify) for bbox, size, _, ssl_verify, _, _, _ in read_requests
     } == {
@@ -564,28 +463,96 @@ def test_create_live_image_read_dataset_reads_batches_and_preserves_metadata(
     assert epsg_lookup_thread_ids == [caller_thread_id]
 
     for image_file in image_files[:2]:
-        path = str(image_file["path"])
-        image, shape, error, error_trace = records[path]
+        result = records[image_file["path"]]
+        image = result["image_data"]
         width, height = image_file["size"]
         expected_value = image_file["bbox"][0] / 10
-        assert shape.tolist() == [height, width, 2]
+        assert image.shape == (height, width, 2)
         assert image.dtype == np.float32
         np.testing.assert_array_equal(
-            image[:height, :width, :],
+            image,
             np.full((height, width, 2), expected_value, dtype=np.float32),
         )
-        assert error == b""
-        assert error_trace == b""
-        assert image_metadata.pop(image_file["path"]) == (
-            f"crs-{int(image_file['bbox'][0])}",
-            f"transform-{int(image_file['bbox'][0])}",
-        )
+        assert result["read_error"] == b""
+        assert result["read_error_traceback"] == b""
+        assert result["image_crs"] == f"crs-{int(image_file['bbox'][0])}"
+        assert result["image_transform"] == f"transform-{int(image_file['bbox'][0])}"
 
-    _, error_shape, read_error, read_error_trace = records[str(image_files[2]["path"])]
-    assert error_shape.tolist() == [1, 1, 1]
-    assert b"live image read failed" in read_error
-    assert b"_read_live_image_for_dataset" in read_error_trace
-    assert image_metadata == {}
+    error_result = records[image_files[2]["path"]]
+    assert error_result["image_data"] is None
+    assert b"live image read failed" in error_result["read_error"]
+    assert b"_read_live_image_for_dataset" in error_result["read_error_traceback"]
+
+
+def test_create_image_read_dataset_limits_parallel_reads(monkeypatch, tmp_path):
+    image_paths = [tmp_path / "first.tif", tmp_path / "second.tif"]
+    barrier = threading.Barrier(2)
+    active_reads = 0
+    max_active_reads = 0
+    active_reads_lock = threading.Lock()
+
+    def fake_read_image(*, image_path, **_kwargs):
+        nonlocal active_reads, max_active_reads
+        with active_reads_lock:
+            active_reads += 1
+            max_active_reads = max(max_active_reads, active_reads)
+        try:
+            barrier.wait(timeout=2)
+            return {
+                "image_data": np.zeros((1, 1, 1), dtype=np.float32),
+                "image_crs": None,
+                "image_transform": None,
+                "image_path": image_path,
+            }
+        finally:
+            with active_reads_lock:
+                active_reads -= 1
+
+    monkeypatch.setattr(_predicter_dataset, "read_image", fake_read_image)
+    results = list(
+        _predicter_dataset.create_image_read_dataset(
+            image_paths=image_paths,
+            projection_if_missing=None,
+            preprocess_input=None,
+            image_dtype=np.float32,
+            max_parallel_reads=2,
+        )
+    )
+
+    assert len(results) == 2
+    assert max_active_reads == 2
+
+
+def test_create_image_read_dataset_reads_ahead_while_consumer_waits(
+    monkeypatch, tmp_path
+):
+    image_paths = [tmp_path / f"tile-{index}.tif" for index in range(5)]
+    later_read_started = threading.Event()
+
+    def fake_read_image(*, image_path, **_kwargs):
+        if image_path == image_paths[2]:
+            later_read_started.set()
+        return {
+            "image_data": np.zeros((1, 1, 1), dtype=np.float32),
+            "image_crs": None,
+            "image_transform": None,
+            "image_path": image_path,
+        }
+
+    monkeypatch.setattr(_predicter_dataset, "read_image", fake_read_image)
+    read_results = _predicter_dataset.create_image_read_dataset(
+        image_paths=image_paths,
+        projection_if_missing=None,
+        preprocess_input=None,
+        image_dtype=np.float32,
+        max_parallel_reads=2,
+    )
+
+    try:
+        next(read_results)
+        assert later_read_started.wait(timeout=2)
+    finally:
+        read_results.close()
 
 
 def test_create_live_image_read_dataset_empty_files():
@@ -593,14 +560,11 @@ def test_create_live_image_read_dataset_empty_files():
         image_files=[],
         image_layer={},
         ssl_verify=True,
-        image_dtype=_predicter_dataset.tf.float32,
-        nb_parallel_read=2,
-        read_batch_size=2,
-        image_metadata={},
-        image_metadata_lock=threading.Lock(),
+        image_dtype=np.float32,
+        max_parallel_reads=2,
     )
 
-    assert list(dataset.as_numpy_iterator()) == []
+    assert list(dataset) == []
 
 
 def test_load_image_uses_prepared_projection_and_normalizes(monkeypatch):

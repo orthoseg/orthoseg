@@ -4,7 +4,7 @@
 # Notes:
 #   - necessary for windows, as conda-forge does not provide a tf package for windows
 #   - the conda-forge tf package give an error for some tests on MacOS
-name: orthoseg-tf-pip
+name: orthoseg
 channels:
   - conda-forge
 dependencies:
@@ -33,4 +33,4 @@ dependencies:
   - pip:
     - segmodels-keras
     - tensorflow >=2.10,<2.20
-    - orthoseg >=0.6
+    - orthoseg

@@ -8,7 +8,6 @@ from typing import Any
 
 import geofileops as gfo
 import geopandas as gpd
-import keras
 import numpy as np
 import pygeoops
 import rasterio as rio
@@ -555,8 +554,11 @@ def postprocess_for_evaluation(
             # If there is more than 1 class, extract the seperate masks
             # per class with one-hot encoding
             if nb_classes > 1:
-                mask_categorical_arr = keras.utils.to_categorical(mask_arr, nb_classes)
-                mask_arr = (mask_categorical_arr[:, :, class_id]) * 255
+                if np.any((mask_arr < 0) | (mask_arr >= nb_classes)):
+                    raise ValueError(
+                        f"Mask contains class labels outside [0, {nb_classes - 1}]"
+                    )
+                mask_arr = (mask_arr == class_id).astype(np.uint8) * 255
 
             # similarity = jaccard_similarity(mask_arr, image_pred)
             # Use accuracy as similarity... is more practical than jaccard

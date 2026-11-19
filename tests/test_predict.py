@@ -1,12 +1,14 @@
 """Tests for module predict."""
 
 import importlib
+import logging
 import os
 import re
 import shutil
+import sys
 from contextlib import nullcontext
 from pathlib import Path
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 
 import geofileops as gfo
 import pytest
@@ -496,3 +498,114 @@ def test_set_loaded_model_dtype_policy(dtype_policy, expected_policy_names):
     predict_module._set_loaded_model_dtype_policy(model, dtype_policy)
 
     assert [layer.dtype_policy.name for layer in model.layers] == expected_policy_names
+
+
+@pytest.mark.parametrize(
+    ("gpu_capability", "expected_jit_compile"),
+    [
+        ((6, 1), False),
+        ((7, 0), True),
+    ],
+)
+def test_set_torch_optimizations(
+    monkeypatch, caplog, gpu_capability, expected_jit_compile
+):
+    caplog.set_level(logging.INFO)
+    torch_module = ModuleType("torch")
+    torch_module.cuda = SimpleNamespace(is_available=lambda: True)
+    torch_module.backends = SimpleNamespace(
+        cudnn=SimpleNamespace(is_available=lambda: True, benchmark=False)
+    )
+    monkeypatch.setitem(sys.modules, "torch", torch_module)
+    monkeypatch.setattr(predict_module.keras.backend, "backend", lambda: "torch")
+    monkeypatch.setattr(
+        predict_module.mh,
+        "get_min_gpu_compute_capability",
+        lambda: gpu_capability,
+    )
+    model = SimpleNamespace(jit_compile=False)
+
+    predict_module._set_torch_optimizations(model)
+
+    assert model.jit_compile is expected_jit_compile
+    assert torch_module.backends.cudnn.benchmark
+    assert "Enabled cuDNN benchmark for PyTorch prediction" in caplog.text
+
+
+def test_set_torch_optimizations_without_gpu(monkeypatch):
+    torch_module = ModuleType("torch")
+    torch_module.cuda = SimpleNamespace(is_available=lambda: False)
+    torch_module.backends = SimpleNamespace(
+        cudnn=SimpleNamespace(is_available=lambda: True, benchmark=False)
+    )
+    monkeypatch.setitem(sys.modules, "torch", torch_module)
+    monkeypatch.setattr(predict_module.keras.backend, "backend", lambda: "torch")
+    monkeypatch.setattr(
+        predict_module.mh, "get_min_gpu_compute_capability", lambda: None
+    )
+    model = SimpleNamespace(jit_compile=False)
+
+    predict_module._set_torch_optimizations(model)
+
+    assert not model.jit_compile
+    assert not torch_module.backends.cudnn.benchmark
+
+
+def test_set_torch_optimizations_skips_other_backends(monkeypatch):
+    monkeypatch.setattr(predict_module.keras.backend, "backend", lambda: "tensorflow")
+    monkeypatch.setattr(
+        predict_module.importlib,
+        "import_module",
+        lambda *_args, **_kwargs: pytest.fail("torch should not be imported"),
+    )
+
+    predict_module._set_torch_optimizations(SimpleNamespace(jit_compile=False))
+
+
+@pytest.mark.parametrize("smoke_test_passes", [True, False])
+def test_set_torch_optimizations_on_cpu(monkeypatch, smoke_test_passes):
+    torch_module = ModuleType("torch")
+    torch_module.cuda = SimpleNamespace(is_available=lambda: False)
+    monkeypatch.setitem(sys.modules, "torch", torch_module)
+    monkeypatch.setattr(predict_module.keras.backend, "backend", lambda: "torch")
+    monkeypatch.setattr(
+        predict_module.mh, "get_min_gpu_compute_capability", lambda: None
+    )
+    monkeypatch.setattr(
+        predict_module,
+        "_torch_cpu_compile_smoke_test",
+        lambda _torch: smoke_test_passes,
+    )
+    model = SimpleNamespace(jit_compile=False)
+
+    predict_module._set_torch_optimizations(model)
+
+    assert model.jit_compile is smoke_test_passes
+
+
+def test_torch_cpu_compile_smoke_test(caplog):
+    caplog.set_level(logging.INFO)
+    torch_module = SimpleNamespace(
+        compile=lambda function, **_kwargs: function,
+        ones=lambda _size, **_kwargs: 1,
+        full_like=lambda _value, fill_value: fill_value,
+        equal=lambda actual, expected: actual == expected,
+    )
+
+    assert predict_module._torch_cpu_compile_smoke_test(torch_module)
+    assert "CPU torch.compile smoke test passed" in caplog.text
+
+
+def test_torch_cpu_compile_smoke_test_without_compiler(caplog):
+    def fail_compile(_function, **_kwargs):
+        raise RuntimeError("compiler not found")
+
+    torch_module = SimpleNamespace(
+        compile=fail_compile,
+        ones=lambda _size, **_kwargs: 1,
+        full_like=lambda _value, fill_value: fill_value,
+        equal=lambda actual, expected: actual == expected,
+    )
+
+    assert not predict_module._torch_cpu_compile_smoke_test(torch_module)
+    assert "compiler not found" in caplog.text

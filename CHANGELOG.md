@@ -26,7 +26,7 @@
 
 - Add proper support for keras 3:
     - Use [segmodels_keras](https://github.com/orthoseg/segmodels_keras) (#311)
-    - Avoid unneeded direct use of tensorflow (#304, #313)
+    - Make tensorflow an optional dependency (#304, #313, #385)
     - Use ``segmodels_keras.utils.load_weights`` for forward and backward compatibility
       when loading cross-keras-version weights (#339)
 - Use keras.applications `preprocess_input` functions to prepare inputs (#314)

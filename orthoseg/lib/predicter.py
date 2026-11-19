@@ -6,7 +6,6 @@ import logging
 import multiprocessing
 import shutil
 import tempfile
-import threading
 import time
 import traceback
 from collections.abc import Callable
@@ -15,14 +14,14 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import geofileops as gfo
-import keras.models
 import numpy as np
 import pandas as pd
 import pyproj
 import rasterio.crs as rio_crs
-import tensorflow as tf
 
 import orthoseg.lib.postprocess_predictions as postp
+from orthoseg._compat import get_keras_backend
+from orthoseg._keras import keras
 from orthoseg.helpers import _predicter_dataset
 from orthoseg.util import _processing_util, image_util
 from orthoseg.util.progress_util import ProgressLogger
@@ -102,11 +101,9 @@ def predict_dir(
             memory on you GPU.
         evaluate_mode: True to run in evaluate mode
         cancel_filepath: If the file in this path exists, processing stops asap
-        nb_parallel_read: The maximum number of parallel live-image reads. For cached
-            images, this sets the `tf.data` read batch size to
-            `min(batch_size, nb_parallel_read)`; parallel mapping and prefetching use
-            TensorFlow autotuning. If -1, the default is 3 * `batch_size`. Defaults
-            to -1.
+        nb_parallel_read: Maximum number of concurrent cached-image or live-image
+            reads. If -1, cached-image reads use at least 8 workers where the CPU
+            count allows; otherwise the default is 3 * `batch_size`. Defaults to -1.
         nb_parallel_postprocess: The number of parallel
             processes used to vectorize,... the predictions. If -1, all
             available CPU's are used. Defaults to 1.
@@ -258,10 +255,9 @@ def predict_layer(
             memory on you GPU.
         evaluate_mode: True to run in evaluate mode
         cancel_filepath: If the file in this path exists, processing stops asap
-        nb_parallel_read: The maximum number of parallel live-image fetches used by
-            `tf.data`. For cached images, this sets the `tf.data` read batch size to
-            `min(batch_size, nb_parallel_read)`. If -1, the default is
-            3 * `batch_size`. Defaults to -1.
+        nb_parallel_read: Maximum number of concurrent cached-image or live-image
+            reads. If -1, cached-image reads use at least 8 workers where the CPU
+            count allows; otherwise the default is 3 * `batch_size`. Defaults to -1.
         nb_parallel_postprocess: The number of parallel
             processes used to postprocess, e.g. vectorize,... the predictions. If -1,
             all available CPU's are used. Defaults to 1.
@@ -449,11 +445,15 @@ def _predict_layer(
     # Loop through all files to process them
     if nb_parallel_read == -1:
         nb_parallel_read = batch_size * 3
+        if image_layer is None:
+            nb_parallel_read = min(
+                multiprocessing.cpu_count(),
+                max(nb_parallel_read, 8),
+            )
     if nb_parallel_postprocess == -1:
         nb_parallel_postprocess = multiprocessing.cpu_count()
 
-    read_image_metadata: dict[Path, tuple[Any, Any]] = {}
-    read_image_metadata_lock = threading.Lock()
+    image_dtype = model.inputs[0].dtype
     if image_layer is None:
         projection_for_read = projection_if_missing
         if projection_if_missing is not None:
@@ -469,10 +469,8 @@ def _predict_layer(
             image_paths=image_paths_to_read,
             projection_if_missing=projection_for_read,
             preprocess_input=preprocess_input,
-            image_dtype=tf.as_dtype(model.inputs[0].dtype),
-            read_batch_size=min(batch_size, nb_parallel_read),
-            image_metadata=read_image_metadata,
-            image_metadata_lock=read_image_metadata_lock,
+            image_dtype=image_dtype,
+            max_parallel_reads=nb_parallel_read,
         )
     else:
         image_files_to_read = [
@@ -485,18 +483,13 @@ def _predict_layer(
             image_files=image_files_to_read,
             image_layer=image_layer,
             ssl_verify=ssl_verify,
-            image_dtype=tf.as_dtype(model.inputs[0].dtype),
-            nb_parallel_read=nb_parallel_read,
-            read_batch_size=min(batch_size, nb_parallel_read),
-            image_metadata=read_image_metadata,
-            image_metadata_lock=read_image_metadata_lock,
+            image_dtype=image_dtype,
+            max_parallel_reads=nb_parallel_read,
         )
-    read_results_iterator = iter(
-        _predicter_dataset.iter_image_read_results(
-            read_dataset,
-            image_metadata=read_image_metadata,
-            image_metadata_lock=read_image_metadata_lock,
-        )
+
+    # Apply prefetching to improve throughput.
+    read_results_iterator = _predicter_dataset.prefetch_image_read_results(
+        read_dataset, image_dtype
     )
 
     predict_queue: list[dict] = []
@@ -539,17 +532,21 @@ def _predict_layer(
 
             # Init for new loop
             perfinfo: list[str] = []
+            read_wait_seconds = 0.0
 
-            # Fill the prediction queue from the tf.data iterator
+            # Fill the prediction queue from the parallel image reader
             # ----------------------------------------------------
             while not last_image_reached and len(predict_queue) < batch_size:
                 if cancel_filepath is not None and cancel_filepath.exists():
                     break
+                read_wait_started = time.perf_counter()
                 try:
                     image_filepath_read, read_result = next(read_results_iterator)
                 except StopIteration:
                     last_image_reached = True
                     break
+                finally:
+                    read_wait_seconds += time.perf_counter() - read_wait_started
 
                 try:
                     if read_result["read_error"]:
@@ -615,7 +612,7 @@ def _predict_layer(
                 last_image_reached and len(predict_queue) > 0
             ):
                 perf_time_now = datetime.now()
-                perfinfo += f"waiting for read took {perf_time_now - perf_time_start}"
+                perfinfo.append(f"waiting for read took {read_wait_seconds:.3f}s")
                 perf_time_start = perf_time_now
 
                 # Predict!
@@ -628,7 +625,7 @@ def _predict_layer(
                 )
 
                 perf_time_now = datetime.now()
-                perfinfo += f", predict took {perf_time_now - perf_time_start}"
+                perfinfo.append(f", predict took {perf_time_now - perf_time_start}")
                 perf_time_start = perf_time_now
 
                 # Add predictions to postprocess queue
@@ -682,7 +679,7 @@ def _predict_layer(
 
                 # Collect performance debugging info
                 time_taken = datetime.now() - perf_time_start
-                perfinfo += f", scheduling postprocessings took {time_taken}"
+                perfinfo.append(f", scheduling postprocessings took {time_taken}")
                 perf_time_start = perf_time_now
 
             # Check postp_queue for completed postprocessings
@@ -744,7 +741,7 @@ def _predict_layer(
                         logger.info("Waited enough for postprocessing to catch up...")
 
                     perf_time_now = datetime.now()
-                    perfinfo += (
+                    perfinfo.append(
                         f", after postproces: took {perf_time_now - perf_time_start}"
                     )
                     perf_time_start = perf_time_now
@@ -790,7 +787,7 @@ def _predict_layer(
             # ---------------------
             # Log the progress and prediction speed
             if len(perfinfo) > 0:
-                logger.debug(perfinfo)
+                logger.debug("".join(perfinfo))
             if progress is not None:
                 progress.update(nb_steps_done=nb_done, nb_steps_total=nb_to_predict)
             # Init progress only when some imags were already processed, as the
@@ -895,7 +892,7 @@ def _handle_error(
 
 
 def _predict_image_batch(
-    model: keras.models.Model, image_tensors: list[tf.Tensor]
+    model: keras.models.Model, image_tensors: list[Any]
 ) -> list[np.ndarray]:
     image_indices_by_shape: dict[tuple[int, ...], list[int]] = {}
     for image_index, image_tensor in enumerate(image_tensors):
@@ -904,10 +901,27 @@ def _predict_image_batch(
 
     predictions_by_image: dict[int, np.ndarray] = {}
     for image_indices in image_indices_by_shape.values():
-        batch_image_tensor = tf.stack(
-            [image_tensors[image_index] for image_index in image_indices]
+        assembly_started = time.perf_counter()
+        image_batch = [
+            _to_numpy(image_tensors[image_index]) for image_index in image_indices
+        ]
+        batch_image_tensor = (
+            np.expand_dims(image_batch[0], axis=0)
+            if len(image_batch) == 1
+            else np.stack(image_batch)
         )
+        assembly_seconds = time.perf_counter() - assembly_started
+
+        prediction_started = time.perf_counter()
         batch_predictions = _predict_tensor_batch(model, batch_image_tensor)
+        prediction_seconds = time.perf_counter() - prediction_started
+        logger.debug(
+            "Prediction batch of %s images: assembly took %.3fs, "
+            "predict_on_batch took %.3fs",
+            len(image_indices),
+            assembly_seconds,
+            prediction_seconds,
+        )
         for batch_index, image_index in enumerate(image_indices):
             predictions_by_image[image_index] = batch_predictions[batch_index]
 
@@ -918,14 +932,13 @@ def _predict_image_batch(
 
 def _predict_tensor_batch(
     model: keras.models.Model,
-    batch_image_tensor: tf.Tensor,
+    batch_image_tensor: np.ndarray,
 ) -> np.ndarray:
     try:
-        model_input = batch_image_tensor
-        if keras.backend.backend() != "tensorflow":
-            model_input = batch_image_tensor.numpy()
-        batch_predictions = model.predict_on_batch(model_input)
-    except tf.errors.ResourceExhaustedError:
+        batch_predictions = model.predict_on_batch(batch_image_tensor)
+    except Exception as ex:
+        if not _is_out_of_memory_error(ex):
+            raise
         batch_size = batch_image_tensor.shape[0]
         if batch_size is None or batch_size <= 1:
             raise
@@ -946,6 +959,28 @@ def _predict_tensor_batch(
         )
         return np.concatenate((first_predictions, second_predictions), axis=0)
 
-    if isinstance(batch_predictions, tf.Tensor):
-        batch_predictions = batch_predictions.numpy()
-    return np.array(batch_predictions)
+    return _to_numpy(batch_predictions)
+
+
+def _to_numpy(value: Any) -> np.ndarray:
+    if isinstance(value, np.ndarray):
+        return value
+    if hasattr(keras, "ops"):
+        return np.asarray(keras.ops.convert_to_numpy(value))
+    if hasattr(value, "numpy"):
+        return np.asarray(value.numpy())
+    return np.asarray(value)
+
+
+def _is_out_of_memory_error(error: Exception) -> bool:
+    backend = get_keras_backend(keras)
+    if backend == "tensorflow":
+        import tensorflow as tf  # noqa: PLC0415
+
+        return isinstance(error, tf.errors.ResourceExhaustedError)
+    if backend == "torch":
+        import torch  # noqa: PLC0415
+
+        return isinstance(error, torch.cuda.OutOfMemoryError)
+    error_message = str(error).lower()
+    return "resource_exhausted" in error_message or "out of memory" in error_message
