@@ -49,6 +49,11 @@ jobs:
             dev: false
             python: "3.12"
             extra: pytorch
+          - env: latest
+            os: macos-latest
+            dev: false
+            python: "3.12"
+            extra: tensorflow
           - env: latest-tf-pip
             os: macos-latest
             dev: false
