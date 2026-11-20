@@ -1,4 +1,4 @@
-"""Configuration setting to build the orthoseg package."""
+"""Configuration setting to build the OrthoSeg package."""
 
 from pathlib import Path
 
@@ -25,6 +25,7 @@ setuptools.setup(
         "gdal",
         "geofileops>=0.12",
         "geopandas>=1.0",
+        "keras",
         "matplotlib",
         "numpy",
         "owslib",

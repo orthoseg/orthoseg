@@ -1,4 +1,4 @@
-# This is an environment with minimal versions of most dependencies.
+# This is an environment with minimal versions of the most important dependencies.
 #
 # Notes:
 #   - tensorflow is installed via pip as conda-forge does not provide packages for
@@ -13,20 +13,20 @@ dependencies:
   - pip
   # required
   - astunparse  # Avoid it being installed via pip, otherwise segfault on windows
-  - gdal =3.9.0  # 3.9.0 released 2024-05-10
-  - geofileops =0.12  # 0.12.0 released 2026-10-14
-  - geopandas-base =1.0  # 1.0.0 released 2024-06-24
+  - gdal  # resolves to 3.10.3 (released 2025-04-07) at time of writing
+  - geofileops
+  - geopandas-base
+  - keras =2.10  # pinned to match tensorflow version
   - matplotlib-base
-  - numpy =1.26  # <2 is needed for tf < 2.18
+  - numpy <2  #  is needed for tf < 2.18, resolves to 1.26.4 at time of writing
   - owslib
-  - keras =2.10
   - pandas
   - pillow
   - pycron
-  - pygeoops =0.4  # 0.4 released 2023-11-24
+  - pygeoops
   - pyproj
   - rasterio
-  - shapely =2.0  # released 2022-12-12
+  - shapely
   - scikit-image
   - simplification
   # dependencies of tensorflow that need to be conda versions to avoid binary compatibility issues
@@ -36,6 +36,6 @@ dependencies:
   - pytest-cov
   - pytest-order
   - pip:
+    - numpy <2  # numpy <2 is needed for tf < 2.18
     - segmodels-keras
     - tensorflow <2.11  # On windows, tf 2.10 is the last version with GPU support
-    - numpy <2  # numpy <2 is needed for tf < 2.18

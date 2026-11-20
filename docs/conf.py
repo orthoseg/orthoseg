@@ -27,7 +27,7 @@ devdir = "./"
 
 # -- Project information -----------------------------------------------------
 
-project = "orthoseg"
+project = "OrthoSeg"
 copyright = "2025, Pieter Roggemans"
 author = "Pieter Roggemans"
 
@@ -118,7 +118,6 @@ url_conda_envs = f"{base_url}_static/conda_envs"
 
 rst_epilog = f"""
 .. |environment-tf-gpu-win| replace:: {url_conda_envs}/environment-tf-gpu-win.yml
-.. |environment-tf-gpu| replace:: {url_conda_envs}/environment-tf-gpu.yml
 .. |environment-tf-pip| replace:: {url_conda_envs}/environment-tf-pip.yml
 .. |environment-tf| replace:: {url_conda_envs}/environment-tf.yml
 """

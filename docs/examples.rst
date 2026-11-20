@@ -2,7 +2,7 @@
 Examples
 ========
 
-This pages shows some examples of segmentations that were created using orthoseg.
+This pages shows some examples of segmentations that were created using OrthoSeg.
 
 
 Ditches

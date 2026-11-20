@@ -9,8 +9,8 @@ A few technical steps need to be taken to prepare a new segmentation project.
 Only once: prepare "projects" directory
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If this is your very first orthoseg project, you need to prepare a directory where you
-want to put your orthoseg projects. In the rest of the documentation we'll refer to this
+If this is your very first OrthoSeg project, you need to prepare a directory where you
+want to put your OrthoSeg projects. In the rest of the documentation we'll refer to this
 directory as `{projects_dir}`.
 
 It doesn't really matter where this directory is located, but these are examples that
@@ -86,7 +86,7 @@ parameter:::
     segment_subject = {segment_subject}
 
 
-As you might have recognized from the small section above, orthoseg uses the good old
+As you might have recognized from the small section above, OrthoSeg uses the good old
 .ini file format for its configuration. A special detail is that it makes use of the
 "ExtendedInterpolation" extension. Based on the sample files and the examples in this
 manual you will probably be able to figure out how to use it, but if you want to dive

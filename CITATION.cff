@@ -1,15 +1,15 @@
 cff-version: 1.2.0
 message: If you use this software, please cite it as below.
 type: software
-title: orthoseg
-version: 0.7.1
-date-released: 2026-04-13
+title: OrthoSeg
+version: 0.8.0
+date-released: 2026-11-20
 doi: 10.5281/zenodo.19559930
 abstract: OrthoSeg makes it easy to train neural networks to segment orthophotos.
 identifiers:
   - type: url
     value: 'https://orthoseg.readthedocs.io'
-    description: ReadTheDocs documentation of orthoseg
+    description: ReadTheDocs documentation of OrthoSeg
 repository-code: https://github.com/orthoseg/orthoseg
 license: GPL-3.0
 authors:

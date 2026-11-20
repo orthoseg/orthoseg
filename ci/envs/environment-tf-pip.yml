@@ -11,18 +11,19 @@ dependencies:
   - pip
   # required
   - gdal
-  - geofileops >=0.12
-  - geopandas-base >=1.0
+  - geofileops
+  - geopandas-base
+  - keras
   - matplotlib-base
   - numpy
   - owslib
   - pandas
   - pillow
   - pycron
-  - pygeoops >=0.4
+  - pygeoops
   - pyproj
   - rasterio
-  - shapely >=2
+  - shapely
   - scikit-image
   - simplification
   # testing
@@ -31,5 +32,5 @@ dependencies:
   - pytest-order
   - pip:
     - segmodels-keras
-    - tensorflow >=2.10
-    - orthoseg >=0.6
+    - tensorflow
+    - orthoseg

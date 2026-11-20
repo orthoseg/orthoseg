@@ -4,7 +4,7 @@
 Finetune your project
 =====================
 
-The default configuration of orthoseg is meant to be a good starting point for most
+The default configuration of OrthoSeg is meant to be a good starting point for most
 projects.
 
 An overview of all parameters that can be finetuned can be found in the
@@ -45,7 +45,7 @@ accuracy and inference speed, they are very similar. There are many variants on 
 `UNet` as well, but based on the literature found it seems that most give relatively
 small accuracy improvements for significant increases in complexity, resulting in worse
 inference/train speed. Hence only the architectures listed above are supported, and the
-default in orthoseg is the classic `UNet`.
+default in OrthoSeg is the classic `UNet`.
 
 Encoder
 ^^^^^^^
@@ -57,7 +57,7 @@ considered are listed and compared to `InceptionResnetV2`:
 * **Acc@1**: the top 1 classification accuracy on imagenet
 * **Speed**: an indication on the inference speed, normalized on `InceptionResnetV2`
   having speed = 100
-* **Support**: whether the model is supported in orthoseg
+* **Support**: whether the model is supported in OrthoSeg
 * **Remarks**: some remarks on the model, e.g. if practical tests have been conducted on
   segmentation performance,...
 
@@ -116,17 +116,17 @@ EfficientNetV2L    85.7
 Full segmentation models
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-Because orthoseg is about semantic segmentation, in the end it is the full segmentation
+Because OrthoSeg is about semantic segmentation, in the end it is the full segmentation
 model that matters. There is less information available on the performance of full
 segmentation models, so in the following overview only some of the full models
-that were tested with orthoseg are listed.
+that were tested with OrthoSeg are listed.
 
 TernausNet/Vanilla Unet
 """""""""""""""""""""""
 * Both vanilla `Unet` and `TernausNet` (=`Unet` with `vgg11` backbone) were tested on
   the detection of greenhouses. The accuracy of both was very similar and was decent,
   but clearly worse than `InceptionResNetV2`.
-* Support for these models was removed from orthoseg to avoid having to upgrade them to
+* Support for these models was removed from OrthoSeg to avoid having to upgrade them to
   stay supported with newer keras versions.
 
 EfficientNetV2M+Unet
@@ -138,7 +138,7 @@ EfficientNetV2M+Unet
   faster than v1 of the first generation EfficientNet family.
 * The train/inference speed for a segmentation was about the same as
   `InceptionResNetV2`: training was a few % slower, but inference was a few % faster.
-  Both tested on the CUDA GPU (NVidia Quadro P5000).
+  Both tested on CUDA GPUs (NVidia Quadro P5000 and Nvidia L4).
 * The IOU score from the training obtained on a "sealed surfaces" detection was slightly
   higher than `InceptionResNetV2` (0.9791 vs 0.9765). When running an actual detection
   and reviewing the results on-screen though, it seeemed like types of sealed areas that

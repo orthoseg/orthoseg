@@ -1,5 +1,5 @@
 name: orthoseg-tf-dev
-# This is the typical development environment for orthoseg that installs TensorFlow
+# This is the typical development environment for OrthoSeg that installs TensorFlow
 # from conda-forge.
 channels:
   - conda-forge

@@ -12,18 +12,19 @@ dependencies:
   # required
   - astunparse  # Avoid it being installed via pip, otherwise segfault on windows
   - gdal
-  - geofileops >=0.12
-  - geopandas-base >=1.0
+  - geofileops
+  - geopandas-base
+  - keras
   - matplotlib-base
   - numpy
   - owslib
   - pandas
   - pillow
   - pycron
-  - pygeoops >=0.4
+  - pygeoops
   - pyproj
   - rasterio
-  - shapely >=2
+  - shapely
   - scikit-image
   - simplification
   # TensorFlow 2.19 can segfault on Windows with h5py versions above 3.13, seems solved
@@ -35,4 +36,4 @@ dependencies:
   - pytest-order
   - pip:
     - segmodels-keras
-    - tensorflow >=2.10
+    - tensorflow

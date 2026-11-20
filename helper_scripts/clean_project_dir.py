@@ -1,4 +1,4 @@
-"""Helper script to clean up orthoseg project directories."""
+"""Helper script to clean up OrthoSeg project directories."""
 
 import logging
 from pathlib import Path
