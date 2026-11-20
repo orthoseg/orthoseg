@@ -1100,9 +1100,15 @@ def save_and_clean_models(
                             new_model.save_weights(**kwargs)
                     else:
                         if model_template_for_save is not None:
-                            model_template_for_save.save(**kwargs)
+                            model_to_save = model_template_for_save
                         else:
-                            new_model.save(**kwargs)
+                            model_to_save = new_model
+                        if KERAS_GTE_3 and save_format == "keras":
+                            _save_keras_model_without_optimizer_state(
+                                model_to_save, **kwargs
+                            )
+                        else:
+                            model_to_save.save(**kwargs)
                     logger.debug("Save model ready")
                 else:
                     print(
@@ -1139,6 +1145,22 @@ def save_and_clean_models(
                 f"monitor_metric_accuracy: {best_model.monitor_metric_accuracy}, "
                 f"epoch: {best_model.epoch}"
             )
+
+
+def _save_keras_model_without_optimizer_state(model, **kwargs) -> None:
+    """Save a Keras 3 model without serializing its optimizer variables."""
+    optimizer = getattr(model, "optimizer", None)
+    if optimizer is None:
+        model.save(**kwargs)
+        return
+
+    try:
+        # Detaching the optimizer leaves its compile configuration intact while Keras
+        # no longer discovers it as saveable state.
+        model.optimizer = None
+        model.save(**kwargs)
+    finally:
+        model.optimizer = optimizer
 
 
 def __getattr__(name: str):
