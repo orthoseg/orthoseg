@@ -13,6 +13,8 @@ from typing import Any
 
 import tensorflow as tf
 
+from orthoseg._compat import configure_tensorflow_warnings
+
 from ._trainer_dataset_common import (
     _decode_with_pil as _decode_tiff_with_pil,
     _has_spatial_augmentation,
@@ -22,6 +24,8 @@ from ._trainer_dataset_common import (
     _validate_train_dataset_options,
     _zoom_bounds,
 )
+
+configure_tensorflow_warnings()
 
 logger = logging.getLogger(__name__)
 
