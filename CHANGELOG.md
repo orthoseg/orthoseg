@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## 0.8.0 (????-??-??)
+## 0.8.0 (2026-11-20)
 
 ### Deprecations and compatibility notes
 
