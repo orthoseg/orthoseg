@@ -41,14 +41,20 @@ jobs:
             os: macos-latest
             dev: false
             python: "3.13"
+            checkout_ref: "v0.8.x"
+            install_extra_args: ""
           - env: environment-tf-pip
             os: windows-latest
             dev: false
             python: "3.13"
+            checkout_ref: "v0.8.x"
+            install_extra_args: ""
           - env: environment-tf-gpu-win
             os: windows-latest
             dev: false
             python: "3.10"
+            checkout_ref: "v0.8.x"
+            install_extra_args: ""
 
     steps:
       - uses: actions/checkout@v7
