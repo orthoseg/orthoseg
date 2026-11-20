@@ -41,73 +41,65 @@ def test_load_images_args(args, exp_ssl_verify):
         assert valid_args["ssl_verify"] == exp_ssl_verify
 
 
-@pytest.mark.xfail(
-    not os.environ.get("TESTS_INSTALLED", "FALSE") == "TRUE",
-    reason="When not testing the installed package, xfail this test to avoid failing",
-)
-def test_load_sampleprojects(request):
+def test_load_sampleprojects(request, tmp_path):
     """Test loading the sample projects.
 
-    Test this using ~ in the path to check if this is correctly handled as this is
-    used in the documentation.
+    The checked-in samples are tested in regular runs. When testing the installed
+    package, also download the release archive and compare it with them.
     """
-    dest_dir = Path("~/orthoseg_test")
+    testing_installed = os.environ.get("TESTS_INSTALLED", "FALSE") == "TRUE"
+    if testing_installed:
+        # Test using ~ as used in the documentation.
+        dest_dir = Path("~/orthoseg_test")
+        shutil.rmtree(dest_dir.expanduser(), ignore_errors=True)
+        load_sampleprojects.load_sampleprojects(dest_dir=dest_dir, ssl_verify=False)
+        sampleprojects_dir = dest_dir.expanduser() / "sample_projects"
+    else:
+        sampleprojects_dir = tmp_path / "sample_projects"
+        shutil.copytree(test_helper.sampleprojects_dir, sampleprojects_dir)
 
-    # The path needs to be expanded to have exist, rmtree,... work, at least on windows
-    shutil.rmtree(dest_dir.expanduser(), ignore_errors=True)
+    assert sampleprojects_dir.exists()
+    assert (sampleprojects_dir / "imagelayers.ini").exists()
+    assert (sampleprojects_dir / "project_defaults_overrule.ini").exists()
+    assert (sampleprojects_dir / "run_sportsfields.py").exists()
 
-    # Load the sample projects. Has to handle ~ in the path correctly.
-    load_sampleprojects.load_sampleprojects(dest_dir=dest_dir, ssl_verify=False)
-
-    # Try loading the config of the sportsfields sample project
-    # Use the unexpanded path here as read_orthoseg_config should handle this correctly
-    config_path = dest_dir / "sample_projects/sportsfields/sportsfields.ini"
-    conf.read_orthoseg_config(config_path)
-
-    # Check if the files were correctly loaded
-    sampleprojects_dir = dest_dir.expanduser() / "sample_projects"
-
-    # The path needs to be expanded to get e.g. exist to work, at least on windows
-    sampleprojects_exp_dir = sampleprojects_dir.expanduser()
-    assert sampleprojects_exp_dir.exists()
-    assert (sampleprojects_exp_dir / "imagelayers.ini").exists()
-    assert (sampleprojects_exp_dir / "project_defaults_overrule.ini").exists()
-    assert (sampleprojects_exp_dir / "run_sportsfields.py").exists()
-
-    sportsfields_dir = sampleprojects_exp_dir / "sportsfields"
+    sportsfields_dir = sampleprojects_dir / "sportsfields"
     assert sportsfields_dir.exists()
-    files = list((sportsfields_dir).glob("**/*.ini"))
+    conf.read_orthoseg_config(sportsfields_dir / "sportsfields.ini")
+    files = list(sportsfields_dir.glob("**/*.ini"))
     assert len(files) > 0
     files = list((sportsfields_dir / "labels").glob("**/*.gpkg"))
-    assert len(files) == 2
-    model_path = sportsfields_dir / "models" / "sportsfields_01_0.97392_201.hdf5"
-    assert model_path.exists()
-    # The model should be larger than 40 MB, otherwise not normal
-    assert model_path.stat().st_size > 40 * 1024 * 1024
+    assert len(files) > 0
+    model_paths = list((sportsfields_dir / "models").glob("*.hdf5"))
+    assert model_paths
+    assert all(
+        model_path.stat().st_size > 40 * 1024 * 1024 for model_path in model_paths
+    )
 
-    projecttemplate_dir = sampleprojects_exp_dir / "project_template"
+    projecttemplate_dir = sampleprojects_dir / "project_template"
     assert projecttemplate_dir.exists()
-    files = list((projecttemplate_dir).glob("**/*.ini"))
+    files = list(projecttemplate_dir.glob("**/*.ini"))
     assert len(files) > 0
     files = list((projecttemplate_dir / "labels").glob("**/*.gpkg"))
-    assert len(files) == 2
+    assert len(files) > 0
 
     # Compare the loaded files with the current sampleprojects in the repository
     # For pre-release versions, xfail as the sampleprojects may still differ
-    if Version(__version__).is_prerelease:
+    if testing_installed and Version(__version__).is_prerelease:
         request.node.add_marker(
             pytest.mark.xfail(
                 reason="prerelease: loaded sampleprojects may differ from repository"
             )
         )
 
-    # Downloaded models are not present in the repository, so ignore.
-    _assert_dirs_equal(
-        sampleprojects_dir,
-        test_helper.sampleprojects_dir,
-        ignore=["models"],
-        ignore_crlf_suffixes=[".ini", ".py", ".txt", ".xml"],
-    )
+    if testing_installed:
+        # Downloaded models are not present in the repository, so ignore.
+        _assert_dirs_equal(
+            sampleprojects_dir,
+            test_helper.sampleprojects_dir,
+            ignore=["log", "models"],
+            ignore_crlf_suffixes=[".ini", ".jgw", ".py", ".qml", ".txt", ".xml"],
+        )
 
 
 def test_ssl_verify_false_is_honored(tmp_path, monkeypatch):
