@@ -35,7 +35,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         dev: [false]
-        python: ["3.10", "3.11", "3.12", "3.13"]
+        python: ["3.12", "3.13"]
         env: ["latest"]
         extra: [tensorflow]
         include:
@@ -63,11 +63,11 @@ jobs:
             dev: false
             python: "3.13"
           - env: minimal-tf
-            os: windows-latest
-            dev: false
-            python: "3.10"
-          - env: minimal-tf
             os: ubuntu-latest
+            dev: false
+            python: "3.12"
+          - env: latest-tf-gpu-win
+            os: windows-latest
             dev: false
             python: "3.10"
 
