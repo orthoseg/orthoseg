@@ -47,22 +47,16 @@ On Linux, WSL2 or MacOS
 On Linux, WSL2 or MacOS, all dependencies can be installed from conda-forge, which
 should lead to the most reliable setup.
 
-If you don't need/want GPU/CUDA support, you can create a new environment with OrthoSeg
-and its dependencies installed with the following commands:
+You can create a new environment with OrthoSeg and its dependencies installed with the
+following command:
 
 .. parsed-literal::
 
     conda env create -n orthoseg -f |environment-tf|
-    conda activate orthoseg
 
 
-On Linux or WSL2, you can also use a CUDA GPU, which can speed up processing
-significantly. In that case, use the following commands:
-
-.. parsed-literal::
-
-    conda env create -n orthoseg -f |environment-tf-gpu|
-    conda activate orthoseg
+If you have a CUDA GPU available and it is properly set up, tensorflow will be installed
+automatically with GPU support.
 
 
 On native Windows, without cuda GPU support
@@ -77,7 +71,6 @@ with Orthoseg and its dependencies installed with the following command:
 .. parsed-literal::
 
     conda env create -n orthoseg -f |environment-tf-pip|
-    conda activate orthoseg
 
 
 On native Windows, with cuda GPU support
@@ -96,7 +89,6 @@ recommended, but these commands created a working environment at the time of wri
 .. parsed-literal::
 
     conda env create -n orthoseg -f |environment-tf-gpu-win|
-    conda activate orthoseg
 
 
 .. _miniforge installer : https://github.com/conda-forge/miniforge#miniforge3

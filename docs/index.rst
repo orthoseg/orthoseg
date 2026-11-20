@@ -13,13 +13,9 @@ As the name implies, the purpose of the project is to help you to apply
 `image segmentation <https://en.wikipedia.org/wiki/Image_segmentation>`_ on
 `orthophotos <https://en.wikipedia.org/wiki/Orthophoto>`_.
 
-Image segmentation is quite a popular computer vision topic, eg. for use in self driving
-cars. The same technique can also be used on orthophotos: images in the viewpoint as
-available in eg. google maps.
-
 The platform the photos were captured on (airplane, satellite, drone,...) obviously
-doesn't matter, but at the moment only 3 (possibly 4 but this is not tested)
-bands/channels are supported.
+doesn't matter, but at the moment only support for 3 bands/channels has actually been
+tested.
 
 The image/raster layer you want to run a detection on can be a local file, a
 `WMS server <https://en.wikipedia.org/wiki/Web_Map_Service>`_, a WMTS server or an XYZ
