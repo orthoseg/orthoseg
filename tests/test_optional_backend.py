@@ -67,6 +67,19 @@ def test_configure_backend_selects_available_non_tensorflow_backend(monkeypatch)
     assert os.environ["KERAS_BACKEND"] == "torch"
 
 
+@pytest.mark.parametrize("configured_level", [None, "0"])
+def test_configure_backend_sets_tensorflow_log_level(monkeypatch, configured_level):
+    monkeypatch.setenv("KERAS_BACKEND", "tensorflow")
+    if configured_level is None:
+        monkeypatch.delenv("TF_CPP_MIN_LOG_LEVEL", raising=False)
+    else:
+        monkeypatch.setenv("TF_CPP_MIN_LOG_LEVEL", configured_level)
+    monkeypatch.setattr(_compat, "_module_is_available", lambda _name: True)
+
+    assert _compat.configure_keras_backend() == "tensorflow"
+    assert os.environ["TF_CPP_MIN_LOG_LEVEL"] == (configured_level or "2")
+
+
 @pytest.mark.parametrize(
     ("keras_gte_3", "keras_module", "expected"),
     [
