@@ -1,0 +1,42 @@
+# This is an environment with the latest versions that are compatible with using
+# a GPU-enabled TensorFlow on native Windows.
+#
+# Notes:
+#   - tensorflow is installed via pip as conda-forge does not provide packages for
+#     windows.
+#   - the minimal version of tensorflow is 2.10, as this is the last version with GPU
+#     support on windows.
+name: orthoseg-latest-tf-gpu-win
+channels:
+  - conda-forge
+dependencies:
+  - python =3.10
+  - pip
+  # required
+  - astunparse  # Avoid it being installed via pip, otherwise segfault on windows
+  - gdal  # resolves to 3.10.3 (released 2025-04-07) at time of writing
+  - geofileops
+  - geopandas-base
+  - keras =2.10  # pinned to match tensorflow version
+  - matplotlib-base
+  - numpy <2  #  is needed for tf < 2.18, resolves to 1.26.4 at time of writing
+  - owslib
+  - pandas
+  - pillow
+  - pycron
+  - pygeoops
+  - pyproj
+  - rasterio
+  - shapely
+  - scikit-image
+  - simplification
+  # dependencies of tensorflow that need to be conda versions to avoid binary compatibility issues
+  - h5py <3.11  # When a version > 3.10 is used with tf 2.10: segmentation fault
+  # testing
+  - pytest
+  - pytest-cov
+  - pytest-order
+  - pip:
+    - numpy <2  # numpy <2 is needed for tf < 2.18
+    - segmodels-keras
+    - tensorflow <2.11  # On windows, tf 2.10 is the last version with GPU support

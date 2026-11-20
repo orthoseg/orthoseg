@@ -4,28 +4,26 @@ name: orthoseg-tf-dev
 channels:
   - conda-forge
 dependencies:
-  - python =3.12
+  - python =3.13
   - pip
   # required
   - gdal
-  - geofileops >=0.12
-  - geopandas-base >=0.12
+  - geofileops
+  - geopandas-base
+  - keras
   - matplotlib-base
   - numpy
   - owslib
   - pandas
   - pillow
   - pycron
-  - pygeoops >=0.2
+  - pygeoops
   - pyproj
   - rasterio
-  - shapely >=2
+  - shapely
   - scikit-image
   - simplification
-  - tensorflow >=2.8
-  # optional, for CUDA support
-  #- cudatoolkit ==12.3
-  #- cudnn
+  - tensorflow
   # linting
   - mypy ==2.4.0
   - pandas-stubs

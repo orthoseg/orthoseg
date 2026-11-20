@@ -3,6 +3,7 @@ import importlib.metadata
 import os
 import subprocess
 import sys
+import warnings
 from importlib.metadata import PackageNotFoundError
 from pathlib import Path
 from types import SimpleNamespace
@@ -78,6 +79,37 @@ def test_configure_backend_sets_tensorflow_log_level(monkeypatch, configured_lev
 
     assert _compat.configure_keras_backend() == "tensorflow"
     assert os.environ["TF_CPP_MIN_LOG_LEVEL"] == (configured_level or "2")
+
+
+@pytest.mark.parametrize(
+    ("backend", "python_version", "warning_ignored"),
+    [
+        ("tensorflow", (3, 13), True),
+        ("tensorflow", (3, 12), False),
+        ("torch", (3, 13), False),
+    ],
+)
+def test_configure_tensorflow_warnings_filters_gast_warning(
+    monkeypatch, backend, python_version, warning_ignored
+):
+    monkeypatch.setenv("KERAS_BACKEND", backend)
+    monkeypatch.setattr(_compat, "KERAS_GTE_3", True)
+    monkeypatch.setattr(_compat, "_module_is_available", lambda _name: True)
+    monkeypatch.setattr(_compat, "sys", SimpleNamespace(version_info=python_version))
+
+    with warnings.catch_warnings(record=True) as caught_warnings:
+        warnings.simplefilter("always")
+        _compat.configure_keras_backend()
+        _compat.configure_tensorflow_warnings()
+        warnings.warn_explicit(
+            "BoolOp.__init__ got an unexpected keyword argument '___pyct_anno'",
+            DeprecationWarning,
+            filename="astn.py",
+            lineno=1,
+            module="tests.test_trainer",
+        )
+
+    assert (not caught_warnings) is warning_ignored
 
 
 @pytest.mark.parametrize(

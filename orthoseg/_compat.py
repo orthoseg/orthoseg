@@ -2,6 +2,8 @@
 
 import importlib.util
 import os
+import sys
+import warnings
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
@@ -70,6 +72,17 @@ def configure_keras_backend() -> str:
         os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
 
     return backend
+
+
+def configure_tensorflow_warnings() -> None:
+    """Configure warning filters needed for the TensorFlow backend."""
+    if os.environ.get("KERAS_BACKEND") == "tensorflow" and sys.version_info >= (3, 13):
+        warnings.filterwarnings(
+            "ignore",
+            message=r".*\.__init__ got an unexpected keyword argument "
+            r"'___pyct_anno'",
+            category=DeprecationWarning,
+        )
 
 
 def get_keras_backend(keras_module: Any) -> str:
