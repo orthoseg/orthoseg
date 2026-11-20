@@ -13,6 +13,7 @@ dependencies:
   - gdal
   - geofileops >=0.12
   - geopandas-base >=1.0
+  - keras
   - matplotlib-base
   - numpy
   - owslib

@@ -17,6 +17,7 @@ dependencies:
   - gdal
   - geofileops >=0.12
   - geopandas-base >=1.0
+  - keras =2.10  # pinned to match tensorflow version
   - matplotlib-base
   - numpy <2  # <2 is needed for tf < 2.18
   - owslib
