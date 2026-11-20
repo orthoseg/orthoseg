@@ -1,10 +1,15 @@
+# This is the standard dev environment with recent versions of core dependencies.
+#
+# Notes:
+#   - if you want to use another backend, replace tensorflow with the desired backend
+#     package.
+#   - the tensorflow package will detect if a GPU is available and install the
+#     appropriate version.
 name: orthoseg-tf-dev
-# This is the typical development environment for OrthoSeg that installs TensorFlow
-# from conda-forge.
 channels:
   - conda-forge
 dependencies:
-  - python =3.13
+  - python <3.14
   - pip
   # required
   - gdal
