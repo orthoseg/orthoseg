@@ -8,8 +8,8 @@ dependencies:
   - pip
   # required
   - gdal
-  - geofileops >=0.12
-  - geopandas-base >=0.12
+  - geofileops
+  - geopandas-base
   - keras =2.10
   - matplotlib-base
   - numpy <2  # <2 is needed for tf < 2.18
@@ -17,10 +17,10 @@ dependencies:
   - pandas
   - pillow
   - pycron
-  - pygeoops >=0.2
+  - pygeoops
   - pyproj
   - rasterio
-  - shapely >=2
+  - shapely
   - scikit-image
   - simplification
   # optional, for CUDA support

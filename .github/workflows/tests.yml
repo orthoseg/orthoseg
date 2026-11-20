@@ -66,10 +66,6 @@ jobs:
             os: ubuntu-latest
             dev: false
             python: "3.12"
-          - env: minimal-tf
-            os: windows-latest
-            dev: false
-            python: "3.12"
           - env: latest-tf-gpu-win
             os: windows-latest
             dev: false
