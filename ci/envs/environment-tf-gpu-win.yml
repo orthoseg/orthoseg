@@ -15,8 +15,8 @@ dependencies:
   - cudatoolkit <12  # tf 2.10 requires cudatoolkit 11
   - cudnn <9  # tf 2.10 requires cudnn 8
   - gdal
-  - geofileops >=0.12
-  - geopandas-base >=1.0
+  - geofileops
+  - geopandas-base
   - keras =2.10  # pinned to match tensorflow version
   - matplotlib-base
   - numpy <2  # <2 is needed for tf < 2.18
@@ -24,10 +24,10 @@ dependencies:
   - pandas
   - pillow
   - pycron
-  - pygeoops >=0.4
+  - pygeoops
   - pyproj
   - rasterio
-  - shapely >=2.0
+  - shapely
   - scikit-image
   - simplification
   # dependencies of tensorflow that need to be conda versions to avoid binary compatibility issues

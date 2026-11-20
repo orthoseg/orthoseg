@@ -4,25 +4,25 @@ channels:
   - conda-forge
   - nodefaults
 dependencies:
-  - python =3.12
+  - python =3.13
   - pip
   # required
   - gdal
-  - geofileops >=0.12
-  - geopandas-base >=1.0
+  - geofileops
+  - geopandas-base
   - matplotlib-base
   - numpy
   - owslib
   - pandas
   - pillow
   - pycron
-  - pygeoops >=0.4
+  - pygeoops
   - pyproj
   - rasterio
-  - shapely >=2
+  - shapely
   - scikit-image
   - simplification
-  - tensorflow-cpu >=2.8
+  - tensorflow-cpu
   # docs
   - pydata-sphinx-theme
   - sphinx
