@@ -1,0 +1,9 @@
+# This is an environment to test installing orthoseg including all dependencies using pip.
+name: orthoseg-pip-only
+channels:
+  - conda-forge
+dependencies:
+  - python <3.14
+  - pip
+  - pip:
+    - orthoseg
