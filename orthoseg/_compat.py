@@ -70,16 +70,19 @@ def configure_keras_backend() -> str:
         )
     if backend == "tensorflow":
         os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
-        if sys.version_info >= (3, 13):
-            warnings.filterwarnings(
-                "ignore",
-                message=r".*\.__init__ got an unexpected keyword argument "
-                r"'___pyct_anno'",
-                category=DeprecationWarning,
-                module=r"gast\.astn",
-            )
 
     return backend
+
+
+def configure_tensorflow_warnings() -> None:
+    """Configure warning filters needed for the TensorFlow backend."""
+    if os.environ.get("KERAS_BACKEND") == "tensorflow" and sys.version_info >= (3, 13):
+        warnings.filterwarnings(
+            "ignore",
+            message=r".*\.__init__ got an unexpected keyword argument "
+            r"'___pyct_anno'",
+            category=DeprecationWarning,
+        )
 
 
 def get_keras_backend(keras_module: Any) -> str:

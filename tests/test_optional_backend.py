@@ -89,7 +89,7 @@ def test_configure_backend_sets_tensorflow_log_level(monkeypatch, configured_lev
         ("torch", (3, 13), False),
     ],
 )
-def test_configure_backend_filters_tensorflow_gast_warning(
+def test_configure_tensorflow_warnings_filters_gast_warning(
     monkeypatch, backend, python_version, warning_ignored
 ):
     monkeypatch.setenv("KERAS_BACKEND", backend)
@@ -100,12 +100,13 @@ def test_configure_backend_filters_tensorflow_gast_warning(
     with warnings.catch_warnings(record=True) as caught_warnings:
         warnings.simplefilter("always")
         _compat.configure_keras_backend()
+        _compat.configure_tensorflow_warnings()
         warnings.warn_explicit(
             "BoolOp.__init__ got an unexpected keyword argument '___pyct_anno'",
             DeprecationWarning,
             filename="astn.py",
             lineno=1,
-            module="gast.astn",
+            module="tests.test_trainer",
         )
 
     assert (not caught_warnings) is warning_ignored
