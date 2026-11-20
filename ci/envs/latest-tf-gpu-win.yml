@@ -6,14 +6,16 @@
 #     windows.
 #   - the minimal version of tensorflow is 2.10, as this is the last version with GPU
 #     support on windows.
-name: orthoseg-latest-tf-gpu-win
+name: orthoseg
 channels:
   - conda-forge
 dependencies:
-  - python =3.10
+  - python =3.10  # tf 2.10 supports max python 3.10
   - pip
   # required
   - astunparse  # Avoid it being installed via pip, otherwise segfault on windows
+  - cudatoolkit <12  # cudatoolkit 11 needed for tf 2.10
+  - cudnn <9  # tf 2.10 requires cudnn 8
   - gdal  # resolves to 3.10.3 (released 2025-04-07) at time of writing
   - geofileops
   - geopandas-base

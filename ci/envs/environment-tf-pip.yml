@@ -1,4 +1,4 @@
-# This is an environment to test recent versions of dependencies while tensorflow is
+# This is an environment with recent versions of dependencies while tensorflow is
 # installed using pip.
 #
 # Notes:
@@ -10,6 +10,7 @@ dependencies:
   - python <3.14
   - pip
   # required
+  - astunparse  # Avoid it being installed via pip, otherwise segfault on windows
   - gdal
   - geofileops
   - geopandas-base
