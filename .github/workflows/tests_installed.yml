@@ -32,28 +32,28 @@ jobs:
       matrix:
         os: ["ubuntu-latest"]
         dev: [false]
-        python: ["3.11"]
-        env: ["environment"]
-        checkout_ref: ["v0.7.0"]
-        install_extra_args: [tensorflow]
+        python: ["3.13"]
+        env: ["environment-tf"]
+        checkout_ref: ["v0.8.0"]
+        install_extra_args: [""]
         include:
           - env: environment-tf-pip
             os: macos-latest
             dev: false
-            python: "3.11"
-            checkout_ref: "v0.7.0"
+            python: "3.13"
+            checkout_ref: "v0.8.0"
             install_extra_args: ""
           - env: environment-tf-pip
             os: windows-latest
             dev: false
-            python: "3.11"
-            checkout_ref: "v0.7.0"
+            python: "3.13"
+            checkout_ref: "v0.8.0"
             install_extra_args: ""
           - env: environment-tf-gpu-win
             os: windows-latest
             dev: false
             python: "3.10"
-            checkout_ref: "v0.7.0"
+            checkout_ref: "v0.8.0"
             install_extra_args: ""
 
     steps:
