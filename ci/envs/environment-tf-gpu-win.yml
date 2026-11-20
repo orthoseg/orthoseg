@@ -12,14 +12,14 @@ dependencies:
   - python =3.10  # tf 2.10 supports max python 3.10
   - pip
   # required
-  - cudatoolkit <12  # tf 2.10 requires cudatoolkit 11
+  - astunparse  # Avoid it being installed via pip, otherwise segfault on windows
   - cudnn <9  # tf 2.10 requires cudnn 8
-  - gdal
+  - gdal  # resolves to 3.10.3 (released 2025-04-07) at time of writing- cudatoolkit <12  # tf 2.10 requires cudatoolkit 11
   - geofileops
   - geopandas-base
   - keras =2.10  # pinned to match tensorflow version
   - matplotlib-base
-  - numpy <2  # <2 is needed for tf < 2.18
+  - numpy <2  #  is needed for tf < 2.18, resolves to 1.26.4 at time of writing
   - owslib
   - pandas
   - pillow
@@ -37,7 +37,7 @@ dependencies:
   - pytest-cov
   - pytest-order
   - pip:
+    - numpy <2  # numpy <2 is needed for tf < 2.18
     - segmodels-keras
     - tensorflow <2.11  # On native windows, tf 2.10 is the last version with GPU support
     - orthoseg
-    - numpy <2  # numpy <2 is needed for tf < 2.18

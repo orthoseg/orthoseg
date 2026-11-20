@@ -3,7 +3,7 @@
 #
 # Notes:
 #   - necessary for windows, as conda-forge does not provide a tf package for windows
-name: orthoseg-latest-tf-pip
+name: orthoseg
 channels:
   - conda-forge
 dependencies:
