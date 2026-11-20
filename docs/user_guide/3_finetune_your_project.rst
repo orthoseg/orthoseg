@@ -138,7 +138,7 @@ EfficientNetV2M+Unet
   faster than v1 of the first generation EfficientNet family.
 * The train/inference speed for a segmentation was about the same as
   `InceptionResNetV2`: training was a few % slower, but inference was a few % faster.
-  Both tested on the CUDA GPU (NVidia Quadro P5000).
+  Both tested on CUDA GPUs (NVidia Quadro P5000 and Nvidia L4).
 * The IOU score from the training obtained on a "sealed surfaces" detection was slightly
   higher than `InceptionResNetV2` (0.9791 vs 0.9765). When running an actual detection
   and reviewing the results on-screen though, it seeemed like types of sealed areas that
