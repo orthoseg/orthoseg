@@ -27,7 +27,7 @@ devdir = "./"
 
 # -- Project information -----------------------------------------------------
 
-project = "orthoseg"
+project = "OrthoSeg"
 copyright = "2025, Pieter Roggemans"
 author = "Pieter Roggemans"
 

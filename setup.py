@@ -1,4 +1,4 @@
-"""Configuration setting to build the orthoseg package."""
+"""Configuration setting to build the OrthoSeg package."""
 
 from pathlib import Path
 

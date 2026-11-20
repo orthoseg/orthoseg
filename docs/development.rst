@@ -14,7 +14,7 @@ Create development environment
 The first step would be to fork and clone the |orthoseg git repository|, to be able to
 run/debug the code.
 
-The easiest way to install the dependencies of orthoseg and run it is to use the
+The easiest way to install the dependencies of OrthoSeg and run it is to use the
 conda package manager. If you don't have it installed yet, here is a link to the 
 `miniforge installer`_.
 

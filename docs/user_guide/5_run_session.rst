@@ -14,7 +14,7 @@ If you ran the sample project, these steps will look very familiar:
 
 1. start a conda command prompt
 
-2. activate the orthoseg environment with::
+2. activate the OrthoSeg environment with::
    
       conda activate orthoseg
 
@@ -41,7 +41,7 @@ automate this further...
 
 .. note::
 
-   Because tasks often take quite a while, orthoseg maximally tries to resume work that
-   was started but was not finished yet. Eg. when predicting a large area, orthoseg will
+   Because tasks often take quite a while, OrthoSeg maximally tries to resume work that
+   was started but was not finished yet. Eg. when predicting a large area, OrthoSeg will
    save the prediction per image, so if the prediction process is stopped for any reason
    and restarted, it will continue where it stopped.

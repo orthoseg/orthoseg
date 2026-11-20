@@ -1,7 +1,7 @@
 """Convert a PyTorch smp resnet34+unet .pth weights file to a Keras saved model.
 
 Approach: build the model using segmodels_keras (so the output is directly
-compatible with orthoseg's weights_notop= loading), then map weights tensor-by-
+compatible with OrthoSeg's weights_notop= loading), then map weights tensor-by-
 tensor from the PyTorch state dict. No ONNX conversion is needed.
 
 Note: Currently only supports resnet34 backbone with UNet decoder architecture.

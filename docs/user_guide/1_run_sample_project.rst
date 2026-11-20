@@ -28,11 +28,11 @@ Running the sample project is easy. If the installation was successful, the foll
 steps should do the trick: 
 
 1. start a conda command prompt
-2. activate the orthoseg environment with::
+2. activate the OrthoSeg environment with::
 
     conda activate orthoseg
 
-3. download the sample projects from orthoseg. You can specify the base location to
+3. download the sample projects from OrthoSeg. You can specify the base location to
    download the sample projects to, but in this tutorial I'll assume "~" (= your home
    directory) for simplicity::
 

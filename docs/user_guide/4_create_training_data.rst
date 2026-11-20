@@ -19,7 +19,7 @@ evolve based on examples you encounter and didn't think of at this stage, but as
 important that the training dataset is consequent, make sure the definition is/stays
 clear.
 
-The orthoseg training data is (by default) organized as follows. In your `{project_dir}`
+The OrthoSeg training data is (by default) organized as follows. In your `{project_dir}`
 there is a directory called `labels`. In this directory there should be 2 files per
 image layer that you want to use to base your training on:
 
@@ -74,7 +74,7 @@ it:
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 If you already did a training run, it is often useful to look for errors in the training
-data. After training, orthoseg will automatically run an "evaluation" prediction on all
+data. After training, OrthoSeg will automatically run an "evaluation" prediction on all
 the images in the training, validation and test datasets. This won't be saved as a
 vector file, but these predictions will be saved as images in the following directories:
 

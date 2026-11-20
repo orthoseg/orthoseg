@@ -4,7 +4,7 @@
 User guide
 ==========
 
-The main objective of orthoseg is to make it easier to automatically digitize
+The main objective of OrthoSeg is to make it easier to automatically digitize
 features on orthophotos. This manual will guide you through the process of setting up a
 new project, creating a training dataset, training a neural network and running a
 prediction on an orthophoto.

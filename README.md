@@ -19,7 +19,7 @@ The typical steps:
 
 Only open source software is needed, e.g. QGIS and keras.
 
-Installation and usage instructions can be found in the [orthoseg docs](https://orthoseg.readthedocs.io)
+Installation and usage instructions can be found in the [OrthoSeg docs](https://orthoseg.readthedocs.io)
 
 This is an example of how the output of a tree detection on aerial images can look:
 

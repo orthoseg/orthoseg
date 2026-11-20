@@ -5,7 +5,7 @@ Image Layers Configuration
 Image layers are configured in an ``imagelayers.ini`` file. Each INI section
 defines one layer. The section name is used as the layer identifier.
 
-There are three types of image sources supported by orthoseg:
+There are three types of image sources supported by OrthoSeg:
 
 - **WMS**: a standard OGC Web Map Service.
 - **WMTS**: a standard OGC Web Map Tile Service.
@@ -181,9 +181,9 @@ More details on these options are given below.
    - a directory containing georeferenced raster files that can be read by GDAL.
      In this case, the ``file_patterns`` key must be used to specify which
      files belong to the layer.
-     Orthoseg will create a virtual raster, ``orthoseg.vrt``, with all files that match
+     OrthoSeg will create a virtual raster, ``orthoseg.vrt``, with all files that match
      the patterns specified in ``file_patterns`` and use it as the source for the layer.
-     In addition, orthoseg will create a file called ``orthoseg.gpkg`` containing the
+     In addition, OrthoSeg will create a file called ``orthoseg.gpkg`` containing the
      footprints of all the individual files that match the patterns. This file will be
      used as the region of interest file (:confval:`roi_filepath`) for the layer.
 

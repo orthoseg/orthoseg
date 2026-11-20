@@ -6,7 +6,7 @@
 .. currentmodule:: orthoseg
 
 ====================
-orthoseg |version|
+OrthoSeg |version|
 ====================
 
 As the name implies, the purpose of the project is to help you to apply
@@ -25,11 +25,11 @@ The image/raster layer you want to run a detection on can be a local file, a
 `WMS server <https://en.wikipedia.org/wiki/Web_Map_Service>`_, a WMTS server or an XYZ
 server. The output of the detection is a vector layer ready to do further analysis on.
 
-You don't really need to have programming skills to use orthoseg, but you need to have
+You don't really need to have programming skills to use OrthoSeg, but you need to have
 some knowledge of GIS technology (e.g. QGIS) and you need to be able to install and run
 python scripts.
 
-Orthoseg uses deep neural networks, so if you want to process larger areas of high
+OrthoSeg uses deep neural networks, so if you want to process larger areas of high
 resolution (e.g. 0.25 m/pixel) imagery, access to a CUDA GPU is recommended, otherwise
 you'll need to be patient.
 

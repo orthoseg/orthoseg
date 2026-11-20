@@ -1,4 +1,4 @@
-# This is an environment to install orthoseg on native windows with GPU support.
+# This is an environment to install OrthoSeg on native windows with GPU support.
 #
 # Notes:
 #   - tensorflow is installed via pip as conda-forge does not provide packages for
