@@ -66,6 +66,8 @@ def configure_keras_backend() -> str:
             "Keras backends other than TensorFlow require Keras 3. Install "
             "'orthoseg[torch]' or 'orthoseg[jax]' with Keras 3."
         )
+    if backend == "tensorflow":
+        os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
 
     return backend
 

@@ -37,3 +37,4 @@ Contents
    High level Python API <reference_docs/orthoseg_highlevel_api>
    Image layer configuration <reference_docs/image_layers_config>
    Project configuration <reference_docs/project_config>
+   Backend configuration <reference_docs/backend_config>

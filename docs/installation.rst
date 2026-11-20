@@ -36,7 +36,8 @@ backend, you can modify one of the conda environment files accordingly.
 
 If more than one backend is installed, Orthoseg prefers TensorFlow by default. To
 select another backend, set ``KERAS_BACKEND`` before importing/starting orthoseg, for
-example: ``KERAS_BACKEND=torch`` or ``KERAS_BACKEND=jax``.
+example: ``KERAS_BACKEND=torch`` or ``KERAS_BACKEND=jax``. See
+:doc:`/reference_docs/backend_config` for more backend environment settings.
 
 
 On Linux, WSL2 or MacOS
