@@ -4,7 +4,7 @@ type: software
 title: OrthoSeg
 version: 0.8.0
 date-released: 2026-11-20
-doi: 10.5281/zenodo.19559930
+doi: 10.5281/zenodo.24416843
 abstract: OrthoSeg makes it easy to train neural networks to segment orthophotos.
 identifiers:
   - type: url
