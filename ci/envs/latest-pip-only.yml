@@ -1,0 +1,23 @@
+# This is an environment to test installing orthoseg including all dependencies using pip.
+name: orthoseg-pip-only
+channels:
+  - conda-forge
+dependencies:
+  - python <3.14
+  - pip
+  - pip:
+    - gdal
+    - geofileops>=0.12
+    - geopandas>=1.0
+    - keras
+    - matplotlib
+    - numpy
+    - owslib
+    - pandas
+    - pillow
+    - pycron
+    - pygeoops>=0.4
+    - rasterio
+    - segmodels-keras
+    - shapely>=2
+    - simplification

@@ -70,6 +70,11 @@ jobs:
             os: windows-latest
             dev: false
             python: "3.10"
+          - env: latest-pip-only
+            os: ubuntu-latest
+            dev: false
+            python: "3.13"
+            extra: tensorflow
 
     steps:
       - uses: actions/checkout@v7
