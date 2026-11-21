@@ -13,6 +13,7 @@ dependencies:
   - pip
   # required
   - astunparse  # Avoid it being installed via pip, otherwise segfault on windows
+  - cudatoolkit <12  # tf 2.10 requires cudatoolkit 11
   - cudnn <9  # tf 2.10 requires cudnn 8
   - gdal  # resolves to 3.10.3 (released 2025-04-07) at time of writing- cudatoolkit <12  # tf 2.10 requires cudatoolkit 11
   - geofileops
