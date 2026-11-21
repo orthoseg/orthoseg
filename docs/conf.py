@@ -10,6 +10,7 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
+import datetime
 import os
 import sys
 
@@ -28,7 +29,7 @@ devdir = "./"
 # -- Project information -----------------------------------------------------
 
 project = "OrthoSeg"
-copyright = "2025, Pieter Roggemans"
+copyright = f"{datetime.date.today().year}, Pieter Roggemans"
 author = "Pieter Roggemans"
 
 # The full version, including alpha/beta/rc tags
